@@ -89,8 +89,9 @@ docs: add privacy policy
   CI の macOS ランナー上で `swift test` を回すため、platforms は `.iOS(.v26), .macOS(.v14)` に保つ。
 - 文字列は String Catalog（`.xcstrings`）で、開発言語 ja に en を足す。ホーム画面の表示名は
   `SaifuLog/Resources/InfoPlist.xcstrings` の `CFBundleDisplayName`（ja「サイフログ」/ en「SaifuLog」）。
-- アプリアイコンは `Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png`（1024 × 1024・透過なし）。
-  配色が決まるまでの仮のもの。**AppIcon を空にしない。** 空でもビルドは通るが、App Store Connect が
+- アプリアイコンは `Resources/Assets.xcassets/AppIcon.appiconset/` の 3 枚（1024 × 1024・透過なし）。
+  `AppIcon.png`（ライト: 白地に黒い財布）、`AppIcon-Dark.png`（ダーク）、`AppIcon-Tinted.png`（色付き）。
+  元の SVG は `design/icon/`。**AppIcon を空にしない。** 空でもビルドは通るが、App Store Connect が
   アップロードを弾く（`make archive` の検査で止まる）。
 
 ### AI の扱い
