@@ -1,0 +1,265 @@
+name: release
+
+# main へのマージで、App Store 提出用のアーカイブを作り、App Store Connect へ
+# アップロードして、そのまま審査に出すところまでを自動で進める。
+#
+#   upload  … アーカイブを作り、クラウド署名で書き出して App Store Connect へ送る（macOS ランナー）
+#   submit  … 処理の終了を待ち、バージョンにビルドを紐づけ、審査に出す（Linux）
+#
+# 配信が始まったあとのタグ打ちは tag-release.yml が引き取る。
+# 必要な Secrets と一度だけの準備は docs/release-flow.md にまとめてある。未設定のまま
+# main へマージすると、API キーの書き出しの段階で落ちる（プロダクトには影響しない）。
+
+on:
+  push:
+    branches: [main]
+  # Secrets を直した後の再実行や、疎通確認のために手でも回せるようにする。
+  # Environment（release）の配備ブランチを main に限っているので、main からしか走らない。
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "どこまでやるか（submit: 審査に出すまで / upload: アップロードまで / export: 書き出すだけで送信しない）"
+        type: choice
+        options: [submit, upload, export]
+        default: submit
+
+# アップロードを途中で打ち切ると App Store Connect に処理中のビルドが残るため、
+# 後続を待たせる（cancel はしない）。
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  ASC_BUNDLE_ID: com.iam74k4.SaifuLog
+
+jobs:
+  upload:
+    # build.yml と同じイメージ。理由はそちらのコメントを参照。
+    runs-on: xcode-27
+    timeout-minutes: 60
+    # App Store Connect の API キーは Environment（release）の Secrets に置く。
+    # リポジトリ Secrets だと、どのブランチのどのワークフローからも読めてしまう。
+    # Environment 側で配備ブランチを main に限れば、提出に使える鍵は main を通った
+    # コードからしか触れない。
+    environment: release
+    env:
+      # push のときは inputs が空なので、ふだんのリリース（submit）として扱う。
+      MODE: ${{ inputs.mode || 'submit' }}
+      # 以下 3 つは build.yml と同じ値にする。CI で通ったものと提出物を同じ道具で作るため。
+      DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
+      XCODEGEN_VERSION: "2.46.0"
+      XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      build: ${{ steps.archive.outputs.build }}
+      uploaded: ${{ steps.upload.outputs.uploaded }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # 「この版はもう出したか」をタグの有無で判定するため、履歴とタグが全部要る。
+          fetch-depth: 0
+
+      - name: 出す版かどうかを判定
+        id: plan
+        run: |
+          # バージョンの読み方は scripts/check-version.sh の 1 か所に寄せている。
+          VERSION=$(./scripts/check-version.sh --print)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [ "$MODE" = export ]; then
+            # 書き出すだけなら App Store Connect に何も残らないので、配信済みの版でも走らせてよい。
+            echo "go=true" >> "$GITHUB_OUTPUT"
+            echo "v$VERSION を書き出すだけにします（送信しません）。"
+          elif git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            # タグがある = 配信済みの版。バージョンを上げずに main へマージした
+            # （ドキュメント修正など）だけなので、アップロードしない。
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "v$VERSION は配信済み（タグあり）。アップロードをスキップします。"
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+            echo "v$VERSION をアップロードします（mode=$MODE）。"
+          fi
+
+      - name: ツールチェーンを表示
+        if: steps.plan.outputs.go == 'true'
+        run: |
+          if [ ! -d "$DEVELOPER_DIR" ]; then
+            echo "::error::$DEVELOPER_DIR がありません。ランナーのイメージが変わった可能性があります。"
+            ls -d /Applications/Xcode*.app || true
+            exit 1
+          fi
+          xcodebuild -version
+          echo "iOS SDK: $(xcrun --sdk iphoneos --show-sdk-version)"
+
+      # build.yml と同じ手順。理由はそちらのコメントを参照。
+      - name: XcodeGen を入れる
+        if: steps.plan.outputs.go == 'true'
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN_VERSION/xcodegen.zip"
+          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/xcodegen/bin/xcodegen" --version
+
+      # xcodebuild の -authenticationKeyPath はファイルのパスしか受け付けないので、
+      # Secret の中身をランナーの一時ディレクトリに書き出す。証明書の .p12 は要らない
+      # （署名は export の段階でクラウド管理の配布証明書が使われる）。
+      # ファイル名にキー ID（Secret）を入れないのは、パスを GITHUB_ENV で後続の
+      # ステップへ渡すため。Secret を含む値を広げる範囲は小さくしておく。
+      - name: API キーを一時ファイルに書き出す
+        if: steps.plan.outputs.go == 'true'
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          if [ -z "$ASC_API_KEY_ID" ] || [ -z "$ASC_API_ISSUER_ID" ] || [ -z "$ASC_API_KEY_P8" ]; then
+            echo "::error::Environment「release」の Secrets（ASC_API_KEY_ID / ASC_API_ISSUER_ID / ASC_API_KEY_P8）が足りません。docs/release-flow.md を参照してください。"
+            exit 1
+          fi
+          KEY_PATH="$RUNNER_TEMP/asc_api_key.p8"
+          (umask 077 && printf '%s\n' "$ASC_API_KEY_P8" > "$KEY_PATH")
+          echo "ASC_API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      # ビルド番号（CFBundleVersion）は「同じ版の中で、前に送ったものより必ず大きい」ことが
+      # 求められる。重複すると App Store Connect がアップロードを弾く。
+      #
+      # Config/Base.xcconfig の CURRENT_PROJECT_VERSION を人が上げる方式だと、上げ忘れや、
+      # 同じ版を出し直したとき（リジェクト後など）に衝突する。そこで、このワークフローの
+      # 実行番号から機械的に作る。run_number は release.yml の実行ごとに 1 ずつ増え、
+      # 戻らない。失敗したジョブを「Re-run」すると run_number は同じまま run_attempt だけが
+      # 増えるので、それも混ぜる（アップロードまで済んでから落ちた実行を再実行しても、
+      # 番号がぶつからない）。
+      #   例: 12 回目の実行の 1 回目 → 1201、再実行 → 1202、13 回目 → 1301
+      # 同じ実行を 99 回まで再実行しても、次の実行の番号とは重ならない。
+      #
+      # release.yml の名前を変えると run_number は 1 からやり直しになる。そのときや、
+      # 手元から大きい番号で送ってしまったときは、リポジトリ変数 BUILD_NUMBER_OFFSET で
+      # 底上げする（docs/release-flow.md）。
+      - name: アーカイブを作る
+        id: archive
+        if: steps.plan.outputs.go == 'true'
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          BUILD_NUMBER_OFFSET: ${{ vars.BUILD_NUMBER_OFFSET || '0' }}
+        run: |
+          case "$BUILD_NUMBER_OFFSET" in
+            '' | *[!0-9]*)
+              echo "::error::リポジトリ変数 BUILD_NUMBER_OFFSET は 0 以上の整数にしてください（いま: $BUILD_NUMBER_OFFSET）。"
+              exit 1 ;;
+          esac
+          BUILD_NUMBER=$(( BUILD_NUMBER_OFFSET + GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT ))
+          echo "ビルド番号: $BUILD_NUMBER"
+
+          # 署名はここではしない（ARCHIVE_SIGNING=NO）。理由は release.mk の ARCHIVE_SIGNING を参照。
+          make archive ARCHIVE_SIGNING=NO BUILD_NUMBER="$BUILD_NUMBER"
+
+          # 後続（asc.py wait-build）へは、計算した値ではなく、できあがったアーカイブの
+          # 値を渡す。二か所で同じ式を持つと、片方だけずれたときに処理待ちが空振りする。
+          BUILD=$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleVersion" build/SaifuLog.xcarchive/Info.plist)
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+
+      # exportArchive の destination=upload（Config/ExportOptions.plist）で、書き出しと
+      # 送信を 1 回で行う。altool は非推奨が続いているので使わない。
+      - name: App Store Connect へアップロード
+        id: upload
+        if: steps.plan.outputs.go == 'true' && env.MODE != 'export'
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          BUILD: ${{ steps.archive.outputs.build }}
+        run: |
+          make upload
+          echo "uploaded=true" >> "$GITHUB_OUTPUT"
+          echo "アップロード完了（ビルド $BUILD）。"
+
+      # 疎通確認用。送信せずに .ipa を書き出し、署名とエンタイトルメントをログに出す。
+      # 書き出した .ipa はアーティファクトにしない。リポジトリが公開なので、
+      # 審査前のアプリを誰でも落とせる状態になるため。
+      - name: 書き出すだけ（送信しない）
+        if: steps.plan.outputs.go == 'true' && env.MODE == 'export'
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        run: make export-ipa
+
+      # GitHub のランナーはジョブごとに捨てられるが、鍵を置きっぱなしにしない習慣として消す
+      # （セルフホストに移したときにも、そのまま安全なように）。
+      - name: 後片付け（鍵を残さない）
+        if: always()
+        run: rm -f "$RUNNER_TEMP/asc_api_key.p8"
+
+  # ビルドの処理待ちは 10 分から 1 時間かかる。Xcode の要らないここは Linux で待つ
+  # （macOS ランナーの枠を長く塞がない）。
+  submit:
+    needs: upload
+    # 審査に出すのは次のどちらか。
+    #   - main への push（ふだんのリリース）。リポジトリ変数 ASC_AUTO_SUBMIT が 'false' なら出さない
+    #   - 手動実行で mode=submit を選んだとき。明示的な指示なので ASC_AUTO_SUBMIT は見ない
+    #     （ASC_AUTO_SUBMIT=false で上げた初回のビルドを確かめたあと、手で出すため）
+    # ここ（job の if）は Environment を解決する前に評価されるので、vars はリポジトリの
+    # Variables しか読めない。ASC_AUTO_SUBMIT を Environment 側に置くと効かない。
+    if: >-
+      needs.upload.outputs.uploaded == 'true' &&
+      ((github.event_name == 'push' && vars.ASC_AUTO_SUBMIT != 'false') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'submit'))
+    runs-on: ubuntu-24.04
+    # upload と同じ API キーを使う。
+    environment: release
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: 依存を入れる
+        run: pip install --quiet "pyjwt[crypto]>=2.8,<3"
+
+      # 前のジョブの出力や変数は、run の中に式で直接埋め込まず env を通して渡す。
+      # 埋め込むとシェルの文として解釈され、値によってはコマンドとして実行されうるため。
+      - name: ビルドの処理が終わるのを待つ
+        id: build
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          VERSION: ${{ needs.upload.outputs.version }}
+          BUILD: ${{ needs.upload.outputs.build }}
+        run: |
+          BUILD_ID=$(python3 scripts/asc.py wait-build --version "$VERSION" --build "$BUILD")
+          echo "id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+
+      # App Store は Markdown を表示しないので --plain（小見出しの ### などを外す）。
+      - name: リリースノートを CHANGELOG から取り出す
+        env:
+          VERSION: ${{ needs.upload.outputs.version }}
+        run: |
+          ./scripts/changelog-section.sh --plain "$VERSION" > "$RUNNER_TEMP/notes.txt"
+          if [ ! -s "$RUNNER_TEMP/notes.txt" ]; then
+            echo "::warning::CHANGELOG.md に [$VERSION] の節がありません。"
+          fi
+          cat "$RUNNER_TEMP/notes.txt"
+
+      - name: バージョンを用意して審査に出す
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          VERSION: ${{ needs.upload.outputs.version }}
+          BUILD_ID: ${{ steps.build.outputs.id }}
+          RELEASE_TYPE: ${{ vars.ASC_RELEASE_TYPE || 'AFTER_APPROVAL' }}
+        run: |
+          python3 scripts/asc.py submit \
+            --version "$VERSION" \
+            --build-id "$BUILD_ID" \
+            --notes-file "$RUNNER_TEMP/notes.txt" \
+            --release-type "$RELEASE_TYPE"
+          echo "審査に出しました。通れば配信が始まり、tag-release がタグを打ちます。"
