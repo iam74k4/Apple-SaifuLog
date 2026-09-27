@@ -1,0 +1,28 @@
+// 共通設定（Debug / Release 共通）。project.yml の configFiles から読み込む。
+// Bundle ID の接頭辞はほかのアプリ（com.iam74k4.AppMixer など）と揃える。アプリ名は大文字始まり。
+ORG_PREFIX = com.iam74k4
+APP_BUNDLE_ID = $(ORG_PREFIX).SaifuLog
+
+// 将来のウィジェット / App Intents / iCloud 同期用。いまはどのターゲットも使っていない。
+// 使い始めるときは、ここの値を entitlements から参照する（ID を二か所に書かない）。
+APP_GROUP_ID = group.$(APP_BUNDLE_ID)
+ICLOUD_CONTAINER_ID = iCloud.$(APP_BUNDLE_ID)
+
+// バージョンの正はここだけ。CHANGELOG.md の先頭の「## [X.Y.Z]」と一致させる
+// （make check-version と CI で検査する）。ビルド番号はリリース時に BUILD_NUMBER で上書きする。
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+
+// 署名。自分のチームで実機に入れるときは、下の Secrets.xcconfig で上書きする（project.yml は触らない）。
+DEVELOPMENT_TEAM = NL9ZXK2SGR
+CODE_SIGN_STYLE = Automatic
+
+SWIFT_VERSION = 6.0
+SWIFT_STRICT_CONCURRENCY = complete
+
+// iPhone のみ。Foundation Models（端末内 AI）が iOS 26 からのため、下限は 26.0。
+TARGETED_DEVICE_FAMILY = 1
+IPHONEOS_DEPLOYMENT_TARGET = 26.0
+
+// 手元だけの設定（署名チームの差し替えなど）。.gitignore 済みで、無くてもビルドできる。
+#include? "Secrets.xcconfig"
