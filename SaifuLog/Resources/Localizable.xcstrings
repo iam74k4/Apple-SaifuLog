@@ -1,0 +1,259 @@
+{
+  "sourceLanguage" : "ja",
+  "strings" : {
+    "OK" : {
+      "comment" : "アラートを閉じるボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "「ランチ 850」のように、金額の数字を入れてください。" : {
+      "comment" : "入力に金額が無かったときのアラートの本文。例の「ランチ 850」は訳さない（解析が日本語の入力を前提にしているため）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Include the amount as a number, like “ランチ 850”."
+          }
+        }
+      }
+    },
+    "その他" : {
+      "comment" : "カテゴリ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other"
+          }
+        }
+      }
+    },
+    "ひとことで記録" : {
+      "comment" : "記録が無いときの案内の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record in one line"
+          }
+        }
+      }
+    },
+    "カフェ" : {
+      "comment" : "カテゴリ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Café"
+          }
+        }
+      }
+    },
+    "ランチ 850 のように入力" : {
+      "comment" : "入力欄のプレースホルダ。例の「ランチ 850」は訳さない（解析が日本語の入力を前提にしているため）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type something like “ランチ 850”"
+          }
+        }
+      }
+    },
+    "下の入力欄に、こんなふうに送るだけで記録できます。" : {
+      "comment" : "記録が無いときの案内の本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Just send a line like these in the field below."
+          }
+        }
+      }
+    },
+    "交通" : {
+      "comment" : "カテゴリ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transport"
+          }
+        }
+      }
+    },
+    "今月の収入" : {
+      "comment" : "ホームの上の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Income this month"
+          }
+        }
+      }
+    },
+    "今月の支出" : {
+      "comment" : "ホームの上の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spent this month"
+          }
+        }
+      }
+    },
+    "光熱・通信" : {
+      "comment" : "カテゴリ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utilities & phone"
+          }
+        }
+      }
+    },
+    "医療" : {
+      "comment" : "カテゴリ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medical"
+          }
+        }
+      }
+    },
+    "収入" : {
+      "comment" : "収入の記録の種別",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Income"
+          }
+        }
+      }
+    },
+    "取り消す" : {
+      "comment" : "記録の直後に出るバナーのボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo"
+          }
+        }
+      }
+    },
+    "娯楽" : {
+      "comment" : "カテゴリ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entertainment"
+          }
+        }
+      }
+    },
+    "日用品" : {
+      "comment" : "カテゴリ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily goods"
+          }
+        }
+      }
+    },
+    "記録しました" : {
+      "comment" : "記録の直後に出るバナー",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded"
+          }
+        }
+      }
+    },
+    "記録しました: %@" : {
+      "comment" : "記録の直後に VoiceOver で読み上げる内容。%@ は「食費 ¥850」を並べたもの",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded: %@"
+          }
+        }
+      }
+    },
+    "記録する内容" : {
+      "comment" : "入力欄の VoiceOver ラベル",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What to record"
+          }
+        }
+      }
+    },
+    "読み取り中" : {
+      "comment" : "送信後、解析中の送信ボタンの VoiceOver ラベル",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading"
+          }
+        }
+      }
+    },
+    "送信" : {
+      "comment" : "送信ボタンの VoiceOver ラベル",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send"
+          }
+        }
+      }
+    },
+    "金額が見つかりませんでした" : {
+      "comment" : "入力に金額が無かったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No amount found"
+          }
+        }
+      }
+    },
+    "食費" : {
+      "comment" : "カテゴリ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Food"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
