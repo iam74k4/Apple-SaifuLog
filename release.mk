@@ -5,9 +5,11 @@
 #   make archive [BUILD_NUMBER=123]    Release の .xcarchive を build/ に作る
 #                                      既定は署名あり。ARCHIVE_SIGNING=NO で署名なし（build.yml と make ci）、
 #                                      ARCHIVE_KEYCHAIN=… で署名に使うキーチェーンを指定する（release.yml）
+#                                      INTERNAL_BUILD=YES で社内テスト用（診断画面入り。release.yml の mode=testflight）
 #   make export-ipa                    アーカイブから .ipa を書き出すだけ（送信しない。疎通確認用）
 #   make upload                        アーカイブを App Store Connect へ送る（本当に送信される）
 #                                      ビルド番号は make archive の BUILD_NUMBER で決まる（upload では変えられない）
+#                                      社内テスト用のアーカイブは INTERNAL_BUILD=YES で送り、TestFlight の社内テスト専用になる
 #
 # 認証: 環境変数 ASC_API_KEY_ID / ASC_API_ISSUER_ID / ASC_API_KEY_PATH（.p8 のパス）が
 # 3 つとも揃っていれば App Store Connect API キーで認証する。1 つも無ければ、Xcode に
@@ -29,8 +31,10 @@ RELEASE_EXPORT_OPTIONS := Config/ExportOptions.plist
 # Makefile の make build と同じ場所。リポジトリの中（build/、.gitignore 済み）に置き、
 # make clean でまとめて消えるようにする。
 RELEASE_DERIVED_DATA   := build/DerivedData
-# make export-ipa 用。ExportOptions.plist の destination だけを export に替えた写し。
+# make export-ipa 用。ExportOptions.plist の destination を export に替えた写し。
 RELEASE_EXPORT_OPTIONS_LOCAL := build/ExportOptions.export.plist
+# make upload 用。ExportOptions.plist の testFlightInternalTestingOnly を INTERNAL_BUILD に合わせた写し。
+RELEASE_EXPORT_OPTIONS_UPLOAD := build/ExportOptions.upload.plist
 
 # ビルド番号（CFBundleVersion）の上書き。空なら Config/Base.xcconfig の
 # CURRENT_PROJECT_VERSION のまま。App Store Connect は同じ版の中で番号の重複を
@@ -81,6 +85,56 @@ RELEASE_ENTITLEMENTS ?= $(firstword $(wildcard SaifuLog/*.entitlements SaifuLog/
 # （docs/release-flow.md の「署名ありのアーカイブ」）。
 RELEASE_ENTITLEMENTS_CHECK ?= error
 
+# 社内テスト用のビルドにするか（YES / NO）。YES にすると、アプリのターゲットに Swift の条件 INTERNAL_DIAGNOSTICS が付き
+# （project.yml の SAIFULOG_INTERNAL_BUILD）、実機での確認に使う診断画面（SaifuLog/Diagnostics）が入る。
+# make upload は YES のアーカイブを TestFlight の社内テスト専用（testFlightInternalTestingOnly）で送る。社内テスト専用の
+# ビルドは、審査にも外部テストにも出せない（Apple が受け付けない）。
+#
+# YES を渡すのは release.yml の mode=testflight だけ。main へのマージ（push）や mode=submit / upload / export は
+# NO（既定）のままにする。取り違えても App Store へ出すビルドに診断画面が入らないように、archive・export-ipa・upload は
+# アーカイブの中身（下の RELEASE_INTERNAL_MARKER）が INTERNAL_BUILD と合うかを確かめ、合わなければ止まる。
+# xcodebuild には常に SAIFULOG_INTERNAL_BUILD=$(INTERNAL_BUILD) を渡す（手元の Secrets.xcconfig などで YES に
+# していても、NO のアーカイブは NO で作る）。
+INTERNAL_BUILD ?= NO
+
+# 診断画面の入ったアプリにだけある文字列。SaifuLog/Diagnostics/DiagnosticsReport.swift の buildMarker と同じ値にする
+# （変えるときは両方）。ずれると、社内テスト用のアーカイブが「印が見つからない」で止まるので気づける。
+RELEASE_INTERNAL_MARKER := SaifuLog-InternalDiagnostics-v1
+
+# アーカイブのアプリに診断画面が入っているかを、INTERNAL_BUILD と照らし合わせるシェルの文（archive・export-ipa・upload の
+# レシピで使う）。grep が読めないファイルに当たった（終了コード 2）ときも止める（入っていないと見なして通さない）。
+RELEASE_INTERNAL_CHECK = \
+	case "$(INTERNAL_BUILD)" in \
+		YES | NO) ;; \
+		*) echo "error: INTERNAL_BUILD は YES か NO を指定してください（いま: $(INTERNAL_BUILD)）。"; exit 1 ;; \
+	esac; \
+	app=$$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:ApplicationPath" "$(RELEASE_ARCHIVE)/Info.plist" 2>/dev/null); \
+	if [ -z "$$app" ] || [ ! -d "$(RELEASE_ARCHIVE)/Products/$$app" ]; then \
+		echo "error: $(RELEASE_ARCHIVE) にアプリが見つかりません。make archive から作り直してください。"; exit 1; \
+	fi; \
+	grep -r -a -F -q "$(RELEASE_INTERNAL_MARKER)" "$(RELEASE_ARCHIVE)/Products/$$app"; \
+	case $$? in \
+		0) found=YES ;; \
+		1) found=NO ;; \
+		*) echo "error: $(RELEASE_ARCHIVE)/Products/$$app を読めず、診断画面が入っているかを確かめられませんでした。"; exit 1 ;; \
+	esac; \
+	if [ "$$found" = YES ] && [ "$(INTERNAL_BUILD)" != YES ]; then \
+		echo "error: このアーカイブのアプリには診断画面（社内テスト用）が入っています（$(RELEASE_INTERNAL_MARKER) が見つかった）。App Store へ出すビルドに入れないため止めます。"; \
+		echo "       Swift の条件 INTERNAL_DIAGNOSTICS をほかの場所（project.yml・Config/*.xcconfig）で足していないか、診断画面のコードが \#if DEBUG || INTERNAL_DIAGNOSTICS の外に出ていないかを確かめてください。"; \
+		echo "       社内テスト用として送るなら INTERNAL_BUILD=YES を渡してください（TestFlight の社内テスト専用になり、審査には出せません）。"; \
+		exit 1; \
+	fi; \
+	if [ "$$found" = NO ] && [ "$(INTERNAL_BUILD)" = YES ]; then \
+		echo "error: INTERNAL_BUILD=YES ですが、アーカイブのアプリに診断画面の印（$(RELEASE_INTERNAL_MARKER)）が見つかりません。"; \
+		echo "       アーカイブを make archive INTERNAL_BUILD=YES で作ったか、project.yml の SAIFULOG_INTERNAL_BUILD から SWIFT_ACTIVE_COMPILATION_CONDITIONS への組み立てが変わっていないか、SaifuLog/Diagnostics/DiagnosticsReport.swift の buildMarker が release.mk の RELEASE_INTERNAL_MARKER と同じ値かを確かめてください。"; \
+		exit 1; \
+	fi; \
+	if [ "$$found" = YES ]; then \
+		echo "診断画面: 入っている（社内テスト用。TestFlight の社内テスト専用で送る）"; \
+	else \
+		echo "診断画面: 入っていない"; \
+	fi
+
 # 3 つとも揃っているときだけ API キーの認証フラグを付ける。
 RELEASE_AUTH = $(if $(and $(ASC_API_KEY_ID),$(ASC_API_ISSUER_ID),$(ASC_API_KEY_PATH)),-authenticationKeyPath "$(ASC_API_KEY_PATH)" -authenticationKeyID "$(ASC_API_KEY_ID)" -authenticationKeyIssuerID "$(ASC_API_ISSUER_ID)")
 
@@ -128,6 +182,10 @@ release-args:
 		YES | NO) ;; \
 		*) echo "error: ARCHIVE_SIGNING は YES か NO を指定してください（いま: $(ARCHIVE_SIGNING)）。"; exit 1 ;; \
 	esac
+	@case "$(INTERNAL_BUILD)" in \
+		YES | NO) ;; \
+		*) echo "error: INTERNAL_BUILD は YES か NO を指定してください（いま: $(INTERNAL_BUILD)）。"; exit 1 ;; \
+	esac
 	@# キーチェーンの指定が黙って無視されたり、無いキーチェーンを codesign に渡して署名の段階
 	@# （アーカイブの終わり近く）で落ちたりしないように、ここで止める。
 	@if [ -n "$(ARCHIVE_KEYCHAIN)" ]; then \
@@ -151,6 +209,7 @@ archive: release-args check-version release-auth generate
 		-archivePath "$(RELEASE_ARCHIVE)" \
 		-derivedDataPath "$(RELEASE_DERIVED_DATA)" \
 		$(if $(BUILD_NUMBER),CURRENT_PROJECT_VERSION=$(BUILD_NUMBER)) \
+		SAIFULOG_INTERNAL_BUILD=$(INTERNAL_BUILD) \
 		$(if $(filter NO,$(ARCHIVE_SIGNING)),CODE_SIGNING_ALLOWED=NO) \
 		$(if $(ARCHIVE_KEYCHAIN),OTHER_CODE_SIGN_FLAGS="--keychain $(ARCHIVE_KEYCHAIN)") \
 		-allowProvisioningUpdates $(RELEASE_AUTH)
@@ -187,6 +246,9 @@ archive: release-args check-version release-auth generate
 		exit 1; \
 	fi; \
 	echo "アーカイブ: $(RELEASE_ARCHIVE)（バージョン $${ver}、ビルド $${build}）"
+	@# 診断画面（社内テスト用）が INTERNAL_BUILD のとおりに入っているか（入っていないか）を、できあがったアプリで確かめる。
+	@# ビルドの設定だけを信じると、条件をほかの場所で足したときや、診断画面のコードが #if の外に出たときに気づけない。
+	@$(RELEASE_INTERNAL_CHECK)
 
 # 送信せずに .ipa を書き出す。署名（クラウド管理の配布証明書）と API キーの権限が
 # 足りているかを、App Store Connect に何も残さずに確かめられる。
@@ -200,10 +262,13 @@ export-ipa: release-auth
 		*) echo "error: RELEASE_ENTITLEMENTS_CHECK は error か warn を指定してください（いま: $(RELEASE_ENTITLEMENTS_CHECK)）。"; exit 1 ;; \
 	esac
 	@test -d "$(RELEASE_ARCHIVE)" || { echo "error: $(RELEASE_ARCHIVE) がありません。先に make archive を実行してください。"; exit 1; }
+	@$(RELEASE_INTERNAL_CHECK)
 	rm -rf "$(RELEASE_EXPORT_DIR)"
 	@mkdir -p "$(dir $(RELEASE_EXPORT_OPTIONS_LOCAL))"
 	cp "$(RELEASE_EXPORT_OPTIONS)" "$(RELEASE_EXPORT_OPTIONS_LOCAL)"
 	/usr/libexec/PlistBuddy -c "Set :destination export" "$(RELEASE_EXPORT_OPTIONS_LOCAL)"
+	@# 送るとき（make upload）と同じ設定で書き出す。
+	/usr/libexec/PlistBuddy -c "Set :testFlightInternalTestingOnly $(if $(filter YES,$(INTERNAL_BUILD)),true,false)" "$(RELEASE_EXPORT_OPTIONS_LOCAL)"
 	xcodebuild -exportArchive \
 		-archivePath "$(RELEASE_ARCHIVE)" \
 		-exportOptionsPlist "$(RELEASE_EXPORT_OPTIONS_LOCAL)" \
@@ -251,6 +316,9 @@ export-ipa: release-auth
 # 送った時点で戻る。App Store Connect 側の処理（10 分〜1 時間）は待たない
 # （CI では release.yml の submit ジョブが scripts/asc.py wait-build で待つ）。
 #
+# 社内テスト用のアーカイブ（INTERNAL_BUILD=YES）は、testFlightInternalTestingOnly を true にした写しで送る。
+# 診断画面の入ったビルドが、審査や外部テストへ回らないようにするため（Apple が社内テスト専用のビルドを受け付けない）。
+#
 # 手元の端末から叩いたときだけ確認を挟む。本当に送信され、同じビルド番号では
 # 二度と送れなくなるため。CI（CI=true、標準入力が端末でない）では聞かない。
 upload: release-auth
@@ -262,16 +330,20 @@ upload: release-auth
 		echo "error: make upload は BUILD_NUMBER を読みません（アーカイブのビルド番号は $${build}）。make archive BUILD_NUMBER=$(BUILD_NUMBER) でアーカイブを作り直してから送ってください。"; \
 		exit 1; \
 	fi
+	@$(RELEASE_INTERNAL_CHECK)
 	@if [ -t 0 ] && [ -z "$$CI" ]; then \
 		build=$$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleVersion" "$(RELEASE_ARCHIVE)/Info.plist" 2>/dev/null); \
-		printf '%s' "ビルド $$build を App Store Connect へ送信します。よろしいですか？ [y/N] "; \
+		printf '%s' "ビルド $$build を App Store Connect へ送信します$(if $(filter YES,$(INTERNAL_BUILD)),（TestFlight の社内テスト専用）)。よろしいですか？ [y/N] "; \
 		read answer; \
 		case "$$answer" in y | Y | yes) ;; *) echo "やめました。"; exit 1 ;; esac; \
 	fi
 	rm -rf "$(RELEASE_EXPORT_DIR)"
+	@mkdir -p "$(dir $(RELEASE_EXPORT_OPTIONS_UPLOAD))"
+	cp "$(RELEASE_EXPORT_OPTIONS)" "$(RELEASE_EXPORT_OPTIONS_UPLOAD)"
+	/usr/libexec/PlistBuddy -c "Set :testFlightInternalTestingOnly $(if $(filter YES,$(INTERNAL_BUILD)),true,false)" "$(RELEASE_EXPORT_OPTIONS_UPLOAD)"
 	xcodebuild -exportArchive \
 		-archivePath "$(RELEASE_ARCHIVE)" \
-		-exportOptionsPlist "$(RELEASE_EXPORT_OPTIONS)" \
+		-exportOptionsPlist "$(RELEASE_EXPORT_OPTIONS_UPLOAD)" \
 		-exportPath "$(RELEASE_EXPORT_DIR)" \
 		-allowProvisioningUpdates $(RELEASE_AUTH)
-	@echo "App Store Connect へ送信しました。処理が終わると TestFlight に現れます。"
+	@echo "App Store Connect へ送信しました。処理が終わると TestFlight に現れます$(if $(filter YES,$(INTERNAL_BUILD)),（社内テスト専用。審査や外部テストには出せません）)。"

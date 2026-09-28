@@ -45,11 +45,12 @@ PR: develop → main ─ マージ ─▶ release.yml
 
 | 誰が | 何を |
 |---|---|
-| 自動（build.yml） | PR と push のたびに `make build`・`make test`（コアのテスト）・`make build-tests` と `make test-app`（アプリのテストのビルドと、シミュレータでの実行）・`make check-version` と、署名なしの `make archive`（提出物と同じ Release・実機向けの組み立てを、マージ前に一度通す。バージョン・ビルド番号・アイコンがアプリの Info.plist に入っているかも見る） |
+| 自動（build.yml） | PR と push のたびに `make build`・`make test`（コアのテスト）・`make build-tests` と `make test-app`（アプリのテストのビルドと、シミュレータでの実行）・`make check-version` と、署名なしの `make archive`（提出物と同じ Release・実機向けの組み立てを、マージ前に一度通す。バージョン・ビルド番号・アイコンがアプリの Info.plist に入っているかと、社内テスト用の診断画面が入っていないかも見る） |
 | 自動（release.yml / upload） | 承認済みの版ならスキップ、アーカイブ（開発用の証明書で署名）、エンタイトルメントの照合（送らずに書き出す。いまは抜けていても警告だけ）、クラウド署名、App Store Connect へのアップロード |
 | 自動（release.yml / submit） | 処理待ち、バージョンの用意、リリースノート、**審査への提出** |
 | 自動（tag-release.yml） | 配信を検知し、配信されたビルドを作ったコミットにタグと GitHub Release を作成 |
 | 人 | バージョンを上げる、CHANGELOG を書く、App Store Connect の Web でしかできない設定、リジェクトの対応 |
+| 人（任意）→ release.yml の `mode=testflight` | main へマージする前の develop のビルドを、診断画面入りで TestFlight の社内テスト専用に送る（審査には出ない。下の「[TestFlight で実機に入れる（社内テスト）](#testflight-で実機に入れる社内テスト)」） |
 
 タグを最後に打つのは、リジェクトされた場合に「タグはあるのに世に出ていない」版を
 残さないため。release.yml はタグの有無で「配信済みか」を判定しているので、先に打つと
@@ -87,6 +88,16 @@ PR: develop → main ─ マージ ─▶ release.yml
 - release.yml は同時に 1 つしか走らない（`concurrency`）。続けてマージしても、前の
   アップロードを途中で打ち切らない。待っている実行が、後から来た実行（手動実行など）に
   置き換えられて取り消されることもない（`queue: max`）。
+- 審査に出す（submit ジョブ）のは main の実行だけ（job の `if` で `github.ref == refs/heads/main` を明示）。
+  App Store へ出せる形で送る `mode=submit` / `mode=upload` を main 以外から走らせると、upload ジョブの最初で止まる。
+  develop から送れるのは `mode=testflight` の社内テスト専用のビルド（`testFlightInternalTestingOnly`）だけで、
+  Apple が審査にも外部テストにも出させない。
+- `mode=testflight` は、タグ（`v<version>`）があってもスキップしない（何度送ってもよい。ビルド番号は実行ごとに増える）。
+  ただし配信済み（タグあり）や承認済みの版には Apple が新しいビルドを受け付けないので、アーカイブの前に止まり、
+  版を上げるよう案内する。
+- 診断画面（社内テスト用）は `INTERNAL_BUILD=YES` のアーカイブ（`mode=testflight`）にだけ入る。main への push と
+  `mode=submit` / `upload` / `export` は `INTERNAL_BUILD=NO` で作り、release.mk ができたアプリの中身を見て、
+  診断画面が入っていれば止める（アーカイブの直後と、書き出し・アップロードの前）。
 
 ---
 
@@ -132,12 +143,25 @@ App Store Connect → **ユーザとアクセス** → **統合**（Integrations
 ### 3. Environment（`release`）の Secrets に入れる
 
 リポジトリ Secrets ではなく **Environment Secrets** に置く。App Store へ提出できる
-鍵なので、読める範囲を main を通ったコードだけに絞るため。
+鍵なので、読める範囲を保護ルールの掛かったブランチ（main と develop）のコードだけに絞るため。
 
 1. Settings → **Environments** → New environment → 名前は `release`
-2. **Deployment branches and tags** を `Selected branches and tags` にし、`main`
-   だけを許可する。これで他のブランチからは鍵が解決されず、workflow_dispatch でも
-   走らせられない
+2. **Deployment branches and tags** を `Selected branches and tags` にし、`main` と `develop`
+   だけを許可する（Add deployment branch or tag rule で 1 つずつ足す）。これでほかのブランチからは鍵が解決されず、
+   workflow_dispatch でも走らせられない
+   - `develop` は、develop のビルドを TestFlight で試す `mode=testflight` のために足す（「[TestFlight で実機に入れる（社内テスト）](#testflight-で実機に入れる社内テスト)」）。
+     足さなければ、develop からの手動実行は Environment の保護ルールで始まらない（main へのリリースには影響しない）
+   - develop を足すと、審査に出すのを main に限っているのは Environment の設定ではなく、ワークフローの条件になる。
+     submit ジョブは `github.ref == refs/heads/main` のときしか走らず、App Store へ出せる形で送る `mode=submit` /
+     `mode=upload` も main 以外からは upload ジョブの最初で止まる。develop から送れる社内テスト専用のビルドは、Apple が
+     審査にも外部テストにも出させない
+   - ただし、これらの条件は走らせるブランチ側の `release.yml` に書かれている。develop に入った PR でこの条件を外せば、
+     develop から Admin の鍵で審査に出せる。main だけを許していたときは Environment の設定そのものが main に絞っていたが、
+     いまそれを防いでいるのは develop の Ruleset（直接 push できない、PR と `build` が必須）だけ。承認数は 0 なので
+     （「6. ブランチと保護ルール」）、人の目を通ることまでは保証しない。`.github/workflows/` を変える PR は、develop へ
+     マージする前に差分を自分で見る
+   - 作業ブランチ（`feature/*` など）は足さない。保護ルールの無いブランチから Admin 権限の鍵を読めるようになるため。
+     作業ブランチのビルドを試すときは、develop へマージしてから走らせる
 3. **Environment secrets** → Add secret で下の表を登録する
 
 **Required reviewers は付けないこと。** `tag-release.yml` は 3 時間おきの cron で
@@ -186,7 +210,7 @@ submit ジョブは提出の段階で止まる（アップロードまでは進�
 | 年齢制限 | App 情報 → 年齢制限 | 質問に答える |
 | 価格と配信状況 | 価格および配信状況 | 無料。配信する国と地域。**Apple Silicon 搭載の Mac と Apple Vision Pro での配信をオフにする**（iPhone 向けのアプリは、既定のままだとこれらでも配信される。README の「Mac と Apple Vision Pro では配信しません」と揃えるため）。**iPad は外せない**（iPhone 専用のアプリも iPad の App Store で配信され、iPhone 版が拡大して動く） |
 | App のプライバシー | App のプライバシー | プライバシーポリシーの URL（`https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md`。草案の注記を外して main へ入れてから。下の「初回リリース」の 4）と、「データの収集なし」の回答（`docs/design.md` §11） |
-| スクリーンショット | バージョン → iPhone | **6.9 インチ**（1320 × 2868 など）が必須。小さい画面の分は自動で縮小される |
+| スクリーンショット | バージョン → iPhone | **6.9 インチ**（1320 × 2868 など）が必須。小さい画面の分は自動で縮小される。**Release の構成で起動して撮る**（Xcode の Product → Scheme → Edit Scheme → Run → Build Configuration を Release にする）。DEBUG のビルドと TestFlight の社内テスト用のビルドでは、ホームの帯に App Store 版には無い診断のボタン（聴診器）が出る |
 | 説明文など | バージョン | 説明、キーワード、**サポート URL（必須）**、著作権。英語ローカライズを出すなら en の分も |
 | App Review に関する情報 | バージョン → App Review に関する情報 | 連絡先と審査メモ。AI の機能は Apple Intelligence 対応機種でしか動かないこと、非対応機種でも記録はできること、ログインが要らないことを書いておく。審査は iPad で行われることもあるので、提出の前に iPad のシミュレータ（iPhone 版の互換モード）でも一通り動くことを確かめる |
 | 輸出コンプライアンス | （Info.plist で回答） | `project.yml` で `ITSAppUsesNonExemptEncryption = NO` を入れている。未回答のビルドだと `asc.py wait-build` が止まる |
@@ -203,9 +227,10 @@ git checkout -b develop
 git push -u origin develop
 ```
 
-**既定のブランチは `main` のままにする。** tag-release.yml の cron は既定ブランチの
-定義で動き、Environment `release` は main からの実行しか許さないため。既定を develop に
-すると、cron の実行が Environment に弾かれる。その代わり、PR を作るときは base が
+**既定のブランチは `main` のままにする。** tag-release.yml の cron は既定ブランチにある
+定義で動く。既定を develop にすると、まだ main へ入れていない（リリースを通っていない）tag-release.yml が、
+App Store Connect の鍵とタグを打つ権限を持って 3 時間おきに動く（Environment `release` は develop からの実行も
+許すので、弾かれずにそのまま動く）。その代わり、PR を作るときは base が
 `develop` になっているかを毎回確かめる（Dependabot の PR は設定で develop 宛てにしてある）。
 
 main と develop の保護は **Ruleset** で行う（Settings → Rules → Rulesets →
@@ -256,7 +281,8 @@ New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分
      箇条書きと平文で、利用者の目線で書く
    - `make check-version` で一致を確かめる（CI でも検査される）。PR の前に `make ci` を通すと、
      CI（`build`）と同じ 6 つを手元で確かめられる
-   - 実機での確認は、手元の Xcode から入れて行う（TestFlight のビルドは main へのマージで初めてできる）
+   - 実機での確認は、手元の Xcode から入れるか、develop を `mode=testflight` で TestFlight の社内テストへ送って行う
+     （下の「[TestFlight で実機に入れる（社内テスト）](#testflight-で実機に入れる社内テスト)」）
 2. **PR: develop → main を作り、build が通ったら「Create a merge commit」でマージする**
    （main の Ruleset は merge しか許さないので、ほかの方法は選べない）
 
@@ -344,7 +370,11 @@ New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分
 | `証明書のチーム（…）が Config/Base.xcconfig の DEVELOPMENT_TEAM（…）と違います` | 別のチームの証明書を書き出した。`NL9ZXK2SGR` のチームの Apple Development の証明書にする |
 | `Apple Development の証明書の期限が切れています`（30 日前からは期限が近いという警告） | 期限は 1 年。「[年に一度の更新](#年に一度の更新)」 |
 | アーカイブで `Your team has no devices from which to generate a provisioning profile` | チームに端末が 1 台も登録されていない。開発用のプロファイルは登録端末が無いと作れない。「一度だけの準備」の 1 |
-| ジョブが始まらずに Environment の保護ルールで止まる | main 以外のブランチから手動実行した。Environment `release` は main からしか使えない（意図どおり） |
+| ジョブが始まらずに Environment の保護ルールで止まる | Environment `release` の配備ブランチ（`main` と `develop`）以外から手動実行した（意図どおり）。develop からの `mode=testflight` で止まるなら、配備ブランチに `develop` を足していない（「一度だけの準備」の 3） |
+| `mode=submit は main からだけ走らせられます`（`mode=upload` も同じ） | develop などから、App Store へ出せる形で送る mode を選んだ。develop のビルドを実機で試すなら `mode=testflight` にする |
+| `v<version> は配信済み（タグあり）で、Apple はこの版の新しいビルドを TestFlight にも受け付けません`（承認済みのときも同じ） | 承認された版は閉じ、TestFlight 用のビルドも送れない。作業ブランチで `MARKETING_VERSION` と CHANGELOG の先頭の見出しを次の版に上げて develop へ入れてから、`mode=testflight` を走らせ直す |
+| `このアーカイブのアプリには診断画面（社内テスト用）が入っています` | `INTERNAL_BUILD=NO`（App Store へ出すビルド）のアーカイブに診断画面が入った。`INTERNAL_DIAGNOSTICS` を `project.yml` や `Config/*.xcconfig` で足していないか、診断画面のコードが `#if DEBUG \|\| INTERNAL_DIAGNOSTICS` の外に出ていないかを確かめる |
+| `INTERNAL_BUILD=YES ですが、アーカイブのアプリに診断画面の印（…）が見つかりません` | `mode=testflight` のアーカイブに診断画面が入らなかった。`project.yml` の `SAIFULOG_INTERNAL_BUILD` から `SWIFT_ACTIVE_COMPILATION_CONDITIONS` への組み立てと、`SaifuLog/Diagnostics/DiagnosticsReport.swift` の `buildMarker` が `release.mk` の `RELEASE_INTERNAL_MARKER` と同じ値かを確かめる |
 | 「依存を入れる」などの `pip install` が `--require-hashes` や `--only-binary` のエラーで止まる | `scripts/requirements.txt` のハッシュと合わない、またはランナーの Python の版に合う wheel が無い。手で書き換えず、`scripts/requirements.in` の先頭にある手順（`pip-compile --generate-hashes --strip-extras`）で作り直す。Python の版（`setup-python` の `3.12`）を変えたときも作り直す |
 | export で `Cloud signing permission error` | API キーのロールが Admin でない |
 | export でプロファイルが作れない（アプリ ID が無い） | Bundle ID `com.iam74k4.SaifuLog` が未登録。「一度だけの準備」の 1 |
@@ -367,6 +397,62 @@ New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分
 
 ---
 
+## TestFlight で実機に入れる（社内テスト）
+
+main へマージする前の develop のビルドを、TestFlight で自分の iPhone に入れて確かめる。release.yml を `mode=testflight`
+で手動実行すると、診断画面入りのビルドを TestFlight の**社内テスト専用**（`testFlightInternalTestingOnly`）で送る。
+審査には出ない（submit ジョブは走らず、社内テスト専用のビルドは Apple が審査にも外部テストにも出させない）。
+
+### 一度だけの準備（TestFlight）
+
+1. 「[一度だけの準備](#一度だけの準備)」の 1〜3・6・7 を済ませる（Bundle ID とアプリレコード、API キー、証明書の Secrets、保護ルール）
+2. **Environment `release` の配備ブランチに `develop` を足す**（所有者の作業）。Settings → Environments → `release` →
+   Deployment branches and tags → Add deployment branch or tag rule → `develop`。足したあと何で安全を保つか（と、その限界）は「一度だけの準備」の 3
+3. App Store Connect → アプリ → **TestFlight** → 内部テストの **+** でグループを作り（名前は任意。例: 「所有者」）、
+   テスターに自分を足す
+   - 内部テスターになれるのは、App Store Connect のチームのユーザ（最大 100 人）。Apple Developer Program の所有者は、そのまま足せる
+   - グループの自動配信をオンにしておくと、処理が済んだビルドが自動でテスターに届く
+4. iPhone に App Store から **TestFlight** アプリを入れ、App Store Connect と同じ Apple アカウントでサインインする
+
+### 毎回の手順（TestFlight）
+
+1. Actions → **release** → **Run workflow** → Use workflow from: **develop**、mode: **testflight** → Run workflow
+2. アップロードまで 15〜30 分。run の Summary に版とビルド番号が出る。そのあと App Store Connect の処理に 10 分〜1 時間
+   （輸出コンプライアンスの質問は、Info.plist の `ITSAppUsesNonExemptEncryption = NO` で答えてあるので出ない）
+3. TestFlight アプリに届いたビルドを入れる。自動配信をオフにしたときは、App Store Connect の TestFlight → 内部テストの
+   グループにビルドを足す
+4. ホームの帯の右上の小さなアイコン（聴診器。VoiceOver では「診断」）で診断画面を開く。「まとめてコピー」で、記録の中身
+   （金額・メモなど）を含まない文として写せる
+
+### 診断画面で見るもの
+
+| 項目 | 見ること |
+|---|---|
+| 保存先（`default.store`・`-wal`・`-shm`）の保護クラス | 3 つとも `NSFileProtectionComplete`（データ保護が効いている。`docs/design.md` §5-4）。`default.store` は保存先を開いた時点（ホームが出る前）に作られるので、これが `missing` なら異常（診断画面の見ている場所と実際の保存先が食い違っているなど。記録を入れても直らない）。`-wal` / `-shm` は保存先を開いている間はふつうある（SQLite の WAL）。`missing` なら記録を 1 件入れてから再読み込みし、それでも `missing` なら報告に添える |
+| 保護されたデータを読めるか | 画面を見ている間は `true` |
+| 端末内 AI（Foundation Models） | `available` か、使えない理由（`deviceNotEligible`・`appleIntelligenceNotEnabled`・`modelNotReady`）。日本語に対応しているか。iOS 27 なら画像を入力できるか |
+| 音声の書き起こし（SpeechTranscriber） | 使えるか、日本語のモデルが入っているか（声で記録を作るときの下調べ）。`checking` は端末への問い合わせがまだ返っていないところ（ほかの行はそれを待たずに出る）。再読み込みしても `checking` のままなら、問い合わせが返らない端末として報告に添える |
+| 版・ビルド番号・OS・機種 | 不具合を報告するときに添える |
+| 記録の件数・予算の行数 | 中身ではなく数だけ。iCloud のアカウントの状態は、iCloud 同期を作るまで `not implemented` |
+
+### 知っておくこと
+
+- ビルド番号は、main へのマージと同じ release.yml の実行番号から付く（「[ビルド番号の決め方](#ビルド番号の決め方)」）。
+  testflight の実行の分だけ番号が飛ぶが、同じ版の中で重ならず、いつも前より大きい
+- タグ（`v<version>`）があってもスキップしない（同じ版で何度送ってもよい）。ただし配信済みや承認済みの版には、Apple が
+  TestFlight 用のビルドも受け付けない。そのときはアーカイブの前に止まるので、作業ブランチで `MARKETING_VERSION` と
+  CHANGELOG の先頭の見出しを次の版に上げて develop へ入れてから走らせる
+- 社内テスト専用のビルドは、あとから審査や外部テストに回せない。審査に出すビルドは、これまでどおり main へのマージで作る
+- TestFlight のビルドは 90 日で期限が切れる
+- 診断画面は、社内テスト用のビルドと DEBUG のビルド（手元の Xcode から入れたもの）にだけある。App Store へ出すビルドには
+  入らず、入っていれば release.mk が止める（「[`release.mk`](#releasemk)」）。どちらのビルドでもホームの帯に診断のボタンが
+  出るので、App Store 用のスクリーンショットは Release の構成で起動して撮る（「一度だけの準備」の 5）
+- アーカイブは main のリリースと同じく開発用の証明書で署名する（エンタイトルメントが載る）。エンタイトルメントの照合はまだ
+  警告だけ（「[照合を止める扱いに戻す](#照合を止める扱いに戻す所有者が確かめてから)」）なので、警告が出たビルドでは保護クラスが
+  Complete にならない。診断画面の保護クラスで、そのビルドに効いているかを確かめられる
+
+---
+
 ## 中身
 
 ### `release.mk`
@@ -377,9 +463,9 @@ New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分
 |---|---|
 | `make version` | いまの `MARKETING_VERSION` を表示する |
 | `make check-version` | `MARKETING_VERSION` と CHANGELOG 先頭の見出しの一致を確かめる |
-| `make archive` | Release の `.xcarchive` を `build/` に作る。`BUILD_NUMBER=…` でビルド番号を上書き。既定は署名ありで、`ARCHIVE_SIGNING=NO` で署名なし（build.yml と `make ci`）。`ARCHIVE_KEYCHAIN=…` で署名に使うキーチェーンを指定できる（release.yml が一時キーチェーンを渡す）。できたアプリの Info.plist にバージョン・ビルド番号・アイコンが入っているかを確かめる。`BUILD_NUMBER` が `CURRENT_PROJECT_VERSION`（1）と同じ値だと、上書きが届いたかを確かめられないので警告を出す |
-| `make export-ipa` | アーカイブから `.ipa` を書き出すだけ。**送信しない。** 署名とエンタイトルメントを表示し、エンタイトルメントのファイル（`RELEASE_ENTITLEMENTS`。いまは自動で見つかる `SaifuLog/SaifuLog.entitlements`）のキーがすべて載っているかを照合する。抜けていれば止まる（`RELEASE_ENTITLEMENTS_CHECK=warn` なら警告だけ出して続ける）。release.yml はアップロードの前に必ずこれを通す（いまは `warn`） |
-| `make upload` | `Config/ExportOptions.plist` で書き出し、そのまま App Store Connect へ送る。手元の端末では確認を挟む。ビルド番号はアーカイブに焼かれた値で、`BUILD_NUMBER` を渡しても変わらない（アーカイブと違う値なら止まる） |
+| `make archive` | Release の `.xcarchive` を `build/` に作る。`BUILD_NUMBER=…` でビルド番号を上書き。既定は署名ありで、`ARCHIVE_SIGNING=NO` で署名なし（build.yml と `make ci`）。`ARCHIVE_KEYCHAIN=…` で署名に使うキーチェーンを指定できる（release.yml が一時キーチェーンを渡す）。`INTERNAL_BUILD=YES` で社内テスト用（診断画面入り。release.yml の `mode=testflight` だけが渡す。既定は `NO`）。できたアプリの Info.plist にバージョン・ビルド番号・アイコンが入っているかと、診断画面が `INTERNAL_BUILD` のとおりに入っているか（入っていないか）を確かめる。`BUILD_NUMBER` が `CURRENT_PROJECT_VERSION`（1）と同じ値だと、上書きが届いたかを確かめられないので警告を出す |
+| `make export-ipa` | アーカイブから `.ipa` を書き出すだけ。**送信しない。** 署名とエンタイトルメントを表示し、エンタイトルメントのファイル（`RELEASE_ENTITLEMENTS`。いまは自動で見つかる `SaifuLog/SaifuLog.entitlements`）のキーがすべて載っているかを照合する。抜けていれば止まる（`RELEASE_ENTITLEMENTS_CHECK=warn` なら警告だけ出して続ける）。release.yml はアップロードの前に必ずこれを通す（いまは `warn`）。アーカイブの診断画面の有無が `INTERNAL_BUILD` と合わなければ止まる |
+| `make upload` | `Config/ExportOptions.plist` で書き出し、そのまま App Store Connect へ送る。手元の端末では確認を挟む。ビルド番号はアーカイブに焼かれた値で、`BUILD_NUMBER` を渡しても変わらない（アーカイブと違う値なら止まる）。社内テスト用のアーカイブは `INTERNAL_BUILD=YES` で送り、`testFlightInternalTestingOnly` を true にした写し（`build/ExportOptions.upload.plist`）で TestFlight の社内テスト専用になる。アーカイブの診断画面の有無が `INTERNAL_BUILD` と合わなければ、送る前に止まる |
 
 開発用の `make ci`（Makefile）は、build.yml と同じ 6 つ（`make build`・`make test`・`make build-tests`・
 `make test-app`・`make check-version`・`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を順に通す。
@@ -387,6 +473,12 @@ New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分
 認証は、環境変数 `ASC_API_KEY_ID` / `ASC_API_ISSUER_ID` / `ASC_API_KEY_PATH`（.p8 のパス）が
 3 つとも揃っていれば API キー、無ければ Xcode にサインインしているアカウント。
 どちらでも `-allowProvisioningUpdates` を付け、プロファイルの用意を Xcode に任せる。
+
+診断画面が入っているかは、アーカイブのアプリの中に `RELEASE_INTERNAL_MARKER`（`SaifuLog/Diagnostics/DiagnosticsReport.swift` の
+`buildMarker` と同じ文字列）があるかで見分ける。ビルドの設定だけを見ると、条件をほかの場所で足したときや、診断画面のコードが
+`#if DEBUG || INTERNAL_DIAGNOSTICS` の外に出たときに気づけないため。社内テスト用のアーカイブで印が見つからないときも止める
+（印を変えて release.mk を直し忘れたときに、「入っていない」の確かめが空振りしないように）。build.yml と `make ci` のアーカイブ
+（`INTERNAL_BUILD=NO`）でも、診断画面が入っていないことを毎回確かめている。
 
 build.yml（と `make ci`）はアーカイブを**署名なし**（`ARCHIVE_SIGNING=NO`）で作る。PR ごとに走り、
 Environment `release` の Secrets（証明書）を読めないため。組み立ての経路とアーカイブの検査を通すだけなら
@@ -406,7 +498,7 @@ Environment `release` の Secrets（証明書）を読めないため。組み�
 | `signingStyle` | `automatic` | プロファイルとクラウド管理の配布証明書を Xcode に用意させる |
 | `manageAppVersionAndBuildNumber` | `false` | 既定は YES。Xcode がビルド番号を書き換えると、`asc.py wait-build` が番号でビルドを見つけられない |
 | `uploadSymbols` | `true` | クラッシュレポートを読めるようにする |
-| `testFlightInternalTestingOnly` | `false` | 審査に出すビルドなので、社内テスト専用にしない |
+| `testFlightInternalTestingOnly` | `false` | 審査に出すビルドなので、社内テスト専用にしない。`make upload INTERNAL_BUILD=YES`（`mode=testflight`）のときだけ、release.mk が `true` にした写しで送る（診断画面の入ったビルドを審査や外部テストに回さない） |
 
 ### 署名ありのアーカイブ
 
@@ -507,6 +599,11 @@ BUILD_NUMBER = BUILD_NUMBER_OFFSET + run_number × 100 + run_attempt
 release.yml の名前を変える（`run_number` が 1 に戻る）か、手元から大きい番号で送ったときは、
 リポジトリ変数 `BUILD_NUMBER_OFFSET` にそれより大きい値を入れる。
 
+`mode=testflight` の実行も同じ式で番号を付ける。TestFlight 用に別のワークフローを作らないのは、社内テスト用の
+ビルドも App Store へ出すビルドと同じ版の中で番号の重複を許されず、別のワークフローにすると `run_number` が 1 から
+別々に数えられて番号がぶつかるため。同じ release.yml の実行番号を分け合えば、mode にかかわらず番号は実行ごとに
+必ず増える。
+
 tag-release.yml は、この式を逆にたどって、配信されたビルドを作った release.yml の実行（とその
 コミット）を見つける。式を変えるときは tag-release.yml も一緒に直す。配信待ちの版があるうちに
 `BUILD_NUMBER_OFFSET` を変えると逆算がずれる（tag-release は版が合わずに止まるので、手動実行の
@@ -533,6 +630,9 @@ tag-release.yml は、この式を逆にたどって、配信されたビルド�
   履歴にあること、そのコミットの `Config/Base.xcconfig` の版がタグの版と同じことを確かめる。
 - 逆算できないとき（手元から送ったビルド、配信待ちの版があるうちに `BUILD_NUMBER_OFFSET` を変えた、
   App Store Connect の版番号が `MARKETING_VERSION` と違う）は、赤で止まってコミットの指定を求める。
+- release.yml の `mode=testflight` の実行も同じ実行番号の系列を使うが、逆算に紛れることはない。逆算するのは配信中の版
+  （`force` なら指定した版）に紐づいたビルドの番号だけで、社内テスト専用のビルドは版に紐づけられない（審査に出せない）。
+  実行番号は mode によらず 1 つの実行に 1 つなので、番号から引いた実行は、配信されたビルドを作った実行そのものになる。
 - ジョブは 2 つに分けてある。鍵と書き込みの権限を同じジョブに置くと、そのジョブで動く依存の 1 つが
   乗っ取られただけで、両方を一度に取られるため。
 
@@ -641,7 +741,6 @@ cron の時刻は UTC。
 | 審査状態の変化を待たずに拾う | App Store Connect の Webhook（公開 URL の受け口が要る） |
 | スクリーンショットや説明文もリポジトリで管理する | fastlane `deliver` に寄せる |
 | 段階的リリース（Phased Release） | `appStoreVersionPhasedReleases` を叩く |
-| main へのマージ前に TestFlight で確かめる | develop 用に `testFlightInternalTestingOnly=true` の書き出しを足す（Environment の配備ブランチも見直す） |
 
 ### Capability（iCloud など）を足すとき
 
@@ -678,7 +777,7 @@ release.yml はアップロードの前に `make export-ipa` で書き出した�
 
 ## 関連ファイル
 
-- `.github/workflows/release.yml` — main マージでアップロードし、審査に出す
+- `.github/workflows/release.yml` — main マージでアップロードし、審査に出す（手動実行の `mode=testflight` で、develop のビルドを TestFlight の社内テスト専用に送る）
 - `.github/workflows/tag-release.yml` — 配信を検知してタグと GitHub Release を作る
 - `.github/workflows/build.yml` — PR と push のビルド確認 CI（必須チェック `build`）
 - `.github/dependabot.yml` — GitHub Actions と `scripts/` の pip の版上げ PR（develop 宛て）
@@ -686,7 +785,8 @@ release.yml はアップロードの前に `make export-ipa` で書き出した�
 - `scripts/pick-simulator.sh` — アプリのテストを動かすシミュレータを選ぶ（`make test-app`）
 - `release.mk` — `make version` / `check-version` / `archive` / `export-ipa` / `upload`
 - `project.yml` — エンタイトルメント（データ保護）の正。`SaifuLog/SaifuLog.entitlements` はここから生成する
-- `Config/ExportOptions.plist` — 書き出しと送信の設定
+- `Config/ExportOptions.plist` — 書き出しと送信の設定（`mode=testflight` のときは、release.mk が社内テスト専用にした写しを使う）
+- `SaifuLog/Diagnostics/` — 社内テスト用のビルド（`mode=testflight`）と DEBUG のビルドにだけ入る診断画面
 - `Config/Base.xcconfig` — バージョンの正（`MARKETING_VERSION`）
 - `scripts/asc.py` — App Store Connect API を叩く道具
 - `scripts/requirements.in` / `scripts/requirements.txt` — `asc.py` の依存（txt は版とハッシュで固定した生成物）

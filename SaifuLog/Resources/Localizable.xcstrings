@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "ja",
   "strings" : {
+    "%@ の保護クラス" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。保存先のファイルのデータ保護のクラスの項目名。%@ は default.store などのファイル名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Protection class of %@"
+          }
+        }
+      }
+    },
     "%@ オーバー" : {
       "comment" : "ホームの上の帯。今月の予算を超えた額。%@ は「¥12,000」のような金額。注意の色とアイコンを添えて出す",
       "localizations" : {
@@ -96,6 +107,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "OK"
+          }
+        }
+      }
+    },
+    "OS" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。OS の版の項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OS"
+          }
+        }
+      }
+    },
+    "OS の詳細" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。OS の版とビルドの項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OS details"
+          }
+        }
+      }
+    },
+    "iCloud" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。区切りの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud"
           }
         }
       }
@@ -266,6 +310,17 @@
         }
       }
     },
+    "まとめてコピー" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。すべての項目を文にしてクリップボードへ写すボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy All"
+          }
+        }
+      }
+    },
     "もう一度試しましたが、記録を開けませんでした" : {
       "comment" : "記録の保存先を開けなかったときの画面で、再試行してもまた開けなかったときに VoiceOver で読み上げる内容",
       "localizations" : {
@@ -295,6 +350,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Try Again"
+          }
+        }
+      }
+    },
+    "アカウントの状態" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。iCloud のアカウントの状態の項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account status"
+          }
+        }
+      }
+    },
+    "アプリ" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。区切りの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App"
           }
         }
       }
@@ -343,6 +420,17 @@
         }
       }
     },
+    "コピーしました" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。まとめてコピーした後の表示と VoiceOver の読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied"
+          }
+        }
+      }
+    },
     "サイフログは、「ランチ 850」のように一行送るだけで記録できる家計簿です。分類と計算はアプリが引き受けます。" : {
       "comment" : "ようこその画面の説明。例の「ランチ 850」は訳さない（解析が日本語の入力を前提にしているため）",
       "localizations" : {
@@ -350,6 +438,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SaifuLog is a budget app where you record spending by sending a single line, like “ランチ 850”. The app takes care of the categories and the math."
+          }
+        }
+      }
+    },
+    "ビルドの種類" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。社内テスト用か DEBUG かの項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Build type"
+          }
+        }
+      }
+    },
+    "ビルド番号" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。アプリのビルド番号の項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Build number"
           }
         }
       }
@@ -405,6 +515,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No budget"
+          }
+        }
+      }
+    },
+    "予算の行数" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。保存している予算の行の数の項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Budget rows"
           }
         }
       }
@@ -574,6 +695,17 @@
         }
       }
     },
+    "使えるか" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。端末内 AI や音声の書き起こしが使えるか（使えなければ理由）の項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Availability"
+          }
+        }
+      }
+    },
     "使った額 %@" : {
       "comment" : "ホームの上の帯の VoiceOver の読み上げ。今月の予算の対象の支出。%@ は「¥57,000」のような金額",
       "localizations" : {
@@ -618,6 +750,28 @@
         }
       }
     },
+    "保存先" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。区切りの見出し（記録の保存先のファイル）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Storage"
+          }
+        }
+      }
+    },
+    "保護されたデータを読めるか" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。画面のロックが解けていて、保護されたデータを読めるかの項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Protected data available"
+          }
+        }
+      }
+    },
     "光熱・通信" : {
       "comment" : "カテゴリ",
       "localizations" : {
@@ -636,6 +790,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Example: %@"
+          }
+        }
+      }
+    },
+    "再読み込み" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。値を読み直すボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reload"
           }
         }
       }
@@ -750,6 +915,39 @@
         }
       }
     },
+    "日本語に対応" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。端末内 AI が日本語に対応しているかの項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supports Japanese"
+          }
+        }
+      }
+    },
+    "日本語のモデルが入っているか" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。音声の書き起こしの日本語のモデルが端末に入っているかの項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Japanese model installed"
+          }
+        }
+      }
+    },
+    "日本語の言語" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。音声の書き起こしで日本語に当たる言語の項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Japanese locale"
+          }
+        }
+      }
+    },
     "日用品" : {
       "comment" : "カテゴリ",
       "localizations" : {
@@ -816,6 +1014,39 @@
         }
       }
     },
+    "機種" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。端末の機種の ID の項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model"
+          }
+        }
+      }
+    },
+    "版" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。アプリの版（CFBundleShortVersionString）の項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version"
+          }
+        }
+      }
+    },
+    "画像の入力（iOS 27 から）" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。端末内 AI に画像を入力できるかの項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Image input (iOS 27 and later)"
+          }
+        }
+      }
+    },
     "直前の記録を取り消す" : {
       "comment" : "入力欄の VoiceOver の操作。記録の直後だけ出る",
       "localizations" : {
@@ -823,6 +1054,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Undo last record"
+          }
+        }
+      }
+    },
+    "社内テスト用と開発用のビルドにだけある画面です。コピーする文には、金額やメモなどの記録の中身は入りません。" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。先頭の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This screen is only in internal test and development builds. The copied text doesn’t include the contents of your records, such as amounts or notes."
+          }
+        }
+      }
+    },
+    "端末" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。区切りの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device"
+          }
+        }
+      }
+    },
+    "端末内 AI（Foundation Models）" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。区切りの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On-device AI (Foundation Models)"
+          }
+        }
+      }
+    },
+    "記録" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。区切りの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Records"
           }
         }
       }
@@ -867,6 +1142,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t record"
+          }
+        }
+      }
+    },
+    "記録の件数" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。保存している記録の件数の項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record count"
           }
         }
       }
@@ -926,6 +1212,17 @@
         }
       }
     },
+    "診断" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面の題と、ホームの帯の右上にある診断画面を開くボタンの VoiceOver ラベル",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnostics"
+          }
+        }
+      }
+    },
     "読み取り中" : {
       "comment" : "送信後、解析中の送信ボタンの VoiceOver ラベル",
       "localizations" : {
@@ -966,6 +1263,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dismiss"
+          }
+        }
+      }
+    },
+    "音声の書き起こし（SpeechTranscriber）" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。区切りの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speech transcription (SpeechTranscriber)"
           }
         }
       }
