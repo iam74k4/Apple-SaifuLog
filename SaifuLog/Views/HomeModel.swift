@@ -4,7 +4,7 @@ import SaifuLogCore
 import SwiftData
 import SwiftUI
 
-/// ホームの状態と操作（送信・取り消し・削除）。
+/// ホームの状態と操作（送信・取り消し・削除・予算を決める画面の出し入れ）。
 ///
 /// 画面（`HomeView`）から切り離し、解析器・時計・読み上げを差し替えて SaifuLogTests で確かめられるようにしている。
 /// 画面は、ここの値を表示し、操作をここへ渡すだけにする。
@@ -23,6 +23,8 @@ final class HomeModel {
     var showsNoAmountAlert = false
     var storeFailure: StoreFailure?
     var pendingDeletion: PendingDeletion?
+    /// 「予算を決める」のシートの状態と操作。シートを出していなければ nil（シートを閉じると画面が nil に戻す）。
+    var budgetSetup: BudgetSetupModel?
     /// 今日。「今月」の範囲と、日付に年を添えるかの基準にする。
     ///
     /// 描画のたびに `.now` を読むだけだと、アプリを開いたまま（または裏に置いたまま）月をまたいだとき、
@@ -33,12 +35,14 @@ final class HomeModel {
     private(set) var timelineLimit = HomeModel.timelinePageSize
 
     @ObservationIgnored private let store: EntryStore
+    @ObservationIgnored private let budgetStore: BudgetStore
     @ObservationIgnored private let pendingWrites: PendingStoreWrites
     @ObservationIgnored private let makeParser: () -> any EntryParsing
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
 
     /// - Parameters:
+    ///   - budgetStore: 予算の読み書き。渡さなければ記録と同じ保存先（`store` の ModelContext）を使う。
     ///   - pendingWrites: 解析を待ってから記録する処理を数える先（`StoreHost.pendingWrites`）。保存先を開き直すとき、
     ///     記録し終えるのを待ってもらうため。
     ///   - makeParser: 送信のたびに解析器を選ぶ（AI の使える・使えないは途中から変わるため）。テストで差し替える。
@@ -46,12 +50,14 @@ final class HomeModel {
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     init(
         store: EntryStore,
+        budgetStore: BudgetStore? = nil,
         pendingWrites: PendingStoreWrites = PendingStoreWrites(),
         makeParser: @escaping () -> any EntryParsing = { EntryParserFactory.makeParser() },
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
     ) {
         self.store = store
+        self.budgetStore = budgetStore ?? BudgetStore(context: store.context)
         self.pendingWrites = pendingWrites
         self.makeParser = makeParser
         self.now = now
@@ -180,6 +186,15 @@ final class HomeModel {
         // 直前に記録したものを消したら、「取り消す」の対象からも外す（消えた記録を取り消そうとしないように）。
         justRecorded.removeAll { $0.persistentModelID == id }
         announce(String(localized: "削除しました: \(pending.summary)"))
+    }
+
+    // MARK: - 予算
+
+    /// 「予算を決める」のシートを出す。いまの予算を入力欄に入れて開く（予算を変えるときも同じ画面）。
+    ///
+    /// 予算の保存は同期的に書き込む（送信のように、あとで書き込む処理ではない）ので、`pendingWrites` には数えない。
+    func presentBudgetSetup() {
+        budgetSetup = BudgetSetupModel(store: budgetStore, announce: announce)
     }
 
     // MARK: - 日付とタイムライン

@@ -9,7 +9,7 @@ import UIKit
 /// ライトとダークは iOS の設定に従う（アプリ内に外観の設定は置かない）。
 ///
 /// 使い分け:
-/// - 山吹（`accentFill`）は塗りにだけ使う（いまは送信ボタン。主ボタンや予算の進捗バーを作るときも同じ）。
+/// - 山吹（`accentFill`）は塗りにだけ使う（送信ボタン・主ボタン・選んだ額のボタン・予算の進捗バー）。
 ///   白地では 1.8:1 しかなく、ライトで文字や細いアイコンに使うと読めないため。塗りの上の文字と記号は
 ///   `onAccent`（墨）にする。白を載せると、ライトでもダークでも 2:1 に届かない。
 /// - 文字の強調（ボタンの文字など）は `accentText`。Assets の AccentColor で、アプリ全体の tint でもある
@@ -34,6 +34,8 @@ enum Theme {
     static let accentText = Color.accentColor
     /// 注意の色（予算オーバーなど）。アイコンと文字を必ず添える。
     static let danger = Palette.danger.color
+    /// 進捗のバーの地（まだ使っていない分）。バーは数字に添える目安なので、地との差は控えめでよい。
+    static let track = Palette.track.color
     /// 収入の金額の色。収入は「+」の符号と「収入」の語でも示す（色だけに頼らない）。
     static let income = Palette.income.color
     /// カテゴリの丸に載せる記号の色。
@@ -66,6 +68,7 @@ enum Palette {
     /// Assets の AccentColor と同じ値にする（二か所にあるので、テストで食い違いを止める）。
     static let accentText = ColorPair(light: 0x8A5A00, dark: 0xFFC62E)
     static let danger = ColorPair(light: 0xB3261E, dark: 0xFF8A80)
+    static let track = ColorPair(light: 0xE4E1DA, dark: 0x2E3238)
     static let income = ColorPair(light: 0x2E7D4F, dark: 0x7FD1A0)
     /// カテゴリの丸はダークでもライトの色で塗る（EntryBubble）ので、記号は両方とも白にする。
     static let onCategory = ColorPair(light: 0xFFFFFF, dark: 0xFFFFFF)

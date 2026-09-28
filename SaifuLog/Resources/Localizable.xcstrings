@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "ja",
   "strings" : {
+    "%@ オーバー" : {
+      "comment" : "ホームの上の帯。今月の予算を超えた額。%@ は「¥12,000」のような金額。注意の色とアイコンを添えて出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ over"
+          }
+        }
+      }
+    },
     "%@の記録を削除します。この操作は取り消せません。" : {
       "comment" : "記録の削除の確認の本文。%@ は「ランチ ¥850」のような品目と金額",
       "localizations" : {
@@ -8,6 +19,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "“%@” will be deleted. This can’t be undone."
+          }
+        }
+      }
+    },
+    "1か月に使うお金の上限を決めると、ホームに今月あといくら使えるかと、1日あたりに使える額が出ます。" : {
+      "comment" : "予算を決める画面の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set how much you plan to spend in a month, and Home shows how much is left this month and how much you can spend per day."
+          }
+        }
+      }
+    },
+    "1日あたり %@" : {
+      "comment" : "ホームの上の帯。月末まで 1 日あたりに使える額（今日を含む）。%@ は「¥31,000」のような金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ a day"
           }
         }
       }
@@ -56,6 +89,29 @@
         }
       }
     },
+    "のこり %lld 日" : {
+      "comment" : "ホームの上の帯。月末までの日数（今日を含む）。%lld は日数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld day left"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld days left"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "ひとことで記録" : {
       "comment" : "記録が無いときの案内の見出し",
       "localizations" : {
@@ -100,6 +156,28 @@
         }
       }
     },
+    "カテゴリごとにも上限を決められます。空欄のカテゴリは予算なしになります。" : {
+      "comment" : "予算を決める画面のカテゴリ別の予算の説明（プレミアムの機能）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can also set a limit for each category. Categories left blank have no budget."
+          }
+        }
+      }
+    },
+    "カテゴリ別の予算" : {
+      "comment" : "予算を決める画面の見出し（プレミアムの機能）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Budgets by category"
+          }
+        }
+      }
+    },
     "カフェ" : {
       "comment" : "カテゴリ",
       "localizations" : {
@@ -107,6 +185,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Café"
+          }
+        }
+      }
+    },
+    "キャンセル" : {
+      "comment" : "予算を決める画面（シート）を保存せずに閉じるボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
           }
         }
       }
@@ -122,6 +211,17 @@
         }
       }
     },
+    "・" : {
+      "comment" : "ホームの上の帯。「1日あたり ¥…」（予算を超えたら「予算 ¥…」）と「のこり N 日」の間の区切り。前後には少し空きが入るので、空白は付けない",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "·"
+          }
+        }
+      }
+    },
     "下の入力欄に、こんなふうに送るだけで記録できます。" : {
       "comment" : "記録が無いときの案内の本文",
       "localizations" : {
@@ -129,6 +229,105 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Just send a line like these in the field below."
+          }
+        }
+      }
+    },
+    "予算 %@" : {
+      "comment" : "ホームの上の帯（予算を超えたとき）と VoiceOver の読み上げ。%@ は「¥150,000」のような月の予算",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Budget %@"
+          }
+        }
+      }
+    },
+    "予算なし" : {
+      "comment" : "予算を決める画面のカテゴリ別の予算の入力欄のプレースホルダ（空欄は予算なし）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No budget"
+          }
+        }
+      }
+    },
+    "予算はあとからいつでも変えられます。" : {
+      "comment" : "予算を決める画面の注記。ホームの「予算を変更」から変えられる",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can change your budget any time."
+          }
+        }
+      }
+    },
+    "予算を %@ にしました" : {
+      "comment" : "予算を保存した後に VoiceOver で読み上げる内容。%@ は「¥150,000」のような月の予算",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Budget set to %@"
+          }
+        }
+      }
+    },
+    "予算をなくしました" : {
+      "comment" : "予算をなくした後に VoiceOver で読み上げる内容",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Budget removed"
+          }
+        }
+      }
+    },
+    "予算をなくす" : {
+      "comment" : "予算を決める画面のボタン。決めた予算があるときだけ出し、全体の予算を設定なしに戻す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove Budget"
+          }
+        }
+      }
+    },
+    "予算を保存できませんでした" : {
+      "comment" : "予算を保存できなかったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t save the budget"
+          }
+        }
+      }
+    },
+    "予算を変更" : {
+      "comment" : "ホームの上の帯のボタン。予算を決めているときに出し、押すと予算を決める画面を開く",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change Budget"
+          }
+        }
+      }
+    },
+    "予算を決める" : {
+      "comment" : "ホームの上の帯のボタン。予算を決めていないときに出し、押すと予算を決める画面を開く",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set Budget"
           }
         }
       }
@@ -144,6 +343,28 @@
         }
       }
     },
+    "今月あと" : {
+      "comment" : "ホームの上の見出し。予算を決めているとき、その下に今月の予算の残りの金額を大きく出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Left this month"
+          }
+        }
+      }
+    },
+    "今月の予算" : {
+      "comment" : "ホームの上の見出し。今月の予算を超えたとき（その下に「¥… オーバー」を出す）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This month’s budget"
+          }
+        }
+      }
+    },
     "今月の収入" : {
       "comment" : "ホームの上の見出し",
       "localizations" : {
@@ -151,6 +372,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Income this month"
+          }
+        }
+      }
+    },
+    "今月の収入 %@" : {
+      "comment" : "ホームの上の帯の VoiceOver の読み上げ。%@ は「¥250,000」のような金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Income this month %@"
           }
         }
       }
@@ -166,8 +398,30 @@
         }
       }
     },
+    "使った額 %@" : {
+      "comment" : "ホームの上の帯の VoiceOver の読み上げ。今月の予算の対象の支出。%@ は「¥57,000」のような金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spent %@"
+          }
+        }
+      }
+    },
+    "保存" : {
+      "comment" : "予算を決める画面の保存ボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        }
+      }
+    },
     "保存に失敗しました。もう一度お試しください。" : {
-      "comment" : "取り消し・削除を保存できなかったときのアラートの本文",
+      "comment" : "取り消し・削除・予算を保存できなかったときのアラートの本文",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -316,6 +570,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Daily goods"
+          }
+        }
+      }
+    },
+    "月の予算" : {
+      "comment" : "予算を決める画面の入力欄の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly budget"
+          }
+        }
+      }
+    },
+    "月の予算を決める" : {
+      "comment" : "予算を決める画面の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set a Monthly Budget"
+          }
+        }
+      }
+    },
+    "月の予算（円）" : {
+      "comment" : "予算を決める画面の金額の入力欄の VoiceOver ラベル",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly budget in yen"
           }
         }
       }

@@ -8,8 +8,8 @@ import UIKit
 /// 記録も（将来は）質問も同じ入力欄から行う。入口を分けると「どこに書けばいいか」を
 /// 利用者に考えさせることになるため。
 ///
-/// 状態と操作（送信・取り消し・削除）は `HomeModel` が持つ。ここは表示と、環境（文字の大きさ・支援技術・
-/// 前面かどうか）に合わせた出し方だけを受け持つ。
+/// 状態と操作（送信・取り消し・削除・予算を決める画面の出し入れ）は `HomeModel` が持つ。ここは表示と、
+/// 環境（文字の大きさ・支援技術・前面かどうか）に合わせた出し方だけを受け持つ。
 struct HomeView: View {
     @Environment(\.calendar) private var calendar
     @Environment(\.scenePhase) private var scenePhase
@@ -45,6 +45,11 @@ struct HomeView: View {
                     Button("OK", role: .cancel) {}
                 } message: { failure in
                     failure.message
+                }
+                // item で出す（閉じる間も中身を保つ。isPresented にして中身を budgetSetup から作ると、閉じる動きの
+                // 途中で budgetSetup が nil になり、空のシートが下りていくため）。閉じると budgetSetup は nil に戻る。
+                .sheet(item: $model.budgetSetup) { budgetSetup in
+                    BudgetSetupSheet(model: budgetSetup)
                 }
                 .confirmationDialog(
                     "この記録を削除しますか？",
@@ -82,7 +87,7 @@ struct HomeView: View {
         )
         .background(Theme.background)
         .safeAreaInset(edge: .top, spacing: 0) {
-            MonthSummaryHeader(month: model.today, calendar: calendar)
+            MonthSummaryHeader(today: model.today, calendar: calendar, editBudget: { model.presentBudgetSetup() })
                 // 合計は画面の上に常に出ている帯なので、文字の大きさに上限を設ける。最大の文字サイズの
                 // ままだと、下の入力欄と合わせて画面の半分以上を占め、タイムラインがほとんど見えなくなるため。
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
