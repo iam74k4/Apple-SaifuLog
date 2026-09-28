@@ -55,6 +55,27 @@ struct StoreKitPurchaseTests {
         }
     }
 
+    /// 購入の事実を読み直し、条件を満たすまで繰り返す（時間切れなら false）。
+    ///
+    /// SKTestSession の操作（`buyProduct`・`refundTransaction`・`clearTransactions`）の直後は、`Transaction.currentEntitlements`
+    /// と `Transaction.all` が古いまま返ることがある（遅れて届く。CI のランナーで、前のテストのプレミアムが残ったり、
+    /// 15 日前の体験がまだ無かったりした）。1 回の読み直しで判断せず、届くまで読み直す。読み直しの仕組みが壊れていれば
+    /// 条件は満たされないまま時間切れになり、テストは落ちる（隠さない）。
+    static func refreshUntil(
+        _ manager: PurchaseManager,
+        timeout: Duration = .seconds(10),
+        _ condition: @MainActor () -> Bool
+    ) async -> Bool {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while true {
+            await manager.refreshPurchases()
+            if condition() { return true }
+            if clock.now >= deadline { return false }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+    }
+
     /// 条件を満たすまで待つ（Transaction.updates から届くのを待つ）。
     static func waitUntil(timeout: Duration = .seconds(10), _ condition: @MainActor () -> Bool) async -> Bool {
         let clock = ContinuousClock()
@@ -138,7 +159,10 @@ struct StoreKitPurchaseTests {
         let startedAt = Date.now.addingTimeInterval(-15 * TrialPeriod.secondsPerDay)
         try await fixture.session.buyProduct(identifier: PremiumProduct.trial14.rawValue, options: [.purchaseDate(startedAt)])
 
-        await fixture.manager.refreshPurchases()
+        _ = await Self.refreshUntil(fixture.manager) {
+            if case .trialEnded = fixture.manager.status { return true }
+            return false
+        }
 
         guard case .trialEnded(let endedAt) = fixture.manager.status else {
             Issue.record("体験が終わっていない: \(fixture.manager.status)")
@@ -218,6 +242,10 @@ struct StoreKitPurchaseTests {
         let fixture = try await Fixture(listens: true)
         defer { fixture.cleanUp() }
         fixture.session.askToBuyEnabled = true
+        // 起動の読み込み（start）を終えてから買う。承認待ちの前から無料であることを確かめる（前のテストの購入が残って
+        // いないか。残っていれば、ここで落ちて原因が分かる）。
+        #expect(await Self.waitUntil { fixture.manager.hasLoadedPurchases })
+        #expect(fixture.manager.status == .free)
 
         #expect(await fixture.manager.purchase(.premium) == .pending)
         #expect(fixture.manager.status == .free)
@@ -289,7 +317,10 @@ struct StoreKitPurchaseTests {
 
         // 起動し直したときと同じく、新しい PurchaseManager で端末の購入の記録から読み直す。
         let relaunched = PurchaseManager(now: { .now })
-        await relaunched.refreshPurchases()
+        _ = await Self.refreshUntil(relaunched) {
+            if case .trialEnded = relaunched.status { return true }
+            return false
+        }
         guard case .trialEnded = relaunched.status else {
             Issue.record("返金された体験が、起動し直すと体験の終わりでなくなった: \(relaunched.status)")
             return
@@ -390,7 +421,36 @@ enum StoreKitTestEnvironment {
         session.resetToDefaultState()
         session.disableDialogs = true
         session.clearTransactions()
+        try await waitUntilCleared()
         return session
+    }
+
+    /// 購入の記録を消したことが StoreKit に届き、`Transaction.currentEntitlements` が空になるまで待つ。
+    ///
+    /// `clearTransactions()` は StoreKit の側に遅れて届くことがある。CI のランナーでは、前のテストで買ったプレミアムが
+    /// 次のテストの読み込みに残り、承認待ちのはずのテストがプレミアムになって落ちた（askToBuyApprovalUnlocksPremium）。
+    /// 空にならなければ、残った購入を添えて投げる（前のテストの購入で結果が変わったまま通らないように）。
+    static func waitUntilCleared(timeout: Duration = .seconds(10)) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while true {
+            var remaining: [String] = []
+            for await entitlement in Transaction.currentEntitlements {
+                switch entitlement {
+                case .verified(let transaction): remaining.append("\(transaction.productID) #\(transaction.id)")
+                case .unverified(let transaction, _): remaining.append("unverified \(transaction.productID) #\(transaction.id)")
+                }
+            }
+            if remaining.isEmpty { return }
+            if clock.now >= deadline { throw NotCleared(remaining: remaining) }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+    }
+
+    /// 購入の記録を消しても、前のテストの購入が残っている。
+    struct NotCleared: Error, CustomStringConvertible {
+        let remaining: [String]
+        var description: String { "購入の記録を消しても残っている: \(remaining.joined(separator: ", "))" }
     }
 
     /// SKTestSession がこのシミュレータで使えない。
