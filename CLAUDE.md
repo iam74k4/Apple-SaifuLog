@@ -134,7 +134,7 @@ docs: add privacy policy
   ホーム画面の表示名は
   `SaifuLog/Resources/InfoPlist.xcstrings` の `CFBundleDisplayName`（ja「サイフログ」/ en「SaifuLog」）。
 - アプリアイコンは `Resources/Assets.xcassets/AppIcon.appiconset/` の 3 枚（1024 × 1024・透過なし）。
-  `AppIcon.png`（ライト: 真っ白の地に黒い財布）、`AppIcon-Dark.png`（ダーク: 真っ黒の地にグレーの財布）、`AppIcon-Tinted.png`（色付き）。
+  `AppIcon.png`（ライト: 真っ白の地に黒い財布）、`AppIcon-Dark.png`（ダーク: 真っ黒の地に白い財布（ライトの反転））、`AppIcon-Tinted.png`（色付き）。
   元の SVG は `design/icon/`。**AppIcon を空にしない。** 空でもビルドは通るが、App Store Connect が
   アップロードを弾く（`make archive` の検査で止まる）。
 
