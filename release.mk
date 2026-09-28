@@ -3,6 +3,8 @@
 #   make version                       いまの MARKETING_VERSION を表示する
 #   make check-version                 MARKETING_VERSION と CHANGELOG.md の先頭の見出しが一致するか確かめる
 #   make archive [BUILD_NUMBER=123]    Release の .xcarchive を build/ に作る
+#                                      既定は署名あり。ARCHIVE_SIGNING=NO で署名なし（build.yml と make ci）、
+#                                      ARCHIVE_KEYCHAIN=… で署名に使うキーチェーンを指定する（release.yml）
 #   make export-ipa                    アーカイブから .ipa を書き出すだけ（送信しない。疎通確認用）
 #   make upload                        アーカイブを App Store Connect へ送る（本当に送信される）
 #                                      ビルド番号は make archive の BUILD_NUMBER で決まる（upload では変えられない）
@@ -35,21 +37,36 @@ RELEASE_EXPORT_OPTIONS_LOCAL := build/ExportOptions.export.plist
 # 受け付けないので、CI は実行ごとに増える番号を渡す（release.yml）。
 BUILD_NUMBER ?=
 
-# アーカイブの段階で署名するか。CI は NO を渡す。
+# アーカイブの段階で署名するか。既定の YES は、DEVELOPMENT_TEAM と CODE_SIGN_STYLE = Automatic
+# （Config/Base.xcconfig）で、Apple Development の証明書と開発用のプロファイルを使って署名する。
+# プロファイルは -allowProvisioningUpdates で Xcode が用意する（認証は RELEASE_AUTH か Xcode のアカウント）。
 #
-# 使い捨てのランナーで自動署名のまま archive すると、そのたびに Apple Development
-# 証明書が新しく作られ、秘密鍵はランナーと一緒に消える。証明書が溜まるうえ、次の実行で
-# 「秘密鍵の無い証明書」を掴んで失敗することがある。App Store 向けの署名は export の
-# 段階で（クラウド管理の配布証明書で）掛け直されるので、archive は署名なしで足りる。
+# 提出物は署名ありで作る。署名なしのアーカイブにはエンタイトルメントが焼かれず、App Store 向けの
+# 署名し直し（export の段階で、クラウド管理の配布証明書で行う）もアーカイブにあるエンタイトルメントしか
+# 引き継がない。署名なしのままだと、データ保護（com.apple.developer.default-data-protection）や
+# iCloud、App Groups などが提出物から抜ける。
 #
-# ただし署名なしのアーカイブにはエンタイトルメントが焼かれない。データ保護
-# （com.apple.developer.default-data-protection）や iCloud、App Groups などを
-# エンタイトルメントに足したら、make export-ipa（CI は release.yml の mode=export）で
-# 書き出したアプリに載っているかを必ず確かめる。make export-ipa は下の
-# RELEASE_ENTITLEMENTS と照合し、抜けていれば止まる（release.yml のアップロード前の照合は、
-# 署名ありのアーカイブを入れるまで RELEASE_ENTITLEMENTS_CHECK=warn で警告だけにしている）
-# （docs/release-flow.md の「Capability（iCloud など）を足すとき」）。
+# release.yml は YES で作るが、証明書は Secrets に置いた決まったもの（.p12）を使い捨てのキーチェーンに
+# 取り込んで ARCHIVE_KEYCHAIN で渡す。使い捨てのランナーで自動署名に任せきりにすると、手元に使える証明書が
+# 無いので、実行のたびに Apple Development の証明書が新しく作られ、秘密鍵はランナーと一緒に消える。
+# 証明書が溜まるうえ、次の実行で「秘密鍵の無い証明書」を掴んで失敗することがあるため。
+#
+# build.yml と make ci は NO を渡す。PR ごとに走る CI は証明書（Environment release の Secrets）を
+# 読めず、組み立ての経路とアーカイブの検査を通すだけなら署名は要らないため。
+#
+# 書き出したアプリにエンタイトルメントが載っているかは、make export-ipa（CI は release.yml の mode=export）で
+# 確かめる。make export-ipa は下の RELEASE_ENTITLEMENTS と照合し、抜けていれば止まる（release.yml の
+# アップロード前の照合は、main で mode=export の照合が通るのを確かめるまで RELEASE_ENTITLEMENTS_CHECK=warn で
+# 警告だけにしている）（docs/release-flow.md の「署名ありのアーカイブ」）。
 ARCHIVE_SIGNING ?= YES
+
+# アーカイブの署名に使うキーチェーン（ARCHIVE_SIGNING=YES のときだけ渡せる）。渡すと、codesign に
+# --keychain でこのキーチェーンを使わせる（OTHER_CODE_SIGN_FLAGS）。同じ証明書がほかのキーチェーンにも
+# あると、codesign がどちらを使うか決められずに止まることがあるため（セルフホストのランナーや手元の Mac）。
+# xcodebuild が署名の証明書を探すのはキーチェーンの検索リストなので、このキーチェーンは検索リストにも
+# 入れておく（release.yml の「署名の証明書を一時キーチェーンに取り込む」はそうしている）。
+# 手元でログインキーチェーンの証明書を使うなら渡さない。
+ARCHIVE_KEYCHAIN ?=
 
 # アプリのエンタイトルメントのファイル（project.yml の entitlements.path）。make export-ipa が、
 # 書き出したアプリにここのキーがすべて載っているかを照合する。見つからなければ照合しない。
@@ -57,11 +74,11 @@ RELEASE_ENTITLEMENTS ?= $(firstword $(wildcard SaifuLog/*.entitlements SaifuLog/
 
 # 照合で抜けが見つかったときの扱い。error（既定）は止め、warn は警告を出して続ける。
 #
-# release.yml のアップロード前の照合だけは、いまは warn を渡している。CI のアーカイブは署名なし
-# （ARCHIVE_SIGNING=NO）で、書き出しの段階の署名し直しはアーカイブにあるエンタイトルメントしか引き継がない
-# ので、照合は必ず抜けを見つける。error のままだと、develop → main をマージするたびにリリースが止まる。
-# 署名ありのアーカイブ（証明書の取り込み）を release.yml に入れ、mode=export で照合が通ることを確かめたら、
-# warn を外して error に戻す（docs/release-flow.md の「Capability（iCloud など）を足すとき」）。
+# release.yml のアップロード前の照合だけは、いまは warn を渡している。release.yml のアーカイブは署名あり
+# （証明書を取り込んで ARCHIVE_SIGNING=YES）にしたが、その経路はまだ一度も通していない。error にすると、
+# 経路のどこかが食い違っていたときに、develop → main をマージするたびにリリースが止まる。
+# 所有者が main で mode=export を走らせ、照合が通ることを確かめたら、warn を外して error に戻す
+# （docs/release-flow.md の「署名ありのアーカイブ」）。
 RELEASE_ENTITLEMENTS_CHECK ?= error
 
 # 3 つとも揃っているときだけ API キーの認証フラグを付ける。
@@ -111,6 +128,16 @@ release-args:
 		YES | NO) ;; \
 		*) echo "error: ARCHIVE_SIGNING は YES か NO を指定してください（いま: $(ARCHIVE_SIGNING)）。"; exit 1 ;; \
 	esac
+	@# キーチェーンの指定が黙って無視されたり、無いキーチェーンを codesign に渡して署名の段階
+	@# （アーカイブの終わり近く）で落ちたりしないように、ここで止める。
+	@if [ -n "$(ARCHIVE_KEYCHAIN)" ]; then \
+		if [ "$(ARCHIVE_SIGNING)" != YES ]; then \
+			echo "error: ARCHIVE_KEYCHAIN は ARCHIVE_SIGNING=YES のときだけ渡せます（いま: ARCHIVE_SIGNING=$(ARCHIVE_SIGNING)）。"; exit 1; \
+		fi; \
+		if [ ! -f "$(ARCHIVE_KEYCHAIN)" ]; then \
+			echo "error: ARCHIVE_KEYCHAIN のキーチェーンがありません: $(ARCHIVE_KEYCHAIN)"; exit 1; \
+		fi; \
+	fi
 
 # 提出に使うアーカイブは、バージョンと CHANGELOG が揃っていることを前提にする。
 # ずれたまま出すと、App Store のリリースノートが別の版のものになる。
@@ -125,6 +152,7 @@ archive: release-args check-version release-auth generate
 		-derivedDataPath "$(RELEASE_DERIVED_DATA)" \
 		$(if $(BUILD_NUMBER),CURRENT_PROJECT_VERSION=$(BUILD_NUMBER)) \
 		$(if $(filter NO,$(ARCHIVE_SIGNING)),CODE_SIGNING_ALLOWED=NO) \
+		$(if $(ARCHIVE_KEYCHAIN),OTHER_CODE_SIGN_FLAGS="--keychain $(ARCHIVE_KEYCHAIN)") \
 		-allowProvisioningUpdates $(RELEASE_AUTH)
 	@# できあがったアーカイブの中身で確かめる。Info.plist の CFBundleVersion が
 	@# $$(CURRENT_PROJECT_VERSION) を参照していないと、BUILD_NUMBER を渡しても番号が変わらず、
@@ -201,7 +229,7 @@ export-ipa: release-auth
 		done; \
 		if [ -n "$$missing" ]; then \
 			msg="書き出したアプリに、$(RELEASE_ENTITLEMENTS) のエンタイトルメントが載っていません:$${missing}"; \
-			hint="署名なし（ARCHIVE_SIGNING=NO）のアーカイブにはエンタイトルメントが焼かれません。docs/release-flow.md の「Capability（iCloud など）を足すとき」に従い、アーカイブを署名ありに切り替えてください。"; \
+			hint="署名なし（ARCHIVE_SIGNING=NO）のアーカイブにはエンタイトルメントが焼かれません。アーカイブを署名ありで作ったかを確かめてください（docs/release-flow.md の「署名ありのアーカイブ」）。"; \
 			if [ "$(RELEASE_ENTITLEMENTS_CHECK)" = warn ]; then \
 				if [ "$$GITHUB_ACTIONS" = true ]; then echo "::warning title=エンタイトルメントの照合::$${msg} $${hint}"; fi; \
 				echo "warning: $${msg}"; \

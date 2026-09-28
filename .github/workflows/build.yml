@@ -124,8 +124,11 @@ jobs:
       # リリースされていないコミットが残り、直すのにもう一度 develop → main を回すことになる。
       #
       # 署名なし（ARCHIVE_SIGNING=NO）で、ASC_* も渡さないので Secrets は要らない
-      # （release.mk の release-auth は 3 つとも無い状態を受け付ける）。BUILD_NUMBER を渡すのは、
-      # ビルド番号の上書きが Info.plist に届くかの検査まで通すため。値は検査用で、何も送らない。
+      # （release.mk の release-auth は 3 つとも無い状態を受け付ける）。提出物（release.yml）は開発用の
+      # 証明書で署名してアーカイブするが、PR ごとに走るここは証明書（Environment release の Secrets）を
+      # 読めないので署名しない。組み立ての経路とアーカイブの検査は、署名なしでも同じように通る。
+      # BUILD_NUMBER を渡すのは、ビルド番号の上書きが Info.plist に届くかの検査まで通すため。値は検査用で、
+      # 何も送らない。
       # xcconfig の既定値（CURRENT_PROJECT_VERSION = 1）と同じ値を渡すと、上書きが届いて
       # いなくても番号が一致して検査が素通りするので、既定値と重ならない値にする。
       # Makefile の make ci も同じ値を使う（片方を変えたらもう片方も）。
