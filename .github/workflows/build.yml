@@ -48,8 +48,9 @@ jobs:
     # CI だけが落ちる。xcode-27 が GA でラベルを変えたら、release.yml と一緒に直す。
     runs-on: xcode-27
     # 固まったときに macOS ランナーを 6 時間（既定の上限）使い切らないようにする。
-    # シミュレータ向けのビルド、アプリのテスト（シミュレータの起動を含む）、Release の実機向けアーカイブを見込んだ値。
-    timeout-minutes: 60
+    # シミュレータ向けのビルド、アプリのテスト（シミュレータの起動を含む）、購入のテスト用の iOS のランタイムの取得
+    # （イメージに無いときだけ。数 GB）、Release の実機向けアーカイブを見込んだ値。
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -118,6 +119,21 @@ jobs:
       - name: アプリのテスト
         if: ${{ !cancelled() }}
         run: make test-app
+
+      # 購入のテスト（StoreKitPurchaseTests。StoreKit の設定ファイルと SKTestSession で、購入・承認待ち・返金・復元など）は、
+      # SKTestSession が動く版のシミュレータ（Makefile の STOREKIT_TEST_OS。iOS 26.3・26.4 では Apple の不具合で動かない）で
+      # 動かす。上の make test-app はいちばん新しい版を選ぶので、購入のテストを除いている。
+      # ランナーのイメージにその版のランタイムが無ければ入れ、iPhone のシミュレータが無ければ作る（scripts/prepare-storekit-simulator.sh）。
+      # make test-storekit は、テストが 1 つでも飛ばされたら失敗にし、通った・失敗・飛ばした数をログに出す
+      # （飛ばしただけでは成功に紛れ、購入の流れを確かめないまま緑になるため）。
+      - name: 購入のテスト用のシミュレータを用意
+        id: storekit-simulator
+        if: ${{ !cancelled() }}
+        run: ./scripts/prepare-storekit-simulator.sh "$(make -s print-storekit-os)"
+
+      - name: 購入のテスト
+        if: ${{ !cancelled() && steps.storekit-simulator.outcome == 'success' }}
+        run: make test-storekit
 
       # Config/Base.xcconfig と CHANGELOG.md が食い違ったまま main へ進むと、
       # App Store のリリースノートが別バージョンのものになる。
