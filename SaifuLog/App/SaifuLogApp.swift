@@ -11,7 +11,8 @@ struct SaifuLogApp: App {
     var body: some Scene {
         WindowGroup {
             StoreRootView(host: storeHost) { container in
-                HomeView(model: HomeModel(context: container.mainContext, pendingWrites: storeHost.pendingWrites))
+                // 初回だけ案内（ようこそ → 予算を決める）を出し、それ以外はホーム。
+                AppRootView(container: container, pendingWrites: storeHost.pendingWrites)
             }
         }
     }

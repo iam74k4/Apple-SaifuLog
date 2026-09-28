@@ -14,13 +14,30 @@ struct FoundationModelsEntryParser: EntryParsing {
     var calendar: Calendar = .current
 
     /// この端末でいま AI を使えるか。
+    static var isAvailable: Bool {
+        status.isAvailable
+    }
+
+    /// この端末でいま AI を使えるか。使えないときはその理由（ようこその案内に使う）。
     ///
     /// 非対応機種・Apple Intelligence がオフ・モデルのダウンロード中は使えない。
     /// 入力は日本語なので、日本語に対応しているかも見る。
-    static var isAvailable: Bool {
+    /// `SystemLanguageModel` は Observable なので、画面の描画の中で読めば、使えるようになったときに描き直される。
+    static var status: OnDeviceAIStatus {
         let model = SystemLanguageModel.default
-        guard case .available = model.availability else { return false }
-        return model.supportsLocale(Locale(identifier: "ja_JP"))
+        switch model.availability {
+        case .available:
+            return model.supportsLocale(Locale(identifier: "ja_JP")) ? .available : .unavailable
+        case .unavailable(.deviceNotEligible):
+            return .deviceNotEligible
+        case .unavailable(.appleIntelligenceNotEnabled):
+            return .appleIntelligenceNotEnabled
+        case .unavailable(.modelNotReady):
+            return .modelNotReady
+        // 理由の列挙は @frozen ではなく、OS が増やすことがある。知らない理由は、使えないとだけ伝える。
+        case .unavailable:
+            return .unavailable
+        }
     }
 
     func parse(_ text: String) async throws -> [ParsedEntry] {

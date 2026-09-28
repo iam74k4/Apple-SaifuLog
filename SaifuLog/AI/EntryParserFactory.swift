@@ -15,4 +15,14 @@ enum EntryParserFactory {
         #endif
         return rules
     }
+
+    /// いまの端末で AI を使えるか（使えないときはその理由）。ようこそ（①）の案内に使う。
+    /// `makeParser()` と同じ判定（`FoundationModelsEntryParser.isAvailable` は、これが `.available` のとき）。
+    static var aiStatus: OnDeviceAIStatus {
+        #if canImport(FoundationModels)
+        FoundationModelsEntryParser.status
+        #else
+        .unavailable
+        #endif
+    }
 }

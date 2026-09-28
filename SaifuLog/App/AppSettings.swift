@@ -19,7 +19,8 @@ struct AppSetting<Value: Sendable>: Sendable {
 /// マニフェストへ理由 1C8F.1 を足し、PRIVACY.md も見直す。
 /// 家計の記録そのもの（金額やメモ）はここに置かない。SwiftData の保存先に置き、データ保護を効かせる。
 enum AppSettings {
-    /// 初回の案内（ようこそ・予算を決める）を終えたか。案内の画面を作るときに使う。
+    /// 初回の案内（ようこそ・予算を決める）を終えたか。予算を決めずに「あとで」で進んでも終えたことになる。
+    /// 案内を出す前の版から使っていて記録がある端末は、案内を出さずに true にする（`OnboardingModel.needsOnboarding`）。
     static let hasCompletedOnboarding = AppSetting(key: "hasCompletedOnboarding", defaultValue: false)
     /// iCloud と同期するか。既定はオフ（利用者が選んだときだけ同期する）。iCloud 同期を作るときに使う。
     static let iCloudSyncEnabled = AppSetting(key: "iCloudSyncEnabled", defaultValue: false)
