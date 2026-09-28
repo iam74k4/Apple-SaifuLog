@@ -508,6 +508,17 @@
         }
       }
     },
+    "ホームに今月あといくら使えるかが出なくなります。予算はあとからまた決められます。" : {
+      "comment" : "予算を決める画面で「予算をなくす」を押したときの確認の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home will no longer show how much you have left this month. You can set a budget again anytime."
+          }
+        }
+      }
+    },
     "ランチ 850 のように入力" : {
       "comment" : "入力欄のプレースホルダ。例の「ランチ 850」は訳さない（解析が日本語の入力を前提にしているため）。英訳は短く保つ（長いと既定の文字サイズでも例が「…」で切れる）",
       "localizations" : {
@@ -603,6 +614,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Budget removed"
+          }
+        }
+      }
+    },
+    "予算をなくしますか？" : {
+      "comment" : "予算を決める画面で「予算をなくす」を押したときの確認の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove the budget?"
           }
         }
       }

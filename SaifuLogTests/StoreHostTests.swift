@@ -267,7 +267,7 @@ struct StoreHostTests {
         let model = HomeModel(
             store: EntryStore(context: first.mainContext),
             pendingWrites: host.pendingWrites,
-            makeParser: {
+            makeParser: { _, _ in
                 StubParser { text in
                     for await _ in gate { break }
                     return try await parser.parse(text)

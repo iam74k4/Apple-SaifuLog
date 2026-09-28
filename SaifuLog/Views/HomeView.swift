@@ -80,7 +80,7 @@ struct HomeView: View {
                 }
                 // 「取り消す」は記録の直後だけのもの。しばらくしたら引っ込め、タイムラインを広く使う。
                 // 支援技術を使い始めたときにも数え直す（id に含める）と、途中で引っ込むことがない。
-                // 「直す」のシートを出している間は止め、閉じたら 8 秒を数え直す（`HomeModel.autoHidesUndo`）。
+                // 「直す」のシートと保存の失敗のアラートを出している間は止め、閉じたら 8 秒を数え直す（`HomeModel.autoHidesUndo`）。
                 .task(id: undoBannerSchedule) {
                     guard model.autoHidesUndo, !keepsUndoBanner else { return }
                     try? await Task.sleep(for: .seconds(8))
@@ -159,7 +159,8 @@ struct HomeView: View {
         UndoBannerSchedule(
             ids: model.justRecorded.map(\.persistentModelID),
             keepsOpen: keepsUndoBanner,
-            isEditing: model.editing != nil
+            isEditing: model.editing != nil,
+            showsStoreFailure: model.storeFailure != nil
         )
     }
 }
@@ -170,6 +171,8 @@ private struct UndoBannerSchedule: Hashable {
     var keepsOpen: Bool
     /// 「直す」のシートを出しているか。出したときにタイマーを止め、閉じたときに数え直すため。
     var isEditing: Bool
+    /// 保存の失敗のアラートを出しているか。「直す」のシートと同じく、出している間は止め、閉じたら数え直す。
+    var showsStoreFailure: Bool
 }
 
 /// 保存先への書き込みの失敗を利用者に知らせる文。

@@ -72,4 +72,36 @@ struct ParsedEntryTests {
         #expect(timestamps.map(\.createdAt) == timestamps.map(\.createdAt).sorted())
         #expect(ParsedEntry.timestamps(for: [], now: Fixture.now, calendar: Fixture.calendar).isEmpty)
     }
+
+    // 以前は 1 ミリ秒ずつ後ろへずらすだけで、月末の 23:59:59.9995 に送った 3 件のうち 2 件が翌月 1 日の記録になり、
+    // 今月の合計から黙って抜けていた。
+    @Test("ずらした日時が日の境目を越えるときは、同じ日の中に収める", arguments: [
+        Fixture.date(2026, 9, 30, hour: 23, minute: 59).addingTimeInterval(59.9995),
+        Fixture.date(2026, 9, 28, hour: 23, minute: 59).addingTimeInterval(59.999),
+        Fixture.date(2026, 12, 31, hour: 23, minute: 59).addingTimeInterval(59.9999),
+    ])
+    func timestampsStayOnSameDay(now: Date) {
+        let entries = [
+            ParsedEntry(amount: 2_480, category: .food, memo: "スーパー"),
+            ParsedEntry(amount: 1_200, category: .daily, memo: "ドラッグ"),
+            ParsedEntry(amount: 400, category: .cafe, memo: "カフェ", daysAgo: 1),
+        ]
+        let timestamps = ParsedEntry.timestamps(for: entries, now: now, calendar: Fixture.calendar)
+        let calendar = Fixture.calendar
+        #expect(timestamps.allSatisfy { calendar.isDate($0.createdAt, inSameDayAs: now) })
+        #expect(timestamps.prefix(2).allSatisfy { calendar.isDate($0.spentAt, inSameDayAs: now) })
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: now)!
+        #expect(calendar.isDate(timestamps[2].spentAt, inSameDayAs: yesterday))
+        // 書いた順に並ぶ（同じ日時にしない）。送った日時から大きくは離れない。
+        #expect(zip(timestamps, timestamps.dropFirst()).allSatisfy { $0.createdAt < $1.createdAt })
+        #expect(timestamps.allSatisfy { abs($0.createdAt.timeIntervalSince(now)) < 0.01 })
+    }
+
+    @Test("日の境目から離れていれば、送った日時から 1 ミリ秒ずつ後ろへずらす")
+    func timestampsStartAtNowAwayFromMidnight() {
+        let now = Fixture.date(2026, 9, 28, hour: 23, minute: 59).addingTimeInterval(59)
+        let entries = [ParsedEntry(amount: 850, category: .food), ParsedEntry(amount: 400, category: .cafe)]
+        let timestamps = ParsedEntry.timestamps(for: entries, now: now, calendar: Fixture.calendar)
+        #expect(timestamps.map(\.createdAt) == [now, now.addingTimeInterval(0.001)])
+    }
 }

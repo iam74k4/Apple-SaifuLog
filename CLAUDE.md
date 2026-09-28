@@ -81,7 +81,9 @@ docs: add privacy policy
   `-only-testing:SaifuLogTests`）。SwiftData の保存・読み込みの条件や保存の失敗の扱い、保存先の開き方、
   画面のモデル（`HomeModel`）の操作など、コアに置けない部分。
   機種は `scripts/pick-simulator.sh` が、いちばん新しい iOS の iPhone を選ぶ（`TEST_DESTINATION=…` で上書きできる）
-- `make ci` — 必須チェック `build`（build.yml）と同じ 6 つ（`make build`・`make test`・`make build-tests`・
+- `make check-strings` — `make build` が書き出した Debug の .stringsdata と `Localizable.xcstrings` を突き合わせ、
+  足りないキー・使われていないキー・en の無いキー・ja と en の書式指定子の不一致があれば止まる（`scripts/check-strings.py`）
+- `make ci` — 必須チェック `build`（build.yml）と同じ 7 つ（`make build`・`make check-strings`・`make test`・`make build-tests`・
   `make test-app`・`make check-version`・`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を順に通す。
   **`make build` が通るだけでは CI が通るとは限らない。** PR の前はこれを通す
 - `make clean` / `make open` — 生成物の削除 / Xcode で開く

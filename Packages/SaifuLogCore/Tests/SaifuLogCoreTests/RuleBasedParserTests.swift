@@ -621,6 +621,275 @@ struct RuleBasedParserTests {
         #expect(parse(text).map(\.amount) == [500])
     }
 
+    // MARK: - 日付・時刻から書き始めた次の件
+
+    // 以前は、空白の後ろが数字で書いた日付・時刻（9/27、3日前、12:30）だと区切らず、前の件の金額が黙って消えていた
+    // （「9/26 ランチ 850 9/27 カフェ 400」が ¥400 の 1 件になった）。語で書いた日付（「昨日」）と同じく区切る。
+    static let numericDateCases: [(text: String, daysAgo: [Int])] = [
+        ("9/26 ランチ 850 9/27 カフェ 400", [2, 1]),
+        ("ランチ 850 3日前 カフェ 400", [0, 3]),
+        ("ランチ 850 12:30 カフェ 400", [0, 0]),
+        ("ランチ 850 26日 カフェ 400", [0, 2]),
+        ("ランチ 850 2025年9月27日 カフェ 400", [0, 366]),
+        ("ランチ 850 昨日 カフェ 400", [0, 1]),
+    ]
+
+    @Test("金額の後ろの空白に、数字で書いた日付や時刻から次の件が続けば分ける", arguments: numericDateCases)
+    func numericDateStartsNextEntry(text: String, daysAgo: [Int]) {
+        let entries = parse(text)
+        #expect(entries.map(\.amount) == [850, 400])
+        #expect(entries.map(\.daysAgo) == daysAgo)
+        #expect(entries.map(\.memo) == ["ランチ", "カフェ"])
+    }
+
+    // 1 件にまとめると、前の件の「給料」で後ろの家賃まで収入になっていた。
+    @Test("日付から書き始めた次の件に、前の件の収入の語はかからない")
+    func numericDateKeepsIncomeInItsEntry() {
+        #expect(parse("給料 25万 9/25 家賃 8万") == [
+            ParsedEntry(amount: 250_000, category: .other, isIncome: true, memo: "給料"),
+            ParsedEntry(amount: 80_000, category: .other, memo: "家賃", daysAgo: 3),
+        ])
+    }
+
+    @Test("金額の後ろに置いただけの日付や時刻は、その件のもの", arguments: [
+        ("ランチ 850 9/26", 2), ("ランチ 850 12:30", 0), ("ランチ 850 3日前", 3),
+    ])
+    func trailingNumericDateStaysWithEntry(text: String, daysAgo: Int) {
+        #expect(parse(text) == [ParsedEntry(amount: 850, category: .food, memo: "ランチ", daysAgo: daysAgo)])
+    }
+
+    // MARK: - 数字で始まる句の後ろの次の件
+
+    // 以前は、金額の後ろに数字で始まる句（4人で割り勘・2本）があると、その後ろの件と 1 件にまとめ、割り勘が
+    // 後ろの件の金額にかかっていた（¥850 が 4 人で割られて ¥213 になった）。
+    @Test("金額の後ろの人数や数量の句の後ろに、空白か独立した「と」で次の件が続けば分ける", arguments: [
+        "焼肉12000 4人で割り勘 ランチ 850",
+        "焼肉12000 4人で割り勘 と ランチ 850",
+    ])
+    func splitPhraseEndsEntry(text: String) {
+        #expect(parse(text) == [
+            ParsedEntry(
+                amount: 3_000, category: .food, memo: "焼肉（4人で割り勘・総額 ¥12,000・立替 ¥9,000）", splitCount: 4
+            ),
+            ParsedEntry(amount: 850, category: .food, memo: "ランチ"),
+        ])
+    }
+
+    static let quantityPhraseCases: [(text: String, amounts: [Int], memos: [String])] = [
+        ("ビール 500 2本 おつまみ 300", [500, 300], ["ビール 2本", "おつまみ"]),
+        ("コーヒー 400 2杯 ケーキ 500", [400, 500], ["コーヒー 2杯", "ケーキ"]),
+        ("ランチ 850 2人 カフェ 400", [850, 400], ["ランチ 2人", "カフェ"]),
+    ]
+
+    @Test("金額の後ろの数量や人数の句は前の件に残し、後ろの語から次の件にする", arguments: quantityPhraseCases)
+    func quantityPhraseEndsEntry(text: String, amounts: [Int], memos: [String]) {
+        let entries = parse(text)
+        #expect(entries.map(\.amount) == amounts)
+        #expect(entries.map(\.memo) == memos)
+        #expect(entries.map(\.splitCount) == [1, 1])
+    }
+
+    @Test("金額の後ろの割り勘の語と人数は前の件に残し、後ろの語から次の件にする", arguments: [
+        "焼肉 12000 割り勘 4人 カフェ 800", "焼肉 12000 割り勘 4人、カフェ 800", "焼肉 12000 わりかん4人 カフェ 800",
+    ])
+    func splitWordThenCountEndsEntry(text: String) {
+        #expect(parse(text).map(\.amount) == [3_000, 800])
+        #expect(parse(text).map(\.splitCount) == [4, 1])
+        #expect(parse(text).last?.memo == "カフェ")
+    }
+
+    @Test("合計を後ろに置いた、金額を先に書く並びも読む")
+    func amountFirstWithTotal() {
+        #expect(parse("850 ランチ 400 コーヒー 合計1250") == [
+            ParsedEntry(amount: 850, category: .food, memo: "ランチ"),
+            ParsedEntry(amount: 400, category: .cafe, memo: "コーヒー"),
+        ])
+    }
+
+    @Test("句の後ろが 1 人分の額なら、同じ件のまま")
+    func perPersonAfterSplitPhraseStaysInEntry() {
+        #expect(parse("焼肉 12000 4人で割り勘 1人3000") == [
+            ParsedEntry(amount: 3_000, category: .food, memo: "焼肉（4人で割り勘・1人分）"),
+        ])
+    }
+
+    // MARK: - 主な金額に添える額
+
+    // 以前は添えた額が別の件になるか、最後の金額として主な金額と入れ替わっていた（「ランチ 850 100円引き」が ¥100、
+    // 「合計1250」が 3 件目の記録、「おつり150円」が別の記録）。
+    @Test("マイナスを付けない値引きは、主な金額から引き、メモに値引きを残す", arguments: [
+        ("ランチ 850 100円引き", "ランチ 100円引き"),
+        ("ランチ 850 100引き", "ランチ 100引き"),
+        ("ランチ 850 値引き100", "ランチ 値引き100"),
+        ("ランチ 850円 (100円引き)", "ランチ (100円引き)"),
+        ("ランチ 850、100円引き", "ランチ 100円引き"),
+    ])
+    func deductionIsSubtracted(text: String, memo: String) {
+        #expect(parse(text) == [ParsedEntry(amount: 750, category: .food, memo: memo)])
+    }
+
+    // 以前は先に書いた値引きの直後の空白で件を区切り、「クーポン100円引き ランチ 850」を ¥100 と ¥850 の
+    // 2 件の支出として記録していた。
+    @Test("値引きを先に書いても、後ろの金額から引いて 1 件にする", arguments: [
+        ("クーポン100円引き ランチ 850", "クーポン100円引き ランチ"),
+        ("クーポン 100円引き ランチ 850", "クーポン 100円引き ランチ"),
+        ("100円引き ランチ 850", "100円引き ランチ"),
+        ("値引き100 ランチ 850", "値引き100 ランチ"),
+        ("値引き100ランチ850", "値引き100ランチ"),
+    ])
+    func leadingDeductionIsSubtracted(text: String, memo: String) {
+        #expect(parse(text) == [ParsedEntry(amount: 750, category: .food, memo: memo)])
+    }
+
+    @Test("値引きは同じ文の前の件から引き、文の頭に書いた値引きは同じ文の後ろの件から引く", arguments: [
+        ("ランチ 850 100円引き カフェ 400", [750, 400]),
+        ("ランチ 850、クーポン100円引き カフェ 400", [850, 300]),
+    ])
+    func deductionBetweenEntries(text: String, amounts: [Int]) {
+        #expect(parse(text).map(\.amount) == amounts)
+    }
+
+    @Test("税抜きと税込みの額を並べたら、払った額（税込み）の 1 件にする", arguments: [
+        "ランチ 1000円 (税込1100円)", "ランチ 1000円（税込み1100円）", "ランチ 1000円 税込1100円",
+        "ランチ 税込1100円 (税抜1000円)", "ランチ 1100円 税抜き1000円",
+    ])
+    func taxIncludedIsRecorded(text: String) {
+        #expect(parse(text) == [ParsedEntry(amount: 1_100, category: .food, memo: "ランチ")])
+    }
+
+    @Test("合計の行は記録しない", arguments: [
+        "ランチ850 コーヒー400 合計1250", "ランチ850、コーヒー400、合計1250", "ランチ850 コーヒー400 計 1250",
+        "ランチ850 コーヒー400 合計:¥1,250",
+    ])
+    func totalLineIsNotRecorded(text: String) {
+        #expect(parse(text) == [
+            ParsedEntry(amount: 850, category: .food, memo: "ランチ"),
+            ParsedEntry(amount: 400, category: .cafe, memo: "コーヒー"),
+        ])
+    }
+
+    @Test("おつりとお預かりの額は記録せず、メモにも残さない", arguments: [
+        "ランチ 850円 おつり150円", "ランチ 850円 お釣り 150円", "ランチ 850円 お預かり1000円 おつり150円",
+    ])
+    func changeIsNotRecorded(text: String) {
+        #expect(parse(text) == [ParsedEntry(amount: 850, category: .food, memo: "ランチ")])
+    }
+
+    @Test("ポイントは円ではないので記録しない（メモには残す）", arguments: [
+        ("家電 12万8千円 ポイント1万", 128_000, "家電 ポイント1万"),
+        ("コーヒー 400 ポイント100", 400, "コーヒー ポイント100"),
+        ("コーヒー 400 100pt", 400, "コーヒー 100pt"),
+    ])
+    func pointsAreNotRecorded(text: String, amount: Int, memo: String) {
+        let entries = parse(text)
+        #expect(entries.map(\.amount) == [amount])
+        #expect(entries.map(\.memo) == [memo])
+    }
+
+    @Test("おつり・ポイントだけでは金額が無いものとする", arguments: ["おつり150円", "ポイント100", "100pt", "お預かり 1000円"])
+    func changeOrPointsAloneHaveNoAmount(text: String) {
+        #expect(parse(text).isEmpty)
+    }
+
+    @Test("ほかに金額が無ければ、合計・税込み・値引きの額をその件の金額にする", arguments: [
+        ("スーパー 合計2480", 2_480, "スーパー"),
+        ("ランチ 税込1100円", 1_100, "ランチ"),
+        ("クーポン 100円引き", 100, "クーポン"),
+    ])
+    func supplementaryAmountAloneIsRecorded(text: String, amount: Int, memo: String) {
+        let entries = parse(text)
+        #expect(entries.map(\.amount) == [amount])
+        #expect(entries.map(\.memo) == [memo])
+    }
+
+    static let labelLikeWordCases: [(text: String, amounts: [Int])] = [
+        ("時計 30000", [30_000]), ("ランチ 850 時計 30000", [850, 30_000]), ("魚釣り 3000", [3_000]),
+        ("一時預かり 2000", [2_000]), ("値引き交渉 500", [500]), ("ATM 10000円引き出し", [10_000]),
+    ]
+
+    @Test("語の一部の「計」「釣り」「預かり」は、合計・おつりの語にしない", arguments: labelLikeWordCases)
+    func wordsContainingLabelsAreAmounts(text: String, amounts: [Int]) {
+        #expect(parse(text).map(\.amount) == amounts)
+    }
+
+    // MARK: - 改行・マイナスの記号・「、」の桁区切り
+
+    @Test("CRLF（\\r\\n）と CR も、改行と同じく強い区切りにする", arguments: [
+        "焼肉12000 4人で割り勘\r\nランチ 850", "焼肉12000 4人で割り勘\rランチ 850",
+    ])
+    func carriageReturnSeparatesLikeNewline(text: String) {
+        #expect(parse(text) == parse("焼肉12000 4人で割り勘\nランチ 850"))
+        #expect(parse(text).map(\.amount) == [3_000, 850])
+    }
+
+    @Test("全角の「－」やダッシュを付けた額も返金として収入にし、メモに記号を残さない", arguments: [
+        "返金 －500", "返金　－５００円", "返金 \u{2013}500", "返金 \u{2010}500", "返金 \u{2014}500", "返金 \u{2015}500",
+    ])
+    func minusVariantsAreRefund(text: String) {
+        #expect(parse(text) == [ParsedEntry(amount: 500, category: .other, isIncome: true, memo: "返金")])
+    }
+
+    @Test("日本語の入力の「、」で桁を区切った金額を 1 つの金額として読む", arguments: [
+        ("ランチ 1、280円", 1_280), ("家電 12、800", 12_800), ("車 1、280、000円", 1_280_000),
+    ])
+    func ideographicCommaAsThousandsSeparator(text: String, amount: Int) {
+        #expect(parse(text).map(\.amount) == [amount])
+    }
+
+    static let ideographicCommaSeparatorCases: [(text: String, amounts: [Int])] = [
+        ("ランチ 850、カフェ 400", [850, 400]), ("スーパー2480、120", [2_480, 120]), ("コーヒー 1、28", [1, 28]),
+        ("ランチ850、400", [850, 400]), ("ランチ 850、100円引き", [750]),
+        // 先頭の組が 3 桁で後ろが「000」でない「、」は区切りとして読む（design.md の「対応しない表記」）。カンマなら 1 件。
+        ("パソコン 128、500円", [128, 500]), ("パソコン 128,500円", [128_500]),
+    ]
+
+    @Test("区切りとして使った「、」はそのまま区切る", arguments: ideographicCommaSeparatorCases)
+    func ideographicCommaAsSeparator(text: String, amounts: [Int]) {
+        #expect(parse(text).map(\.amount) == amounts)
+    }
+
+    // 以前は日付の日や時刻の分を数の先頭の組とみなし、「9/26、850円」を ¥9 と ¥26,850、「12:30、400円」を
+    // ¥30,400 と読んでいた。
+    @Test("日付・時刻の後ろの「、」は桁区切りにせず、区切りのまま読む", arguments: [
+        ("9/26、850円 ランチ", 850, 2), ("12:30、400円", 400, 0), ("昨日12:30、500円 カフェ", 500, 1),
+        ("9/26,850円 ランチ", 850, 2),
+    ])
+    func ideographicCommaAfterDateOrTime(text: String, amount: Int, daysAgo: Int) {
+        let entries = parse(text)
+        #expect(entries.map(\.amount) == [amount])
+        #expect(entries.map(\.daysAgo) == [daysAgo])
+    }
+
+    @Test("「。」は小数点として読まない（文の区切りのまま）")
+    func ideographicPeriodIsNotDecimalPoint() {
+        #expect(!parse("家賃 8。5万").map(\.amount).contains(85_000))
+    }
+
+    // MARK: - 割り勘の人数の端と幅
+
+    @Test("割り勘の人数は 2〜100 人だけ割る", arguments: [
+        ("焼肉 12000 1人で割り勘", 12_000, 1),
+        ("焼肉 12000 2人で割り勘", 6_000, 2),
+        ("焼肉 12000 100人で割り勘", 120, 100),
+        ("焼肉 12000 101人で割り勘", 12_000, 1),
+    ])
+    func splitCountBounds(text: String, amount: Int, splitCount: Int) {
+        let entries = parse(text)
+        #expect(entries.map(\.amount) == [amount])
+        #expect(entries.map(\.splitCount) == [splitCount])
+    }
+
+    @Test("「〜」「～」でつないだ人数の幅は、上限の人数で割る", arguments: [
+        "焼肉 12000 3〜4人で割り勘", "焼肉 12000 3～4人で割り勘", "焼肉 12000 3-4人で割り勘",
+    ])
+    func splitCountRangeWithTilde(text: String) {
+        #expect(parse(text) == [
+            ParsedEntry(
+                amount: 3_000, category: .food, memo: "焼肉（4人で割り勘・総額 ¥12,000・立替 ¥9,000）", splitCount: 4
+            ),
+        ])
+    }
+
     // MARK: - 非同期の入口
 
     @Test("EntryParsing として呼んでも同じ結果")

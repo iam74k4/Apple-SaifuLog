@@ -106,9 +106,21 @@ final class BudgetSetupModel: Identifiable {
         return true
     }
 
-    /// 全体の予算をなくす（0 を書く）。なくせたら true。カテゴリ別の予算はそのまま残す。
+    /// 「予算をなくしますか？」の確認を出しているか（確認を閉じると画面が false に戻す）。
+    var showsRemoveConfirmation = false
+
+    /// 「予算をなくす」を押した。すぐにはなくさず、確認を出す。
+    ///
+    /// 押しただけで消すと、シートが上がる途中の誤タップや、VoiceOver で読み上げを聞こうとしたダブルタップで、
+    /// 気づかないうちに予算が消えるため（決め直せても、いくらにしていたかは残らない）。
+    func requestRemoveTotalBudget() {
+        showsRemoveConfirmation = true
+    }
+
+    /// 確認のあとで、全体の予算をなくす（0 を書く）。なくせたら true。カテゴリ別の予算はそのまま残す。
     @discardableResult
     func removeTotalBudget() -> Bool {
+        showsRemoveConfirmation = false
         guard write([.total: 0]) else { return false }
         totalText = ""
         announce(String(localized: "予算をなくしました"))

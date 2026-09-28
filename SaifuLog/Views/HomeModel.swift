@@ -39,7 +39,7 @@ final class HomeModel {
     @ObservationIgnored private let store: EntryStore
     @ObservationIgnored private let budgetStore: BudgetStore
     @ObservationIgnored private let pendingWrites: PendingStoreWrites
-    @ObservationIgnored private let makeParser: () -> any EntryParsing
+    @ObservationIgnored private let makeParser: (Date, Calendar) -> any EntryParsing
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
 
@@ -47,14 +47,15 @@ final class HomeModel {
     ///   - budgetStore: 予算の読み書き。渡さなければ記録と同じ保存先（`store` の ModelContext）を使う。
     ///   - pendingWrites: 解析を待ってから記録する処理を数える先（`StoreHost.pendingWrites`）。保存先を開き直すとき、
     ///     記録し終えるのを待ってもらうため。
-    ///   - makeParser: 送信のたびに解析器を選ぶ（AI の使える・使えないは途中から変わるため）。テストで差し替える。
+    ///   - makeParser: 送信のたびに解析器を選ぶ（AI の使える・使えないは途中から変わるため）。送った瞬間の日時と暦を渡し、
+    ///     「昨日」「9/26」をその日時を基準に読ませる。テストで差し替える。
     ///   - now: 記録の日時と「今日」の基準。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     init(
         store: EntryStore,
         budgetStore: BudgetStore? = nil,
         pendingWrites: PendingStoreWrites = PendingStoreWrites(),
-        makeParser: @escaping () -> any EntryParsing = { EntryParserFactory.makeParser() },
+        makeParser: @escaping (Date, Calendar) -> any EntryParsing = { EntryParserFactory.makeParser(now: $0, calendar: $1) },
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
     ) {
@@ -80,9 +81,10 @@ final class HomeModel {
     ///
     /// 「直す」のシートを出している間は数えない。シートの下でもホームは表示されたままなので、数え続けると、
     /// 直すのに 8 秒以上かけてやめたときには「取り消す」が消えていて、直すのをやめても取り消せる、という約束を破るため。
-    /// シートを閉じたら数え直す（閉じた直後にも押せるように）。
+    /// 保存の失敗のアラート（「取り消せませんでした」など）を出している間も数えない。アラートを読んでいる間に
+    /// バナーが消えると、「もう一度お試しください」に従えないため。どちらも閉じたら数え直す（閉じた直後にも押せるように）。
     var autoHidesUndo: Bool {
-        canUndo && editing == nil
+        canUndo && editing == nil && storeFailure == nil
     }
 
     // MARK: - 送信
@@ -97,7 +99,15 @@ final class HomeModel {
         // 送った時点で入力欄を空ける。解析（AI だと 1 秒以上かかることがある）を待ってから空けると、
         // 入力欄にとどまって打ち始めた次の入力まで、黙って消してしまうため。
         draft = ""
-        let parser = makeParser()
+        // 前の記録の「取り消す」（バナーと VoiceOver の操作）を引っ込める。読み取りの間も出したままだと、押したときに
+        // 前の記録が消え、前の文が入力欄に戻る。それを送り直したり、いま送った文の記録だけが残ったりして、
+        // 取り消したつもりのものと違う記録が残るため。
+        justRecorded = []
+        // 送った瞬間の日時を 1 つ決め、解析（「昨日」「9/26」の基準）と保存（記録した日時・使った日時）の両方に使う。
+        // 保存のときに時計を読み直すと、読み取りを待つ間に日付が変わったとき（23:59:59 に送って 0:00:01 に保存）、
+        // 「9/26」と書いた記録が 1 日ずれて保存されるため。
+        let sentAt = now()
+        let parser = makeParser(sentAt, calendar)
         // 解析の間に保存先が開き直されないよう、Task を作る前に数える（Task は画面のツリーを畳んだ後も動き続け、
         // この後で前の保存先に書き込むため）。
         pendingWrites.begin()
@@ -113,7 +123,7 @@ final class HomeModel {
                 showsNoAmountAlert = true
                 return
             }
-            let recorded = Entry.records(from: parsed, originalText: text, source: .text, now: now(), calendar: calendar)
+            let recorded = Entry.records(from: parsed, originalText: text, source: .text, now: sentAt, calendar: calendar)
             do {
                 try store.insert(recorded)
             } catch {
@@ -123,7 +133,7 @@ final class HomeModel {
                 return
             }
             justRecorded = recorded
-            announceRecorded(recorded, calendar: calendar)
+            announceRecorded(recorded, today: sentAt, calendar: calendar)
         }
     }
 
@@ -137,8 +147,8 @@ final class HomeModel {
     /// 「記録しました / 取り消す」のバナーは、画面に出ても VoiceOver では読まれない。読み上げないと、
     /// VoiceOver の利用者は記録できたかも、AI がどう読んだかも分からず、読み違いにその場で気づけない。
     /// 今日でない日付に記録したときは日付も読む（「昨日」の読み違いや、未来の日付に気づけるように）。
-    private func announceRecorded(_ recorded: [Entry], calendar: Calendar) {
-        let today = now()
+    /// 今日かどうかは、記録の日付を決めたのと同じ送った瞬間（`today`）で見る。
+    private func announceRecorded(_ recorded: [Entry], today: Date, calendar: Calendar) {
         let items = recorded.map { entry in
             var item = "\(entry.kindText) \(YenFormatter.string(from: entry.amount))"
             if !calendar.isDate(entry.spentAt, inSameDayAs: today) {

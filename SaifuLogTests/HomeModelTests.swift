@@ -15,6 +15,8 @@ struct HomeModelTests {
         var failsSave = false
         /// 送信のたびに使う解析器。既定はキーワード辞書（固定の日時で読む）。
         var parser: any EntryParsing = RuleBasedParser(calendar: TestSupport.calendar, now: { TestSupport.now })
+        /// 解析器の作り方を差し替える（送った瞬間の日時と暦を受け取る）。nil なら `parser` を使う。
+        var makeParser: ((Date, Calendar) -> any EntryParsing)?
         var now = TestSupport.now
         /// 解析を待ってから記録する処理の数（保存先の開き直しが待つもの）。
         let pendingWrites = PendingStoreWrites()
@@ -31,7 +33,7 @@ struct HomeModelTests {
             model = HomeModel(
                 store: store,
                 pendingWrites: pendingWrites,
-                makeParser: { [unowned self] in parser },
+                makeParser: { [unowned self] now, calendar in makeParser?(now, calendar) ?? parser },
                 now: { [unowned self] in now },
                 announce: { [unowned self] in announcements.append($0) }
             )
@@ -192,7 +194,133 @@ struct HomeModelTests {
         #expect(fixture.pendingWrites.count == 0)
     }
 
+    // MARK: - 送った瞬間の日時
+
+    /// 解析の基準の日時と保存する日時は、送った瞬間の 1 つの値にする。
+    ///
+    /// 以前は保存のときに時計を読み直していたので、読み取りを待つ間に日付が変わると（23:59:59 に送って 0:00:01 に保存）、
+    /// 「9/26」と書いた記録が 9/27 で保存されていた。
+    @Test func parsingAndSavingShareSendTime() async throws {
+        let fixture = try Fixture()
+        let sentAt = TestSupport.date(2026, 9, 28, hour: 23, minute: 59).addingTimeInterval(59)
+        let savedAt = TestSupport.date(2026, 9, 29).addingTimeInterval(1)
+        fixture.now = sentAt
+        var parsedWith: Date?
+        fixture.makeParser = { now, calendar in
+            parsedWith = now
+            return StubParser { text in
+                // 読み取っている間に日付が変わる。
+                await MainActor.run { fixture.now = savedAt }
+                return RuleBasedParser(calendar: calendar, now: { now }).entries(from: text)
+            }
+        }
+
+        await fixture.send("9/26 ランチ 850")
+
+        #expect(parsedWith == sentAt)
+        let entry = try #require(try fixture.entries().first)
+        #expect(entry.createdAt == sentAt)
+        #expect(TestSupport.calendar.isDate(entry.spentAt, inSameDayAs: TestSupport.date(2026, 9, 26)))
+        // 読み上げの「今日」も送った瞬間で決める（9/26 の記録として日付を読む）。
+        #expect(fixture.announcements.first?.contains(entry.spentAt.formatted(.dateTime.month().day())) == true)
+    }
+
+    /// 月末の 23:59:59.9995 に送った複数件も、すべて今月の記録にする（書いた順に並べるためにずらした日時が翌月へはみ出さない）。
+    @Test func multipleEntriesAtMonthEndStayInMonth() async throws {
+        let fixture = try Fixture()
+        let sentAt = TestSupport.date(2026, 9, 30, hour: 23, minute: 59).addingTimeInterval(59.9995)
+        fixture.now = sentAt
+        fixture.makeParser = { now, calendar in RuleBasedParser(calendar: calendar, now: { now }) }
+
+        await fixture.send("スーパー2480とドラッグ1200とカフェ400")
+
+        let entries = try fixture.entries()
+        #expect(entries.map(\.amount) == [2_480, 1_200, 400])
+        #expect(entries.allSatisfy { TestSupport.calendar.isDate($0.spentAt, inSameDayAs: sentAt) })
+        let month = Entry.monthDescriptor(containing: sentAt, calendar: TestSupport.calendar)
+        #expect(try fixture.context.fetchCount(month) == 3)
+    }
+
     // MARK: - 取り消し
+
+    /// 次の文を送ったら、前の記録の「取り消す」を引っ込める（読み取りの間も押せない。VoiceOver の操作も出さない）。
+    ///
+    /// 以前は読み取りの間も「取り消す」が前の記録を指したまま押せ、押すと前の記録が消えて、送った記録だけが残った。
+    @Test func sendingRetractsPreviousUndo() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+        #expect(fixture.model.canUndo)
+        let rules = fixture.parser
+        fixture.parser = StubParser { text in
+            await MainActor.run {
+                #expect(fixture.model.isParsing)
+                #expect(!fixture.model.canUndo)
+                #expect(!fixture.model.autoHidesUndo)
+                #expect(fixture.model.justRecorded.isEmpty)
+                // 押せたとしても、前の記録は消さない。
+                fixture.model.undoLastRecord()
+            }
+            return try await rules.parse(text)
+        }
+
+        await fixture.send("コーヒー 400")
+
+        #expect(try fixture.entries().map(\.amount) == [850, 400])
+        #expect(fixture.model.justRecorded.map(\.amount) == [400])
+        #expect(fixture.model.draft.isEmpty)
+        #expect(fixture.announcements.count == 2)
+    }
+
+    /// 前の記録の後に送った文が読めなかったら、その文を入力欄に戻す（前の記録の文を戻さない）。
+    @Test func failedSendAfterRecordRestoresItsOwnText() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+        fixture.parser = StubParser { _ in
+            await MainActor.run { fixture.model.undoLastRecord() }
+            return []
+        }
+
+        await fixture.send("コーヒー")
+
+        #expect(fixture.model.showsNoAmountAlert)
+        #expect(fixture.model.draft == "コーヒー")
+        #expect(try fixture.entries().map(\.amount) == [850])
+        #expect(!fixture.model.canUndo)
+    }
+
+    /// 複数件を送った後の「取り消す」は、全件を消し、元の文を 1 回だけ戻し、読み上げに全件を並べる。
+    @Test func undoRemovesAllEntriesOfSend() async throws {
+        let fixture = try Fixture()
+        await fixture.send("スーパー2480、ドラッグ1200")
+
+        fixture.model.undoLastRecord()
+
+        #expect(try fixture.entries().isEmpty)
+        #expect(!fixture.model.canUndo)
+        #expect(fixture.model.draft == "スーパー2480、ドラッグ1200")
+        #expect(fixture.announcements.count == 2)
+        let announcement = try #require(fixture.announcements.last)
+        #expect(announcement.contains("¥2,480"))
+        #expect(announcement.contains("¥1,200"))
+    }
+
+    /// 取り消しの保存に失敗してアラートを出している間は、「取り消す」を時間で引っ込めない（閉じたら数え直す）。
+    ///
+    /// 数え続けると、アラートを読んでいる間にバナーが消え、「もう一度お試しください」に従えなくなるため。
+    @Test func undoFailureAlertPausesAutoHide() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+        fixture.failsSave = true
+
+        fixture.model.undoLastRecord()
+
+        #expect(fixture.model.storeFailure == .undo)
+        #expect(fixture.model.canUndo)
+        #expect(!fixture.model.autoHidesUndo)
+        // アラートを閉じると、画面が nil に戻す。
+        fixture.model.storeFailure = nil
+        #expect(fixture.model.autoHidesUndo)
+    }
 
     @Test func undoDeletesRecordAndRestoresText() async throws {
         let fixture = try Fixture()
@@ -251,6 +379,27 @@ struct HomeModelTests {
 
         #expect(!fixture.model.canUndo)
         #expect(try fixture.entries().map(\.amount) == [850])
+    }
+
+    // MARK: - 読み上げ
+
+    /// 『記録しました』は、今日の記録には日付を添えず、今日でない記録には日付を、今年でない記録には年も添える。
+    @Test func recordedAnnouncementAddsDateWhenNotToday() async throws {
+        let fixture = try Fixture()
+
+        await fixture.send("ランチ 850")
+        let today = try #require(fixture.announcements.last)
+        #expect(!today.contains(TestSupport.now.formatted(.dateTime.month().day())))
+
+        await fixture.send("昨日 ランチ 850")
+        let yesterday = TestSupport.date(2026, 9, 27, hour: 12)
+        let thisYear = try #require(fixture.announcements.last)
+        #expect(thisYear.contains(yesterday.formatted(.dateTime.month().day())))
+        #expect(!thisYear.contains(yesterday.formatted(.dateTime.year().month().day())))
+
+        await fixture.send("2025/9/26 ランチ 900")
+        let lastYear = TestSupport.date(2025, 9, 26, hour: 12)
+        #expect(fixture.announcements.last?.contains(lastYear.formatted(.dateTime.year().month().day())) == true)
     }
 
     // MARK: - 削除

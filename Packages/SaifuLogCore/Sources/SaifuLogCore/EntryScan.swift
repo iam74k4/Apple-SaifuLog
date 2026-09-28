@@ -24,6 +24,49 @@ struct EntryScan {
         /// 「500×3」のような掛け算の単価（個数でない方）。掛け算でなければ nil。
         /// AI が単価だけを抜き出しても、掛けた額の金額と突き合わせられるようにするため。
         var unitPrice: Int?
+        /// 前後の語から読んだ、この額の役目（「税込1100円」「100円引き」「合計1250」「おつり150円」「ポイント100」）。
+        /// 役目の語は金額の範囲に含める（メモから除くときに一緒に除けるように）。
+        var role: Role = .primary
+        /// その件の金額として採らない額か（値引きの説明、税抜きの値段、合計、おつり、ポイントなど）。
+        /// AI が返した金額とも突き合わせない。`segments()` が付ける。
+        var isSupplementary = false
+
+        /// 主な金額に添えて書く額の役目。
+        ///
+        /// レシートや話し言葉では、払った額のほかに税抜きの値段・値引き・合計・おつり・ポイントを並べて書く。
+        /// 最後の金額を採る決まりのままだと、これらが別の件になるか、払った額と入れ替わるため、語で見分ける。
+        enum Role: Hashable, Sendable {
+            /// ふつうの金額。
+            case primary
+            /// 税込みの額。同じ件に税抜きの値段が並んでいても、払った額としてこちらを採る。
+            case taxIncluded
+            /// 税抜きの値段。同じ件にほかの額があれば採らず、メモにも残さない。
+            case taxExcluded
+            /// マイナスを付けずに書いた値引き（「100円引き」「値引き100」）。同じ件の金額から引き、メモに残す。
+            case deduction
+            /// 合計の行。前に件があれば記録せず、メモにも残さない（前の件を足した額なので、記録すると二重になる）。
+            case total
+            /// おつり・お預かり。払った額ではないので、いつも記録せず、メモにも残さない。
+            case change
+            /// ポイント。円ではないので、いつも記録しない（メモには残す）。
+            case points
+
+            /// 記録しうる額か。おつりとポイントは、ほかに金額が無くても記録しない。
+            var isRecordable: Bool {
+                self != .change && self != .points
+            }
+
+            /// この額だけで 1 件になるか。値引きと合計は、前に件があればその件に添える（「、合計1250」は前の件の一部）。
+            var standsAlone: Bool {
+                self == .primary || self == .taxIncluded || self == .taxExcluded
+            }
+
+            /// その件の金額に採らなかったとき、メモから除くか。税抜きの値段・合計・おつりは記録した額と違う金額が
+            /// メモに並んで紛らわしいので除く。値引きとポイントは、記録した額の理由になるので残す。
+            var isOmittedFromMemo: Bool {
+                self == .taxExcluded || self == .total || self == .change
+            }
+        }
     }
 
     /// 日付の言い回し 1 つ（「昨日」「9/26」「2025年9月26日」「26日」など）。
@@ -56,6 +99,16 @@ struct EntryScan {
         var dateCandidates: [Int]
         /// その件にかかる割り勘。1 人分の額（`Amount.isPerPerson`）のときも入るので、割るかは使う側で決める。
         var split: SplitPhrase?
+
+        /// `amounts[index]` をその件の金額に採ったときに記録する額。マイナスを付けずに書いた値引き（「850 100円引き」の
+        /// 100）を引いた額にする。引ききれない値引き（採った額以上）は書き間違いとみなして引かない。
+        func recordedValue(at index: Int) -> Int {
+            let amount = amounts[index]
+            let deduction = amounts.indices
+                .filter { $0 != index && amounts[$0].role == .deduction && !amounts[$0].isNegative }
+                .reduce(0) { $0 + amounts[$1].value }
+            return deduction < amount.value ? amount.value - deduction : amount.value
+        }
     }
 
     let chars: [Character]
@@ -86,9 +139,12 @@ struct EntryScan {
         // 金額から書き始め、最後の金額の後ろにも語があるときだけ、金額を先に書く並びとみなす
         // （「850 ランチ 400 コーヒー」）。最後が金額で終わる入力（「109で服 5000」）は、ふつうの並びで
         // 最初の数字が品目の一部。金額を先に書く並びとして読むと、「109」と「5000」の 2 件に割れてしまう。
-        if amounts.count >= 2, let first = chars.indices.first(where: { !consumed[$0] && !chars[$0].isWhitespace }),
-           first == amounts[0].range.lowerBound {
-            let last = amounts[amounts.count - 1].range.upperBound
+        // 合計・値引き・おつり・ポイントの額は、それだけで 1 件にならないので数えない（「850 ランチ 400 コーヒー 合計1250」）。
+        let entryAmounts = amounts.filter(\.role.standsAlone)
+        if entryAmounts.count >= 2,
+           let first = chars.indices.first(where: { !consumed[$0] && !chars[$0].isWhitespace }),
+           first == entryAmounts[0].range.lowerBound {
+            let last = entryAmounts[entryAmounts.count - 1].range.upperBound
             amountFirst = (last..<chars.count).contains { isWordCharacter(at: $0) }
         }
     }
@@ -103,7 +159,9 @@ struct EntryScan {
     /// 「スーパー2480とドラッグ1200」のような複数件の入力を、1 件ずつの区間に分ける。
     ///
     /// - 金額を含まない区間は次の区間につなげる（「ランチとコーヒー 1200」は 1 件）。
-    ///   末尾に金額の無い区間が残ったら、直前の区間につなげる。金額が 1 つも無ければ空配列
+    ///   末尾に金額の無い区間が残ったら、直前の区間につなげる。記録できる金額が 1 つも無ければ空配列
+    ///   （おつり・ポイントの額は記録しないので、金額の無い部分として扱う）
+    /// - 合計や値引きの額だけの区間（「、合計1250」）は、前の区間に添える（前に区間が無ければ、その額で 1 件）
     /// - 「、」「。」「/」などの強い区切りで分かれた部分を 1 つの文とみなし、日付と割り勘は文ごとに割り当てる
     ///   （「昨日 焼肉12000 4人で割り勘、今日 ランチ 850」のランチは割らず、今日にする）
     ///   - 日付: その件の区間に書かれた日付。無ければ、同じ文の最後の件の後ろに置いた日付
@@ -113,7 +171,7 @@ struct EntryScan {
     ///     割り勘（「焼肉12000と飲み物3000 3人で割り勘」は両方割る）、最後に独立して置いた割り勘の順に使う。
     ///     割り勘は前の件から引き継がない
     func segments() -> [Segment] {
-        guard !amounts.isEmpty else { return [] }
+        guard amounts.contains(where: \.role.isRecordable) else { return [] }
         let inAmount = amountMask()
 
         // 区切りの位置。width 0 は文字を挟まない境目（「スーパー2480ドラッグ1200」）。
@@ -149,7 +207,8 @@ struct EntryScan {
         var trailingStart: Int?
         for piece in pieces {
             if piece.afterStrong { startsClause = true }
-            let pieceAmounts = amounts.filter { piece.range.contains($0.range.lowerBound) }
+            // おつり・ポイントの額は記録しないので、その額だけの部分は金額の無い部分として扱う。
+            let pieceAmounts = amounts.filter { piece.range.contains($0.range.lowerBound) && $0.role.isRecordable }
             guard !pieceAmounts.isEmpty else {
                 // 金額の直後の空白で切れた、金額の無い部分（「焼肉 12000 割り勘 4人、カフェ 800」の「割り勘 4人」）は、
                 // 直前の件の続き。次の件につなげると、強い区切りを越えて割り勘や日付が次の件にかかってしまう。
@@ -159,6 +218,16 @@ struct EntryScan {
                 }
                 if pendingStart == nil { pendingStart = piece.range.lowerBound }
                 if !drafts.isEmpty, piece.afterStrong, trailingStart == nil { trailingStart = piece.range.lowerBound }
+                continue
+            }
+            // 合計や値引きの額だけの部分（「ランチ850、コーヒー400、合計1250」の「合計1250」）は、前の件に添える。
+            // 1 件にすると、前の件を足した額や値引きの額を、別の支出として二重に記録するため。前に件が無ければ
+            // （「スーパー 合計2480」）、その額で 1 件にする。
+            if !pieceAmounts.contains(where: \.role.standsAlone), let last = drafts.indices.last {
+                drafts[last].range = drafts[last].range.lowerBound..<piece.range.upperBound
+                drafts[last].amounts += pieceAmounts
+                pendingStart = nil
+                trailingStart = nil
                 continue
             }
             if startsClause {
@@ -223,18 +292,12 @@ struct EntryScan {
 
             var candidates = ownDates
             if let daysAgo, !candidates.contains(daysAgo) { candidates.append(daysAgo) }
-            // 正の金額の後ろに置いたマイナスの額（「ランチ 850(-100引き)」）は値引きの説明。最後の金額として採ると、
-            // 850 円の支出が 100 円の返金（収入）にすり替わるため、その件の金額の候補から外す。
-            var segmentAmounts = draft.amounts
-            if let firstPositive = segmentAmounts.firstIndex(where: { !$0.isNegative }) {
-                for j in segmentAmounts.indices where j > firstPositive && segmentAmounts[j].isNegative {
-                    segmentAmounts[j].isDiscount = true
-                }
-            }
-            let usable = segmentAmounts.filter { !$0.isDiscount }
+            // 区間の中の金額すべて（記録しないおつり・ポイントも、メモから除くために含める）。
+            var segmentAmounts = amounts.filter { draft.range.contains($0.range.lowerBound) }
+            guard let chosen = Self.chooseAmount(in: &segmentAmounts) else { continue }
             result.append(Segment(
                 range: draft.range,
-                amount: usable.last(where: \.isPerPerson) ?? usable.last!,
+                amount: chosen,
                 amounts: segmentAmounts,
                 daysAgo: daysAgo,
                 dateCandidates: candidates,
@@ -244,11 +307,48 @@ struct EntryScan {
         return result
     }
 
+    /// 1 件の区間の金額から、その件の金額を選ぶ。採らない額には `isDiscount`・`isSupplementary` を付ける。
+    ///
+    /// 1 人分の額 → 税込みの額 → 最後のふつうの額の順に採る。ふつうの額も税込みの額も無ければ（「スーパー 合計2480」
+    /// 「クーポン 100円引き」）、添えた額（おつり・ポイントを除く）の最後を採る。
+    private static func chooseAmount(in amounts: inout [Amount]) -> Amount? {
+        // 正の金額の後ろに置いたマイナスの額（「ランチ 850(-100引き)」）は値引きの説明。最後の金額として採ると、
+        // 850 円の支出が 100 円の返金（収入）にすり替わるため、その件の金額の候補から外す。
+        if let firstPositive = amounts.firstIndex(where: { !$0.isNegative && $0.role.isRecordable }) {
+            for j in amounts.indices where j > firstPositive && amounts[j].isNegative {
+                amounts[j].isDiscount = true
+            }
+        }
+        // 税込みの額があれば、同じ件のほかのふつうの額は税抜きの値段（「ランチ 1000円 (税込1100円)」の 1000）。
+        // 払った額は税込みの額なので、ほかの額は採らず、メモからも除く。
+        if amounts.contains(where: { $0.role == .taxIncluded && !$0.isDiscount }) {
+            for j in amounts.indices
+            where amounts[j].role == .primary && !amounts[j].isPerPerson && !amounts[j].isNegative {
+                amounts[j].role = .taxExcluded
+            }
+        }
+        let preferred = amounts.indices.filter {
+            !amounts[$0].isDiscount && (amounts[$0].role == .primary || amounts[$0].role == .taxIncluded)
+        }
+        let usable = preferred.isEmpty
+            ? amounts.indices.filter { !amounts[$0].isDiscount && amounts[$0].role.isRecordable }
+            : preferred
+        for j in amounts.indices where !usable.contains(j) {
+            amounts[j].isSupplementary = true
+        }
+        let chosen = usable.last { amounts[$0].isPerPerson }
+            ?? usable.last { amounts[$0].role == .taxIncluded }
+            ?? usable.last
+        return chosen.map { amounts[$0] }
+    }
+
     /// `i` の文字（「と」・空白・「+」）で件を区切るか。「、」などの強い区切りは `clauseSeparators`。
     ///
     /// 「と」と空白は、語の一部や語の間にも出てくるので、金額の直後にあるときだけ区切りとみなす。
+    /// 空白は、金額の後ろに空白を挟んで書いた人数や数量の句（「焼肉12000 4人で割り勘」「ビール 500 2本」）の直後でも区切る。
     /// 金額を先に書く並び（「850 ランチ 400 コーヒー」）では、反対に次の金額の直前で区切る。
-    /// どちらの並びでも、次の金額が前の金額の説明（1 人分の額・値引き）なら空白では区切らない（`continuesPreviousAmount(after:)`）。
+    /// どちらの並びでも、次の金額が前の金額の説明（1 人分の額・値引き・税込み・合計など）なら空白では区切らない
+    /// （`continuesPreviousAmount(after:)`）。
     private func isWeakSeparator(at i: Int) -> Bool {
         let c = chars[i]
         if Self.weakSeparators.contains(c) { return true }
@@ -261,20 +361,67 @@ struct EntryScan {
             if c.isWhitespace, continuesPreviousAmount(after: i) { return false }
             return !amounts.contains { $0.range.upperBound == previous + 1 }
         }
-        guard endsAmount(at: i) else { return false }
+        // 同じ文でほかの件より先に書いた値引き（「クーポン100円引き ランチ 850」）の直後では区切らない。
+        // 値引きは後ろの金額の説明で、区切ると値引きの額だけで別の支出（¥100）になるため。
+        if endsLeadingDeduction(at: i) { return false }
         // 「と」は金額の直後（「2480とドラッグ」「850円と」）だけ。「ひとり」「おとうふ」「とんかつ」の
         // ように語の中や頭の「と」で割ると、メモが語の途中で切れた記録ができるため。
-        if c == "と" { return true }
+        if c == "と" { return endsAmount(at: i) }
         // 金額の直後の空白は、次に語が続くなら区切る（「パン200 おとうふ100」「ランチ850 とんかつ弁当900」）。
+        // 金額の後ろの人数や数量の句の直後の空白も同じ（「焼肉12000 4人で割り勘 ランチ 850」）。区切らないと、
+        // 後ろの件と 1 件にまとめられ、前の金額が消えて、割り勘が後ろの件の金額にかかるため。
+        guard endsAmount(at: i) || endsPhraseAfterAmount(at: i),
+              let next = nextNonSpace(from: i + 1), !continuesPreviousAmount(after: i)
+        else { return false }
+        // 次が割り勘の語なら、前の件の続き（「焼肉 12000 割り勘 4人 カフェ 800」の「割り勘 4人」）。
+        // ここで区切ると、割り勘が後ろの件の金額にかかるため。
+        if startsSplitWord(at: next) { return false }
+        // 次が日付・時刻として読み終えた数字なら区切る（「9/26 ランチ 850 9/27 カフェ 400」の 9/27 の前）。
+        // 語で書いた日付（「昨日」）と同じ扱いにする。区切らないと、前の金額が消えて 1 件になるため。
+        // 後ろに語が続かない日付（「ランチ 850 9/26」）は、金額の無い部分として前の件に戻る。
+        if consumed[next] { return true }
         // 次が数字なら区切らない。「ランチ 850 900」「ビール 500 2本」は 1 件として読む。
-        guard let next = nextNonSpace(from: i + 1), !continuesPreviousAmount(after: i) else { return false }
         return !chars[next].isASCIIDigit && !Self.yenMarks.contains(chars[next])
+    }
+
+    /// 空白 `i` の直前までが、金額の後ろに空白を挟んで続けた人数・数量・割り勘の句（「焼肉12000 4人で割り勘」の
+    /// 「4人で割り勘」、「ビール 500 2本」の「2本」、「焼肉 12000 割り勘 4人」の「割り勘 4人」）か。
+    private func endsPhraseAfterAmount(at i: Int) -> Bool {
+        var end = i
+        var sawPhrase = false
+        while let last = previousNonSpace(before: end) {
+            if endsAmount(at: last + 1) { return sawPhrase }
+            // 空白で区切った 1 語をさかのぼる。
+            var start = last
+            while start > 0, !chars[start - 1].isWhitespace { start -= 1 }
+            guard startsQuantityPhrase(at: start) || startsSplitWord(at: start) else { return false }
+            sawPhrase = true
+            end = start
+        }
+        return false
+    }
+
+    /// `i` から割り勘の語（「割り勘」「わりかん」…）が始まるか。
+    private func startsSplitWord(at i: Int) -> Bool {
+        !consumed[i] && Self.splitWords.contains { has($0, at: i) }
+    }
+
+    /// `i` から人数や数量の句（「4人」「2本」「3-4人」「2〜3杯」）が始まるか。金額や日付として読んだ数字は除く。
+    private func startsQuantityPhrase(at i: Int) -> Bool {
+        guard let run = digitRun(at: i), !amounts.contains(where: { $0.range.contains(i) }) else { return false }
+        var end = run.end
+        if end + 1 < chars.count, Self.rangeSigns.contains(chars[end]), let upper = digitRun(at: end + 1) {
+            end = upper.end
+        }
+        return Self.startsQuantity(chars, at: end)
     }
 
     /// `i` の後ろで次に出てくる金額が、前の金額と同じ件の説明か。
     ///
     /// - 同じ文の中の 1 人分の額（「焼肉 12000 ひとり3000」「12000 焼肉 4人で割り勘 1人3000」の 1人3000）。
     ///   総額と 1 人分の額を別の件にすると、同じ支出を 2 度記録してしまう
+    /// - すぐ後ろ（空白だけを挟む）か括弧の中の、役目の語の付いた額（「ランチ 1000円 (税込1100円)」「850 値引き100」
+    ///   「コーヒー400 合計1250」「850円 おつり150円」）。払った額の言い換えや内訳で、別の支出ではない
     /// - 金額のすぐ後ろ（空白だけを挟む）か括弧の中のマイナスの額（「ランチ 1000 -200」「ランチ 850 (-100引き)」）。
     ///   値引きの説明で、別の返金の記録ではない。語を挟んだもの（「ランチ 850 返金 -500」）は別の件
     private func continuesPreviousAmount(after i: Int) -> Bool {
@@ -282,9 +429,11 @@ struct EntryScan {
         let between = i..<next.range.lowerBound
         if between.contains(where: { !consumed[$0] && Self.clauseSeparators.contains(chars[$0]) }) { return false }
         if next.isPerPerson { return true }
-        guard next.isNegative, endsAmount(at: i), let start = nextNonSpace(from: i + 1) else { return false }
-        if start == next.range.lowerBound { return true }
-        return Self.openingPunctuation.contains(chars[start]) && nextNonSpace(from: start + 1) == next.range.lowerBound
+        guard let start = nextNonSpace(from: i + 1) else { return false }
+        let followsDirectly = start == next.range.lowerBound
+            || (Self.openingPunctuation.contains(chars[start]) && nextNonSpace(from: start + 1) == next.range.lowerBound)
+        if next.role != .primary { return followsDirectly }
+        return next.isNegative && endsAmount(at: i) && followsDirectly
     }
 
     /// 区切りの文字を挟まずに次の件が始まるか（「スーパー2480ドラッグ1200」の「ド」の前）。
@@ -297,7 +446,7 @@ struct EntryScan {
     /// - 金額が 2 桁以上で、前に英字が付いていない
     private func startsEntryWithoutSeparator(at i: Int) -> Bool {
         guard !amountFirst, Self.isKatakana(chars[i]),
-              let amount = amounts.first(where: { $0.range.upperBound == i })
+              let amount = amounts.first(where: { $0.range.upperBound == i }), !endsLeadingDeduction(at: i)
         else { return false }
         if amount.range.lowerBound > 0, chars[amount.range.lowerBound - 1].isASCIILetter { return false }
         guard chars[amount.range].filter(\.isASCIIDigit).count >= 2,
@@ -319,6 +468,23 @@ struct EntryScan {
         amounts.contains { $0.range.upperBound == i }
     }
 
+    /// `i` の直前で終わる金額が、同じ文（強い区切りまで）のほかの件の金額より先に書いた値引き
+    /// （「クーポン100円引き ランチ 850」の「100円引き」）か。
+    ///
+    /// 前に件のある値引き（「ランチ 850 100円引き カフェ 400」）は前の件の説明なので含めない。その直後では、
+    /// これまでどおり次の件へ区切る。
+    private func endsLeadingDeduction(at i: Int) -> Bool {
+        guard let amount = amounts.first(where: { $0.range.upperBound == i }), amount.role == .deduction else {
+            return false
+        }
+        let clauseStart = (0..<amount.range.lowerBound)
+            .last { !consumed[$0] && Self.clauseSeparators.contains(chars[$0]) }
+            .map { $0 + 1 } ?? 0
+        return !amounts.contains {
+            $0.role.standsAlone && (clauseStart..<amount.range.lowerBound).contains($0.range.lowerBound)
+        }
+    }
+
     private func amountMask() -> [Bool] {
         var mask = Array(repeating: false, count: chars.count)
         for amount in amounts {
@@ -335,7 +501,12 @@ struct EntryScan {
         for i in range where (!consumed[i] || unreadDate[i]) && !excluding.contains(where: { $0.contains(i) }) {
             raw.append(chars[i])
         }
+        // 金額を除いた跡に残る空の括弧（「ランチ 1000円 (税込1100円)」の「()」）は落とす。
+        raw = raw.replacingOccurrences(of: #"[(\[「【]\s*[)\]」】]"#, with: " ", options: .regularExpression)
+        // 語の端に残った区切りの記号（「ランチ 850、100円引き」から 850 を除いた「、100円引き」の「、」）は落とす。
         var words = raw.split(whereSeparator: \.isWhitespace)
+            .map { $0.trimmingCharacters(in: Self.wordEdgeSeparators) }
+            .filter { !$0.isEmpty }
         // 空白で区切った跡に 1 語で残る「と」（「スーパー2480 と ドラッグ1200」の 2 件目の頭）は落とす。
         while words.first == "と" { words.removeFirst() }
         while words.last == "と" { words.removeLast() }
@@ -600,7 +771,8 @@ struct EntryScan {
             }
             k += 1
         }
-        if amounts.isEmpty { amounts = afterMultiplySign }
+        // 記録できる額が無いときだけ（おつり・ポイントの額は数えない）。
+        if !amounts.contains(where: \.role.isRecordable) { amounts += afterMultiplySign }
     }
 
     /// `low` と `high` が「3-4人」「2〜3個」のような、人数や数量の幅か。
@@ -631,10 +803,26 @@ struct EntryScan {
         if number.hasLeadingZero { return nil }
         guard number.value > 0 else { return nil }
         let prefix = amountPrefix(before: number.range.lowerBound)
+        var role = prefix.role
+        // 「100円引き」「100円オフ」。マイナスを付けた値引き（「-100引き」）は、値引きの説明として引かずに扱う
+        // （`isDiscount`）ので、ここでは見ない。
+        if role == .primary, !prefix.isNegative,
+           let suffix = Self.deductionSuffixes.first(where: { has($0, at: upper) && endsWord(at: upper + $0.count) }) {
+            role = .deduction
+            upper += suffix.count
+        }
         return Amount(
             value: number.value, range: prefix.lowerBound..<upper,
-            isPerPerson: prefix.isPerPerson, isNegative: prefix.isNegative
+            isPerPerson: prefix.isPerPerson, isNegative: prefix.isNegative, role: role
         )
+    }
+
+    /// `i` で語が終わるか（入力の終わり・空白・区切りの記号・閉じ括弧）。「100円引き出し」の「引き」を値引きの語にしないため。
+    private func endsWord(at i: Int) -> Bool {
+        guard i < chars.count else { return true }
+        let c = chars[i]
+        return c.isWhitespace || Self.clauseSeparators.contains(c) || Self.weakSeparators.contains(c)
+            || Self.closingPunctuation.contains(c)
     }
 
     /// 「500×3」「400 ×2」「3x500円」を、掛けた額の金額にする。掛け算の形でなければ nil。
@@ -668,12 +856,14 @@ struct EntryScan {
             : isQuantity(left) ? right.value : left.value
         return Amount(
             value: value, range: prefix.lowerBound..<upper,
-            isPerPerson: prefix.isPerPerson, isNegative: prefix.isNegative, unitPrice: unitPrice
+            isPerPerson: prefix.isPerPerson, isNegative: prefix.isNegative, unitPrice: unitPrice, role: prefix.role
         )
     }
 
-    /// 金額の前に付く「¥」「-」「1人あたり」を読み、金額の範囲の始まりを返す。
-    private func amountPrefix(before start: Int) -> (lowerBound: Int, isPerPerson: Bool, isNegative: Bool) {
+    /// 金額の前に付く「¥」「-」「1人あたり」「税込」「合計」などを読み、金額の範囲の始まりと、その額の役目を返す。
+    private func amountPrefix(
+        before start: Int
+    ) -> (lowerBound: Int, isPerPerson: Bool, isNegative: Bool, role: Amount.Role) {
         var lower = start
         var isNegative = false
         // 「-500」「返金-500」「¥-500」「-¥500」「返金 ー500」。
@@ -715,7 +905,33 @@ struct EntryScan {
             lower = prefixStart
             break
         }
-        return (lower, isPerPerson, isNegative)
+        // 「税込1100円」「合計: 1250」「おつり 150円」「ポイント100」。
+        var role = Amount.Role.primary
+        if !isPerPerson, let label = label(endingBefore: lower) {
+            role = label.role
+            lower = label.start
+            // マイナスを付けた値引き（「値引き -100」）は、これまでどおり値引きの説明として引かずに扱う（`isDiscount`）。
+            if isNegative, role == .deduction { role = .primary }
+        }
+        return (lower, isPerPerson, isNegative, role)
+    }
+
+    /// `start`（金額の始まり）の直前に置いた役目の語（「税込」「合計」「おつり」…）。語と金額の間の空白と「:」「=」は読み飛ばす。
+    private func label(endingBefore start: Int) -> (role: Amount.Role, start: Int)? {
+        guard var end = previousNonSpace(before: start) else { return nil }
+        if chars[end] == ":" || chars[end] == "=" {
+            guard let before = previousNonSpace(before: end) else { return nil }
+            end = before
+        }
+        for label in Self.amountLabels {
+            let labelStart = end - label.word.count + 1
+            guard labelStart >= 0, has(label.word, at: labelStart),
+                  !(labelStart...end).contains(where: { consumed[$0] }),
+                  !label.needsWordStart || labelStart == 0 || !Self.isJapaneseLetter(chars[labelStart - 1])
+            else { continue }
+            return (label.role, labelStart)
+        }
+        return nil
     }
 
     private func isMultiplySign(at i: Int) -> Bool {
@@ -958,6 +1174,13 @@ struct EntryScan {
         return (0x3041...0x3096).contains(scalar.value)
     }
 
+    /// ひらがな・カタカナ・漢字（「々」を含む）か。語の途中かどうかを見るのに使う。
+    private static func isJapaneseLetter(_ c: Character) -> Bool {
+        guard let scalar = c.unicodeScalars.first, c.unicodeScalars.count == 1 else { return false }
+        return isHiragana(c) || isKatakana(c) || (0x4E00...0x9FFF).contains(scalar.value)
+            || (0x3400...0x4DBF).contains(scalar.value) || scalar.value == 0x3005
+    }
+
     // MARK: - 辞書
 
     /// 12 桁（1 兆円未満）を超える数字は金額とみなさない。家計簿の 1 件としてありえず、
@@ -1005,6 +1228,27 @@ struct EntryScan {
     private static let rangeSigns: Set<Character> = ["-", "~", "〜"]
     /// 長音記号「ー」の前にあっても符号として読む記号。
     private static let openingPunctuation: Set<Character> = ["(", "（", "[", "「", ":", "：", "="]
+    /// 語の終わりとみなす閉じ括弧。
+    private static let closingPunctuation: Set<Character> = [")", "）", "]", "」", "】"]
+
+    /// 金額の前に置いて、その額の役目を表す語（`Amount.Role`）。長いものを先に置く。
+    /// `needsWordStart` の語は、前がひらがな・カタカナ・漢字でないとき（語の頭にあるとき）だけ当てる。
+    /// 「時計」「魚釣り」「一時預かり」の中の「計」「釣り」「預かり」を、合計やおつりの語にしないため。
+    /// 「本体」は入れない（「ケース 3000 本体 50000」のように、別の品目の名前として書くことがあるため）。
+    private static let amountLabels: [(word: String, role: Amount.Role, needsWordStart: Bool)] = [
+        ("税込み", .taxIncluded, false), ("税込", .taxIncluded, false),
+        ("税抜き", .taxExcluded, false), ("税抜", .taxExcluded, false), ("税別", .taxExcluded, false),
+        ("本体価格", .taxExcluded, false),
+        ("値引き", .deduction, false), ("値引", .deduction, false), ("割引き", .deduction, false), ("割引", .deduction, false),
+        ("合計", .total, false), ("総計", .total, false), ("小計", .total, false), ("トータル", .total, false),
+        ("計", .total, true),
+        ("お預かり", .change, false), ("お預り", .change, false), ("預かり", .change, true), ("預り", .change, true),
+        ("おつり", .change, false), ("お釣り", .change, false), ("釣り銭", .change, false), ("つり銭", .change, false),
+        ("釣銭", .change, false), ("釣り", .change, true),
+        ("ポイント", .points, false),
+    ]
+    /// 金額の後ろに置いて、マイナスを付けない値引きを表す語（「100円引き」）。長いものを先に置く。
+    private static let deductionSuffixes = ["引き", "引", "オフ", "OFF", "off", "Off"]
     private static let multiplySigns: Set<Character> = ["×", "✕", "*"]
 
     /// 1 人分の額を表す、金額の前の言い回し。長いものを先に置く。
@@ -1020,6 +1264,8 @@ struct EntryScan {
     /// 「と」と空白は金額の直後だけ区切る（`isWeakSeparator(at:)`）。
     private static let weakSeparators: Set<Character> = ["+"]
 
+    /// メモの語ごとに、端から取り除く区切りの記号。
+    private static let wordEdgeSeparators = CharacterSet(charactersIn: "、,。;")
     /// メモの前後から取り除く記号。
     private static let trimmedEdges = CharacterSet.whitespacesAndNewlines
         .union(CharacterSet(charactersIn: "、,。.・/:;+-"))

@@ -12,6 +12,8 @@ import SaifuLogCore
 /// 換算・割り勘の割り算・日付の計算は SaifuLogCore で行う。端末内のモデルは小さく、計算を任せると数字を間違えるため。
 struct FoundationModelsEntryParser: EntryParsing {
     var calendar: Calendar = .current
+    /// 「昨日」「9/26」を読む基準の日時（送った瞬間）。解析の中で時計を読み直さない（`EntryParserFactory`）。
+    var now: Date = .now
 
     /// この端末でいま AI を使えるか。
     static var isAvailable: Bool {
@@ -44,7 +46,7 @@ struct FoundationModelsEntryParser: EntryParsing {
         // 金額・日付・割り勘の人数・収入・品目は、入力のその件の区間と突き合わせてから使う
         // （SaifuLogCore の ExtractedEntry）。合わない件が 1 つでもあれば throw し、呼び出し側
         // （FallbackEntryParser）がルールベースで読み直す。突き合わせをコアに置くのは、swift test で確かめられるようにするため。
-        try await SegmentedExtraction.entries(from: text, now: .now, calendar: calendar) { segment in
+        try await SegmentedExtraction.entries(from: text, now: now, calendar: calendar) { segment in
             try await Self.extract(segment.text)
         }
     }

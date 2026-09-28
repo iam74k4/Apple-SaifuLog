@@ -45,7 +45,7 @@ PR: develop → main ─ マージ ─▶ release.yml
 
 | 誰が | 何を |
 |---|---|
-| 自動（build.yml） | PR と push のたびに `make build`・`make test`（コアのテスト）・`make build-tests` と `make test-app`（アプリのテストのビルドと、シミュレータでの実行）・`make check-version` と、署名なしの `make archive`（提出物と同じ Release・実機向けの組み立てを、マージ前に一度通す。バージョン・ビルド番号・アイコンがアプリの Info.plist に入っているかと、社内テスト用の診断画面が入っていないかも見る） |
+| 自動（build.yml） | PR と push のたびに `make build`・`make check-strings`（String Catalog とコードの文字列の整合）・`make test`（コアのテスト）・`make build-tests` と `make test-app`（アプリのテストのビルドと、シミュレータでの実行）・`make check-version` と、署名なしの `make archive`（提出物と同じ Release・実機向けの組み立てを、マージ前に一度通す。バージョン・ビルド番号・アイコンがアプリの Info.plist に入っているかと、社内テスト用の診断画面が入っていないかも見る） |
 | 自動（release.yml / upload） | 承認済みの版ならスキップ、アーカイブ（開発用の証明書で署名）、エンタイトルメントの照合（送らずに書き出す。いまは抜けていても警告だけ）、クラウド署名、App Store Connect へのアップロード |
 | 自動（release.yml / submit） | 処理待ち、バージョンの用意、リリースノート、**審査への提出** |
 | 自動（tag-release.yml） | 配信を検知し、配信されたビルドを作ったコミットにタグと GitHub Release を作成 |
@@ -280,7 +280,7 @@ New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分
      Markdown を表示しないので、太字・リンク・バッククォートを使わず、`- ` の
      箇条書きと平文で、利用者の目線で書く
    - `make check-version` で一致を確かめる（CI でも検査される）。PR の前に `make ci` を通すと、
-     CI（`build`）と同じ 6 つを手元で確かめられる
+     CI（`build`）と同じ 7 つを手元で確かめられる
    - 実機での確認は、手元の Xcode から入れるか、develop を `mode=testflight` で TestFlight の社内テストへ送って行う
      （下の「[TestFlight で実機に入れる（社内テスト）](#testflight-で実機に入れる社内テスト)」）
 2. **PR: develop → main を作り、build が通ったら「Create a merge commit」でマージする**
@@ -467,8 +467,11 @@ main へマージする前の develop のビルドを、TestFlight で自分の 
 | `make export-ipa` | アーカイブから `.ipa` を書き出すだけ。**送信しない。** 署名とエンタイトルメントを表示し、エンタイトルメントのファイル（`RELEASE_ENTITLEMENTS`。いまは自動で見つかる `SaifuLog/SaifuLog.entitlements`）のキーがすべて載っているかを照合する。抜けていれば止まる（`RELEASE_ENTITLEMENTS_CHECK=warn` なら警告だけ出して続ける）。release.yml はアップロードの前に必ずこれを通す（いまは `warn`）。アーカイブの診断画面の有無が `INTERNAL_BUILD` と合わなければ止まる |
 | `make upload` | `Config/ExportOptions.plist` で書き出し、そのまま App Store Connect へ送る。手元の端末では確認を挟む。ビルド番号はアーカイブに焼かれた値で、`BUILD_NUMBER` を渡しても変わらない（アーカイブと違う値なら止まる）。社内テスト用のアーカイブは `INTERNAL_BUILD=YES` で送り、`testFlightInternalTestingOnly` を true にした写し（`build/ExportOptions.upload.plist`）で TestFlight の社内テスト専用になる。アーカイブの診断画面の有無が `INTERNAL_BUILD` と合わなければ、送る前に止まる |
 
-開発用の `make ci`（Makefile）は、build.yml と同じ 6 つ（`make build`・`make test`・`make build-tests`・
-`make test-app`・`make check-version`・`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を順に通す。
+開発用の `make ci`（Makefile）は、build.yml と同じ 7 つ（`make build`・`make check-strings`・`make test`・
+`make build-tests`・`make test-app`・`make check-version`・`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を
+順に通す。`make check-strings` は、`make build` が書き出した Debug の .stringsdata と String Catalog
+（`Localizable.xcstrings`）を突き合わせ、足りないキー・使われていないキー・en の無いキー・ja と en の書式指定子の
+不一致があれば止まる（`scripts/check-strings.py`）。
 
 認証は、環境変数 `ASC_API_KEY_ID` / `ASC_API_ISSUER_ID` / `ASC_API_KEY_PATH`（.p8 のパス）が
 3 つとも揃っていれば API キー、無ければ Xcode にサインインしているアカウント。
@@ -781,7 +784,8 @@ release.yml はアップロードの前に `make export-ipa` で書き出した�
 - `.github/workflows/tag-release.yml` — 配信を検知してタグと GitHub Release を作る
 - `.github/workflows/build.yml` — PR と push のビルド確認 CI（必須チェック `build`）
 - `.github/dependabot.yml` — GitHub Actions と `scripts/` の pip の版上げ PR（develop 宛て）
-- `Makefile` — 開発用のターゲットと `make ci`（build.yml と同じ 6 つ）
+- `Makefile` — 開発用のターゲットと `make ci`（build.yml と同じ 7 つ）
+- `scripts/check-strings.py` — String Catalog とコードの文字列の整合を確かめる（`make check-strings`）
 - `scripts/pick-simulator.sh` — アプリのテストを動かすシミュレータを選ぶ（`make test-app`）
 - `release.mk` — `make version` / `check-version` / `archive` / `export-ipa` / `upload`
 - `project.yml` — エンタイトルメント（データ保護）の正。`SaifuLog/SaifuLog.entitlements` はここから生成する
