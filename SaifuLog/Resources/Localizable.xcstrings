@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "ja",
   "strings" : {
+    "%@ までの金額にしてください。" : {
+      "comment" : "直すシートで金額が上限を超えたとき、保存できない理由として出す。%@ は「¥999,999,999,999」（記録できる最大の額）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter an amount up to %@."
+          }
+        }
+      }
+    },
     "%@ オーバー" : {
       "comment" : "ホームの上の帯。今月の予算を超えた額。%@ は「¥12,000」のような金額。注意の色とアイコンを添えて出す",
       "localizations" : {
@@ -13,7 +24,7 @@
       }
     },
     "%@の記録を削除します。この操作は取り消せません。" : {
-      "comment" : "記録の削除の確認の本文。%@ は「ランチ ¥850」のような品目と金額",
+      "comment" : "記録の削除の確認の本文（ホームと直すシート）。%@ は「ランチ ¥850」のような品目と金額",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -56,13 +67,13 @@
         }
       }
     },
-    "Apple Intelligence が、この iPhone の中で品目やカテゴリを読み取ります。読み違えたときは、記録の直後に取り消せます。" : {
+    "Apple Intelligence が、この iPhone の中で品目やカテゴリを読み取ります。読み違えたときは、記録の直後に取り消すか、記録をタップして直せます。" : {
       "comment" : "ようこその画面。端末内の AI が使えるときの説明",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apple Intelligence reads the item and category right on this iPhone. If it gets something wrong, you can undo it right after recording."
+            "value" : "Apple Intelligence reads the item and category right on this iPhone. If it gets something wrong, undo it right after recording, or tap the record to fix it."
           }
         }
       }
@@ -96,6 +107,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "OK"
+          }
+        }
+      }
+    },
+    "¥1 以上の金額にしてください。" : {
+      "comment" : "直すシートで金額が 0 のとき、保存できない理由として出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter an amount of ¥1 or more."
           }
         }
       }
@@ -177,8 +199,19 @@
         }
       }
     },
+    "この記録を削除" : {
+      "comment" : "直すシートの下の削除のボタン。押すと確認を出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete This Record"
+          }
+        }
+      }
+    },
     "この記録を削除しますか？" : {
-      "comment" : "記録の削除の確認の見出し",
+      "comment" : "記録の削除の確認の見出し（ホームと直すシート）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -299,6 +332,17 @@
         }
       }
     },
+    "カテゴリ" : {
+      "comment" : "直すシートのカテゴリの欄の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category"
+          }
+        }
+      }
+    },
     "カテゴリごとにも上限を決められます。空欄のカテゴリは予算なしになります。" : {
       "comment" : "予算を決める画面のカテゴリ別の予算の説明（プレミアムの機能）",
       "localizations" : {
@@ -333,7 +377,7 @@
       }
     },
     "キャンセル" : {
-      "comment" : "予算を決める画面（シート）を保存せずに閉じるボタン",
+      "comment" : "予算を決める画面・直すシートを保存せずに閉じるボタン",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -519,6 +563,17 @@
         }
       }
     },
+    "今日より先の日付です。予定の記録でなければ、日付を確かめてください。" : {
+      "comment" : "直すシートで今日より先の日付を選んだときの注意（保存はできる）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This date is in the future. If this isn’t a planned record, check the date."
+          }
+        }
+      }
+    },
     "今月あと" : {
       "comment" : "ホームの上の見出し。予算を決めているとき、その下に今月の予算の残りの金額を大きく出す",
       "localizations" : {
@@ -586,7 +641,7 @@
       }
     },
     "保存" : {
-      "comment" : "予算を決める画面の保存ボタン",
+      "comment" : "予算を決める画面と直すシートの保存ボタン",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -597,7 +652,7 @@
       }
     },
     "保存に失敗しました。もう一度お試しください。" : {
-      "comment" : "取り消し・削除・予算を保存できなかったときのアラートの本文",
+      "comment" : "取り消し・削除・予算・直した内容を保存できなかったときのアラートの本文",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -641,7 +696,7 @@
       }
     },
     "削除" : {
-      "comment" : "記録の長押しメニュー・VoiceOver の操作・削除の確認のボタン",
+      "comment" : "記録の長押しメニュー・VoiceOver の操作・削除の確認のボタン（ホームと直すシート）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -652,7 +707,7 @@
       }
     },
     "削除しました: %@" : {
-      "comment" : "記録を削除した後に VoiceOver で読み上げる内容。%@ は「ランチ ¥850」のような品目と金額",
+      "comment" : "記録を削除した後に VoiceOver で読み上げる内容（ホームと直すシート）。%@ は「ランチ ¥850」のような品目と金額",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -663,7 +718,7 @@
       }
     },
     "削除できませんでした" : {
-      "comment" : "記録を削除できなかったときのアラートの見出し",
+      "comment" : "記録を削除できなかったときのアラートの見出し（ホームと直すシート）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -696,7 +751,7 @@
       }
     },
     "収入" : {
-      "comment" : "収入の記録の種別",
+      "comment" : "収入の記録の種別。直すシートの種類の選択肢",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -718,7 +773,7 @@
       }
     },
     "取り消す" : {
-      "comment" : "記録の直後に出るバナーのボタン",
+      "comment" : "記録の直後に出るバナーのボタン（「直す」と並ぶ）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -739,6 +794,17 @@
         }
       }
     },
+    "品目" : {
+      "comment" : "直すシートの品目（メモ）の欄の見出しと入力欄のラベル",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Item"
+          }
+        }
+      }
+    },
     "娯楽" : {
       "comment" : "カテゴリ",
       "localizations" : {
@@ -746,6 +812,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Entertainment"
+          }
+        }
+      }
+    },
+    "支出" : {
+      "comment" : "直すシートの種類の選択肢（支出の記録）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expense"
+          }
+        }
+      }
+    },
+    "日付" : {
+      "comment" : "直すシートの日付の欄の見出しと日付の選択のラベル",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date"
           }
         }
       }
@@ -816,6 +904,72 @@
         }
       }
     },
+    "直した内容を保存できませんでした" : {
+      "comment" : "直すシートで保存できなかったときのアラートの見出し（シートは閉じない）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t save your changes"
+          }
+        }
+      }
+    },
+    "直した内容を破棄しますか？" : {
+      "comment" : "直すシートを、直した内容を保存せずに閉じようとしたとき（キャンセル・下へのスワイプ）の確認の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard your changes?"
+          }
+        }
+      }
+    },
+    "直しました: %@" : {
+      "comment" : "直すシートで保存した後に VoiceOver で読み上げる内容。%@ は「ランチ 食費 ¥900 9月27日」のような品目・種別・金額・日付（今日なら日付は付かない）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated: %@"
+          }
+        }
+      }
+    },
+    "直す" : {
+      "comment" : "記録の吹き出しの長押しメニュー・VoiceOver の操作・記録の直後のバナーのボタン。直すシートを開く",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit"
+          }
+        }
+      }
+    },
+    "直す: %@" : {
+      "comment" : "入力欄の VoiceOver の操作。記録の直後だけ出す。%@ は「ランチ ¥850」のような品目と金額（1 回の送信で複数件を記録したときは 1 件ずつ出す）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit: %@"
+          }
+        }
+      }
+    },
+    "直すのを続ける" : {
+      "comment" : "直すシートの破棄の確認のボタン。シートに戻る",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Editing"
+          }
+        }
+      }
+    },
     "直前の記録を取り消す" : {
       "comment" : "入力欄の VoiceOver の操作。記録の直後だけ出る",
       "localizations" : {
@@ -823,6 +977,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Undo last record"
+          }
+        }
+      }
+    },
+    "破棄して閉じる" : {
+      "comment" : "直すシートの破棄の確認のボタン。直した内容を保存せずにシートを閉じる",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard Changes"
+          }
+        }
+      }
+    },
+    "種類" : {
+      "comment" : "直すシートの、支出か収入かを選ぶ欄の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type"
+          }
+        }
+      }
+    },
+    "空欄でもかまいません" : {
+      "comment" : "直すシートの品目の入力欄のプレースホルダ。空欄なら吹き出しにはカテゴリ名が出る",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optional"
           }
         }
       }
@@ -904,6 +1091,28 @@
         }
       }
     },
+    "記録を直す" : {
+      "comment" : "直すシートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Record"
+          }
+        }
+      }
+    },
+    "記録を直す画面を開きます" : {
+      "comment" : "記録の吹き出しの VoiceOver のヒント（ダブルタップで直すシートを開く）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the record for editing."
+          }
+        }
+      }
+    },
     "記録を読み込んでいます" : {
       "comment" : "起動時、記録の保存先を開いている間の読み込み中の印の VoiceOver ラベル",
       "localizations" : {
@@ -937,6 +1146,17 @@
         }
       }
     },
+    "送った文" : {
+      "comment" : "直すシートの上に出す、ひとこと入力で送った元の文の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What you sent"
+          }
+        }
+      }
+    },
     "送信" : {
       "comment" : "送信ボタンの VoiceOver ラベル",
       "localizations" : {
@@ -944,6 +1164,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send"
+          }
+        }
+      }
+    },
+    "金額" : {
+      "comment" : "直すシートの金額の欄の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amount"
           }
         }
       }
@@ -959,8 +1190,30 @@
         }
       }
     },
+    "金額を入れてください。" : {
+      "comment" : "直すシートで金額の欄が空のとき、保存できない理由として出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter an amount."
+          }
+        }
+      }
+    },
+    "金額（円）" : {
+      "comment" : "直すシートの金額の入力欄の VoiceOver ラベル",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amount in yen"
+          }
+        }
+      }
+    },
     "閉じる" : {
-      "comment" : "「記録しました / 取り消す」のバナーを閉じる VoiceOver の操作",
+      "comment" : "「記録しました / 直す / 取り消す」のバナーを閉じる VoiceOver の操作",
       "localizations" : {
         "en" : {
           "stringUnit" : {

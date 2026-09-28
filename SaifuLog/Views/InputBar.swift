@@ -10,6 +10,10 @@ struct InputBar: View {
     let send: () -> Void
     /// 直前の記録を取り消す。記録の直後（「取り消す」のバナーが出ている間）だけ渡す。
     var undo: (() -> Void)?
+    /// 直前に記録したもの（VoiceOver の操作の「直す」の対象）。バナーが出ていなければ空。
+    var recorded: [Entry] = []
+    /// 「直す」のシートを出す。
+    var edit: (Entry) -> Void = { _ in }
 
     @FocusState private var isFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -42,8 +46,12 @@ struct InputBar: View {
                 isFocused = true
             }
             .accessibilityLabel("記録する内容")
-            // 送信の後、VoiceOver のフォーカスは入力欄に戻る。バナーまで移らずに取り消せるようにする。
+            // 送信の後、VoiceOver のフォーカスは入力欄に戻る。バナーまで移らずに直す・取り消すができるようにする
+            // （読み上げで読み違いに気づいたら、その場で直せるように）。複数件なら 1 件ずつ出す。
             .accessibilityActions {
+                ForEach(recorded) { entry in
+                    Button("直す: \(entry.summaryText)") { edit(entry) }
+                }
                 if let undo {
                     Button("直前の記録を取り消す", action: undo)
                 }
