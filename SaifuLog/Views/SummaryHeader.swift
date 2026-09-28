@@ -14,10 +14,11 @@ struct SummaryHeader: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("今月の支出")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.inkSecondary)
             Text(verbatim: YenFormatter.string(from: summary.expense))
                 .font(.largeTitle.bold())
                 .monospacedDigit()
+                .foregroundStyle(Theme.ink)
                 // 金額は「¥」と数字の間や桁の途中で改行させない。収まらなければ縮めて 1 行に収める。
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
@@ -25,13 +26,21 @@ struct SummaryHeader: View {
             if summary.income > 0 {
                 incomeRow
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.inkSecondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal)
         .padding(.vertical, 12)
-        .background(.bar)
+        // 画面の背景と同じ色で塗る。すりガラス（.bar）は灰色がかり、墨 × 山吹の温かい地から浮くため。
+        // 不透明なので、上へ流れた記録は帯の下に隠れる。
+        .background(Theme.background)
+        // 帯とタイムラインが同じ色なので、境目が無いと帯の下で一直線に切れた吹き出しが帯の一部に見える
+        // （すりガラスのころはぼかしが境目になっていた）。下端に細い線を引いて帯の終わりを示す。
+        // iOS 26 のスクロール端の効果（safeAreaBar）は、不透明な帯の下に隠れて境目にならなかった。
+        .overlay(alignment: .bottom) {
+            Divider()
+        }
         .accessibilityElement(children: .combine)
         .animation(.default, value: summary)
     }

@@ -15,7 +15,7 @@ struct UndoBanner: View {
             .font(.subheadline)
             .padding(.horizontal, 16)
             // 高さ 44pt なら丸い端のカプセルになり、文字が大きく縦に積んだときは角丸の四角になる。
-            .background(Theme.bubble, in: .rect(cornerRadius: 22))
+            .background(Theme.surface, in: .rect(cornerRadius: 22))
     }
 
     /// アクセシビリティサイズの文字では、横に並べると「記録しました」も「取り消す」も語の途中で
@@ -49,7 +49,7 @@ struct UndoBanner: View {
                 Text("記録しました")
             }
         }
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Theme.inkSecondary)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityAction(named: "閉じる", dismiss)
