@@ -132,7 +132,19 @@ final class PurchaseManager {
         // 検証できないものは数えず、終えもしない（改ざんされた記録でプレミアムを開けられないように）。
         guard case .verified(let transaction) = update else { return }
         await transaction.finish()
-        await refreshPurchases(applying: VerifiedPurchase(transaction))
+        await refreshPurchases(applying: Self.forcedUpdate(VerifiedPurchase(transaction)))
+    }
+
+    /// Transaction.updates から届いた Transaction のうち、読み直した購入の事実に上書きしてでも反映するもの。
+    ///
+    /// 失効（返金・ファミリー共有の取り消し）だけ。端末の記録の側がまだ古くても、失効は確実に反映したいため。
+    /// 付与（失効していない Transaction）は、読み直した `Transaction.currentEntitlements` に任せ、届いただけでは開けない。
+    /// 届くのが遅れた古い Transaction（すでに消えた・取り消された購入）で、持っていないプレミアムが開いてしまわないように
+    /// （SKTestSession で、前のテストの購入が記録を消した後に届いて起きた）。承認待ちの承認やほかの端末での購入は、
+    /// `finish()` の後の読み直しで currentEntitlements に入っている。
+    static func forcedUpdate(_ update: VerifiedPurchase?) -> VerifiedPurchase? {
+        guard let update, update.purchase.isRevoked else { return nil }
+        return update
     }
 
     /// 購入の事実を読み直す。
