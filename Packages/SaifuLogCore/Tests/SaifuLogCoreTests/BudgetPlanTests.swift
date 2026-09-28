@@ -144,4 +144,31 @@ struct BudgetPlanTests {
     func preferredOfEmpty() {
         #expect(BudgetPlan.preferred([Row]()) == nil)
     }
+
+    // MARK: - 決めた日時
+
+    /// 月のまとめが、どの月から予算の進みを出すかに使う（有効な行の書き込んだ日時）。
+    @Test("いま有効な予算を決めた日時は、有効とみなす行の日時")
+    func decidedAtIsPreferredRowsDate() {
+        let rows = [
+            Row(.total, 150_000, at: Self.earlier),
+            Row(.total, 200_000, at: Self.later),
+            Row(.category(.food), 40_000, at: Self.earlier),
+        ]
+
+        #expect(BudgetPlan.decidedAt(.total, in: rows) == Self.later)
+        #expect(BudgetPlan.decidedAt(.total, in: rows.reversed()) == Self.later)
+        #expect(BudgetPlan.decidedAt(.category(.food), in: rows) == Self.earlier)
+    }
+
+    @Test("決めていない（行が無い・最後に書いた行が 0）なら、決めた日時も無い")
+    func decidedAtWithoutBudget() {
+        #expect(BudgetPlan.decidedAt(.total, in: [Row]()) == nil)
+        #expect(BudgetPlan.decidedAt(.total, in: [
+            Row(.total, 150_000, at: Self.earlier),
+            Row(.total, 0, at: Self.later),
+        ]) == nil)
+        #expect(BudgetPlan.decidedAt(.category(.cafe), in: [Row(.total, 150_000, at: Self.earlier)]) == nil)
+        #expect(BudgetPlan.decidedAt(.total, in: [Row(rawScope: "pets", 9_000, at: Self.later)]) == nil)
+    }
 }

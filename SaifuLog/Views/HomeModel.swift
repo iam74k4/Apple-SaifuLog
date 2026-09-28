@@ -4,7 +4,7 @@ import SaifuLogCore
 import SwiftData
 import SwiftUI
 
-/// ホームの状態と操作（送信・取り消し・直す・削除・予算を決める画面の出し入れ）。
+/// ホームの状態と操作（送信・取り消し・直す・削除・予算を決める画面と月のまとめの出し入れ）。
 ///
 /// 画面（`HomeView`）から切り離し、解析器・時計・読み上げを差し替えて SaifuLogTests で確かめられるようにしている。
 /// 画面は、ここの値を表示し、操作をここへ渡すだけにする。
@@ -27,6 +27,8 @@ final class HomeModel {
     var budgetSetup: BudgetSetupModel?
     /// 「直す」のシートで直している記録の状態と操作。シートを出していなければ nil（シートを閉じると画面が nil に戻す）。
     var editing: EditEntryModel?
+    /// 「月のまとめ」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
+    var monthlyReport: MonthlyReportModel?
     /// 今日。「今月」の範囲と、日付に年を添えるかの基準にする。
     ///
     /// 描画のたびに `.now` を読むだけだと、アプリを開いたまま（または裏に置いたまま）月をまたいだとき、
@@ -245,6 +247,24 @@ final class HomeModel {
     /// 予算の保存は同期的に書き込む（送信のように、あとで書き込む処理ではない）ので、`pendingWrites` には数えない。
     func presentBudgetSetup() {
         budgetSetup = BudgetSetupModel(store: budgetStore, announce: announce)
+    }
+
+    // MARK: - 月のまとめ
+
+    /// 「月のまとめ」へ進む（帯の今月の合計を押したとき）。今月を開く。
+    ///
+    /// まとめの記録の一覧からも「直す」を開けるので、ホームから開いたときと同じく、直したら「取り消す」を引っ込め、
+    /// 消したら「取り消す」の対象から外す（戻ったあとで、消えた記録や直す前の文を取り消しで扱わないように）。
+    /// - Parameter calendar: 月の区切りの暦（ホームの画面の暦。帯の今月と同じ月でまとめるため）。
+    func presentMonthlyReport(calendar: Calendar) {
+        monthlyReport = MonthlyReportModel(
+            store: store,
+            calendar: calendar,
+            now: now,
+            announce: announce,
+            didSave: { [weak self] entry in self?.finishEditing(entry) },
+            didDelete: { [weak self] id in self?.justRecorded.removeAll { $0.persistentModelID == id } }
+        )
     }
 
     // MARK: - 日付とタイムライン

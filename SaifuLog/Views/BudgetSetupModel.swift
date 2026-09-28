@@ -35,8 +35,9 @@ final class BudgetSetupModel: Identifiable {
         showsCategoryBudgets: Bool = false,
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
     ) {
-        // 読めなければ決めていないものとして始める。保存すると新しい行が足されるが、同じ対象の行が重なっても
-        // 読むときに最後に書いた行が採られる（BudgetPlan.resolve）ので、決めた額が有効になる。
+        // 読めなければ決めていないものとして始める。保存するときは保存先を読み直して対象ごとに 1 行へ書く
+        // （BudgetStore.setAmounts）ので、行は重ならない。決めてあった額と同じ額を保存したときは、保存先が行を
+        // 書き換えないので、予算を決めた日時（月のまとめが前の月に予算の進みを出す基準）も動かない。
         let plan = (try? store.plan()) ?? BudgetPlan()
         self.store = store
         self.announce = announce

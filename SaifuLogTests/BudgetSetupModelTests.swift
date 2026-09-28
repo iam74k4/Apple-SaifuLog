@@ -163,6 +163,29 @@ struct BudgetSetupModelTests {
         #expect(try fixture.plan() == BudgetPlan(total: 150_000, byCategory: [.food: 40_000, .cafe: 5_000]))
     }
 
+    /// 開いたときに予算を読めず空で始まっても（開いている間にほかの端末の行が届いたときも同じ）、決めてあった額と
+    /// 同じ額を保存したら、予算を決めた日時を動かさない。月のまとめは、その日時を含む月から後にだけ予算の進みを出す
+    /// （BudgetPlan.decidedAt）ので、動かすと前の月の予算の進みが戻せずに消えるため。
+    @Test func savingSameAmountAfterEmptyStartKeepsDecisionDate() throws {
+        let fixture = try Fixture()
+        let model = fixture.makeModel()
+        #expect(!model.hadTotalBudget)
+        let decidedAt = TestSupport.date(2026, 8, 1)
+        fixture.now = decidedAt
+        try fixture.store.setAmount(150_000, for: .total)
+        fixture.now = TestSupport.now
+        model.totalText = "150,000"
+
+        #expect(model.save())
+
+        let rows = try fixture.rows()
+        #expect(rows.map(\.updatedAt) == [decidedAt])
+        #expect(BudgetPlan.decidedAt(.total, in: rows) == decidedAt)
+        #expect(try fixture.plan() == BudgetPlan(total: 150_000))
+        // 保存はできたことにして、決めた額を読み上げる（保存先の予算は入力した額のとおり）。
+        #expect(fixture.announcements.first?.contains("¥150,000") == true)
+    }
+
     /// カテゴリ別の予算はプレミアム。欄を出していなければ、入力があっても書き込まない。
     @Test func categoryBudgetsIgnoredWhenHidden() throws {
         let fixture = try Fixture()

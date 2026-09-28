@@ -7,12 +7,18 @@ import SwiftUI
 /// 予算を決めていれば「今月あと ¥…」を大きく、「1日あたり ¥… ・のこり N 日」を小さく出し、使った割合を
 /// 山吹のバーで示す。予算を超えたら「¥… オーバー」を注意の色とアイコンと文字で出す（色だけに頼らない）。
 /// 予算を決めていなければ、今月の支出の合計と「予算を決める」のボタンを出す。
+///
+/// 見出しと数字を押すと「月のまとめ」（⑦）へ進む（`openReport` を渡したとき）。見出しに「›」を添えて、押せば
+/// 詳しく見られることを示す。帯のほかにまとめの入口のボタンを置かないのは、ホームのナビゲーションバーを出さずに
+/// タイムラインを広く使っているのと、今月の合計を見て「何に使ったか」を知りたくなる場所がここだから。
 struct SummaryHeader: View {
     let summary: MonthlySummary
     /// 今月の予算の進み。予算を決めていなければ nil。
     let budget: BudgetStatus?
     /// 予算を決める（変える）画面を出す。
     let editBudget: () -> Void
+    /// 月のまとめへ進む。nil なら見出しと数字は押せない（プレビューなど）。
+    var openReport: (() -> Void)?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     #if DEBUG || INTERNAL_DIAGNOSTICS
@@ -23,13 +29,7 @@ struct SummaryHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             titleRow
-            figures
-                // VoiceOver では、数字をまとめて 1 つの要素として読ませる（見出し・残り・1 日あたり・残りの日数・
-                // 予算と使った額・収入の順）。ボタンより先に読ませる。
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(title)
-                .accessibilityValue(Text(verbatim: spokenFigures))
-                .accessibilitySortPriority(1)
+            figuresElement
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal)
@@ -59,27 +59,73 @@ struct SummaryHeader: View {
         }
     }
 
+    /// 数字の要素。VoiceOver では数字をまとめて 1 つの要素として読ませる（見出し・残り・1 日あたり・残りの日数・
+    /// 予算と使った額・収入の順）。ボタンより先に読ませる。まとめへ進めるときは、その要素を押すとまとめを開く。
+    @ViewBuilder
+    private var figuresElement: some View {
+        if let openReport {
+            Button(action: openReport) {
+                figures
+                    // 数字の右の空いたところを押しても開くようにする。
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
+            }
+            // 文字の色は数字の側で決めているので、tint に染めない形にする（押している間は薄くなる）。
+            .buttonStyle(.plain)
+            // ボタンは中の文字を 1 つの要素にまとめるので、読む内容だけを差し替える（ボタンであることは残す）。
+            .accessibilityLabel(title)
+            .accessibilityValue(Text(verbatim: spokenFigures))
+            .accessibilityHint("月のまとめを開きます")
+            .accessibilitySortPriority(1)
+        } else {
+            figures
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(title)
+                .accessibilityValue(Text(verbatim: spokenFigures))
+                .accessibilitySortPriority(1)
+        }
+    }
+
     /// 見出しと、予算を決める（変える）ボタンの行。アクセシビリティサイズの文字で 1 行に収まらなければ縦に積む。
     @ViewBuilder
     private var titleRow: some View {
         if dynamicTypeSize.isAccessibilitySize {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 0) {
-                    titleText
+                    titleButton
                     Spacer(minLength: 8)
                     trailingButtons
                 }
                 VStack(alignment: .leading, spacing: 0) {
-                    titleText
+                    titleButton
                     trailingButtons
                 }
             }
         } else {
             HStack(spacing: 0) {
-                titleText
+                titleButton
                 Spacer(minLength: 8)
                 trailingButtons
             }
+        }
+    }
+
+    /// 見出し。まとめへ進めるときは、見出しを押しても開く（「›」は押せることの印）。
+    ///
+    /// VoiceOver では読ませない（見出しは数字の要素の名前として読み、押す操作も数字の要素にある。ここでも読むと 2 回になる）。
+    @ViewBuilder
+    private var titleButton: some View {
+        if let openReport {
+            Button(action: openReport) {
+                titleText
+                    // 押せる範囲を 44pt の高さ以上にする。
+                    .frame(minHeight: 44)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHidden(true)
+        } else {
+            titleText
         }
     }
 
@@ -112,11 +158,17 @@ struct SummaryHeader: View {
     }
 
     private var titleText: some View {
-        title
-            .font(.subheadline)
-            .foregroundStyle(Theme.inkSecondary)
-            // 見出しは下の数字の要素の名前として読ませる（ここで読むと 2 回になる）。
-            .accessibilityHidden(true)
+        HStack(spacing: 4) {
+            title
+            if openReport != nil {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+            }
+        }
+        .font(.subheadline)
+        .foregroundStyle(Theme.inkSecondary)
+        // 見出しは下の数字の要素の名前として読ませる（ここで読むと 2 回になる）。
+        .accessibilityHidden(true)
     }
 
     private var budgetButton: some View {
@@ -258,13 +310,17 @@ struct SummaryHeader: View {
     }
 }
 
-/// 予算のうち使った割合のバー。山吹で塗り、予算を超えたら注意の色で満たす。
+/// 予算のうち使った割合のバー。山吹で塗り、予算を超えたら注意の色で満たす（ホームの帯と月のまとめ）。
 ///
-/// 数字（残り・超えた額）は帯の文字で出しているので、バーは目安として添えるだけにし、VoiceOver では読ませない
-/// （割合は帯の要素の「予算」「使った額」で伝わる）。
-private struct BudgetProgressBar: View {
+/// 数字（残り・超えた額）は文字で出しているので、バーは目安として添えるだけにし、VoiceOver では読ませない
+/// （割合は帯の要素の「予算」「使った額」や、まとめの行の文字で伝わる）。
+///
+/// `paceFraction` を渡すと、その位置に日割りの目安の印（墨の縦線）を立てる（月のまとめの今月）。印はバーの上下に
+/// はみ出させる。ダークでは墨が明るい色になり、山吹の塗りの上では見分けにくいので、はみ出した部分で見せるため。
+struct BudgetProgressBar: View {
     let fraction: Double
     let isOver: Bool
+    var paceFraction: Double?
 
     @ScaledMetric(relativeTo: .footnote) private var height = 6
 
@@ -280,6 +336,23 @@ private struct BudgetProgressBar: View {
             }
             .clipShape(.capsule)
             .frame(height: height)
+            .overlay {
+                if let paceFraction {
+                    GeometryReader { proxy in
+                        let width: CGFloat = 2
+                        Capsule()
+                            .fill(Theme.ink)
+                            .frame(width: width, height: height * 2.5)
+                            // 端でもバーの外に出ないよう、線の幅の分だけ内側に収める。
+                            .position(
+                                x: min(max(proxy.size.width * paceFraction, width / 2), proxy.size.width - width / 2),
+                                y: proxy.size.height / 2
+                            )
+                    }
+                }
+            }
+            // 上下にはみ出した印がほかの文字に重ならないよう、はみ出す分の余白を取る。
+            .padding(.vertical, paceFraction == nil ? 0 : height * 0.75)
             .accessibilityHidden(true)
     }
 }
@@ -314,19 +387,21 @@ struct MonthSummaryHeader: View {
     private let today: Date
     private let calendar: Calendar
     private let editBudget: () -> Void
+    private let openReport: () -> Void
     @Query private var records: [Entry]
     @Query private var budgets: [Budget]
 
-    init(today: Date, calendar: Calendar, editBudget: @escaping () -> Void) {
+    init(today: Date, calendar: Calendar, editBudget: @escaping () -> Void, openReport: @escaping () -> Void) {
         self.today = today
         self.calendar = calendar
         self.editBudget = editBudget
+        self.openReport = openReport
         _records = Query(Entry.monthDescriptor(containing: today, calendar: calendar))
     }
 
     var body: some View {
         let figures = Self.figures(records: records, budgets: budgets, today: today, calendar: calendar)
-        SummaryHeader(summary: figures.summary, budget: figures.budget, editBudget: editBudget)
+        SummaryHeader(summary: figures.summary, budget: figures.budget, editBudget: editBudget, openReport: openReport)
     }
 
     /// 帯に出す今月の合計と予算の進み。

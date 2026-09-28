@@ -8,7 +8,7 @@ import UIKit
 /// 記録も（将来は）質問も同じ入力欄から行う。入口を分けると「どこに書けばいいか」を
 /// 利用者に考えさせることになるため。
 ///
-/// 状態と操作（送信・取り消し・直す・削除・予算を決める画面の出し入れ）は `HomeModel` が持つ。ここは表示と、
+/// 状態と操作（送信・取り消し・直す・削除・予算を決める画面と月のまとめの出し入れ）は `HomeModel` が持つ。ここは表示と、
 /// 環境（文字の大きさ・支援技術・前面かどうか）に合わせた出し方だけを受け持つ。
 struct HomeView: View {
     @Environment(\.calendar) private var calendar
@@ -61,6 +61,11 @@ struct HomeView: View {
                 .sheet(item: $model.editing) { editing in
                     EditEntrySheet(model: editing)
                 }
+                // 月のまとめ（⑦）は横に進む。ホームへ戻ると monthlyReport は nil に戻る（item で出すのは、シートと同じく
+                // 戻る動きの間も中身を保つため）。
+                .navigationDestination(item: $model.monthlyReport) { report in
+                    MonthlyReportView(model: report)
+                }
                 #if DEBUG || INTERNAL_DIAGNOSTICS
                 .sheet(isPresented: $showsDiagnostics) {
                     DiagnosticsView(model: DiagnosticsModel(context: modelContext))
@@ -106,7 +111,12 @@ struct HomeView: View {
         )
         .background(Theme.background)
         .safeAreaInset(edge: .top, spacing: 0) {
-            MonthSummaryHeader(today: model.today, calendar: calendar, editBudget: { model.presentBudgetSetup() })
+            MonthSummaryHeader(
+                today: model.today,
+                calendar: calendar,
+                editBudget: { model.presentBudgetSetup() },
+                openReport: { model.presentMonthlyReport(calendar: calendar) }
+            )
                 // 合計は画面の上に常に出ている帯なので、文字の大きさに上限を設ける。最大の文字サイズの
                 // ままだと、下の入力欄と合わせて画面の半分以上を占め、タイムラインがほとんど見えなくなるため。
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)

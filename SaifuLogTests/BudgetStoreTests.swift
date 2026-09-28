@@ -45,6 +45,24 @@ struct BudgetStoreTests {
         #expect(rows.map(\.updatedAt) == [TestSupport.now])
     }
 
+    /// 額が同じなら行を書き換えない（書き込んだ日時を動かさない）。その日時は、月のまとめが予算の進みを出す月の基準
+    /// （BudgetPlan.decidedAt）なので、同じ額で書き直して動かすと、前の月の予算の進みが消えるため。重なった行の片づけはする。
+    @Test func sameAmountKeepsRowAndDate() throws {
+        let context = try TestSupport.makeContext()
+        try Self.makeStore(context: context, now: Self.earlier).setAmounts([.total: 150_000, .category(.food): 0])
+        context.insert(Budget(scope: .total, amount: 100_000, updatedAt: TestSupport.date(2026, 8, 1)))
+        try context.save()
+
+        try Self.makeStore(context: context).setAmounts([.total: 150_000, .category(.food): 0, .category(.cafe): 5_000])
+
+        let rows = try Self.rows(context)
+        #expect(rows.map(\.scopeRawValue) == ["cafe", "food", "total"])
+        #expect(rows.map(\.amount) == [5_000, 0, 150_000])
+        #expect(rows.map(\.updatedAt) == [TestSupport.now, Self.earlier, Self.earlier])
+        #expect(BudgetPlan.decidedAt(.total, in: rows) == Self.earlier)
+        #expect(!context.hasChanges)
+    }
+
     /// iCloud で別々の端末の行が届いて重なったときは、書き込むときに 1 行へ片づける。ほかの対象の行には触れない。
     @Test func setAmountRemovesDuplicatesOfSameScope() throws {
         let context = try TestSupport.makeContext()

@@ -26,6 +26,7 @@ struct BudgetStore {
     /// 対象ごとに 1 行だけを残して書き換え（無ければ足し）、同じ対象のほかの行は片づける。残すのは
     /// `BudgetPlan.preferred` が選ぶ行（読むときに有効とみなす行と同じ）。片づけた行の削除が iCloud で
     /// 他の端末に届く前でも、書き換えた行のほうが新しいので、どの端末でもこの額が有効になる。
+    /// 残す行の額がすでに同じなら、その行は書き換えない（書き込んだ日時を動かさない）。
     /// 額は 0〜`BudgetPlan.maximumAmount` に収める（負の数は設定なしにする）。
     func setAmounts(_ amounts: [BudgetScope: Int]) throws {
         guard !amounts.isEmpty else { return }
@@ -38,8 +39,14 @@ struct BudgetStore {
                 context.insert(Budget(scope: scope, amount: value, updatedAt: timestamp))
                 continue
             }
-            kept.amount = value
-            kept.updatedAt = timestamp
+            // 額が同じなら書き換えない。書き込んだ日時は、月のまとめが「いまの予算をその額に決めた日時」として、予算の
+            // 進みを出す月の基準にしている（BudgetPlan.decidedAt）。同じ額で書き直すと日時が今に動き、前の月の予算の
+            // 進みが戻せずに消える。呼び出し側が「変えた対象だけを書く」ことに頼らず、書くここで守る（予算を決める画面が
+            // 保存先を読めずに開いたときは、決めてあった額と同じ額でも変えたものとして渡してくるため）。
+            if kept.amount != value {
+                kept.amount = value
+                kept.updatedAt = timestamp
+            }
             for duplicate in sameScope where duplicate !== kept {
                 context.delete(duplicate)
             }

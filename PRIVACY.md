@@ -38,8 +38,8 @@ iPhone のバックアップ（iCloud バックアップや、Mac・PC へのバ
 場合、記録はバックアップの一部として保存されることがあります。これは Apple が提供する
 iOS の機能で、開発者はその内容を見られません。
 
-記録は 1 件ずつ、アプリの中で直したり削除したりできます（タイムラインの記録を押して開く画面で直すか
-「この記録を削除」、または記録を長押しして「削除」）。直した金額・品目・支出か収入か・カテゴリ・日付は、元の記録に
+記録は 1 件ずつ、アプリの中で直したり削除したりできます（タイムラインの記録か、月のまとめのカテゴリ別の記録の一覧の
+記録を押して開く画面で直すか「この記録を削除」、またはタイムラインの記録を長押しして「削除」）。直した金額・品目・支出か収入か・カテゴリ・日付は、元の記録に
 上書きして保存します。入力した文章は直しても元のまま残り、直す画面に見比べるために表示します。入力した文章を消すには、
 その記録を削除してください（1 回の入力から複数の記録ができたときは、そのすべてを削除すると消えます）。
 予算は、予算を決める画面の「予算をなくす」で、確認のうえ設定なしに戻せます。
@@ -156,8 +156,9 @@ If you back up your iPhone (for example with iCloud Backup, or to a Mac or PC), 
 records may be included in that backup. This is an iOS feature provided by Apple, and the
 developer cannot see its contents.
 
-You can edit or delete your records one by one in the app (tap a record in the timeline to
-edit it or choose Delete This Record, or long-press a record and choose Delete). When you edit
+You can edit or delete your records one by one in the app (tap a record in the timeline, or
+in a category's list in the monthly summary, to edit it or choose Delete This Record, or
+long-press a record in the timeline and choose Delete). When you edit
 a record, the amount, item, expense or income, category, and date you set overwrite the
 original values. The text you entered stays as it was, and the edit screen shows it (as What
 you sent) so you can compare. To remove that text, delete the record (if one entry created

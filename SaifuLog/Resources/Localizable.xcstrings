@@ -45,6 +45,29 @@
         }
       }
     },
+    "%lld 件" : {
+      "comment" : "月のまとめのカテゴリの記録の一覧の見出し。その月のそのカテゴリの支出の記録の件数。%lld は件数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld entry"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld entries"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "1か月に使うお金の上限を決めると、ホームに今月あといくら使えるかと、1日あたりに使える額が出ます。" : {
       "comment" : "予算を決める画面の説明",
       "localizations" : {
@@ -56,6 +79,28 @@
         }
       }
     },
+    "1パーセント未満" : {
+      "comment" : "月のまとめの内訳（VoiceOver）。割合が 1% に届かないカテゴリの割合（画面では「<1%」と出す）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "less than 1 percent"
+          }
+        }
+      }
+    },
+    "1日あたり" : {
+      "comment" : "月のまとめの予算の行の見出し。今日から月末まで 1 日あたりに使える額（今月だけ）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per day"
+          }
+        }
+      }
+    },
     "1日あたり %@" : {
       "comment" : "ホームの上の帯。月末まで 1 日あたりに使える額（今日を含む）。%@ は「¥31,000」のような金額",
       "localizations" : {
@@ -63,6 +108,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ a day"
+          }
+        }
+      }
+    },
+    "1日あたりの平均" : {
+      "comment" : "月のまとめの行の見出し。その月の 1 日あたりの平均の支出（今月は 1 日から今日までの平均）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily average"
           }
         }
       }
@@ -239,6 +295,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This iPhone doesn’t support Apple Intelligence, so amounts and categories are read with an on-device dictionary. Entries written like the examples above are recorded without AI."
+          }
+        }
+      }
+    },
+    "この月の支出の記録はありません" : {
+      "comment" : "月のまとめのカテゴリ別の支出の欄。その月に収入の記録しかないとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No spending recorded this month"
+          }
+        }
+      }
+    },
+    "この月の記録の一覧を開きます" : {
+      "comment" : "月のまとめの内訳の行の VoiceOver の説明（ヒント）。その月のそのカテゴリの記録の一覧へ進む",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows this month’s entries in this category."
+          }
+        }
+      }
+    },
+    "この月の記録はありません" : {
+      "comment" : "月のまとめで、表示している月（またはそのカテゴリ）に記録が 1 件も無いときの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No entries this month"
           }
         }
       }
@@ -442,6 +531,17 @@
         }
       }
     },
+    "カテゴリ別の支出" : {
+      "comment" : "月のまとめの欄の見出し。カテゴリ別の横棒グラフと行",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spending by Category"
+          }
+        }
+      }
+    },
     "カフェ" : {
       "comment" : "カテゴリ",
       "localizations" : {
@@ -519,6 +619,17 @@
         }
       }
     },
+    "ホームの入力欄から「ランチ 850」のように送ると、ここに何にいくら使ったかが出ます。" : {
+      "comment" : "月のまとめで、今月に記録が無いときの案内。「ランチ 850」は入力の例で、訳さない（解析が日本語の入力を前提にしているため）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send something like “ランチ 850” from the field on Home, and this shows what you spent and on what."
+          }
+        }
+      }
+    },
     "ランチ 850 のように入力" : {
       "comment" : "入力欄のプレースホルダ。例の「ランチ 850」は訳さない（解析が日本語の入力を前提にしているため）。英訳は短く保つ（長いと既定の文字サイズでも例が「…」で切れる）",
       "localizations" : {
@@ -548,6 +659,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Just send a line like these in the field below."
+          }
+        }
+      }
+    },
+    "予算" : {
+      "comment" : "月のまとめの欄の見出しと行の見出し。月の予算",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Budget"
           }
         }
       }
@@ -706,6 +828,61 @@
         }
       }
     },
+    "今日までに使った額" : {
+      "comment" : "月のまとめの予算の行の見出し（今月で、今日より先の日付の記録があるときだけ）。今日までの目安と比べた、今日の終わりまでの日付の支出の合計",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spent through today"
+          }
+        }
+      }
+    },
+    "今日までの目安" : {
+      "comment" : "月のまとめの予算の行の見出し（今月だけ）。予算を月の日数で割り、1 日から今日までの日数を掛けた額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Target through today"
+          }
+        }
+      }
+    },
+    "今日までの目安どおり" : {
+      "comment" : "月のまとめの予算の欄（今月だけ）。今月の支出が今日までの目安とちょうど同じとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Right on target through today"
+          }
+        }
+      }
+    },
+    "今日までの目安より %@ 多い" : {
+      "comment" : "月のまとめの予算の欄（今月だけ）。今月の支出が今日までの目安より多いとき。%@ は「¥5,000」のような差額。矢印のアイコンを添える",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ over target through today"
+          }
+        }
+      }
+    },
+    "今日までの目安より %@ 少ない" : {
+      "comment" : "月のまとめの予算の欄（今月だけ）。今月の支出が今日までの目安より少ないとき。%@ は「¥5,000」のような差額。矢印のアイコンを添える",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ under target through today"
+          }
+        }
+      }
+    },
     "今日より先の日付です。予定の記録でなければ、日付を確かめてください。" : {
       "comment" : "直すシートで今日より先の日付を選んだときの注意（保存はできる）",
       "localizations" : {
@@ -779,6 +956,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Availability"
+          }
+        }
+      }
+    },
+    "使った額" : {
+      "comment" : "月のまとめの予算の行の見出し。その月の予算の対象の支出",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spent"
           }
         }
       }
@@ -915,6 +1103,17 @@
         }
       }
     },
+    "前の月" : {
+      "comment" : "月のまとめの月送りのボタン（VoiceOver のラベル）。記録のある最初の月より前には戻れない",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous Month"
+          }
+        }
+      }
+    },
     "前の記録を表示" : {
       "comment" : "タイムラインの先頭で、さらに前の記録を読み込むボタン",
       "localizations" : {
@@ -922,6 +1121,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Show earlier records"
+          }
+        }
+      }
+    },
+    "前月と同じ" : {
+      "comment" : "月のまとめ。その月の支出が前の月の支出と同じとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Same as last month"
+          }
+        }
+      }
+    },
+    "前月より %@ 多い" : {
+      "comment" : "月のまとめ。その月の支出が前の月より多いとき。%@ は「¥7,000」のような差額。矢印のアイコンを添える",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ more than last month"
+          }
+        }
+      }
+    },
+    "前月より %@ 少ない" : {
+      "comment" : "月のまとめ。その月の支出が前の月より少ないとき。%@ は「¥7,000」のような差額。矢印のアイコンを添える",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ less than last month"
           }
         }
       }
@@ -944,6 +1176,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Income"
+          }
+        }
+      }
+    },
+    "収支" : {
+      "comment" : "月のまとめの行の見出し。その月の収入から支出を引いた額（「+¥193,000」のように符号つき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Balance"
           }
         }
       }
@@ -1080,6 +1323,28 @@
         }
       }
     },
+    "月のまとめ" : {
+      "comment" : "月のまとめの画面のタイトル。月ごとの支出・収入とカテゴリ別の内訳",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly Summary"
+          }
+        }
+      }
+    },
+    "月のまとめを開きます" : {
+      "comment" : "ホームの上の帯の数字の VoiceOver の説明（ヒント）。押すと月のまとめへ進む",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the monthly summary."
+          }
+        }
+      }
+    },
     "月の予算" : {
       "comment" : "予算を決める画面の入力欄の見出し",
       "localizations" : {
@@ -1131,6 +1396,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Model"
+          }
+        }
+      }
+    },
+    "次の月" : {
+      "comment" : "月のまとめの月送りのボタン（VoiceOver のラベル）。今月より先には進めない",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next Month"
+          }
+        }
+      }
+    },
+    "残り" : {
+      "comment" : "月のまとめの予算の行の見出し。予算から使った額を引いた額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Left"
           }
         }
       }
@@ -1417,6 +1704,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Opens the record for editing."
+          }
+        }
+      }
+    },
+    "記録を読み込めませんでした" : {
+      "comment" : "月のまとめで、保存先から記録を読めなかったときの見出し。下に「もう一度試す」のボタンを出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t load your entries"
           }
         }
       }
