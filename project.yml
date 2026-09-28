@@ -6,6 +6,9 @@ options:
   deploymentTarget:
     iOS: "26.0"
   # 開発言語は日本語。英語はローカライズとして足す（String Catalog の sourceLanguage も ja）。
+  # 日本語と英語のどちらも優先言語に入っていない端末では、開発言語の日本語で出る（CFBundleDevelopmentRegion = ja）。
+  # これは意図どおり。入力の解析が日本語の文を前提にしているので、日本語を読める人が使うアプリとして作っている
+  # （英語の UI は、英語を優先する端末で日本語の入力をする人のためのもの）。理由は docs/design.md にある。
   developmentLanguage: ja
   xcodeVersion: "27.0"
   generateEmptyDirectories: true
@@ -28,6 +31,20 @@ targets:
       - path: SaifuLog
     dependencies:
       - package: SaifuLogCore
+    # エンタイトルメント。ファイルは make generate がここの properties から書き出す（直接書き換えても消える）。
+    #
+    # default-data-protection: アプリが作るファイル（SwiftData の保存先 default.store と -wal / -shm を含む）の
+    # 既定の保護クラスを NSFileProtectionComplete にする。家計の記録を、画面のロック中は復号できない状態にしておく。
+    # 既定のクラス（初回のロック解除後は常に復号）のままだと、ロック中の端末からも読めてしまう。
+    # ロック中は保存先を開けないので、ウィジェット・App Intents・バックグラウンドの処理がロック中に記録を
+    # 読み書きする必要が出たら、NSFileProtectionCompleteUnlessOpen に下げるかを見直す（docs/design.md）。
+    #
+    # CI は署名なしでアーカイブする（release.mk の ARCHIVE_SIGNING=NO）ので、ここに足したものが提出物に
+    # 載っているかは make export-ipa の出力で確かめる。
+    entitlements:
+      path: SaifuLog/SaifuLog.entitlements
+      properties:
+        com.apple.developer.default-data-protection: NSFileProtectionComplete
     # FoundationModels / SwiftData は import するだけで自動でリンクされるので、sdk: の指定は要らない。
     settings:
       base:
@@ -38,6 +55,9 @@ targets:
         # （ja「サイフログ」/ en「SaifuLog」）。
         INFOPLIST_KEY_CFBundleDisplayName: サイフログ
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        # 縦向きだけにする。横向きでキーボードを出すと、タイムラインがほぼ見えなくなるため。
+        # iPhone のみのアプリ（TARGETED_DEVICE_FAMILY = 1）なので、iPad 用の指定は要らない。
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.finance
         # 独自の暗号化は使っていない（使うとしても OS 標準のものだけ）。宣言しておくと、
@@ -49,6 +69,21 @@ targets:
         SWIFT_EMIT_LOC_STRINGS: YES
         ENABLE_PREVIEWS: YES
 
+  # アプリ側（SaifuLog/）のテスト。SwiftData の保存と読み込みの条件、保存の失敗の扱いなど、
+  # コアに置けない（SwiftData に依存する）部分を確かめる。シミュレータで動かすので make test（swift test）とは
+  # 分け、make build-tests（ビルドだけ）と make test-app（シミュレータで動かす）で回す。CI（build.yml）も同じ。
+  SaifuLogTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: SaifuLogTests
+    dependencies:
+      - target: SaifuLog
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).Tests
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
   SaifuLog:
     build:
@@ -59,5 +94,6 @@ schemes:
     test:
       targets:
         - package: SaifuLogCore/SaifuLogCoreTests
+        - SaifuLogTests
     archive:
       config: Release

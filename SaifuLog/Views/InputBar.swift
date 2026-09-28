@@ -8,8 +8,11 @@ struct InputBar: View {
     @Binding var text: String
     let isSending: Bool
     let send: () -> Void
+    /// 直前の記録を取り消す。記録の直後（「取り消す」のバナーが出ている間）だけ渡す。
+    var undo: (() -> Void)?
 
     @FocusState private var isFocused: Bool
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var canSend: Bool {
         !isSending && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -18,18 +21,30 @@ struct InputBar: View {
     var body: some View {
         HStack(spacing: 8) {
             // 1 行の入力欄にする。複数行にすると Return が改行になり、チャットのように送れないため。
-            TextField("ランチ 850 のように入力", text: $text)
-                .focused($isFocused)
-                .submitLabel(.send)
-                .onSubmit {
-                    send()
-                    // Return で送るとキーボードが閉じる。続けて記録できるよう、入力欄にとどまる。
-                    isFocused = true
+            TextField(text: $text, prompt: prompt) {
+                Text("記録する内容")
+            }
+            .focused($isFocused)
+            .submitLabel(.send)
+            .onSubmit {
+                send()
+                // Return で送るとキーボードが閉じる。続けて記録できるよう、入力欄にとどまる。
+                isFocused = true
+            }
+            .accessibilityLabel("記録する内容")
+            // 送信の後、VoiceOver のフォーカスは入力欄に戻る。バナーまで移らずに取り消せるようにする。
+            .accessibilityActions {
+                if let undo {
+                    Button("直前の記録を取り消す", action: undo)
                 }
-                .accessibilityLabel("記録する内容")
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .glassEffect(.regular, in: .rect(cornerRadius: 22))
+            }
+            // 入力欄は高さ 44pt 以上にし、文字の周りの余白（ガラスの枠の中）を押してもフォーカスが入るようにする。
+            // 文字の部分だけが押せる範囲だと、高さが 22pt ほどしかないため。
+            .frame(minHeight: 44)
+            .padding(.horizontal, 16)
+            .contentShape(.rect(cornerRadius: 22))
+            .simultaneousGesture(TapGesture().onEnded { isFocused = true })
+            .glassEffect(.regular, in: .rect(cornerRadius: 22))
 
             Button(action: send) {
                 if isSending {
@@ -46,6 +61,12 @@ struct InputBar: View {
             .disabled(!canSend)
             .accessibilityLabel(isSending ? "読み取り中" : "送信")
         }
+    }
+
+    /// 入力の例。アクセシビリティサイズの文字では例だけにする。入力欄の幅に収まらない案内は、
+    /// 読めないほど小さく縮められるため。例の「ランチ 850」は訳さない（解析が日本語の入力を前提にしているため）。
+    private var prompt: Text {
+        dynamicTypeSize.isAccessibilitySize ? Text(verbatim: "ランチ 850") : Text("ランチ 850 のように入力")
     }
 }
 

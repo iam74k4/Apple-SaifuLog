@@ -56,18 +56,51 @@ final class Entry {
 }
 
 extension Entry {
-    /// 解析結果から記録を作る。
-    convenience init(parsed: ParsedEntry, originalText: String, source: EntrySource, now: Date, calendar: Calendar) {
-        self.init(
-            amount: parsed.amount,
-            isIncome: parsed.isIncome,
-            category: parsed.category,
-            memo: parsed.memo,
-            spentAt: parsed.date(relativeTo: now, calendar: calendar),
-            createdAt: now,
-            source: source,
-            originalText: originalText
-        )
+    /// 1 回の送信の解析結果から、保存する記録を書いた順に作る。
+    ///
+    /// 記録した日時と使った日時の振り方（複数件を書いた順に並べるためのずらし）は、swift test で
+    /// 確かめられるようコアの `ParsedEntry.timestamps` に置いている。
+    static func records(
+        from parsed: [ParsedEntry], originalText: String, source: EntrySource, now: Date, calendar: Calendar
+    ) -> [Entry] {
+        zip(parsed, ParsedEntry.timestamps(for: parsed, now: now, calendar: calendar)).map { entry, timestamps in
+            Entry(
+                amount: entry.amount,
+                isIncome: entry.isIncome,
+                category: entry.category,
+                memo: entry.memo,
+                spentAt: timestamps.spentAt,
+                createdAt: timestamps.createdAt,
+                source: source,
+                originalText: originalText
+            )
+        }
+    }
+}
+
+// MARK: - 読み込みの条件
+
+extension Entry {
+    /// `date` を含む月の記録だけを読む条件。今月の合計に使う。
+    ///
+    /// 全期間を読んで数えると、記録が増えるほど描画のたびに遅くなる（2 万件で 0.2 秒ほど）ため、
+    /// 月の範囲で絞ってから読む。
+    static func monthDescriptor(containing date: Date, calendar: Calendar) -> FetchDescriptor<Entry> {
+        guard let month = calendar.dateInterval(of: .month, for: date) else {
+            return FetchDescriptor(predicate: #Predicate { _ in false })
+        }
+        let start = month.start
+        let end = month.end
+        return FetchDescriptor(predicate: #Predicate { $0.spentAt >= start && $0.spentAt < end })
+    }
+
+    /// タイムラインに出す、記録した日時の新しいものから `limit` 件。
+    ///
+    /// 件数で区切るので新しい順に読む（画面では古い順に並べ直す）。
+    static func timelineDescriptor(limit: Int) -> FetchDescriptor<Entry> {
+        var descriptor = FetchDescriptor<Entry>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
+        descriptor.fetchLimit = limit
+        return descriptor
     }
 }
 
