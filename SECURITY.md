@@ -20,7 +20,7 @@ SaifuLog の脆弱性や、プライバシーに関わる問題（記録が端�
 | 対象 | 例 |
 |---|---|
 | アプリ本体（`SaifuLog/`、`Packages/SaifuLogCore/`） | 記録が端末の外へ送られる、保存した記録がほかのアプリから読める、入力で落ちる・記録が壊れる |
-| CI/CD（`.github/workflows/`、`release.mk`、`Makefile`） | App Store Connect の鍵（Environment `release` の Secrets）や、リポジトリへの書き込みの権限が漏れうる経路 |
+| CI/CD（`.github/workflows/`、`release.mk`、`Makefile`） | App Store Connect の鍵や署名用の証明書（Environment `release` の Secrets）、リポジトリへの書き込みの権限が漏れうる経路 |
 | リリースの道具（`scripts/`） | `scripts/asc.py` や、その依存（`scripts/requirements.txt`）の問題 |
 
 Apple の OS やフレームワーク（Foundation Models、SwiftData など）、GitHub 自体の脆弱性は、
@@ -61,7 +61,7 @@ vulnerability details, personal information, or financial records there.
 
 - The app (`SaifuLog/`, `Packages/SaifuLogCore/`)
 - CI/CD (`.github/workflows/`, `release.mk`, `Makefile`), including any way the App Store
-  Connect key or write access to the repository could leak
+  Connect key, the signing certificate, or write access to the repository could leak
 - Release tools (`scripts/`), including `scripts/asc.py` and its dependencies
 
 Vulnerabilities in Apple's operating systems and frameworks, or in GitHub itself, should be

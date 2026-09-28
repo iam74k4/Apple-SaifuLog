@@ -22,9 +22,10 @@ PR: develop → main ─ マージ ─▶ release.yml
                                   │
                                   ├─ upload（macOS: xcode-27）
                                   │    承認済みの版でないかを App Store Connect で確かめ、
-                                  │    make archive で .xcarchive を作り（署名なし）、
+                                  │    開発用の証明書を使い捨てのキーチェーンに取り込み、
+                                  │    make archive で署名ありの .xcarchive を作り、
                                   │    make export-ipa で送らずに書き出してエンタイトルメントを照合し
-                                  │    （いまは抜けていても警告だけ）、
+                                  │    （main で確かめるまでは、抜けていても警告だけ）、
                                   │    make upload でクラウド署名して App Store Connect へ送る
                                   │
                                   └─ submit（Linux）
@@ -45,7 +46,7 @@ PR: develop → main ─ マージ ─▶ release.yml
 | 誰が | 何を |
 |---|---|
 | 自動（build.yml） | PR と push のたびに `make build`・`make test`（コアのテスト）・`make build-tests` と `make test-app`（アプリのテストのビルドと、シミュレータでの実行）・`make check-version` と、署名なしの `make archive`（提出物と同じ Release・実機向けの組み立てを、マージ前に一度通す。バージョン・ビルド番号・アイコンがアプリの Info.plist に入っているかも見る） |
-| 自動（release.yml / upload） | 承認済みの版ならスキップ、アーカイブ、エンタイトルメントの照合（送らずに書き出す。いまは抜けていても警告だけ）、クラウド署名、App Store Connect へのアップロード |
+| 自動（release.yml / upload） | 承認済みの版ならスキップ、アーカイブ（開発用の証明書で署名）、エンタイトルメントの照合（送らずに書き出す。いまは抜けていても警告だけ）、クラウド署名、App Store Connect へのアップロード |
 | 自動（release.yml / submit） | 処理待ち、バージョンの用意、リリースノート、**審査への提出** |
 | 自動（tag-release.yml） | 配信を検知し、配信されたビルドを作ったコミットにタグと GitHub Release を作成 |
 | 人 | バージョンを上げる、CHANGELOG を書く、App Store Connect の Web でしかできない設定、リジェクトの対応 |
@@ -93,14 +94,18 @@ PR: develop → main ─ マージ ─▶ release.yml
 
 ### 1. Apple 側で用意するもの
 
-証明書やプロビジョニングプロファイルを手で作る必要は**無い**。署名は export の段階で
-Xcode が用意する（自動署名 + クラウド管理の配布証明書）。要るのは次のものだけ。
+配布用の証明書（Apple Distribution）やプロビジョニングプロファイルを手で作る必要は**無い**。
+App Store 向けの署名は export の段階で Xcode が用意する（自動署名 + クラウド管理の配布証明書）。
+手で用意する証明書は、アーカイブの署名に使う開発用の証明書（Apple Development）の .p12 だけ
+（下の「[署名ありのアーカイブ](#署名ありのアーカイブ)」）。要るのは次のもの。
 
 | もの | どこで | 補足 |
 |---|---|---|
 | Apple Developer Program | developer.apple.com | チーム ID は `NL9ZXK2SGR` |
 | **Bundle ID の登録** | Certificates, Identifiers & Profiles → Identifiers → **+** → App IDs | `com.iam74k4.SaifuLog`（Explicit）。Capability の **Data Protection** をオンにして **Complete Protection** を選ぶ（エンタイトルメント `default-data-protection` と揃える） |
 | **アプリレコード** | App Store Connect → アプリ → **+** → 新規 App | プラットフォーム iOS、プライマリ言語は日本語、Bundle ID は上のもの、SKU は任意（例 `saifulog-ios`） |
+| **端末の登録（1 台以上）** | Certificates, Identifiers & Profiles → Devices | アーカイブは開発用のプロファイルで署名するので、チームに登録した端末が 1 台も無いとプロファイルを作れない。手元の Xcode でその iPhone に一度ビルドすれば自動で登録される |
+| **開発用の証明書（.p12）** | Xcode → 設定 → Accounts → Manage Certificates… | アーカイブの署名に使う Apple Development の証明書。書き出し方と年に一度の更新は「[署名ありのアーカイブ](#署名ありのアーカイブ)」 |
 | App Store Small Business Program | developer.apple.com/app-store/small-business-program | 加入すると手数料が 15% になる（`docs/design.md` §6）。申し込みは別途 |
 
 Bundle ID を先に登録するのは、CI の export が**自動署名でもアプリ ID は登録しない**ため
@@ -144,8 +149,11 @@ App Store Connect → **ユーザとアクセス** → **統合**（Integrations
 | `ASC_API_KEY_ID` | API キーのキー ID（10 文字の英数字） |
 | `ASC_API_ISSUER_ID` | Issuer ID（UUID 形式） |
 | `ASC_API_KEY_P8` | .p8 ファイルの中身そのまま（`-----BEGIN PRIVATE KEY-----` から末尾まで） |
+| `APPLE_DEV_CERT_P12_BASE64` | 開発用の証明書（Apple Development）の .p12 を base64 にしたもの（`base64 -i <ファイル>` の出力） |
+| `APPLE_DEV_CERT_P12_PASSWORD` | その .p12 を書き出したときに付けたパスワード |
 
-証明書の .p12 やプロファイルの Secret は要らない。
+.p12 の書き出し方は下の「[署名ありのアーカイブ](#署名ありのアーカイブ)」。配布用の証明書（Apple Distribution）や
+プロファイルの Secret は要らない。
 
 ### 4. 振る舞いを変えたいとき（Variables、任意）
 
@@ -269,14 +277,14 @@ New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分
 2. develop → main をマージする。release.yml の upload が走り、ビルドが App Store Connect に届く
    - アップロードの前の「送る前に書き出して確かめる（送信しない）」で、書き出したアプリに
      エンタイトルメント（データ保護の `default-data-protection`）が載っているかを照合する。
-     CI のアーカイブは署名なしなので、**いまは必ず抜けが見つかる。** 署名ありのアーカイブをまだ
-     release.yml に入れていないので、ここは警告（run の Annotations）を出すだけで、アップロードは続ける
-     （止めると、マージのたびにリリースが止まる）。警告が出たビルドは、保存先のデータ保護が
-     既定のクラス（初回のロック解除後は常に復号）のままになる。下の
-     「[Capability（iCloud など）を足すとき](#capabilityicloud-などを足すとき)」の手順で署名ありの
-     アーカイブに切り替えるまで、この状態が続く
-   - export（署名）で落ちたら、Actions → release → **Run workflow** → `mode=export` で、
-     何も送らずに署名の経路とエンタイトルメントの照合だけを繰り返し試せる（こちらの照合は、抜けていれば止まる）
+     アーカイブは開発用の証明書で署名してあるので、載っていれば `OK: … のキーはすべて載っています` と出る。
+     ただしこの経路はまだ一度も通していないので、照合は警告（run の Annotations）を出すだけで、
+     抜けていてもアップロードは続ける。警告が出たビルドは、保存先のデータ保護が既定のクラス
+     （初回のロック解除後は常に復号）のままになる
+   - 証明書の取り込み、アーカイブの署名、export（署名）のどこかで落ちたら、Actions → release →
+     **Run workflow** → `mode=export` で、何も送らずに署名の経路とエンタイトルメントの照合だけを
+     繰り返し試せる（こちらの照合は、抜けていれば止まる）
+   - 照合の警告が出たビルドは審査に出さない。審査の前に、6 で照合が通ることを確かめる
 3. TestFlight に処理済みのビルドが現れたら、内部テスターとして実機に入れて確かめる
 4. **`PRIVACY.md` を確定させる。** 冒頭の「草案 / Draft」の注記を外し、施行日（Effective date）に
    日付を入れ、最終更新日も揃える。内容が実装と合っているかもここで見直す。作業ブランチ → develop →
@@ -285,7 +293,19 @@ New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分
    審査に出すポリシーの URL が「Draft」と書かれたページのままにならないようにするため
 5. 「一度だけの準備」の 5（Web の設定）を済ませる。プライバシーポリシーの URL には、4 で確定させた
    main の `PRIVACY.md` を入れる
-6. 審査に出す。**`mode=submit` で出す。**
+6. **審査に出す前に、エンタイトルメントの照合が通ることを確かめる。** アップロード前の照合はまだ警告だけで、
+   データ保護が抜けていても送ってしまう。抜けたビルドを審査に出さないための関門なので、ここが済むまで 7 に進まない
+   - main で Actions → release → Run workflow → `mode=export` を走らせ、「書き出すだけ（送信しない）」が緑で
+     `OK: SaifuLog/SaifuLog.entitlements のキーはすべて載っています` と出ることを確かめる（こちらの照合は、
+     抜けていれば止まる）
+   - 通ったら、「[照合を止める扱いに戻す](#照合を止める扱いに戻す所有者が確かめてから)」の 3 の PR
+     （`RELEASE_ENTITLEMENTS_CHECK=warn` を外す）を develop → main とマージする（`ASC_AUTO_SUBMIT` が `false`
+     なので、アップロードだけが走る）。7 の `mode=submit` はアーカイブからやり直すので、こうしておけば、その実行で
+     抜けたときにアップロードの前に止まる
+   - エンタイトルメントの照合の警告（run の Annotations）が出たビルドは審査に出さない。原因を直して送り直し、
+     照合が通ってから出す。7 で Web からビルドを選ぶときは、そのビルドを送った run の「送る前に書き出して確かめる
+     （送信しない）」に `OK: …` の行があるものを選ぶ
+7. 審査に出す。**`mode=submit` で出す。**
    - Actions → release → Run workflow → `mode=submit`（アーカイブからやり直し、
      新しいビルド番号で送って提出する）。初回の版は App Store Connect が自動で作る
      「1.0（提出準備中）」で、submit ジョブがこれを `0.1.0`（`MARKETING_VERSION`）に書き換えて使う
@@ -293,9 +313,9 @@ New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分
      （`MARKETING_VERSION` と同じ値）に書き換えてから**、ビルドを選んで「審査に提出」を押す。
      1.0 のままだと 0.1.0 のビルドを選べないか、1.0 として配信されてしまう。後者だと tag-release.yml が
      版の食い違い（1.0 と 0.1.0）で赤く止まり、タグと Release が作られない
-7. `ASC_AUTO_SUBMIT` を消す（以降はマージで審査まで進む）
+8. `ASC_AUTO_SUBMIT` を消す（以降はマージで審査まで進む）
 
-2〜6 の間も tag-release.yml は 3 時間おきに走る。App Store Connect に配信中の版がまだ無いので、
+2〜7 の間も tag-release.yml は 3 時間おきに走る。App Store Connect に配信中の版がまだ無いので、
 「配信中の版はまだありません」として何もせずに終わる（失敗にはならない）。
 
 初回の版には「このバージョンでの変更点」の欄が無い。submit ジョブはリリースノートを
@@ -318,13 +338,18 @@ New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分
 |---|---|
 | `DEVELOPER_DIR ... がありません` | ランナーのイメージで Xcode が入れ替わった。ログに並ぶ Xcode から選び、build.yml と release.yml の `DEVELOPER_DIR` を一緒に直す |
 | XcodeGen の `shasum` が FAILED | 取ってきた zip が固定した版と違う。値を書き換えて通さず、XcodeGen の Release の digest を確かめる |
-| `Environment「release」の Secrets ... が足りません` | 「一度だけの準備」の 3 |
+| `Environment「release」の Secrets ... が足りません` | 「一度だけの準備」の 3。証明書の 2 つ（`APPLE_DEV_CERT_P12_*`）なら「[署名ありのアーカイブ](#署名ありのアーカイブ)」 |
+| `.p12 を取り込めません` | `APPLE_DEV_CERT_P12_PASSWORD` が書き出したときのパスワードと違う、または .p12 が macOS の読めない形式（openssl で作ったものなど）。キーチェーンアクセスか Xcode で書き出し直す |
+| `.p12 に Apple Development の証明書と秘密鍵が入っていません` | 別の種類の証明書（Apple Distribution など）を書き出したか、秘密鍵を含めずに書き出した。「[署名ありのアーカイブ](#署名ありのアーカイブ)」の手順で書き出し直す |
+| `証明書のチーム（…）が Config/Base.xcconfig の DEVELOPMENT_TEAM（…）と違います` | 別のチームの証明書を書き出した。`NL9ZXK2SGR` のチームの Apple Development の証明書にする |
+| `Apple Development の証明書の期限が切れています`（30 日前からは期限が近いという警告） | 期限は 1 年。「[年に一度の更新](#年に一度の更新)」 |
+| アーカイブで `Your team has no devices from which to generate a provisioning profile` | チームに端末が 1 台も登録されていない。開発用のプロファイルは登録端末が無いと作れない。「一度だけの準備」の 1 |
 | ジョブが始まらずに Environment の保護ルールで止まる | main 以外のブランチから手動実行した。Environment `release` は main からしか使えない（意図どおり） |
 | 「依存を入れる」などの `pip install` が `--require-hashes` や `--only-binary` のエラーで止まる | `scripts/requirements.txt` のハッシュと合わない、またはランナーの Python の版に合う wheel が無い。手で書き換えず、`scripts/requirements.in` の先頭にある手順（`pip-compile --generate-hashes --strip-extras`）で作り直す。Python の版（`setup-python` の `3.12`）を変えたときも作り直す |
 | export で `Cloud signing permission error` | API キーのロールが Admin でない |
 | export でプロファイルが作れない（アプリ ID が無い） | Bundle ID `com.iam74k4.SaifuLog` が未登録。「一度だけの準備」の 1 |
-| export でプロファイルに `com.apple.developer.default-data-protection` が無いと言われる | Bundle ID の設定で Data Protection（Complete Protection）がオンになっていない。「一度だけの準備」の 1 |
-| 「送る前に書き出して確かめる」に `書き出したアプリに、… のエンタイトルメントが載っていません` の警告が出る（`mode=export` の実行ではこのエラーで止まる） | 署名なし（`ARCHIVE_SIGNING=NO`）のアーカイブにはエンタイトルメントが焼かれない。署名ありのアーカイブを入れるまでは、いつもこうなる（ふだんのリリースは警告だけで送り、そのビルドにはエンタイトルメントが載っていない）。下の「[Capability（iCloud など）を足すとき](#capabilityicloud-などを足すとき)」に従い、アーカイブを署名ありに切り替える |
+| アーカイブか export で、プロファイルに `com.apple.developer.default-data-protection` が無いと言われる | Bundle ID の設定で Data Protection（Complete Protection）がオンになっていない。「一度だけの準備」の 1 |
+| 「送る前に書き出して確かめる」に `書き出したアプリに、… のエンタイトルメントが載っていません` の警告が出る（`mode=export` の実行ではこのエラーで止まる） | アーカイブにエンタイトルメントが焼かれていない。署名なし（`ARCHIVE_SIGNING=NO`）のアーカイブだとこうなる。「アーカイブを作る」が `ARCHIVE_SIGNING=YES` で走ったか、ログの署名の行を確かめる（「[署名ありのアーカイブ](#署名ありのアーカイブ)」）。ふだんのリリースは照合が警告だけなので、そのまま送られ、そのビルドにはエンタイトルメントが載っていない |
 | `v<version> は承認済み（…）で、タグが付くのを待っています` の notice が出て、アップロードがスキップされる | 承認から tag-release がタグを打つまでの間に、版を上げずに main へマージした。その版にはもうビルドを送れないので、何も送らずに終えている（失敗ではない）。待てば tag-release がタグを打つ。急ぐなら Actions → tag-release → Run workflow で手動実行する。マージした変更を出すには、版を上げて develop → main をやり直す |
 | アップロードでビルド番号の重複を言われる | 手元から大きい番号で送った、または release.yml の名前を変えた。`BUILD_NUMBER_OFFSET` で底上げする |
 | `BUILD_NUMBER_OFFSET は 0 以上の整数（先頭に 0 を付けない）にしてください` | リポジトリ変数 `BUILD_NUMBER_OFFSET` に `010` のような値が入っている。先頭の 0 を外す |
@@ -352,7 +377,7 @@ New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分
 |---|---|
 | `make version` | いまの `MARKETING_VERSION` を表示する |
 | `make check-version` | `MARKETING_VERSION` と CHANGELOG 先頭の見出しの一致を確かめる |
-| `make archive` | Release の `.xcarchive` を `build/` に作る。`BUILD_NUMBER=…` でビルド番号を上書き、`ARCHIVE_SIGNING=NO` で署名なし（CI）。できたアプリの Info.plist にバージョン・ビルド番号・アイコンが入っているかを確かめる。`BUILD_NUMBER` が `CURRENT_PROJECT_VERSION`（1）と同じ値だと、上書きが届いたかを確かめられないので警告を出す |
+| `make archive` | Release の `.xcarchive` を `build/` に作る。`BUILD_NUMBER=…` でビルド番号を上書き。既定は署名ありで、`ARCHIVE_SIGNING=NO` で署名なし（build.yml と `make ci`）。`ARCHIVE_KEYCHAIN=…` で署名に使うキーチェーンを指定できる（release.yml が一時キーチェーンを渡す）。できたアプリの Info.plist にバージョン・ビルド番号・アイコンが入っているかを確かめる。`BUILD_NUMBER` が `CURRENT_PROJECT_VERSION`（1）と同じ値だと、上書きが届いたかを確かめられないので警告を出す |
 | `make export-ipa` | アーカイブから `.ipa` を書き出すだけ。**送信しない。** 署名とエンタイトルメントを表示し、エンタイトルメントのファイル（`RELEASE_ENTITLEMENTS`。いまは自動で見つかる `SaifuLog/SaifuLog.entitlements`）のキーがすべて載っているかを照合する。抜けていれば止まる（`RELEASE_ENTITLEMENTS_CHECK=warn` なら警告だけ出して続ける）。release.yml はアップロードの前に必ずこれを通す（いまは `warn`） |
 | `make upload` | `Config/ExportOptions.plist` で書き出し、そのまま App Store Connect へ送る。手元の端末では確認を挟む。ビルド番号はアーカイブに焼かれた値で、`BUILD_NUMBER` を渡しても変わらない（アーカイブと違う値なら止まる） |
 
@@ -363,12 +388,13 @@ New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分
 3 つとも揃っていれば API キー、無ければ Xcode にサインインしているアカウント。
 どちらでも `-allowProvisioningUpdates` を付け、プロファイルの用意を Xcode に任せる。
 
-CI がアーカイブを**署名なし**で作るのは、使い捨てのランナーで自動署名すると、実行のたびに
-開発用の証明書が新しく作られ、その秘密鍵がランナーと一緒に消えるため。App Store 向けの
-署名は export の段階でクラウド管理の配布証明書を使って掛け直される。ただし署名なしのアーカイブには
-エンタイトルメントが焼かれず、掛け直しもアーカイブにあるエンタイトルメントしか引き継がない。そのため
-`make export-ipa` の照合で、提出物にエンタイトルメントが載っているかを確かめてから送る。いまは署名ありの
-アーカイブを入れていないので、照合は警告だけにしている（下の「Capability（iCloud など）を足すとき」）。
+build.yml（と `make ci`）はアーカイブを**署名なし**（`ARCHIVE_SIGNING=NO`）で作る。PR ごとに走り、
+Environment `release` の Secrets（証明書）を読めないため。組み立ての経路とアーカイブの検査を通すだけなら
+署名は要らない。release.yml は**署名あり**で作る（下の「[署名ありのアーカイブ](#署名ありのアーカイブ)」）。
+署名なしのアーカイブにはエンタイトルメントが焼かれず、App Store 向けの掛け直し（export の段階で、
+クラウド管理の配布証明書で行う）もアーカイブにあるエンタイトルメントしか引き継がないため。
+`make export-ipa` の照合で、提出物にエンタイトルメントが載っているかを確かめてから送る
+（所有者が main で確かめるまでは、照合は警告だけ）。
 
 ### `Config/ExportOptions.plist`
 
@@ -381,6 +407,74 @@ CI がアーカイブを**署名なし**で作るのは、使い捨てのラン�
 | `manageAppVersionAndBuildNumber` | `false` | 既定は YES。Xcode がビルド番号を書き換えると、`asc.py wait-build` が番号でビルドを見つけられない |
 | `uploadSymbols` | `true` | クラッシュレポートを読めるようにする |
 | `testFlightInternalTestingOnly` | `false` | 審査に出すビルドなので、社内テスト専用にしない |
+
+### 署名ありのアーカイブ
+
+release.yml は、アーカイブを開発用の証明書（Apple Development）で署名して作る（`make archive ARCHIVE_SIGNING=YES`）。
+署名なしのアーカイブにはエンタイトルメントが焼かれず、App Store 向けの掛け直し（export の段階のクラウド署名）も
+アーカイブにあるエンタイトルメントしか引き継がないため。署名なしのままだと、データ保護
+（`default-data-protection`）が提出物から抜ける。
+
+証明書を Secrets に置いて毎回取り込むのは、使い捨てのランナーで自動署名に任せきりにすると、手元に使える
+証明書が無いので、実行のたびに Xcode が API キーの権限で開発用の証明書を新しく作り、その秘密鍵がランナーと
+一緒に消えるため（証明書が溜まり、次の実行で秘密鍵の無い証明書を掴んで落ちることがある）。
+
+upload ジョブでの流れ:
+
+| ステップ | すること |
+|---|---|
+| 署名の証明書を一時キーチェーンに取り込む | Secrets の .p12 を base64 から戻し、使い捨てのキーチェーン（`$RUNNER_TEMP/signing.keychain-db`。パスワードは実行ごとの乱数）に取り込んで、キーチェーンの検索リストに足す。取り込んだら .p12 はすぐ消す。Secrets が無い、.p12 を読めない、Apple Development の証明書と秘密鍵が入っていない、チームが `DEVELOPMENT_TEAM` と違う、期限が切れている、のどれかなら止める。期限が 30 日を切ると警告を出す |
+| アーカイブを作る | `make archive ARCHIVE_SIGNING=YES ARCHIVE_KEYCHAIN=…`。証明書はそのキーチェーンから使い（codesign に `--keychain` で指定）、開発用のプロファイルは `-allowProvisioningUpdates` と API キーで Xcode が用意する（チームは `Config/Base.xcconfig` の `DEVELOPMENT_TEAM`、自動署名） |
+| 送る前に書き出して確かめる／アップロード | これまでどおり。App Store 向けには、クラウド管理の配布証明書で署名し直す |
+| 後片付け（鍵を残さない） | 成否や取り消しにかかわらず（`if: always()`）、キーチェーン（検索リストからも外れる）と一時ファイル（.p12・.pem・.p8）を消す |
+
+**Secrets が無いときは止める。** 署名なしに切り替えて続けることはしない。アップロード前の照合がまだ警告だけ
+なので、署名なしに落とすと、データ保護の抜けたビルドが警告 1 つで審査まで進むため。`mode=export` でも同じ
+（署名ありのアーカイブで照合が通るかを確かめるための実行なので）。版が配信済み（タグあり）などでアップロードを
+スキップする実行では、証明書を取り込まないので止まらない。
+
+公開リポジトリの Actions のログは誰でも読める。release.yml は証明書の名前（`Apple Development: 氏名 (…)`）を
+自分では出さないが、xcodebuild はアーカイブのログの署名の行にその名前を出す。
+
+#### 証明書（.p12）を用意する
+
+1. チームに端末が 1 台以上登録されているかを確かめる（Certificates, Identifiers & Profiles → Devices）。
+   開発用のプロファイルは、登録した端末が無いと作れない（アーカイブが `Your team has no devices from which to
+   generate a provisioning profile` で止まる）。手元の Xcode でその iPhone に一度ビルドすれば自動で登録される
+2. Mac の Xcode → 設定 → Accounts で、Apple アカウントとチーム（`NL9ZXK2SGR`）を選び、**Manage Certificates…** を開く。
+   この Mac に秘密鍵のある Apple Development の証明書が無ければ、左下の **+** → **Apple Development** で作る
+   - できれば CI 用の証明書を手元の開発用と分ける。漏れた疑いがあるときに、CI 用だけを失効させられる
+3. 一覧の Apple Development の証明書を右クリック → **Export Certificate** で .p12 に書き出す。**パスワードを必ず付ける**
+   （空のパスワードは Secret に登録できない）。キーチェーンアクセス（ログイン → 自分の証明書で、秘密鍵の付いた
+   `Apple Development: …` を 1 つだけ選び、右クリック → 書き出す → 形式は .p12）で書き出してもよい
+   - openssl で作った .p12 は、macOS の `security import` が読めない形式になることがある。Xcode かキーチェーンアクセスで書き出す
+4. base64 にしてクリップボードへ写す: `base64 -i AppleDevelopment.p12 | pbcopy`
+5. Environment `release` の Secrets に入れる。`APPLE_DEV_CERT_P12_BASE64` に 4 の中身、`APPLE_DEV_CERT_P12_PASSWORD` に 3 のパスワード
+6. 手元の .p12 を消す（秘密鍵が入っている）。リポジトリの中には置かない（`.gitignore` で `*.p12` は除外済み）
+7. main で Actions → release → Run workflow → `mode=export` を走らせ、取り込みから書き出しまで通ることを確かめる
+
+#### 年に一度の更新
+
+Apple Development の証明書の期限は 1 年。期限は「署名の証明書を一時キーチェーンに取り込む」のログ
+（`署名の証明書を取り込みました（期限: …）`）に出る。30 日を切ると警告（run の Annotations）が出て、切れると
+アーカイブの前に止まる。警告は release.yml が走ったときにしか出ないので、期限の日はカレンダーにも入れておく。
+
+1. 上の「証明書（.p12）を用意する」の 2〜6 で新しい証明書を作って書き出し、Secrets の 2 つを差し替える
+2. `mode=export` で、取り込みから書き出しまで通ることを確かめる
+3. 古い証明書は、期限切れを待つか、Certificates, Identifiers & Profiles → Certificates で失効させる。開発用の証明書を
+   失効させても、配信済みのアプリには影響しない（App Store のアプリは配布証明書で署名し直されている）
+
+#### 照合を止める扱いに戻す（所有者が確かめてから）
+
+アップロード前の照合（「送る前に書き出して確かめる」）は、まだ `RELEASE_ENTITLEMENTS_CHECK=warn` のまま。
+署名ありのアーカイブの経路をまだ一度も通していないため（経路のどこかが食い違っていたときに、マージのたびに
+リリースが止まらないように）。初回リリースでは、審査に出す前に済ませる（「[初回リリース（0.1.0）の進め方](#初回リリース010の進め方)」の 6）。
+
+1. 証明書の Secrets を入れ、main で Actions → release → Run workflow → `mode=export` を走らせる
+2. 「書き出すだけ（送信しない）」が緑で、`OK: SaifuLog/SaifuLog.entitlements のキーはすべて載っています` と出ることを確かめる
+3. release.yml の「送る前に書き出して確かめる」から `RELEASE_ENTITLEMENTS_CHECK=warn` を外す PR を develop へ出す。
+   あわせて release.mk と release.yml のコメント、この文書、`CLAUDE.md`、`docs/design.md`（§5-4・§14・§15）の
+   「警告だけ」の記述も直す
 
 ### アプリアイコン（`AppIcon.appiconset`）
 
@@ -551,31 +645,22 @@ cron の時刻は UTC。
 
 ### Capability（iCloud など）を足すとき
 
-CI のアーカイブは署名なしなので、エンタイトルメントがアーカイブに焼かれない。書き出しの段階の
-署名し直し（クラウド署名）も、アーカイブにあるエンタイトルメントしか引き継がない。いまのアプリは
-データ保護（`com.apple.developer.default-data-protection = NSFileProtectionComplete`）を
-エンタイトルメントに持っている（`project.yml` の `entitlements.properties` から `make generate` が
-`SaifuLog/SaifuLog.entitlements` を書き出す）が、**いまの release.yml で送るビルドには載らない。**
+release.yml はアーカイブを開発用の証明書で署名して作る（上の「[署名ありのアーカイブ](#署名ありのアーカイブ)」）ので、
+エンタイトルメントはアーカイブに焼かれ、App Store 向けの掛け直しでも引き継がれる。いまのアプリは
+データ保護（`com.apple.developer.default-data-protection = NSFileProtectionComplete`）をエンタイトルメントに
+持っている（`project.yml` の `entitlements.properties` から `make generate` が `SaifuLog/SaifuLog.entitlements` を
+書き出す）。
 
-release.yml はアップロードの前に `make export-ipa` で書き出したアプリをこのファイルと照合する。
-署名ありのアーカイブをまだ入れていないので、照合は必ず抜けを見つける。そのため、いまは
-`RELEASE_ENTITLEMENTS_CHECK=warn` を渡して警告（run の Annotations）だけにし、アップロードは続けている。
-止めると、develop → main をマージするたびにリリースが止まるため。iCloud（CloudKit）、App Groups、
-プッシュ通知などを足したときも同じ照合が掛かる。`mode=export` で走らせたときの照合は、抜けていれば止まる
-（何も送らずに照合だけを試せる）。
+iCloud（CloudKit）、App Groups、プッシュ通知などを足すときは、次の順で進める。
 
-データ保護を提出物に載せるには、アーカイブを署名ありに切り替える。
+1. `project.yml` の `entitlements.properties` に足し、`make generate` で `SaifuLog/SaifuLog.entitlements` を書き出す
+2. Bundle ID の設定（Identifiers）でその Capability を有効にする。export はアプリ ID の設定を変えないため
+3. main へ入れたら `mode=export` で走らせ、照合が通る（`OK: …`）ことを確かめる。main へ入れる前に、手元で
+   `make archive` と `make export-ipa`（Xcode のアカウントで署名する）を通して確かめてもよい
 
-1. 開発用の証明書（.p12）とそのパスワードを Environment `release` の Secret に入れる
-2. release.yml の「アーカイブを作る」の前に、使い捨てのキーチェーンを作って .p12 を取り込み、
-   `make archive ARCHIVE_SIGNING=YES` でアーカイブする。プロファイルは `-allowProvisioningUpdates` と
-   API キーで Xcode が用意する。後片付けでキーチェーンを消す
-3. `mode=export` で走らせ、照合が通る（`OK: … のキーはすべて載っています`）ことを確かめる
-4. release.yml の「送る前に書き出して確かめる」から `RELEASE_ENTITLEMENTS_CHECK=warn` を外し、
-   抜けていれば止まるようにする
-
-Capability を足すときは、あわせて Bundle ID の設定（Identifiers）でその Capability を
-有効にする。export はアプリ ID の設定を変えないため。
+release.yml はアップロードの前に `make export-ipa` で書き出したアプリをエンタイトルメントのファイルと照合する。
+いまは `RELEASE_ENTITLEMENTS_CHECK=warn` で警告だけ（上の「[照合を止める扱いに戻す](#照合を止める扱いに戻す所有者が確かめてから)」）。
+`mode=export` の照合は、抜けていれば止まる。
 
 ### exportArchive の upload が失敗したら
 
