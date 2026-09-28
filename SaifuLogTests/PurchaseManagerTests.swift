@@ -63,6 +63,24 @@ struct PurchaseManagerTests {
         #expect(manager.purchases.count == 1)
     }
 
+    /// Transaction.updates から届いた付与（失効していない Transaction）だけでは、持っていないプレミアムを開けない。
+    /// 届くのが遅れた古い Transaction（すでに消えた購入）で開いてしまわないように。失効だけは上書きしてでも反映する。
+    @Test func updatesForceOnlyRevocations() async {
+        let granted = VerifiedPurchase(transactionID: 7, purchase: PremiumPurchase(product: .premium, purchaseDate: TestSupport.now))
+        #expect(PurchaseManager.forcedUpdate(granted) == nil)
+        #expect(PurchaseManager.forcedUpdate(nil) == nil)
+
+        var revokedPurchase = granted.purchase
+        revokedPurchase.revocationDate = TestSupport.now
+        let revoked = VerifiedPurchase(transactionID: 7, purchase: revokedPurchase)
+        #expect(PurchaseManager.forcedUpdate(revoked) == revoked)
+
+        // 端末の記録に無い付与が届いても、無料のまま。
+        let manager = await TestSupport.purchases([])
+        await manager.refreshPurchases(applying: PurchaseManager.forcedUpdate(granted))
+        #expect(manager.status == .free)
+    }
+
     // MARK: - 失効した体験
 
     /// `Transaction.currentEntitlements` は返金されたものを返さないので、失効した体験は購入の履歴から足す。足さないと、
