@@ -1,3 +1,4 @@
+import SaifuLogCore
 import SwiftData
 import SwiftUI
 
@@ -17,6 +18,10 @@ struct AppRootView: View {
     @State private var onboarding: OnboardingModel?
     /// 案内を出すかどうかを決めたか。決めるまでは地の色だけを出す（ホームを一瞬出してから案内に替えないように）。
     @State private var hasDecided = false
+    /// 設定の「週の始まり」。画面の暦に当てはめて、ここから下の画面に渡す。
+    @AppStorage(AppSettings.weekStart) private var weekStart: WeekStart
+    /// 端末の暦（地域と iOS の設定のもの）。
+    @Environment(\.calendar) private var systemCalendar
 
     var body: some View {
         ZStack {
@@ -34,6 +39,10 @@ struct AppRootView: View {
         // 案内からホームへの切り替えの動きは、案内を終える操作の側（`OnboardingView.finish`）で付ける。動きが済んだ
         // ところで VoiceOver に画面が替わったことを知らせるため（ここで付けると、済んだときが分からない）。
         .onAppear(perform: decide)
+        // 週の始まりを、画面の暦（ホーム・まとめ・直すシートの日付の選択が使う環境の calendar）に当てはめる。ホームは
+        // この暦を解析や期間の区切り（`ReportPeriod`）に渡すので、今週・先週の区切りも設定に従う。暦を 1 か所で
+        // 置き換えるのは、画面ごとに当てはめると、当てはめ忘れた画面だけ別の週になるため。
+        .environment(\.calendar, weekStart.applied(to: systemCalendar))
     }
 
     /// 案内を出すかを決める。最初に出るときに一度だけ（記録があれば、ここで案内を終えたことにする）。

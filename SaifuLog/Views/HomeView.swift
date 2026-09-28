@@ -8,7 +8,7 @@ import UIKit
 /// 記録も（将来は）質問も同じ入力欄から行う。入口を分けると「どこに書けばいいか」を
 /// 利用者に考えさせることになるため。
 ///
-/// 状態と操作（送信・取り消し・直す・削除・予算を決める画面と月のまとめの出し入れ）は `HomeModel` が持つ。ここは表示と、
+/// 状態と操作（送信・取り消し・直す・削除・予算を決める画面と月のまとめと設定の出し入れ）は `HomeModel` が持つ。ここは表示と、
 /// 環境（文字の大きさ・支援技術・前面かどうか）に合わせた出し方だけを受け持つ。
 struct HomeView: View {
     @Environment(\.calendar) private var calendar
@@ -66,6 +66,10 @@ struct HomeView: View {
                 .navigationDestination(item: $model.monthlyReport) { report in
                     MonthlyReportView(model: report)
                 }
+                // 設定（⑧）も横に進む（ホームから行って戻るだけの画面なので、まとめと同じ出し方にする）。
+                .navigationDestination(item: $model.settings) { settings in
+                    SettingsView(model: settings)
+                }
                 #if DEBUG || INTERNAL_DIAGNOSTICS
                 .sheet(isPresented: $showsDiagnostics) {
                     DiagnosticsView(model: DiagnosticsModel(context: modelContext))
@@ -115,7 +119,8 @@ struct HomeView: View {
                 today: model.today,
                 calendar: calendar,
                 editBudget: { model.presentBudgetSetup() },
-                openReport: { model.presentMonthlyReport(calendar: calendar) }
+                openReport: { model.presentMonthlyReport(calendar: calendar) },
+                openSettings: { model.presentSettings() }
             )
                 // 合計は画面の上に常に出ている帯なので、文字の大きさに上限を設ける。最大の文字サイズの
                 // ままだと、下の入力欄と合わせて画面の半分以上を占め、タイムラインがほとんど見えなくなるため。

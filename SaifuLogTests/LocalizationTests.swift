@@ -1,4 +1,5 @@
 import Foundation
+import SaifuLogCore
 import Testing
 @testable import SaifuLog
 
@@ -19,5 +20,31 @@ struct LocalizationTests {
         let english = try Self.bundle(for: "en")
 
         #expect(english.localizedString(forKey: "・", value: nil, table: nil) == "·")
+    }
+
+    /// CSV の見出しと値（種類・カテゴリ）は、コア（`LedgerCSVWriter`）が言語ごとに持つ。アプリの画面の言葉（String Catalog）と
+    /// 食い違うと、画面では「Daily goods」なのに CSV では別の名前になるので、日本語は表のキー、英語は en の訳と照合する。
+    @Test("CSV の見出し・種類・カテゴリは、画面の言葉と同じ")
+    func csvLabelsMatchCatalog() throws {
+        let english = try Self.bundle(for: "en")
+        func en(_ key: String) -> String {
+            english.localizedString(forKey: key, value: nil, table: nil)
+        }
+
+        for category in EntryCategory.allCases {
+            let key = category.label.key
+            #expect(LedgerCSVWriter.categoryName(category, language: .japanese) == key)
+            #expect(LedgerCSVWriter.categoryName(category, language: .english) == en(key))
+        }
+        for isIncome in [false, true] {
+            let key = LedgerCSVWriter.kindName(isIncome: isIncome, language: .japanese)
+            #expect(LedgerCSVWriter.kindName(isIncome: isIncome, language: .english) == en(key))
+        }
+        // 時刻（1 列目の次）は画面に出す言葉ではないので、表に無い。ほかの見出しは画面の見出しと同じ訳にする。
+        let japaneseHeader = LedgerCSVWriter.header(language: .japanese)
+        let englishHeader = LedgerCSVWriter.header(language: .english)
+        for (key, value) in zip(japaneseHeader, englishHeader) where key != "時刻" {
+            #expect(value == en(key))
+        }
     }
 }

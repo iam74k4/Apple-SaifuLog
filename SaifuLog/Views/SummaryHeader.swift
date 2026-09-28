@@ -11,6 +11,7 @@ import SwiftUI
 /// 見出しと数字を押すと「月のまとめ」（⑦）へ進む（`openReport` を渡したとき）。見出しに「›」を添えて、押せば
 /// 詳しく見られることを示す。帯のほかにまとめの入口のボタンを置かないのは、ホームのナビゲーションバーを出さずに
 /// タイムラインを広く使っているのと、今月の合計を見て「何に使ったか」を知りたくなる場所がここだから。
+/// 右上の歯車は「設定」（⑧）の入口（`openSettings` を渡したとき）。ナビゲーションバーを出していないので、ここに置く。
 struct SummaryHeader: View {
     let summary: MonthlySummary
     /// 今月の予算の進み。予算を決めていなければ nil。
@@ -19,6 +20,8 @@ struct SummaryHeader: View {
     let editBudget: () -> Void
     /// 月のまとめへ進む。nil なら見出しと数字は押せない（プレビューなど）。
     var openReport: (() -> Void)?
+    /// 設定へ進む。nil なら歯車のボタンを出さない（プレビューなど）。
+    var openSettings: (() -> Void)?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     #if DEBUG || INTERNAL_DIAGNOSTICS
@@ -86,25 +89,23 @@ struct SummaryHeader: View {
         }
     }
 
-    /// 見出しと、予算を決める（変える）ボタンの行。アクセシビリティサイズの文字で 1 行に収まらなければ縦に積む。
+    /// 見出しと、右のボタン（予算・設定）の行。1 行に収まらなければ、文字の大きさによらずボタンを見出しの下の行に移す。
+    ///
+    /// アクセシビリティサイズに限らないのは、歯車を足してボタンが 2 つ（診断のボタンが入るビルドでは 3 つ）になり、英語の
+    /// 大きな文字（xxxLarge）では、アクセシビリティサイズでなくても「予算を変更」が「Change…」と切れたため。
     @ViewBuilder
     private var titleRow: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 0) {
-                    titleButton
-                    Spacer(minLength: 8)
-                    trailingButtons
-                }
-                VStack(alignment: .leading, spacing: 0) {
-                    titleButton
-                    trailingButtons
-                }
-            }
-        } else {
+        ViewThatFits(in: .horizontal) {
             HStack(spacing: 0) {
                 titleButton
                 Spacer(minLength: 8)
+                // ボタンは縮めない。HStack は幅を子に等分に近い形で配るので、並べた幅が収まる場合でも、ボタンの側が
+                // 等分より広いと予算のボタンの文字が省かれるため（収まらない場合は下の積む形になる）。
+                trailingButtons
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                titleButton
                 trailingButtons
             }
         }
@@ -129,11 +130,31 @@ struct SummaryHeader: View {
         }
     }
 
-    /// 見出しの行の右のボタン。ふだんは予算のボタンだけで、社内テスト用のビルドでは診断のボタンが前に付く。
+    /// 見出しの行の右のボタン。予算のボタンと設定の歯車で、社内テスト用のビルドでは診断のボタンが前に付く。
+    ///
+    /// 予算のボタンは設定の中へ移さずに残す。予算は月の途中でも見直すもので、ホームから 1 回押すだけで開けるほうが
+    /// よいため（設定の中からも開ける）。歯車は右の端に置く（設定の入口の置き場所として見慣れた位置のため）。
     private var trailingButtons: some View {
         HStack(spacing: 0) {
             diagnosticsButton
             budgetButton
+            settingsButton
+        }
+    }
+
+    /// 設定を開く歯車のボタン。設定は必要なときだけ開く画面なので、予算のボタンより目立たせない（補足の文字の色）。
+    @ViewBuilder
+    private var settingsButton: some View {
+        if let openSettings {
+            Button(action: openSettings) {
+                Image(systemName: "gearshape")
+                    .font(.body)
+                    .foregroundStyle(Theme.inkSecondary)
+                    // 押せる範囲を 44pt 四方以上にする。
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(.rect)
+            }
+            .accessibilityLabel("設定")
         }
     }
 
@@ -176,7 +197,9 @@ struct SummaryHeader: View {
             Text(budget == nil ? "予算を決める" : "予算を変更")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Theme.accentText)
-                .lineLimit(1)
+                // 見出しの下の行に移しても収まらないとき（英語のアクセシビリティサイズで、歯車と並べたとき）だけ
+                // 2 行に折り返す。1 行に収まるときは、横に並べる形でも積む形でも 1 行のまま。
+                .lineLimit(2)
                 // 押せる範囲を 44pt 四方以上にする。
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(.rect)
@@ -388,20 +411,34 @@ struct MonthSummaryHeader: View {
     private let calendar: Calendar
     private let editBudget: () -> Void
     private let openReport: () -> Void
+    private let openSettings: () -> Void
     @Query private var records: [Entry]
     @Query private var budgets: [Budget]
 
-    init(today: Date, calendar: Calendar, editBudget: @escaping () -> Void, openReport: @escaping () -> Void) {
+    init(
+        today: Date,
+        calendar: Calendar,
+        editBudget: @escaping () -> Void,
+        openReport: @escaping () -> Void,
+        openSettings: @escaping () -> Void
+    ) {
         self.today = today
         self.calendar = calendar
         self.editBudget = editBudget
         self.openReport = openReport
+        self.openSettings = openSettings
         _records = Query(Entry.monthDescriptor(containing: today, calendar: calendar))
     }
 
     var body: some View {
         let figures = Self.figures(records: records, budgets: budgets, today: today, calendar: calendar)
-        SummaryHeader(summary: figures.summary, budget: figures.budget, editBudget: editBudget, openReport: openReport)
+        SummaryHeader(
+            summary: figures.summary,
+            budget: figures.budget,
+            editBudget: editBudget,
+            openReport: openReport,
+            openSettings: openSettings
+        )
     }
 
     /// 帯に出す今月の合計と予算の進み。
