@@ -201,6 +201,34 @@ struct BudgetSetupModelTests {
         #expect(fixture.announcements.last == String(localized: "予算をなくしました"))
     }
 
+    /// 「予算をなくす」は、確かめてから消す（押しただけでは消さない）。
+    ///
+    /// 以前は押すとすぐに消え、シートが上がる途中の誤タップで予算が消えていた。
+    @Test func removeTotalBudgetAsksFirst() throws {
+        let fixture = try Fixture()
+        try fixture.store.setAmount(150_000, for: .total)
+        let model = fixture.makeModel()
+        #expect(!model.showsRemoveConfirmation)
+
+        model.requestRemoveTotalBudget()
+
+        #expect(model.showsRemoveConfirmation)
+        #expect(try fixture.plan().total == 150_000)
+        #expect(model.totalText == "150,000")
+        #expect(fixture.announcements.isEmpty)
+
+        // キャンセルすると、画面が確認を閉じる。予算はそのまま。
+        model.showsRemoveConfirmation = false
+        #expect(try fixture.plan().total == 150_000)
+
+        // 確かめてから消す。
+        model.requestRemoveTotalBudget()
+        #expect(model.removeTotalBudget())
+        #expect(!model.showsRemoveConfirmation)
+        #expect(try fixture.plan().total == nil)
+        #expect(fixture.announcements.last == String(localized: "予算をなくしました"))
+    }
+
     @Test func removeFailureKeepsBudget() throws {
         let fixture = try Fixture()
         try fixture.store.setAmount(150_000, for: .total)

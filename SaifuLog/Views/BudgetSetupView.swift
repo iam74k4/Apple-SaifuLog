@@ -153,16 +153,28 @@ struct BudgetSetupView: View {
         .disabled(!model.canSave)
     }
 
-    /// 全体の予算をなくす。決めた予算があるときだけ出す。なくしても、あとで決め直せるので確認は挟まない。
+    /// 全体の予算をなくす。決めた予算があるときだけ出す。押すと確認を出し、確かめてからなくす
+    /// （`BudgetSetupModel.requestRemoveTotalBudget()`）。VoiceOver のダブルタップも同じ操作なので、同じ確認が出る。
     private var removeButton: some View {
         Button {
-            if model.removeTotalBudget() { onFinish() }
+            model.requestRemoveTotalBudget()
         } label: {
             Text("予算をなくす")
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .contentShape(.rect)
         }
         .foregroundStyle(Theme.danger)
+        // ボタンに付ける（画面全体に付けると、吹き出しの形で出たときに、押したボタンではなく画面の途中を指すため）。
+        .confirmationDialog(
+            "予算をなくしますか？", isPresented: $model.showsRemoveConfirmation, titleVisibility: .visible
+        ) {
+            Button("予算をなくす", role: .destructive) {
+                if model.removeTotalBudget() { onFinish() }
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("ホームに今月あといくら使えるかが出なくなります。予算はあとからまた決められます。")
+        }
     }
 }
 

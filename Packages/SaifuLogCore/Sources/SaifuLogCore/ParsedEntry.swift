@@ -87,9 +87,22 @@ public struct ParsedEntry: Sendable, Hashable {
     /// 複数件に分けたときは、書いた順に並ぶよう記録した日時を 1 ミリ秒ずつずらす。同じ日時だと並べ替えの
     /// 順が定まらず、「スーパー」と「ドラッグ」が入れ替わることがあるため。使った日時も、ずらした日時から
     /// 決める（同じ日の記録が書いた順に並ぶように）。
+    ///
+    /// ずらした日時が `now` の日の終わりを越えるとき（23:59:59.9995 に送った 3 件）は、ずらす起点を前へ寄せ、
+    /// すべてを `now` と同じ日の中に収める。越えたまま保存すると、後ろの件だけが翌日（月末なら翌月）の記録になり、
+    /// 「9/26」と書いた件が 9/27 になったり、今月の合計から黙って抜けたりするため。
+    ///
+    /// - Parameter now: 送信した瞬間の日時。解析で「昨日」「9/26」を読んだときと同じ値を渡す（違う値だと、
+    ///   解析と保存の間に日付が変わったとき、何日前かの基準がずれて 1 日ずれた日付で保存される）。
     public static func timestamps(for entries: [ParsedEntry], now: Date, calendar: Calendar) -> [EntryTimestamps] {
-        entries.enumerated().map { index, entry in
-            let createdAt = now.addingTimeInterval(Double(index) * orderingStep)
+        var start = now
+        if let day = calendar.dateInterval(of: .day, for: now) {
+            // 最後の件が日の終わり（翌日の 0 時）の 1 ステップ前に来るよう、起点を寄せる。
+            let latestStart = day.end.addingTimeInterval(-Double(entries.count) * orderingStep)
+            start = min(now, latestStart)
+        }
+        return entries.enumerated().map { index, entry in
+            let createdAt = start.addingTimeInterval(Double(index) * orderingStep)
             return EntryTimestamps(createdAt: createdAt, spentAt: entry.date(relativeTo: createdAt, calendar: calendar))
         }
     }
