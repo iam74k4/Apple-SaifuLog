@@ -110,10 +110,24 @@ public enum EntryCategory: String, CaseIterable, Codable, Sendable, Identifiable
     /// 複数当たったときは長い語を優先し（「ドラッグストア」は「薬」より強い手がかり）、
     /// 同じ長さなら先に出てきた語を採る。
     public static func guess(from text: String) -> EntryCategory {
+        bestMatch(in: text, includingDisplayNames: false) ?? .other
+    }
+
+    /// 文に含まれるキーワードか表示名から、カテゴリを探す。どれにも当たらなければ nil。
+    ///
+    /// `guess(from:)` と同じ選び方（長い語を優先し、同じ長さなら先に出てきた語）。当たらなかったことと
+    /// 「その他」に当たったことを見分けたいとき（家計への質問で、カテゴリを聞かれたかどうか）に使う。
+    /// 表示名も見るのは、「その他」のようにキーワードに入れていない表示名で聞かれることがあるため（記録の読み取りの
+    /// `guess(from:)` は表示名を見ない。見ると「その他 肉 500」のような記録のカテゴリが変わるため）。
+    public static func matched(in text: String) -> EntryCategory? {
+        bestMatch(in: text, includingDisplayNames: true)
+    }
+
+    private static func bestMatch(in text: String, includingDisplayNames: Bool) -> EntryCategory? {
         let haystack = KeywordMatcher.fold(text)
         var best: (category: EntryCategory, length: Int, position: Int)?
         for category in allCases {
-            for keyword in category.keywords {
+            for keyword in category.keywords + (includingDisplayNames ? [category.displayName] : []) {
                 let needle = KeywordMatcher.fold(keyword)
                 guard let range = haystack.range(of: needle) else { continue }
                 let length = needle.count
@@ -125,6 +139,6 @@ public enum EntryCategory: String, CaseIterable, Codable, Sendable, Identifiable
                 best = (category, length, position)
             }
         }
-        return best?.category ?? .other
+        return best?.category
     }
 }

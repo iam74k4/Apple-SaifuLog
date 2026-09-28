@@ -421,8 +421,8 @@ private struct BreakdownRow: View {
     }
 }
 
-/// カテゴリの色と記号の丸（記録の吹き出しの横の丸と同じ）。
-private struct CategoryIcon: View {
+/// カテゴリの色と記号の丸（記録の吹き出しの横の丸と同じ）。質問の回答カードの内訳でも使う。
+struct CategoryIcon: View {
     let category: EntryCategory
 
     @ScaledMetric(relativeTo: .body) private var size = 28

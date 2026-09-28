@@ -316,8 +316,8 @@ enum PremiumFeature: CaseIterable, Identifiable {
     /// まだ出していない機能か（「近日」と書く。まだできないことを、できるように書かないため）。
     var isComingSoon: Bool {
         switch self {
-        case .receiptScan, .question, .weeklyRecapAI: true
-        case .categoryBudget: false
+        case .receiptScan, .weeklyRecapAI: true
+        case .question, .categoryBudget: false
         }
     }
 }

@@ -4,7 +4,7 @@ import SwiftData
 import Testing
 @testable import SaifuLog
 
-/// ホームの送信・取り消し・直す・削除・予算を決める画面（HomeModel）。メモリの上の保存先と、差し替えた解析器で確かめる。
+/// ホームの送信・質問・取り消し・直す・削除・予算を決める画面（HomeModel）。メモリの上の保存先と、差し替えた解析器で確かめる。
 @MainActor
 struct HomeModelTests {
     /// HomeModel と、その保存先・解析器・読み上げの代わり。
@@ -20,11 +20,22 @@ struct HomeModelTests {
         var now = TestSupport.now
         /// 解析を待ってから記録する処理の数（保存先の開き直しが待つもの）。
         let pendingWrites = PendingStoreWrites()
+        /// 質問の答え手。既定はキーワード辞書（AI の代わり）。
+        var answerer: any QuestionAnswering = RuleBasedQuestionAnswerer()
+        /// 答え手を作った回数（無料の回数を使い切ったときは、答えさせない）。
+        private(set) var answererCalls = 0
+        /// 設定の置き場所（無料で質問した回数など）。テストごとの使い捨ての領域。
+        let suiteName = "HomeModelTests.Fixture.\(UUID().uuidString)"
+        let defaults: UserDefaults
+        let purchases: PurchaseManager
         private(set) var announcements: [String] = []
         private(set) var model: HomeModel!
 
-        init() throws {
+        /// - Parameter purchases: プレミアムの状態。渡さなければ購入の無い状態（無料）。
+        init(purchases: PurchaseManager? = nil) throws {
             context = try TestSupport.makeContext()
+            defaults = try #require(UserDefaults(suiteName: suiteName))
+            self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
             var store = EntryStore(context: context)
             store.save = { [unowned self] context in
                 if failsSave { throw TestError() }
@@ -33,10 +44,42 @@ struct HomeModelTests {
             model = HomeModel(
                 store: store,
                 pendingWrites: pendingWrites,
+                purchases: self.purchases,
+                defaults: defaults,
                 makeParser: { [unowned self] now, calendar in makeParser?(now, calendar) ?? parser },
+                makeAnswerer: { [unowned self] in
+                    answererCalls += 1
+                    return answerer
+                },
                 now: { [unowned self] in now },
                 announce: { [unowned self] in announcements.append($0) }
             )
+        }
+
+        deinit {
+            UserDefaults.standard.removePersistentDomain(forName: suiteName)
+        }
+
+        /// 記録を保存先に直接足す（質問の答えの元にする）。
+        func insert(_ entries: Entry...) throws {
+            try EntryStore(context: context).insert(entries)
+        }
+
+        /// 今月の無料の質問を `count` 回使ったことにする。
+        func useFreeQuestions(_ count: Int) {
+            for _ in 0..<count {
+                model.quotaStore.recordUse(of: .question, status: .free, calendar: TestSupport.calendar)
+            }
+        }
+
+        /// 今月の無料の質問の残り。
+        var freeQuestionsLeft: QuotaAllowance {
+            model.quotaStore.allowance(for: .question, status: purchases.status, calendar: TestSupport.calendar)
+        }
+
+        /// 最後に送った質問の返事。
+        var lastQuestionState: QuestionExchange.State? {
+            model.questions.last?.state
         }
 
         /// 保存先にある記録（記録した順）。
@@ -846,6 +889,305 @@ struct HomeModelTests {
         fixture.model.budgetSetup = nil
         fixture.model.presentPremiumIfTrialEnded()
         #expect(fixture.model.premiumSheet != nil)
+    }
+
+    // MARK: - 質問
+
+    /// 質問は保存せず、答え（コードが計算した数字）をタイムラインのカードに出す。
+    @Test func questionIsAnsweredWithoutSaving() async throws {
+        let fixture = try Fixture()
+        try fixture.insert(
+            TestSupport.entry(amount: 400, category: .cafe, memo: "コーヒー", spentAt: TestSupport.date(2026, 9, 28, hour: 9)),
+            TestSupport.entry(amount: 1_200, category: .cafe, memo: "カフェ", spentAt: TestSupport.date(2026, 9, 27, hour: 15)),
+            TestSupport.entry(amount: 850, category: .food, memo: "ランチ", spentAt: TestSupport.date(2026, 9, 28, hour: 12))
+        )
+
+        await fixture.send("今月カフェいくら?")
+
+        #expect(try fixture.entries().count == 3)
+        #expect(fixture.model.questions.map(\.text) == ["今月カフェいくら?"])
+        guard case .answered(let answer, let remark, let freeQuestionsLeft) = fixture.lastQuestionState else {
+            Issue.record("答えのカードが出なかった: \(String(describing: fixture.lastQuestionState))")
+            return
+        }
+        #expect(answer.question == LedgerQuestion(period: .thisMonth, metric: .categoryExpense, category: .cafe))
+        #expect(answer.value == .amount(1_600))
+        #expect(answer.recordCount == 2)
+        #expect(remark == nil)
+        // 残りが 9 回なので、残りの回数は出さない。
+        #expect(freeQuestionsLeft == nil)
+        #expect(fixture.model.draft.isEmpty)
+        #expect(!fixture.model.canUndo)
+        #expect(!fixture.model.showsNoAmountAlert)
+        #expect(!fixture.model.isParsing)
+        // 答えを VoiceOver に読み上げる。
+        #expect(fixture.announcements.last?.contains("¥1,600") == true)
+    }
+
+    /// 質問を送ったら、前の記録の「取り消す」は引っ込める（記録を送ったときと同じ）。
+    @Test func questionRetractsUndo() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+        #expect(fixture.model.canUndo)
+
+        await fixture.send("今日いくら使った?")
+
+        #expect(!fixture.model.canUndo)
+        #expect(try fixture.entries().map(\.amount) == [850])
+        guard case .answered(let answer, _, _) = fixture.lastQuestionState else {
+            Issue.record("答えのカードが出なかった")
+            return
+        }
+        #expect(answer.value == .amount(850))
+    }
+
+    /// 質問は保存先に書き込まないので、書き込み中の処理として数えない（開き直しを待たせない）。答えを待つ間は送信を受け付けない。
+    @Test func questionDoesNotCountPendingWrite() async throws {
+        let fixture = try Fixture()
+        fixture.model.draft = "今月の支出は?"
+
+        let task = fixture.model.send(calendar: TestSupport.calendar)
+        #expect(fixture.pendingWrites.count == 0)
+        #expect(fixture.model.isParsing)
+        fixture.model.draft = "ランチ 850"
+        #expect(fixture.model.send(calendar: TestSupport.calendar) == nil)
+        await task?.value
+
+        #expect(!fixture.model.isParsing)
+        #expect(try fixture.entries().isEmpty)
+    }
+
+    /// AI の一言は、回答カードに数字とは別に添え、読み上げにも入れる。
+    @Test func aiRemarkIsShownAndSpoken() async throws {
+        let fixture = try Fixture()
+        fixture.answerer = StubAnswerer { text, ledger in
+            let question = LedgerQuestion(period: .thisMonth, metric: .expenseTotal)
+            let answer = try #require(LedgerQuestionAnswerer.answer(
+                question, ledger: ledger, now: TestSupport.now, calendar: TestSupport.calendar
+            ))
+            return .answered(answer, remark: .ai("今月はまだ何も使っていません。"))
+        }
+
+        await fixture.send("今月どう?")
+
+        guard case .answered(_, let remark, _) = fixture.lastQuestionState else {
+            Issue.record("答えのカードが出なかった")
+            return
+        }
+        #expect(remark == .ai("今月はまだ何も使っていません。"))
+        #expect(fixture.announcements.last?.contains("今月はまだ何も使っていません。") == true)
+    }
+
+    /// 読めなかった質問は数えない。送った文を入力欄に戻す（書き直して送り直せるように）。
+    @Test func unreadableQuestionIsNotCounted() async throws {
+        let fixture = try Fixture()
+
+        await fixture.send("去年の食費は?")
+
+        #expect(fixture.lastQuestionState == .unreadable)
+        #expect(fixture.model.draft == "去年の食費は?")
+        #expect(fixture.freeQuestionsLeft == .limited(remaining: 10, limit: 10))
+        #expect(fixture.defaults.data(forKey: "quota.question") == nil)
+        #expect(try fixture.entries().isEmpty)
+    }
+
+    /// 答え手が失敗しても、読めなかった質問として扱い、数えない。
+    @Test func failedAnswerIsNotCounted() async throws {
+        let fixture = try Fixture()
+        fixture.answerer = StubAnswerer { _, _ in throw TestError() }
+
+        await fixture.send("今月の支出は?")
+
+        #expect(fixture.lastQuestionState == .unreadable)
+        #expect(fixture.freeQuestionsLeft == .limited(remaining: 10, limit: 10))
+    }
+
+    /// 答えを出せたときだけ 1 回数え、設定に残す（開き直しても同じ）。
+    @Test func answeredQuestionIsCounted() async throws {
+        let fixture = try Fixture()
+
+        await fixture.send("今月の支出は?")
+        await fixture.send("先月の支出は?")
+
+        #expect(fixture.freeQuestionsLeft == .limited(remaining: 8, limit: 10))
+        let reopened = QuotaStore(defaults: fixture.defaults, now: { TestSupport.now })
+        #expect(reopened.allowance(for: .question, status: .free, calendar: TestSupport.calendar) == .limited(remaining: 8, limit: 10))
+    }
+
+    /// 残りが 3 回以下になったら、回答カードに残りの回数を出す。
+    @Test(arguments: [(5, nil), (6, 3), (7, 2), (9, 0)] as [(Int, Int?)])
+    func fewFreeQuestionsLeftAreShown(used: Int, shown: Int?) async throws {
+        let fixture = try Fixture()
+        fixture.useFreeQuestions(used)
+
+        await fixture.send("今月の支出は?")
+
+        guard case .answered(_, _, let freeQuestionsLeft) = fixture.lastQuestionState else {
+            Issue.record("答えのカードが出なかった")
+            return
+        }
+        #expect(freeQuestionsLeft == shown)
+        // 残りが少ないことは、カードの小さな行だけでなく、答えの読み上げでも伝える。
+        let announcement = try #require(fixture.announcements.last)
+        if let shown {
+            #expect(announcement.hasSuffix(QuestionTexts.freeQuestionsLeft(shown)))
+        } else {
+            #expect(!announcement.contains(QuestionTexts.freeQuestionsLeft(10 - used - 1)))
+        }
+    }
+
+    /// 使い切ったら答えずに、プレミアムの案内を出す（答え手も呼ばない）。記録は無料のまま続けられる。
+    @Test func limitReachedShowsPremiumGuidance() async throws {
+        let fixture = try Fixture()
+        fixture.useFreeQuestions(10)
+
+        await fixture.send("今月の支出は?")
+
+        #expect(fixture.lastQuestionState == .limitReached)
+        #expect(fixture.answererCalls == 0)
+        #expect(fixture.model.draft == "今月の支出は?")
+        #expect(fixture.announcements.last == String(localized: "今月の無料の質問を使い切りました"))
+
+        fixture.model.presentPremium()
+        #expect(fixture.model.premiumSheet != nil)
+
+        // 記録は回数に関係なくできる。
+        fixture.model.draft = ""
+        await fixture.send("ランチ 850")
+        #expect(try fixture.entries().map(\.amount) == [850])
+    }
+
+    /// 月が替わったら、また 10 回使える。
+    @Test func freeQuestionsResetWhenMonthChanges() async throws {
+        let fixture = try Fixture()
+        fixture.now = TestSupport.date(2026, 9, 30, hour: 23, minute: 59)
+        fixture.useFreeQuestions(10)
+        await fixture.send("今月の支出は?")
+        #expect(fixture.lastQuestionState == .limitReached)
+
+        fixture.now = TestSupport.date(2026, 10, 1)
+        fixture.model.draft = "今月の支出は?"
+        await fixture.model.send(calendar: TestSupport.calendar)?.value
+
+        guard case .answered(let answer, _, _) = fixture.lastQuestionState else {
+            Issue.record("答えのカードが出なかった")
+            return
+        }
+        #expect(answer.interval.start == TestSupport.date(2026, 10, 1))
+        #expect(fixture.freeQuestionsLeft == .limited(remaining: 9, limit: 10))
+    }
+
+    /// プレミアムと体験中は無制限で、使っても数えない（残りの回数も出さない）。
+    @Test(arguments: [
+        [TestSupport.trial(startedDaysAgo: 3)],
+        [PremiumPurchase(product: .premium, purchaseDate: TestSupport.now)],
+    ])
+    func premiumQuestionsAreUnlimited(records: [PremiumPurchase]) async throws {
+        let fixture = try Fixture(purchases: await TestSupport.purchases(records))
+        // 無料のときに使い切っていても。
+        fixture.useFreeQuestions(10)
+
+        await fixture.send("今月の支出は?")
+
+        guard case .answered(_, _, let freeQuestionsLeft) = fixture.lastQuestionState else {
+            Issue.record("答えのカードが出なかった")
+            return
+        }
+        #expect(freeQuestionsLeft == nil)
+        #expect(fixture.freeQuestionsLeft == .unlimited)
+        #expect(fixture.model.quotaStore.allowance(for: .question, status: .free, calendar: TestSupport.calendar)
+            == .limited(remaining: 0, limit: 10))
+    }
+
+    /// 購入の事実を読み終える前に送った質問は、読み終えるのを待ってから決める。無料の回数を使い切った後にプレミアムを買った人が
+    /// 起動の直後に聞いても、使い切りの案内を出さず、無料の回数としても数えない。
+    @Test func premiumQuestionWaitsForPurchasesToLoad() async throws {
+        let purchases = await TestSupport.purchases([PremiumPurchase(product: .premium, purchaseDate: TestSupport.now)], load: false)
+        let fixture = try Fixture(purchases: purchases)
+        fixture.useFreeQuestions(10)
+        #expect(!purchases.hasLoadedPurchases)
+
+        await fixture.send("今月の支出は?")
+
+        #expect(purchases.hasLoadedPurchases)
+        guard case .answered(_, _, let freeQuestionsLeft) = fixture.lastQuestionState else {
+            Issue.record("答えのカードが出なかった: \(String(describing: fixture.lastQuestionState))")
+            return
+        }
+        #expect(freeQuestionsLeft == nil)
+        #expect(fixture.answererCalls == 1)
+        #expect(fixture.model.quotaStore.allowance(for: .question, status: .free, calendar: TestSupport.calendar)
+            == .limited(remaining: 0, limit: 10))
+        #expect(!fixture.model.isParsing)
+    }
+
+    /// 購入の事実を読み終える前でも、無料で使い切っていれば、読み終えた後に使い切りの案内を出す（答え手は呼ばない）。
+    @Test func freeQuestionLimitIsCheckedAfterPurchasesLoad() async throws {
+        let purchases = await TestSupport.purchases(load: false)
+        let fixture = try Fixture(purchases: purchases)
+        fixture.useFreeQuestions(10)
+
+        await fixture.send("今月の支出は?")
+
+        #expect(purchases.hasLoadedPurchases)
+        #expect(fixture.lastQuestionState == .limitReached)
+        #expect(fixture.answererCalls == 0)
+        #expect(fixture.model.draft == "今月の支出は?")
+    }
+
+    /// 金額と質問の語が両方あって決められないものは、記録せず、案内を出して文を入力欄に戻す（数えない）。
+    @Test func unclearTextIsNotRecorded() async throws {
+        let fixture = try Fixture()
+
+        await fixture.send("予算 5万")
+
+        #expect(try fixture.entries().isEmpty)
+        #expect(fixture.lastQuestionState == .unclear)
+        #expect(fixture.model.draft == "予算 5万")
+        #expect(fixture.answererCalls == 0)
+        #expect(fixture.freeQuestionsLeft == .limited(remaining: 10, limit: 10))
+        #expect(!fixture.model.isParsing)
+    }
+
+    /// 金額に「合計」を添えた記録（添えた額）は、これまでどおり記録する。
+    @Test func recordWithTotalIsStillRecorded() async throws {
+        let fixture = try Fixture()
+
+        await fixture.send("スーパー 合計2480")
+
+        #expect(try fixture.entries().map(\.amount) == [2_480])
+        #expect(fixture.model.questions.isEmpty)
+    }
+
+    /// 回答カードから、その月の月のまとめを開ける（先月の答えなら先月）。
+    @Test func answerOpensMonthlyReportForItsMonth() async throws {
+        let fixture = try Fixture()
+        await fixture.send("先月の支出は?")
+        guard case .answered(let answer, _, _) = fixture.lastQuestionState else {
+            Issue.record("答えのカードが出なかった")
+            return
+        }
+        #expect(answer.period.isWholeMonth)
+
+        fixture.model.presentMonthlyReport(calendar: TestSupport.calendar, month: answer.interval.start)
+
+        #expect(fixture.model.monthlyReport?.month
+            == DateInterval(start: TestSupport.date(2026, 8, 1), end: TestSupport.date(2026, 9, 1)))
+    }
+
+    /// 予算を決めていなければ、予算なしとして答え（数える）、カードから予算を決める画面を開ける。
+    @Test func budgetQuestionWithoutBudget() async throws {
+        let fixture = try Fixture()
+
+        await fixture.send("今月あと何日でいくら使える?")
+
+        guard case .answered(let answer, _, _) = fixture.lastQuestionState else {
+            Issue.record("答えのカードが出なかった")
+            return
+        }
+        #expect(answer.value == .noBudget)
+        fixture.model.presentBudgetSetup()
+        #expect(fixture.model.budgetSetup != nil)
     }
 
     // MARK: - 日付とタイムライン

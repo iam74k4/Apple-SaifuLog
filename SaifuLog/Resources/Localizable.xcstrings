@@ -45,6 +45,28 @@
         }
       }
     },
+    "%@の件数" : {
+      "comment" : "家計への質問の回答カードの見出し。%@ はカテゴリの名前（「カフェ」）。そのカテゴリの支出の記録の件数を答えたとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ entries"
+          }
+        }
+      }
+    },
+    "%@の支出" : {
+      "comment" : "家計への質問の回答カードの見出し。%@ はカテゴリの名前（「カフェ」）。そのカテゴリの支出の合計を答えたとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ spending"
+          }
+        }
+      }
+    },
     "%@の記録を削除します。この操作は取り消せません。" : {
       "comment" : "記録の削除の確認の本文（ホームと直すシート）。%@ は「ランチ ¥850」のような品目と金額",
       "localizations" : {
@@ -178,6 +200,17 @@
         }
       }
     },
+    "1日あたりに使える額" : {
+      "comment" : "家計への質問の回答カードの見出し。今日から月末まで、1 日あたりに使える予算の額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Available per day"
+          }
+        }
+      }
+    },
     "1日あたりの平均" : {
       "comment" : "月のまとめの行の見出し。その月の 1 日あたりの平均の支出（今月は 1 日から今日までの平均）",
       "localizations" : {
@@ -185,17 +218,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Daily average"
-          }
-        }
-      }
-    },
-    "2件に分けて記録" : {
-      "comment" : "ようこその画面。入力の例「スーパー2480とドラッグ1200」がどう記録されるか",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Recorded as two separate entries"
           }
         }
       }
@@ -376,6 +398,28 @@
         }
       }
     },
+    "いちばん使ったカテゴリ" : {
+      "comment" : "家計への質問の回答カードの見出し。その期間にいちばん多く使ったカテゴリ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top category"
+          }
+        }
+      }
+    },
+    "いまの予算を決める前の月なので、予算の残りは分かりません（月ごとの予算は残していません）。" : {
+      "comment" : "家計への質問の回答カード。先月の予算の残りを聞かれたが、いまの予算を先月より後に決めていて答えられないとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You set your current budget after this month, so the amount left can’t be shown (budgets aren’t kept for each month)."
+          }
+        }
+      }
+    },
     "いまは Apple Intelligence を使えないため、端末内の辞書で読み取ります。記録はそのままできます。" : {
       "comment" : "ようこその画面。そのほかの理由で AI を使えないときの説明",
       "localizations" : {
@@ -475,13 +519,13 @@
         }
       }
     },
-    "この iPhone は Apple Intelligence に対応していないため、端末内の辞書で金額やカテゴリを読み取ります。上の例のような書き方なら、AI がなくても記録できます。" : {
+    "この iPhone は Apple Intelligence に対応していないため、端末内の辞書で金額やカテゴリを読み取ります。上の例のような書き方なら、AI がなくても記録や質問ができます。" : {
       "comment" : "ようこその画面。Apple Intelligence に対応していない機種での説明",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This iPhone doesn’t support Apple Intelligence, so amounts and categories are read with an on-device dictionary. Entries written like the examples above are recorded without AI."
+            "value" : "This iPhone doesn’t support Apple Intelligence, so amounts and categories are read with an on-device dictionary. You can record and ask questions without AI if you write like the examples above."
           }
         }
       }
@@ -504,6 +548,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This item can't be purchased from the App Store in your country or region right now. Please try again later."
+          }
+        }
+      }
+    },
+    "この月の予算の残りは出せません" : {
+      "comment" : "家計への質問の回答カードの大きな文字の代わり。予算を当てはめられない月の予算の残りを聞かれたとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Budget left isn’t available for this month"
           }
         }
       }
@@ -537,6 +592,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No entries this month"
+          }
+        }
+      }
+    },
+    "この期間の支出はありません" : {
+      "comment" : "家計への質問の回答カードの大きな文字の代わり。いちばん使ったカテゴリを聞かれたが、その期間に支出の記録が無いとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No spending in this period"
           }
         }
       }
@@ -834,6 +900,23 @@
         }
       }
     },
+    "カテゴリ別の支出（回答カード）" : {
+      "comment" : "家計への質問の回答カードの見出し。支出のカテゴリ別の内訳を答えたとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spending by category"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カテゴリ別の支出"
+          }
+        }
+      }
+    },
     "カフェ" : {
       "comment" : "カテゴリ",
       "localizations" : {
@@ -900,13 +983,13 @@
         }
       }
     },
-    "サイフログは、「ランチ 850」のように一行送るだけで記録できる家計簿です。分類と計算はアプリが引き受けます。" : {
+    "サイフログは、「ランチ 850」のように一行送るだけで記録できる家計簿です。分類と計算はアプリが引き受け、同じ入力欄で家計について聞くこともできます。" : {
       "comment" : "ようこその画面の説明。例の「ランチ 850」は訳さない（解析が日本語の入力を前提にしているため）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "SaifuLog is a budget app where you record spending by sending a single line, like “ランチ 850”. The app takes care of the categories and the math."
+            "value" : "SaifuLog is a budget app where you record spending by sending a single line, like “ランチ 850”. The app takes care of the categories and the math, and you can ask about your spending in the same field."
           }
         }
       }
@@ -999,6 +1082,17 @@
         }
       }
     },
+    "プレミアムなら、回数の制限なく質問できます。記録はこれまでどおり無料で、回数の制限なく続けられます。" : {
+      "comment" : "家計への質問の回答カード。今月の無料の質問を使い切ったときの案内の本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With Premium, you can ask as many questions as you like. Recording stays free and unlimited, as always."
+          }
+        }
+      }
+    },
     "プレミアムを使えます。" : {
       "comment" : "購入を復元できたときのアラートの本文",
       "localizations" : {
@@ -1006,6 +1100,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Premium is available."
+          }
+        }
+      }
+    },
+    "プレミアムを見る" : {
+      "comment" : "家計への質問の回答カード。今月の無料の質問を使い切ったときの、プレミアムのシートを開くボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See Premium"
           }
         }
       }
@@ -1153,6 +1258,17 @@
         }
       }
     },
+    "予算の残り" : {
+      "comment" : "家計への質問の回答カードの見出し。月の予算の残り（超えたら超えた額）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Budget left"
+          }
+        }
+      }
+    },
     "予算の行数" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。保存している予算の行の数の項目名",
       "localizations" : {
@@ -1296,6 +1412,17 @@
         }
       }
     },
+    "今日" : {
+      "comment" : "家計への質問の回答カードの期間の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today"
+          }
+        }
+      }
+    },
     "今日の日付で ¥850 を記録" : {
       "comment" : "ようこその画面。入力の例「ランチ 850」がどう記録されるか。カテゴリは書かない（AI とキーワード辞書で変わりうるため）",
       "localizations" : {
@@ -1395,6 +1522,17 @@
         }
       }
     },
+    "今月のカフェの支出を答える（記録はしない）" : {
+      "comment" : "ようこその画面。入力の例「今月カフェいくら?」（質問）がどう扱われるか",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Answers how much you spent at cafés this month (nothing is recorded)"
+          }
+        }
+      }
+    },
     "今月の予算" : {
       "comment" : "ホームの上の見出し。今月の予算を超えたとき（その下に「¥… オーバー」を出す）",
       "localizations" : {
@@ -1435,6 +1573,51 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Spent this month"
+          }
+        }
+      }
+    },
+    "今月の無料の質問 あと %lld 回" : {
+      "comment" : "家計への質問の回答カードの下に小さく出す、今月の無料の質問の残りの回数（3 回以下のときだけ）。%lld は回数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld free question left this month"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld free questions left this month"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "今月の無料の質問を使い切りました" : {
+      "comment" : "家計への質問の回答カード。今月の無料の質問（月 10 回）を使い切ったときの見出し。VoiceOver にも読み上げる",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You’ve used this month’s free questions"
+          }
+        }
+      }
+    },
+    "今週" : {
+      "comment" : "家計への質問の回答カードの期間の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Week"
           }
         }
       }
@@ -1583,6 +1766,29 @@
         }
       }
     },
+    "元になった記録 %lld 件" : {
+      "comment" : "家計への質問の回答カード。答えの数字の元になった記録の件数。%lld は件数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Based on %lld entry"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Based on %lld entries"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "先月" : {
       "comment" : "設定の書き出す期間の選択肢。前の月の 1 日から末日まで",
       "localizations" : {
@@ -1590,6 +1796,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Last Month"
+          }
+        }
+      }
+    },
+    "先週" : {
+      "comment" : "家計への質問の回答カードの期間の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last Week"
           }
         }
       }
@@ -1759,6 +1976,17 @@
         }
       }
     },
+    "収入の合計" : {
+      "comment" : "家計への質問の回答カードの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total income"
+          }
+        }
+      }
+    },
     "収支" : {
       "comment" : "月のまとめの行の見出し。その月の収入から支出を引いた額（「+¥193,000」のように符号つき）",
       "localizations" : {
@@ -1799,6 +2027,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t undo"
+          }
+        }
+      }
+    },
+    "同じ入力欄で、家計について聞くこともできます。" : {
+      "comment" : "ホームの記録が無いときの案内。質問の例の上に出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can also ask about your spending in the same field."
           }
         }
       }
@@ -1869,6 +2108,28 @@
         }
       }
     },
+    "支出の合計" : {
+      "comment" : "家計への質問の回答カードの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total spending"
+          }
+        }
+      }
+    },
+    "数字はアプリが記録から計算しました。" : {
+      "comment" : "家計への質問の回答カード。端末内 AI の一言に、計算した結果に無い数字が入っていて捨てたときに、代わりに出す定型文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app calculated these numbers from your records."
+          }
+        }
+      }
+    },
     "料金はかかりません。App Store の確認が出ます" : {
       "comment" : "プレミアムのシート（⑨）。体験を始めるボタンの VoiceOver の説明",
       "localizations" : {
@@ -1931,6 +2192,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Daily goods"
+          }
+        }
+      }
+    },
+    "昨日" : {
+      "comment" : "家計への質問の回答カードの期間の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yesterday"
           }
         }
       }
@@ -2034,6 +2306,17 @@
         }
       }
     },
+    "月の予算が決まっていません" : {
+      "comment" : "家計への質問の回答カードの大きな文字の代わり。予算の残りや 1 日あたりの額を聞かれたが、月の予算を決めていないとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No monthly budget set"
+          }
+        }
+      }
+    },
     "月の予算を決める" : {
       "comment" : "予算を決める画面の見出し",
       "localizations" : {
@@ -2041,6 +2324,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Set a Monthly Budget"
+          }
+        }
+      }
+    },
+    "月の予算を決めると、残りや1日あたりに使える額に答えられます。" : {
+      "comment" : "家計への質問の回答カード。月の予算を決めていないときの説明。下に「予算を決める」のボタンを出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set a monthly budget to get answers about what’s left and how much you can spend per day."
           }
         }
       }
@@ -2124,6 +2418,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Use this after switching iPhones, for example, to load the Premium purchase made with this Apple Account."
+          }
+        }
+      }
+    },
+    "次のように聞いてみてください。答えられる期間は、今日・昨日・今週・先週・今月・先月・今年と、「直近7日」のような日数です。" : {
+      "comment" : "家計への質問の回答カード。質問を読めなかったときの説明。下に質問の例（日本語のまま）を出す。例の「直近7日」は訳さない",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try asking like the examples below. Periods you can ask about are today, yesterday, this week, last week, this month, last month, this year, and a number of days such as “直近7日”."
           }
         }
       }
@@ -2316,6 +2621,29 @@
         }
       }
     },
+    "直近 %lld 日" : {
+      "comment" : "家計への質問の回答カードの期間の名前。今日を含む直近の日数。%lld は日数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Past %lld day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Past %lld days"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "破棄して閉じる" : {
       "comment" : "直すシートの破棄の確認のボタン。直した内容を保存せずにシートを閉じる",
       "localizations" : {
@@ -2393,6 +2721,17 @@
         }
       }
     },
+    "計算しています…" : {
+      "comment" : "家計への質問の回答カード。答えを計算している間",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calculating…"
+          }
+        }
+      }
+    },
     "記録" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。区切りの見出し",
       "localizations" : {
@@ -2400,6 +2739,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Records"
+          }
+        }
+      }
+    },
+    "記録か質問か分かりませんでした" : {
+      "comment" : "ホームのタイムラインの案内の見出し。送った文に金額と質問の語が両方あり、記録しなかったとき。VoiceOver にも読み上げる",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t tell if this was a record or a question"
           }
         }
       }
@@ -2426,17 +2776,6 @@
         }
       }
     },
-    "記録する内容" : {
-      "comment" : "入力欄の VoiceOver ラベル",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "What to record"
-          }
-        }
-      }
-    },
     "記録できませんでした" : {
       "comment" : "記録を保存できなかったときのアラートの見出し",
       "localizations" : {
@@ -2455,6 +2794,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Record count"
+          }
+        }
+      }
+    },
+    "記録の件数（回答カード）" : {
+      "comment" : "家計への質問の回答カードの見出し。カテゴリを聞かれていない記録の件数（支出と収入）を答えたとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Number of entries"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録の件数"
           }
         }
       }
@@ -2488,6 +2844,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your records are saved on this iPhone, and what you write is read on this iPhone too. There’s no developer server, and your records and what you type are never sent to the developer or any third party."
+          }
+        }
+      }
+    },
+    "記録や質問" : {
+      "comment" : "ホームの入力欄のラベル（VoiceOver）。記録も家計への質問も同じ入力欄に打つ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record or ask"
           }
         }
       }
@@ -2580,6 +2947,23 @@
         }
       }
     },
+    "読み上げの区切り" : {
+      "comment" : "家計への質問の答えを VoiceOver で読み上げるときの、項目の間の区切り",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ", "
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "、"
+          }
+        }
+      }
+    },
     "読み取り中" : {
       "comment" : "送信後、解析中の送信ボタンの VoiceOver ラベル",
       "localizations" : {
@@ -2609,6 +2993,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "One-time purchase · Family Sharing"
+          }
+        }
+      }
+    },
+    "質問: %@" : {
+      "comment" : "ホームのタイムラインの質問の吹き出し（VoiceOver）。%@ は送った質問の文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Question: %@"
+          }
+        }
+      }
+    },
+    "質問を読めませんでした" : {
+      "comment" : "家計への質問の回答カード。質問を読めなかったときの見出し。VoiceOver にも読み上げる",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t understand the question"
           }
         }
       }
@@ -2745,6 +3151,17 @@
         }
       }
     },
+    "送った文: %@" : {
+      "comment" : "ホームのタイムラインの吹き出し（VoiceOver）。記録か質問か決められなかった文を送ったとき（質問とは名乗らない）。%@ は送った文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sent text: %@"
+          }
+        }
+      }
+    },
     "送信" : {
       "comment" : "送信ボタンの VoiceOver ラベル",
       "localizations" : {
@@ -2818,6 +3235,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No amount found"
+          }
+        }
+      }
+    },
+    "金額と「残り」「予算」「合計」のような語が一緒に入っていたので、記録しませんでした。記録するときは金額と品目だけを、質問するときは「?」を付けて送ってください。" : {
+      "comment" : "ホームのタイムラインの案内。送った文に金額と質問の語が両方あり、記録しなかったときの説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your message had an amount along with words like “残り”, “予算”, or “合計”, so it wasn’t recorded. To record, send just the item and amount. To ask a question, add “?”."
           }
         }
       }

@@ -25,7 +25,21 @@ runtime_id() {
 
 if [ -z "$(runtime_id)" ]; then
   echo "iOS $os のシミュレータのランタイムがないので入れます（xcodebuild -downloadPlatform iOS -buildVersion ${os}）。" >&2
-  xcodebuild -downloadPlatform iOS -buildVersion "$os" >&2
+  # 入れられなかったときに、ランナーのイメージにどの版が入っているかを追えるようにする。
+  echo "入っている iOS のランタイム:" >&2
+  xcrun simctl list runtimes | grep -E '^iOS ' >&2 || echo "  （なし）" >&2
+  # Apple の配布側が一時的に「iOS 26.2 is not available for download.」と返すことがある（CI で、前後の実行では
+  # 同じ版を入れられた）。間を置いて 3 回まで試す。until の条件の中の失敗では set -e で止まらない。
+  attempt=1
+  until xcodebuild -downloadPlatform iOS -buildVersion "$os" >&2; do
+    if [ "$attempt" -ge 3 ]; then
+      echo "error: iOS ${os} のランタイムを ${attempt} 回試しても入れられませんでした。Apple の配布側の一時的な不具合なら、時間を置いて CI を再実行してください。" >&2
+      exit 1
+    fi
+    echo "iOS ${os} のランタイムを入れられませんでした（${attempt} 回目）。$((attempt * 60)) 秒待って試し直します。" >&2
+    sleep $((attempt * 60))
+    attempt=$((attempt + 1))
+  done
 fi
 runtime=$(runtime_id)
 if [ -z "$runtime" ]; then

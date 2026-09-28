@@ -4,7 +4,7 @@ import SaifuLogCore
 import SwiftData
 import SwiftUI
 
-/// ホームの状態と操作（送信・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ）。
+/// ホームの状態と操作（送信・家計への質問・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ）。
 ///
 /// 画面（`HomeView`）から切り離し、解析器・時計・読み上げを差し替えて SaifuLogTests で確かめられるようにしている。
 /// 画面は、ここの値を表示し、操作をここへ渡すだけにする。
@@ -43,12 +43,19 @@ final class HomeModel {
     private(set) var today: Date
     /// タイムラインに読み込む件数。上の「前の記録を表示」で増やす。
     private(set) var timelineLimit = HomeModel.timelinePageSize
+    /// この起動の間に送った質問とその返事。タイムラインに記録の吹き出しと同じ流れ（送った順）で出す。
+    ///
+    /// 質問は記録ではないので保存しない（アプリを開き直すと消える。docs/design.md §9 の質問の決め事）。
+    private(set) var questions: [QuestionExchange] = []
+    /// 無料で使える回数（家計への質問は月 10 回。プレミアムと体験中は無制限）。
+    let quotaStore: QuotaStore
 
     @ObservationIgnored private let store: EntryStore
     @ObservationIgnored private let budgetStore: BudgetStore
     @ObservationIgnored private let pendingWrites: PendingStoreWrites
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let makeParser: (Date, Calendar) -> any EntryParsing
+    @ObservationIgnored private let makeAnswerer: () -> any QuestionAnswering
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
 
@@ -57,9 +64,12 @@ final class HomeModel {
     ///   - pendingWrites: 解析を待ってから記録する処理を数える先（`StoreHost.pendingWrites`）。保存先を開き直すとき、
     ///     記録し終えるのを待ってもらうため。
     ///   - purchases: プレミアムの購入と状態。アプリは `SaifuLogApp` の 1 つを渡す。渡さなければ購入の無い状態（テスト用）。
-    ///   - defaults: 設定の置き場所（体験の終わりの案内を出したか）。アプリは `UserDefaults.standard`、テストは使い捨ての領域。
+    ///   - defaults: 設定の置き場所（体験の終わりの案内を出したか、無料で質問した回数）。アプリは `UserDefaults.standard`、
+    ///     テストは使い捨ての領域。
+    ///   - quotaStore: 無料で使った回数の読み書き。渡さなければ `defaults` と `now` で作る。
     ///   - makeParser: 送信のたびに解析器を選ぶ（AI の使える・使えないは途中から変わるため）。送った瞬間の日時と暦を渡し、
     ///     「昨日」「9/26」をその日時を基準に読ませる。テストで差し替える。
+    ///   - makeAnswerer: 質問のたびに答え方（AI かキーワード辞書）を選ぶ。テストで差し替える。
     ///   - now: 記録の日時と「今日」の基準。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     init(
@@ -68,7 +78,9 @@ final class HomeModel {
         pendingWrites: PendingStoreWrites = PendingStoreWrites(),
         purchases: PurchaseManager? = nil,
         defaults: UserDefaults = .standard,
+        quotaStore: QuotaStore? = nil,
         makeParser: @escaping (Date, Calendar) -> any EntryParsing = { EntryParserFactory.makeParser(now: $0, calendar: $1) },
+        makeAnswerer: @escaping () -> any QuestionAnswering = { QuestionAnswererFactory.makeAnswerer() },
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
     ) {
@@ -77,7 +89,9 @@ final class HomeModel {
         self.pendingWrites = pendingWrites
         self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
         self.defaults = defaults
+        self.quotaStore = quotaStore ?? QuotaStore(defaults: defaults, now: now)
         self.makeParser = makeParser
+        self.makeAnswerer = makeAnswerer
         self.now = now
         self.announce = announce
         self.today = now()
@@ -104,24 +118,42 @@ final class HomeModel {
 
     // MARK: - 送信
 
-    /// 入力欄の文を読み取って記録する。読み取りが終わるのを待つための Task を返す（テストで使う）。
-    /// 空の文や、読み取り中の送信は受け付けない（nil を返す）。
+    /// 入力欄の文を送る。記録なら読み取って保存し、質問なら答える（保存しない）。読み取りや答えを待つための Task を返す
+    /// （テストで使う）。空の文や、読み取り中の送信は受け付けない（nil を返す）。
+    ///
+    /// 記録か質問かはコア（`InputIntentClassifier`）が決める。誤って記録にならないことを優先し、決められないものは記録しない。
     @discardableResult
     func send(calendar: Calendar) -> Task<Void, Never>? {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isParsing else { return nil }
-        isParsing = true
+        // 送った瞬間の日時を 1 つ決め、解析（「昨日」「9/26」の基準）と保存（記録した日時・使った日時）の両方に使う。
+        // 保存のときに時計を読み直すと、読み取りを待つ間に日付が変わったとき（23:59:59 に送って 0:00:01 に保存）、
+        // 「9/26」と書いた記録が 1 日ずれて保存されるため。質問も、この日時で期間を区切る。
+        let sentAt = now()
         // 送った時点で入力欄を空ける。解析（AI だと 1 秒以上かかることがある）を待ってから空けると、
         // 入力欄にとどまって打ち始めた次の入力まで、黙って消してしまうため。
         draft = ""
         // 前の記録の「取り消す」（バナーと VoiceOver の操作）を引っ込める。読み取りの間も出したままだと、押したときに
         // 前の記録が消え、前の文が入力欄に戻る。それを送り直したり、いま送った文の記録だけが残ったりして、
-        // 取り消したつもりのものと違う記録が残るため。
+        // 取り消したつもりのものと違う記録が残るため。質問を送ったときも同じにする（送るたびに引っ込める、と揃える）。
         justRecorded = []
-        // 送った瞬間の日時を 1 つ決め、解析（「昨日」「9/26」の基準）と保存（記録した日時・使った日時）の両方に使う。
-        // 保存のときに時計を読み直すと、読み取りを待つ間に日付が変わったとき（23:59:59 に送って 0:00:01 に保存）、
-        // 「9/26」と書いた記録が 1 日ずれて保存されるため。
-        let sentAt = now()
+        switch InputIntentClassifier.classify(text, now: sentAt, calendar: calendar) {
+        case .record:
+            return record(text, sentAt: sentAt, calendar: calendar)
+        case .question:
+            return ask(text, sentAt: sentAt, calendar: calendar)
+        case .unclear:
+            // 記録にはしない。書き直して送り直せるよう、送った文を入力欄に戻す。
+            appendQuestion(text, askedAt: sentAt, state: .unclear)
+            restoreDraft(text)
+            announce(String(localized: "記録か質問か分かりませんでした"))
+            return Task {}
+        }
+    }
+
+    /// 記録として読み取って保存する。
+    private func record(_ text: String, sentAt: Date, calendar: Calendar) -> Task<Void, Never> {
+        isParsing = true
         let parser = makeParser(sentAt, calendar)
         // 解析の間に保存先が開き直されないよう、Task を作る前に数える（Task は画面のツリーを畳んだ後も動き続け、
         // この後で前の保存先に書き込むため）。
@@ -150,6 +182,84 @@ final class HomeModel {
             justRecorded = recorded
             announceRecorded(recorded, today: sentAt, calendar: calendar)
         }
+    }
+
+    // MARK: - 質問
+
+    /// 家計への質問に答える。数字はコアが計算し（AI には計算させない）、答えは保存しない。
+    ///
+    /// 無料の回数（月 10 回）を使い切っていれば、答えずにプレミアムの案内を出す（記録は無料で無制限のまま）。数えるのは
+    /// 答えを出せたときだけ（読めなかった質問・失敗は数えない）。プレミアムと体験中は数えない（`UsageQuota`）。
+    /// 保存先には書き込まない（読むだけ）ので、`pendingWrites` には数えない。
+    private func ask(_ text: String, sentAt: Date, calendar: Calendar) -> Task<Void, Never> {
+        let id = appendQuestion(text, askedAt: sentAt, state: .answering)
+        let ledger: QuestionLedger
+        do {
+            ledger = try QuestionLedger.load(from: store.context, now: sentAt, calendar: calendar)
+        } catch {
+            setQuestionState(.loadFailed, for: id)
+            restoreDraft(text)
+            announce(String(localized: "記録を読み込めませんでした"))
+            return Task {}
+        }
+        isParsing = true
+        return Task {
+            defer { isParsing = false }
+            // 購入の事実を読み終える前は、プレミアムでも無料に見える。起動の直後に送った質問で、買った人に「使い切りました」を
+            // 出したり、プレミアムや体験中の人の質問を無料の回数として数えたりしないよう、読み終えるのを待ってから決める
+            // （体験の終わりの案内と同じく、読み終える前の状態では決めない）。
+            if !purchases.hasLoadedPurchases {
+                await purchases.refreshPurchases()
+            }
+            guard quotaStore.allowance(for: .question, status: purchases.status, calendar: calendar).canUse else {
+                setQuestionState(.limitReached, for: id)
+                // プレミアムを買ったあとに送り直せるよう、送った文を入力欄に戻す。
+                restoreDraft(text)
+                announce(String(localized: "今月の無料の質問を使い切りました"))
+                return
+            }
+            let answerer = makeAnswerer()
+            let reply = (try? await answerer.answer(text, ledger: ledger, now: sentAt, calendar: calendar)) ?? .unreadable
+            switch reply {
+            case .answered(let answer, let remark):
+                // 答えを出せたときだけ数える。答えの後に状態を読み直す（答えを待つ間に体験を始めたり買ったりしていれば数えない）。
+                let status = purchases.status
+                quotaStore.recordUse(of: .question, status: status, calendar: calendar)
+                let freeQuestionsLeft = freeQuestionsLeftToShow(status: status, calendar: calendar)
+                setQuestionState(.answered(answer, remark: remark, freeQuestionsLeft: freeQuestionsLeft), for: id)
+                // 画面にカードが出るだけでは VoiceOver の利用者に伝わらないので、答えを読み上げる。残りの回数が少ないときの
+                // 知らせも、カードの小さな行だけでは気づけないので一緒に読む。
+                announce(QuestionTexts.spoken(answer, remark: remark, freeQuestionsLeft: freeQuestionsLeft, calendar: calendar))
+            case .unreadable:
+                setQuestionState(.unreadable, for: id)
+                // 書き直して送り直せるよう、送った文を入力欄に戻す（記録の「金額が見つかりませんでした」と同じ）。
+                restoreDraft(text)
+                announce(String(localized: "質問を読めませんでした"))
+            }
+        }
+    }
+
+    /// 回答カードに出す、今月の無料の質問の残り。残りが少ない（3 回以下の）ときだけ（プレミアムと体験中は出さない）。
+    private func freeQuestionsLeftToShow(status: PremiumStatus, calendar: Calendar) -> Int? {
+        guard case .limited(let remaining, _) = quotaStore.allowance(for: .question, status: status, calendar: calendar),
+              remaining <= Self.fewFreeQuestionsLeft
+        else { return nil }
+        return remaining
+    }
+
+    /// 回答カードに無料の残りの回数を出し始める回数。
+    static let fewFreeQuestionsLeft = 3
+
+    @discardableResult
+    private func appendQuestion(_ text: String, askedAt: Date, state: QuestionExchange.State) -> UUID {
+        let exchange = QuestionExchange(text: text, askedAt: askedAt, state: state)
+        questions.append(exchange)
+        return exchange.id
+    }
+
+    private func setQuestionState(_ state: QuestionExchange.State, for id: UUID) {
+        guard let index = questions.firstIndex(where: { $0.id == id }) else { return }
+        questions[index].state = state
     }
 
     /// 送った文を入力欄に戻す。ただし解析の間に次の入力を打ち始めていたら、そちらを上書きしない。
@@ -271,11 +381,14 @@ final class HomeModel {
     ///
     /// まとめの記録の一覧からも「直す」を開けるので、ホームから開いたときと同じく、直したら「取り消す」を引っ込め、
     /// 消したら「取り消す」の対象から外す（戻ったあとで、消えた記録や直す前の文を取り消しで扱わないように）。
-    /// - Parameter calendar: 月の区切りの暦（ホームの画面の暦。帯の今月と同じ月でまとめるため）。
-    func presentMonthlyReport(calendar: Calendar) {
+    /// - Parameters:
+    ///   - calendar: 月の区切りの暦（ホームの画面の暦。帯の今月と同じ月でまとめるため）。
+    ///   - month: 開く月に入る日時（質問の回答カードから先月を開くとき）。nil なら今月。
+    func presentMonthlyReport(calendar: Calendar, month: Date? = nil) {
         monthlyReport = MonthlyReportModel(
             store: store,
             calendar: calendar,
+            month: month,
             now: now,
             announce: announce,
             didSave: { [weak self] entry in self?.finishEditing(entry) },
@@ -295,6 +408,11 @@ final class HomeModel {
     }
 
     // MARK: - プレミアム
+
+    /// 「プレミアム」のシートを出す（無料の質問を使い切ったときの案内から）。
+    func presentPremium() {
+        premiumSheet = PremiumSheetModel(purchases: purchases, announce: announce)
+    }
 
     /// 無料体験が終わった後の最初の起動で、一度だけ「プレミアム」のシートを出す。
     ///

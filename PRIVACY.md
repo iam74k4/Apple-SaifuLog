@@ -53,10 +53,19 @@ iOS の機能で、開発者はその内容を見られません。
 Apple Intelligence を使えない端末では、端末内のキーワード辞書で読み取ります。この場合も
 外部へ送信することはありません。
 
-### 家計への質問・ふりかえり・修正の記憶（予定の機能）
+### 家計への質問
 
-家計についての質問への回答や、ふりかえりのメッセージの作成を提供する場合も、同じく
-Foundation Models を用いてお使いの iPhone の上で行い、外部へ送信することはありません。
+記録と同じ入力欄で家計について質問したとき（「今月カフェいくら?」など）、答えの数字は本アプリがお使いの iPhone の中の
+記録から計算します。質問の文の読み取りと、答えに添える一言の作成には、Apple Intelligence を使える端末では Foundation Models を、
+使えない端末では端末内のキーワード辞書を用います。**質問の文や記録、計算した答えを外部へ送信することはありません。**
+
+質問と答えは記録として保存せず、アプリを起動している間だけアプリのメモリの中に置きます（アプリを開き直すと消えます）。
+無料で質問した回数（月ごとの回数）だけを、下の「保存される設定」に保存します。
+
+### ふりかえり・修正の記憶（予定の機能）
+
+ふりかえりのメッセージの作成を提供する場合も、同じく Foundation Models を用いてお使いの iPhone の上で行い、外部へ送信する
+ことはありません。
 
 利用者が記録を直した内容（例: ある言葉をどのカテゴリに分けるか）を以後の読み取りに
 役立てる機能を提供する場合、その内容は端末内にのみ保存します。
@@ -114,9 +123,10 @@ iCloud へのバックアップや同期を提供する場合の取り扱いで�
 
 ### 保存される設定
 
-初回の案内を終えたかどうか、週の始まり（日曜か月曜か）、無料体験が終わったときの案内を出したかどうかといった
-アプリの設定は、iOS の標準的な仕組み（UserDefaults）を用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存します。
-レシートの読み取りや家計への質問の機能を提供したら、無料で使った回数（月ごとの回数）も同じ場所に保存します。
+初回の案内を終えたかどうか、週の始まり（日曜か月曜か）、無料体験が終わったときの案内を出したかどうか、家計への質問を
+無料で使った回数（月ごとの回数。質問の文や答えは含みません）といったアプリの設定は、iOS の標準的な仕組み（UserDefaults）を
+用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存します。レシートの読み取りの機能を提供したら、無料で使った回数も
+同じ場所に保存します。
 これらを外部に送信することはありません。予算の金額は設定ではなく、上の家計の記録と同じ場所に保存します。
 購入したかどうかは設定には保存しません（上の「購入の取り扱い」）。
 
@@ -198,10 +208,21 @@ enter and your records are never sent anywhere for analysis.**
 On devices where Apple Intelligence is not available, the app reads your entries with an
 on-device keyword dictionary. Nothing is sent anywhere in that case either.
 
-### Questions, Weekly Reviews, and Remembered Corrections (Planned Features)
+### Questions About Your Spending
 
-If answering your questions about your spending and writing review messages are offered,
-they will also be done with Apple's Foundation Models framework on your own iPhone, and
+When you ask about your spending in the same field you use for records (for example, "今月カフェいくら?"), the app
+calculates the numbers in the answer from the records on your own iPhone. Reading your question and writing the short note
+added to the answer are done with Apple's Foundation Models framework on devices where Apple Intelligence is available, and
+with an on-device keyword dictionary otherwise. **Your question, your records, and the calculated answer are never sent
+anywhere.**
+
+Questions and answers are not saved as records. They are kept only in the app's memory while the app is running and disappear
+when you reopen the app. Only the number of free questions you have used (counted per month) is stored, as described in
+Settings We Store below.
+
+### Weekly Reviews and Remembered Corrections (Planned Features)
+
+If writing review messages is offered, it will also be done with Apple's Foundation Models framework on your own iPhone, and
 nothing will be sent anywhere.
 
 If the app offers to remember your corrections (for example, which category a certain word
@@ -270,10 +291,11 @@ which do not include buyers' names, contact details, or payment information.
 ### Settings We Store
 
 App settings, such as whether you have finished the first-launch introduction, which day your
-week starts on, and whether the notice at the end of the free trial has been shown, are stored only
-on your own iPhone, in an area reserved for this app, using the standard iOS mechanism (UserDefaults).
-Once receipt reading and questions about your spending are offered, the number of times you have
-used them for free (counted per month) will be stored in the same place. They are never transmitted
+week starts on, whether the notice at the end of the free trial has been shown, and the number of free
+questions about your spending you have used (counted per month; your questions and answers are not
+included), are stored only on your own iPhone, in an area reserved for this app, using the standard iOS
+mechanism (UserDefaults). Once receipt reading is offered, the number of times you have used it for free
+will be stored in the same place. They are never transmitted
 anywhere. Your budget amount is not a setting; it is stored in the same place as your records,
 described above. Whether you have purchased Premium is not stored as a setting (see Purchases above).
 

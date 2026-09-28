@@ -57,4 +57,14 @@ struct EntryCategoryTests {
         #expect(EntryCategory.guess(from: "なにか") == .other)
         #expect(EntryCategory.guess(from: "") == .other)
     }
+
+    @Test("質問のカテゴリは、キーワードか表示名に当たったときだけ（当たらなければ nil）")
+    func matched() {
+        #expect(EntryCategory.matched(in: "今月カフェいくら") == .cafe)
+        #expect(EntryCategory.matched(in: "先月の食費") == .food)
+        #expect(EntryCategory.matched(in: "その他にいくら") == .other)
+        #expect(EntryCategory.matched(in: "今月いくら使った") == nil)
+        // 記録の読み取り（guess）は表示名を見ない。
+        #expect(EntryCategory.guess(from: "その他 肉 500") == .food)
+    }
 }

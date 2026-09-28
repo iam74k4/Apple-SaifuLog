@@ -82,3 +82,16 @@ extension TestSupport {
         return manager
     }
 }
+
+/// 答え方を差し替えられる、家計への質問の答え手（HomeModel と FallbackQuestionAnswerer に渡す）。
+struct StubAnswerer: QuestionAnswering {
+    let body: @Sendable (String, QuestionLedger) async throws -> QuestionReply
+
+    init(_ body: @escaping @Sendable (String, QuestionLedger) async throws -> QuestionReply) {
+        self.body = body
+    }
+
+    func answer(_ text: String, ledger: QuestionLedger, now: Date, calendar: Calendar) async throws -> QuestionReply {
+        try await body(text, ledger)
+    }
+}

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// ホームの下の入力欄。
+/// ホームの下の入力欄。記録も家計への質問も、ここに打つ（見分けは `HomeModel` がコアに任せる）。
 ///
 /// カメラ（レシート）とマイク（声で記録）のボタンは、機能ができてから足す。
 /// 押しても何も起きないボタンは置かない。
@@ -35,7 +35,7 @@ struct InputBar: View {
         HStack(spacing: 8) {
             // 1 行の入力欄にする。複数行にすると Return が改行になり、チャットのように送れないため。
             TextField(text: $text, prompt: prompt) {
-                Text("記録する内容")
+                Text("記録や質問")
             }
             .foregroundStyle(Theme.ink)
             .focused($isFocused)
@@ -45,7 +45,8 @@ struct InputBar: View {
                 // Return で送るとキーボードが閉じる。続けて記録できるよう、入力欄にとどまる。
                 isFocused = true
             }
-            .accessibilityLabel("記録する内容")
+            // 記録も質問も同じ入力欄に打つ（記録か質問かはアプリが見分ける）。
+            .accessibilityLabel("記録や質問")
             // 送信の後、VoiceOver のフォーカスは入力欄に戻る。バナーまで移らずに直す・取り消すができるようにする
             // （読み上げで読み違いに気づいたら、その場で直せるように）。複数件なら 1 件ずつ出す。
             .accessibilityActions {

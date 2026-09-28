@@ -4,7 +4,7 @@
 端末内の AI（Apple の Foundation Models）で行い、家計のデータを端末の外に出さない。
 
 ## 現在の到達点
-- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・月の予算・月のまとめ・設定と CSV 書き出し・初回の案内・プレミアム（StoreKit）の試作**まで。
+- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・家計への質問・月の予算・月のまとめ・設定と CSV 書き出し・初回の案内・プレミアム（StoreKit）の試作**まで。
   - 試作済み: 一行の読み取り（端末内 AI、使えない端末ではキーワード辞書）、タイムライン、記録直後の
     「直す」「取り消す」、長押しでの記録の削除（確認つき）、今月の支出と収入の合計。画面は縦向きのみ。
     ⑥ 直す（吹き出しを押す・長押しのメニュー・記録直後のバナー・VoiceOver の操作・⑦ の記録の一覧から開くシート。金額・品目・支出か収入か・
@@ -22,16 +22,22 @@
     `com.iam74k4.SaifuLog.premium`（ファミリー共有）と、価格 0 の非消耗型の 14 日間の体験 `com.iam74k4.SaifuLog.trial14`（購入日時から
     経過時間で 14 日）。価格は App Store の表示のまま。まだ出していない機能は「近日」。`PremiumSheet` と `PremiumSheetModel`、購入・復元・
     Transaction.updates の購読は `SaifuLog/Purchases/PurchaseManager`（`SaifuLogApp` で 1 つ作り、起動したらすぐ購読）、状態はコアの
-    `PremiumStatus`・`TrialPeriod`。無料の回数の数え方はコアの `UsageQuota` と `QuotaStore`（レシートと質問を作るときに使う。いまは使っていない）。
+    `PremiumStatus`・`TrialPeriod`。無料の回数の数え方はコアの `UsageQuota` と `QuotaStore`（家計への質問で使う。レシートでも使う予定）。
     Xcode の Run では `Config/SaifuLog.storekit` で購入を試せる。購入のテストは SKTestSession で、iOS 26.3・26.4 のシミュレータでは
     Apple の不具合で動かないので、`make test-app` から除き、`make test-storekit` が iOS 26.2 のシミュレータで動かす（飛ばされたら失敗。
     CI のランナーで iOS 26.2 のランタイムを入れて通るかはまだ走らせていない）。実機（Sandbox）での購入・復元・返金・ファミリー共有の
-    確認はまだ。カテゴリ別の予算の進みを出すまで App 内課金は審査に出さない）。配色は墨 × 山吹。
+    確認はまだ。カテゴリ別の予算の進みを出すまで App 内課金は審査に出さない。家計への質問を出したので、この決め事を続けるかは見直し中で、
+    所有者が決めるまでは出さない。`docs/release-flow.md` の「App 内課金を審査に出す」）。配色は墨 × 山吹。
+    家計への質問（ひとこと入力と同じ入力欄。記録か質問かはコアの `InputIntentClassifier` が決め、誤って記録しないことを優先し、
+    決められない文は記録せずに書き直しを案内する。端末内 AI は `SaifuLog/AI/FoundationModelsQuestionAnswerer` のツール呼び出しで期間・知りたいこと・
+    カテゴリを選択肢から選ぶだけで、数字はコアの `LedgerQuestionAnswerer` が計算し、AI の一言の数字はコアの `AnswerSentenceCheck` で照合する。
+    AI が使えないときはコアの `QuestionParser`。答えはホームのタイムラインの回答カード（`SaifuLog/Views/Question/`）で、保存しない。無料は月 10 回で、
+    答えを出せたときだけ数え、使い切ったら ⑨ への案内。実機でのモデルの答え方の確認はまだ）。
     保存先を開けないときは落とさず、ロック中なら解除を待って開き直し、それ以外は再試行の画面を出す（`StoreHost`）。
     保存先のデータ保護は NSFileProtectionComplete（ロック中は読めないようにする。実機での確認はまだ。
     release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
     main で `mode=export` の照合が通るかの確認はまだ。`docs/design.md` §5-4）。
-  - **未実装:** カテゴリ別の予算の進みの表示・レシート・質問・週のふりかえりと月の AI レポート・iCloud 同期（設定の切り替えを含む）・
+  - **未実装:** カテゴリ別の予算の進みの表示・レシート・週のふりかえりと月の AI レポート・iCloud 同期（設定の切り替えを含む）・
     家族との共有・声で記録・修正の記憶・CSV の読み込み。
   - 実機での確認の手段: release.yml の手動実行 `mode=testflight` で、develop のビルドを診断画面入りで TestFlight の
     社内テスト専用に送れるようにした（審査には出ない）。Environment `release` の配備ブランチへの develop の追加
