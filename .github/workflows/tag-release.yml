@@ -18,6 +18,15 @@ name: tag-release
 # 「アーカイブを作る」）。逆算できないとき（手元から送ったビルド、BUILD_NUMBER_OFFSET を
 # 変えた後など）は止まるので、手動実行の sha でコミットを指定する。
 #
+# release.yml の mode=testflight（develop などのビルドを TestFlight の社内テスト専用で送る）の実行も、同じ実行番号の
+# 系列でビルド番号を付ける。それでも逆算に testflight の実行が紛れることはない。ここで逆算するのは App Store Connect で
+# 配信中の版（--live）か、指定した版（force）に紐づいたビルドの番号だけで、社内テスト専用のビルドは版に紐づけられない
+# （審査に出せない）ため。実行番号は mode によらず 1 つの実行に 1 つなので、番号から引いた実行は、配信されたビルドを
+# 作った実行そのものになる。紛れないことを保っているのは、この Apple 側の決まり（社内テスト専用のビルドは版に紐づかない）
+# だけ。下の確かめは当てにできない。「main の履歴にあるか」は、testflight で送った develop のコミットも develop を main へ
+# マージした後は main の履歴に入るので通ってしまう。「版が合うか」も、同じ版を develop で試してから main へ入れるのが
+# ふつうなので、ずれても合ってしまうことが多い。
+#
 # アップロードの時点でタグを打たないのは、リジェクトされた場合に「タグはあるのに
 # 世に出ていない」版を残さないため。release.yml はタグの有無で「配信済みか」を
 # 判定しているので、先に打つとリジェクト後の出し直しもスキップされてしまう。
@@ -71,7 +80,7 @@ jobs:
     # 注意: この Environment に「Required reviewers」を付けると、3 時間おきの
     # cron が毎回この承認待ちで止まる（多くは何もせず終わる実行なので、承認の
     # 通知だけが溜まる）。鍵の保護は Required reviewers ではなく、配備ブランチを
-    # main に限る設定で行う。
+    # main と develop（どちらも Ruleset で直接 push できず、PR と build が必須）に限る設定で行う。
     environment: release
     permissions:
       # checkout、タグと GitHub Release の有無の確認
