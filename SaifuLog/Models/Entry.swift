@@ -118,8 +118,8 @@ extension Entry {
     }
 }
 
-/// 集計（SaifuLogCore の LedgerSummary・MonthlySummary）にそのまま渡せるようにする。
-extension Entry: LedgerRecord {}
+/// 集計（SaifuLogCore の LedgerSummary・MonthlySummary）と CSV の書き出し（LedgerCSVWriter）にそのまま渡せるようにする。
+extension Entry: LedgerCSVRecord {}
 
 /// どこから記録したか。rawValue は保存に使うので変えないこと。
 enum EntrySource: String, Codable, CaseIterable, Sendable {

@@ -1,4 +1,5 @@
 import Foundation
+import SaifuLogCore
 import SwiftUI
 
 /// アプリ自身の設定（UserDefaults）の 1 項目。キーと既定値を組にして持つ。
@@ -24,16 +25,26 @@ enum AppSettings {
     static let hasCompletedOnboarding = AppSetting(key: "hasCompletedOnboarding", defaultValue: false)
     /// iCloud と同期するか。既定はオフ（利用者が選んだときだけ同期する）。iCloud 同期を作るときに使う。
     static let iCloudSyncEnabled = AppSetting(key: "iCloudSyncEnabled", defaultValue: false)
+    /// 週の始まり（設定の画面で選ぶ）。既定は端末の設定（地域と iOS の設定）に合わせる。
+    /// 画面の根元（`AppRootView`）が画面の暦の週の始まりに当てはめ、`ReportPeriod` の今週・先週の区切りに効かせる。
+    static let weekStart = AppSetting(key: "weekStart", defaultValue: WeekStart.system)
 
     /// すべての設定のキー。重なりが無いことをテストで確かめる。
     static var allKeys: [String] {
-        [hasCompletedOnboarding.key, iCloudSyncEnabled.key]
+        [hasCompletedOnboarding.key, iCloudSyncEnabled.key, weekStart.key]
     }
 }
 
 extension AppStorage where Value == Bool {
     /// 画面から設定を読み書きする。`@AppStorage(AppSettings.hasCompletedOnboarding) private var hasCompletedOnboarding`
     init(_ setting: AppSetting<Bool>, store: UserDefaults? = nil) {
+        self.init(wrappedValue: setting.defaultValue, setting.key, store: store)
+    }
+}
+
+extension AppStorage {
+    /// 選択肢の設定（`WeekStart` など、文字列の rawValue で保存するもの）を画面から読み書きする。
+    init(_ setting: AppSetting<Value>, store: UserDefaults? = nil) where Value: RawRepresentable, Value.RawValue == String {
         self.init(wrappedValue: setting.defaultValue, setting.key, store: store)
     }
 }
@@ -46,5 +57,15 @@ extension UserDefaults {
 
     func set(_ value: Bool, for setting: AppSetting<Bool>) {
         set(value, forKey: setting.key)
+    }
+
+    /// 選択肢の設定を読む。まだ書いていないか、知らない値（新しい版で足した選択肢を古い版で読んだときなど）なら既定値。
+    func value<Value: RawRepresentable>(for setting: AppSetting<Value>) -> Value where Value.RawValue == String {
+        string(forKey: setting.key).flatMap(Value.init(rawValue:)) ?? setting.defaultValue
+    }
+
+    /// 選択肢の設定を書く（rawValue で保存する。`@AppStorage` と同じ形なので、画面の `@AppStorage` にも伝わる）。
+    func set<Value: RawRepresentable>(_ value: Value, for setting: AppSetting<Value>) where Value.RawValue == String {
+        set(value.rawValue, forKey: setting.key)
     }
 }

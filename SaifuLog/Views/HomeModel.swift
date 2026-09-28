@@ -4,7 +4,7 @@ import SaifuLogCore
 import SwiftData
 import SwiftUI
 
-/// ホームの状態と操作（送信・取り消し・直す・削除・予算を決める画面と月のまとめの出し入れ）。
+/// ホームの状態と操作（送信・取り消し・直す・削除・予算を決める画面と月のまとめと設定の出し入れ）。
 ///
 /// 画面（`HomeView`）から切り離し、解析器・時計・読み上げを差し替えて SaifuLogTests で確かめられるようにしている。
 /// 画面は、ここの値を表示し、操作をここへ渡すだけにする。
@@ -29,6 +29,8 @@ final class HomeModel {
     var editing: EditEntryModel?
     /// 「月のまとめ」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
     var monthlyReport: MonthlyReportModel?
+    /// 「設定」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
+    var settings: SettingsModel?
     /// 今日。「今月」の範囲と、日付に年を添えるかの基準にする。
     ///
     /// 描画のたびに `.now` を読むだけだと、アプリを開いたまま（または裏に置いたまま）月をまたいだとき、
@@ -265,6 +267,15 @@ final class HomeModel {
             didSave: { [weak self] entry in self?.finishEditing(entry) },
             didDelete: { [weak self] id in self?.justRecorded.removeAll { $0.persistentModelID == id } }
         )
+    }
+
+    // MARK: - 設定
+
+    /// 「設定」へ進む（帯の右上の歯車を押したとき）。
+    ///
+    /// 設定から開く「予算を決める」も、ホームの帯から開くときと同じ保存先と読み上げを使う。
+    func presentSettings() {
+        settings = SettingsModel(context: store.context, budgetStore: budgetStore, now: now, announce: announce)
     }
 
     // MARK: - 日付とタイムライン

@@ -167,6 +167,17 @@
         }
       }
     },
+    "CSV ファイルを書き出す" : {
+      "comment" : "設定の「記録を書き出す」のボタン。選んだ期間の記録を CSV ファイルにして共有の画面を出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export CSV File"
+          }
+        }
+      }
+    },
     "OK" : {
       "comment" : "アラートを閉じるボタン",
       "localizations" : {
@@ -196,6 +207,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "OS details"
+          }
+        }
+      }
+    },
+    "Safari で開きます" : {
+      "comment" : "設定のプライバシーポリシー・ライセンスの行の VoiceOver の説明（ヒント）。押すと Safari で GitHub のページを開く",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens in Safari."
           }
         }
       }
@@ -299,6 +321,17 @@
         }
       }
     },
+    "このアプリについて" : {
+      "comment" : "設定の節の見出し。プライバシーポリシー・ライセンス・バージョンの行",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About"
+          }
+        }
+      }
+    },
     "この月の支出の記録はありません" : {
       "comment" : "月のまとめのカテゴリ別の支出の欄。その月に収入の記録しかないとき",
       "localizations" : {
@@ -361,6 +394,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Write it like this"
+          }
+        }
+      }
+    },
+    "すべて" : {
+      "comment" : "設定の書き出す期間の選択肢。すべての記録",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All"
           }
         }
       }
@@ -439,6 +483,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copy All"
+          }
+        }
+      }
+    },
+    "もう一度お試しください。" : {
+      "comment" : "設定で記録を CSV に書き出せなかったときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please try again."
           }
         }
       }
@@ -553,6 +608,28 @@
         }
       }
     },
+    "カレンダー" : {
+      "comment" : "設定の節の見出し。週の始まりの行",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calendar"
+          }
+        }
+      }
+    },
+    "カレンダーの週を何曜日から始めるかを選びます。" : {
+      "comment" : "設定の「週の始まり」の節の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose which day your calendar week starts on."
+          }
+        }
+      }
+    },
     "キャンセル" : {
       "comment" : "予算を決める画面・直すシートを保存せずに閉じるボタン",
       "localizations" : {
@@ -586,6 +663,17 @@
         }
       }
     },
+    "バージョン" : {
+      "comment" : "設定の「このアプリについて」の行。アプリの版とビルド番号（0.1.0 (12) の形）を右に出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version"
+          }
+        }
+      }
+    },
     "ビルドの種類" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。社内テスト用か DEBUG かの項目名",
       "localizations" : {
@@ -608,6 +696,17 @@
         }
       }
     },
+    "プライバシーポリシー" : {
+      "comment" : "設定の「このアプリについて」の行。押すと Safari でプライバシーポリシー（GitHub）を開く",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy Policy"
+          }
+        }
+      }
+    },
     "ホームに今月あといくら使えるかが出なくなります。予算はあとからまた決められます。" : {
       "comment" : "予算を決める画面で「予算をなくす」を押したときの確認の説明",
       "localizations" : {
@@ -626,6 +725,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send something like “ランチ 850” from the field on Home, and this shows what you spent and on what."
+          }
+        }
+      }
+    },
+    "ライセンス" : {
+      "comment" : "設定の「このアプリについて」の行。押すと Safari でライセンス（GitHub の LICENSE）を開く",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "License"
           }
         }
       }
@@ -664,7 +774,7 @@
       }
     },
     "予算" : {
-      "comment" : "月のまとめの欄の見出しと行の見出し。月の予算",
+      "comment" : "月のまとめの欄の見出しと行の見出し（月の予算）と、設定の節の見出し",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -806,6 +916,17 @@
         }
       }
     },
+    "予算を決める画面を開きます" : {
+      "comment" : "設定の「月の予算」の行の VoiceOver の説明（ヒント）。押すと予算を決める画面をシートで開く",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the budget screen."
+          }
+        }
+      }
+    },
     "交通" : {
       "comment" : "カテゴリ",
       "localizations" : {
@@ -813,6 +934,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Transport"
+          }
+        }
+      }
+    },
+    "今年" : {
+      "comment" : "設定の書き出す期間の選択肢。今年の 1 月 1 日から",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Year"
           }
         }
       }
@@ -890,6 +1022,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This date is in the future. If this isn’t a planned record, check the date."
+          }
+        }
+      }
+    },
+    "今月" : {
+      "comment" : "設定の書き出す期間の選択肢。今月の 1 日から",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Month"
           }
         }
       }
@@ -1037,6 +1180,17 @@
         }
       }
     },
+    "先月" : {
+      "comment" : "設定の書き出す期間の選択肢。前の月の 1 日から末日まで",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last Month"
+          }
+        }
+      }
+    },
     "光熱・通信" : {
       "comment" : "カテゴリ",
       "localizations" : {
@@ -1055,6 +1209,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Example: %@"
+          }
+        }
+      }
+    },
+    "共有の画面で、渡すアプリや保存先を選びます" : {
+      "comment" : "設定の「CSV ファイルを書き出す」の VoiceOver の説明（ヒント）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose an app or place to send it to on the share sheet."
           }
         }
       }
@@ -1323,6 +1488,39 @@
         }
       }
     },
+    "書き出しています…" : {
+      "comment" : "設定の書き出しのボタン。書き出している間に出す（進行中の印を添える）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporting…"
+          }
+        }
+      }
+    },
+    "書き出す記録がありません" : {
+      "comment" : "設定で選んだ期間に記録が無かったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Entries to Export"
+          }
+        }
+      }
+    },
+    "書き出せませんでした" : {
+      "comment" : "設定で記録を CSV に書き出せなかったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Export"
+          }
+        }
+      }
+    },
     "月のまとめ" : {
       "comment" : "月のまとめの画面のタイトル。月ごとの支出・収入とカテゴリ別の内訳",
       "localizations" : {
@@ -1346,7 +1544,7 @@
       }
     },
     "月の予算" : {
-      "comment" : "予算を決める画面の入力欄の見出し",
+      "comment" : "予算を決める画面の入力欄の見出し（文の形。設定の行の名前は別のキー「月の予算（設定の行）」）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1385,6 +1583,45 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Monthly budget in yen"
+          }
+        }
+      }
+    },
+    "月の予算（設定の行）" : {
+      "comment" : "設定の「予算」の節の行。押すと予算を決める画面を開く。右にいまの月の予算の額か「未設定」を出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly Budget"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "月の予算"
+          }
+        }
+      }
+    },
+    "期間" : {
+      "comment" : "設定の「記録を書き出す」の、書き出す期間の選択の見出し（今月・先月・今年・すべて）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Period"
+          }
+        }
+      }
+    },
+    "未設定" : {
+      "comment" : "設定の「月の予算」の行の右に出す値。予算を決めていないとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Set"
           }
         }
       }
@@ -1576,6 +1813,17 @@
         }
       }
     },
+    "端末の設定（%@）" : {
+      "comment" : "設定の「週の始まり」の選択肢。地域と iOS の設定の週の始まりに合わせる。%@ は「日曜日」のような曜日の名前（端末の設定がどの曜日か）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device Setting (%@)"
+          }
+        }
+      }
+    },
     "端末内 AI（Foundation Models）" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。区切りの見出し",
       "localizations" : {
@@ -1686,6 +1934,17 @@
         }
       }
     },
+    "記録を書き出す" : {
+      "comment" : "設定の節の見出し。記録を CSV ファイルに書き出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export Entries"
+          }
+        }
+      }
+    },
     "記録を直す" : {
       "comment" : "直すシートの見出し",
       "localizations" : {
@@ -1741,6 +2000,17 @@
         }
       }
     },
+    "設定" : {
+      "comment" : "設定の画面のタイトルと、ホームの帯の右上の歯車のボタンの VoiceOver ラベル",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        }
+      }
+    },
     "診断" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面の題と、ホームの帯の右上にある診断画面を開くボタンの VoiceOver ラベル",
       "localizations" : {
@@ -1781,6 +2051,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send"
+          }
+        }
+      }
+    },
+    "週の始まり" : {
+      "comment" : "設定の行。カレンダーの週を何曜日から始めるか（端末の設定・日曜日・月曜日）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Week Starts On"
+          }
+        }
+      }
+    },
+    "選んだ期間には記録がありません。期間を変えてお試しください。" : {
+      "comment" : "設定で選んだ期間に記録が無かったときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There are no entries in the period you chose. Try another period."
+          }
+        }
+      }
+    },
+    "選んだ期間の記録を、Excel などの表計算ソフトで開ける CSV ファイルにします。渡す先は共有の画面であなたが選び、アプリが自動で送ることはありません。" : {
+      "comment" : "設定の「記録を書き出す」の節の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saves the entries in the period you chose as a CSV file that opens in spreadsheet apps such as Excel. You choose where it goes on the share sheet; the app never sends it anywhere on its own."
           }
         }
       }

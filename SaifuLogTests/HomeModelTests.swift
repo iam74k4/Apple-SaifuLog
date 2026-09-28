@@ -616,6 +616,19 @@ struct HomeModelTests {
         #expect(try fixture.entries().map(\.amount) == [850])
     }
 
+    // MARK: - 設定
+
+    @Test func presentSettingsOpensSettings() throws {
+        let fixture = try Fixture()
+        #expect(fixture.model.settings == nil)
+
+        fixture.model.presentSettings()
+
+        let settings = try #require(fixture.model.settings)
+        #expect(settings.exportPeriod == .thisMonth)
+        #expect(settings.budgetSetup == nil)
+    }
+
     // MARK: - 月のまとめ
 
     /// 帯の今月の合計を押すと、今月のまとめへ進む（帯と同じ月・同じ合計）。
