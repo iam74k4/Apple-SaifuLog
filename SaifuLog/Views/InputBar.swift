@@ -18,12 +18,22 @@ struct InputBar: View {
         !isSending && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// 送信ボタンの記号（矢印と読み取り中の印）の色。
+    ///
+    /// 押せるときは山吹の塗りの上なので墨にする（白を載せると 2:1 に届かない。Theme の説明）。
+    /// 押せないとき（空・読み取り中）は塗りが灰色のガラスに変わり、墨のままだとダークで地に沈んで
+    /// ボタンがあることも分からなくなるので、補足の文字の色にする。
+    private var sendSymbolColor: Color {
+        canSend ? Theme.onAccent : Theme.inkSecondary
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             // 1 行の入力欄にする。複数行にすると Return が改行になり、チャットのように送れないため。
             TextField(text: $text, prompt: prompt) {
                 Text("記録する内容")
             }
+            .foregroundStyle(Theme.ink)
             .focused($isFocused)
             .submitLabel(.send)
             .onSubmit {
@@ -47,17 +57,22 @@ struct InputBar: View {
             .glassEffect(.regular, in: .rect(cornerRadius: 22))
 
             Button(action: send) {
-                if isSending {
-                    ProgressView()
-                        .frame(width: 44, height: 44)
-                } else {
-                    Image(systemName: "arrow.up")
-                        .font(.body.weight(.bold))
-                        .frame(width: 44, height: 44)
+                Group {
+                    if isSending {
+                        ProgressView()
+                            .tint(sendSymbolColor)
+                    } else {
+                        Image(systemName: "arrow.up")
+                            .font(.body.weight(.bold))
+                    }
                 }
+                .frame(width: 44, height: 44)
+                .foregroundStyle(sendSymbolColor)
             }
             .buttonStyle(.glassProminent)
             .buttonBorderShape(.circle)
+            // tint は塗りの色になる。AccentColor（ライトは濃い琥珀）のままにせず、塗り用の山吹にする。
+            .tint(Theme.accentFill)
             .disabled(!canSend)
             .accessibilityLabel(isSending ? "読み取り中" : "送信")
         }
@@ -65,8 +80,11 @@ struct InputBar: View {
 
     /// 入力の例。アクセシビリティサイズの文字では例だけにする。入力欄の幅に収まらない案内は、
     /// 読めないほど小さく縮められるため。例の「ランチ 850」は訳さない（解析が日本語の入力を前提にしているため）。
+    ///
+    /// 色は補足の文字と同じにする。システムの既定の薄い灰色は、ガラスの地の上で 3:1 に届かないため。
     private var prompt: Text {
-        dynamicTypeSize.isAccessibilitySize ? Text(verbatim: "ランチ 850") : Text("ランチ 850 のように入力")
+        (dynamicTypeSize.isAccessibilitySize ? Text(verbatim: "ランチ 850") : Text("ランチ 850 のように入力"))
+            .foregroundStyle(Theme.inkSecondary)
     }
 }
 

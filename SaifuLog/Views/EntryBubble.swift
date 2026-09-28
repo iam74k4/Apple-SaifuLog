@@ -42,7 +42,7 @@ struct EntryBubble: View {
                 Text(verbatim: amountText)
                     .font(.headline)
                     .monospacedDigit()
-                    .foregroundStyle(entry.isIncome ? Theme.income : .primary)
+                    .foregroundStyle(entry.isIncome ? Theme.income : Theme.ink)
                     // 金額は桁の途中で改行させない。収まらなければ縮めて 1 行に収める。
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
@@ -58,11 +58,13 @@ struct EntryBubble: View {
                 Text(entry.spentAt, format: dateFormat)
             }
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Theme.inkSecondary)
         }
+        // 見出しの文字をシステムの黒ではなく墨にそろえる（金額と日付の行は内側で色を決めている）。
+        .foregroundStyle(Theme.ink)
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(Theme.bubble, in: .rect(cornerRadius: 18))
+        .background(Theme.surface, in: .rect(cornerRadius: 18))
         .contentShape(.contextMenuPreview, .rect(cornerRadius: 18))
         .contextMenu {
             Button("削除", systemImage: "trash", role: .destructive, action: requestDelete)
@@ -72,7 +74,7 @@ struct EntryBubble: View {
     private var icon: some View {
         Image(systemName: entry.isIncome ? "yensign" : entry.category.symbolName)
             .font(.system(size: iconSize * 0.5, weight: .semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onCategory)
             .frame(width: iconSize, height: iconSize)
             .background(tint, in: .circle)
             // 丸はダークモードでもライトの色（濃い色）で塗る。ダークの色は暗い地の上の文字用に明るくしてあり、

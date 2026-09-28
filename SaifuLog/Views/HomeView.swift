@@ -318,16 +318,17 @@ private struct EmptyTimelineView: View {
             Text("ひとことで記録")
                 .font(.title2.bold())
             Text("下の入力欄に、こんなふうに送るだけで記録できます。")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.inkSecondary)
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(Self.examples, id: \.self) { example in
                     Text(verbatim: example)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Theme.bubble, in: .rect(cornerRadius: 12))
+                        .background(Theme.surface, in: .rect(cornerRadius: 12))
                 }
             }
         }
+        .foregroundStyle(Theme.ink)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 24)
     }
