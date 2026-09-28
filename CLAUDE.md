@@ -7,6 +7,7 @@
 - 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力の試作**まで。
   - 試作済み: 一行の読み取り（端末内 AI、使えない端末ではキーワード辞書）、タイムライン、記録直後の
     「取り消す」、長押しでの記録の削除（確認つき）、今月の支出と収入の合計。画面は縦向きのみ。
+    保存先を開けないときは落とさず、ロック中なら解除を待って開き直し、それ以外は再試行の画面を出す（`StoreHost`）。
     保存先のデータ保護は NSFileProtectionComplete（ロック中は読めないようにする。実機での確認はまだ。
     release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
     main で `mode=export` の照合が通るかの確認はまだ。`docs/design.md` §5-4）。
@@ -67,7 +68,8 @@ docs: add privacy policy
   ビルドする（汎用のシミュレータ向け、署名なし）。`make build` はスキームの build アクション（SaifuLog だけ）
   なので、テストのターゲットが壊れても `make build` だけでは気づけない
 - `make test-app` — アプリ側のテストをシミュレータで動かす（`build-tests` の後に `test-without-building`、
-  `-only-testing:SaifuLogTests`）。SwiftData の保存・読み込みの条件や保存の失敗の扱いなど、コアに置けない部分。
+  `-only-testing:SaifuLogTests`）。SwiftData の保存・読み込みの条件や保存の失敗の扱い、保存先の開き方、
+  画面のモデル（`HomeModel`）の操作など、コアに置けない部分。
   機種は `scripts/pick-simulator.sh` が、いちばん新しい iOS の iPhone を選ぶ（`TEST_DESTINATION=…` で上書きできる）
 - `make ci` — 必須チェック `build`（build.yml）と同じ 6 つ（`make build`・`make test`・`make build-tests`・
   `make test-app`・`make check-version`・`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を順に通す。
@@ -117,11 +119,16 @@ docs: add privacy policy
   バッククォートを使わず、`- ` の箇条書きと平文で、利用者の目線で書く（内部の型名やファイル名は書かない）。
 
 ### コードの置き場所
-- `SaifuLog/` — アプリ本体。SwiftUI の画面（`Views/`）、SwiftData のモデル（`Models/`）、
+- `SaifuLog/` — アプリ本体。起動と保存先を開く部分・設定のキー（`App/`）、SwiftUI の画面と画面ごとの
+  `@Observable` のモデル（`Views/`）、SwiftData のモデルと保存先の作り方（`Models/`）、
   Foundation Models を使う部分（`AI/`）、`Resources/`（Assets、String Catalog など）。
 - `Packages/SaifuLogCore/` — 純粋なロジック（金額・日付の読み取り、キーワード辞書による解析、
   割り勘や合計・残りの計算など）とそのテスト。**FoundationModels / SwiftData / SwiftUI を入れない。**
   CI の macOS ランナー上で `swift test` を回すため、platforms は `.iOS(.v26), .macOS(.v14)` に保つ。
+- 集計はコアの `LedgerSummary`（期間の支出・収入・差額・支出のカテゴリ別の合計）に、期間の区切りは `ReportPeriod`
+  （区切りは渡された暦のまま、週の始まりはその `firstWeekday`。西暦で読むのは `month(year:month:)` の年月だけ）に
+  集める。ホームの「今月」（`MonthlySummary`・`Entry.monthDescriptor`）も `ReportPeriod.thisMonth` で区切る。
+  画面ごとに合計や期間を計算し直さない（画面の数字と AI に渡す数字が食い違うため）。
 - 文字列は String Catalog（`.xcstrings`）で、開発言語 ja に en を足す。開発言語を ja にしているのは
   意図どおり（日本語と英語のどちらも優先言語に無い端末では日本語で出る。理由は `docs/design.md` §10）。
   ホーム画面の表示名は
@@ -130,6 +137,30 @@ docs: add privacy policy
   `AppIcon.png`（ライト: 白地に黒い財布）、`AppIcon-Dark.png`（ダーク）、`AppIcon-Tinted.png`（色付き）。
   元の SVG は `design/icon/`。**AppIcon を空にしない。** 空でもビルドは通るが、App Store Connect が
   アップロードを弾く（`make archive` の検査で止まる）。
+
+### 保存先・設定・テストの作り方
+- **保存先（`ModelContainer`）は `SaifuLog/Models/ModelContainerFactory.swift` でだけ作る。** アプリは
+  `makeContainer(cloudKitDatabase:)`、テストとプレビューは `makeInMemoryContainer()`。`.modelContainer(for:inMemory:)` や
+  `ModelConfiguration(isStoredInMemoryOnly:)` を直接使わない（iCloud が既定の `.automatic` になり、iCloud の
+  entitlement を足した時点でテストやプレビューまで同期しようとするため）。保存先の場所（`storeURL`、
+  Application Support/default.store）は変えない（変えるとそれまでの記録が読めなくなる。テストで確かめている）。
+  モデルを足すときは `ModelContainerFactory.modelTypes` に並べる。
+- アプリの保存先は `SaifuLog/App/StoreHost.swift` が開く（最初の画面が出るとき）。fatalError で止めない。
+  ロック中は解除を待って開き直し、それ以外の失敗は再試行の画面（`StoreRootView`）を出す（再試行でもまた開けなければ、
+  回数を出して VoiceOver にも読み上げる）。iCloud の切り替えなどで開き直すときは `reopen(cloudKitDatabase:)`
+  （画面のツリーを畳み、書き込み中の処理が終わるのを待ってから開く）を使う。解析を待ってから記録するなど、
+  あとで保存先に書き込む処理は、Task を作る前に `StoreHost.pendingWrites` の `begin()` を呼び、終えたら `end()` を呼ぶ
+  （数えないと、開き直しが待たずに新しい保存先を開き、前の保存先へ書き込むことになる）。
+- 画面の状態と操作は、画面ごとの `@Observable` のモデル（例: `SaifuLog/Views/HomeModel.swift`）に置き、View は
+  表示と環境に合わせた出し方だけにする。解析器・時計・VoiceOver の読み上げはモデルの外から渡せるようにする。
+- アプリのテストは、`SaifuLogTests/TestSupport.swift` の `makeContext()`（中身は `makeInMemoryContainer()`）で
+  テストごとに新しい保存先を作り、固定の日時（`TestSupport.now`）と暦（`TestSupport.calendar`）を使う。
+  解析器は `StubParser` か、固定の日時の `RuleBasedParser` を渡す。保存の失敗は `EntryStore.save` を差し替えて起こす。
+  コアのテストは Swift Testing と `Fixture` の固定の日時で書く。
+- UserDefaults（`@AppStorage`）のキーと既定値は `SaifuLog/App/AppSettings.swift` にだけ書く
+  （`@AppStorage(AppSettings.hasCompletedOnboarding)`）。置き場所は `UserDefaults.standard` だけ
+  （`PrivacyInfo.xcprivacy` の CA92.1 と合わせる。App Group の共有の領域に置くなら、先にマニフェストへ 1C8F.1 を足し、
+  `PRIVACY.md` も直す）。家計の記録そのものは UserDefaults に置かない。
 
 ### AI の扱い
 - AI はすべて端末内（Foundation Models）。クラウドの API は使わない。サーバーも持たない。

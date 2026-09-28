@@ -84,9 +84,10 @@ extension Entry {
     /// `date` を含む月の記録だけを読む条件。今月の合計に使う。
     ///
     /// 全期間を読んで数えると、記録が増えるほど描画のたびに遅くなる（2 万件で 0.2 秒ほど）ため、
-    /// 月の範囲で絞ってから読む。
+    /// 月の範囲で絞ってから読む。月は `ReportPeriod.thisMonth` で区切る（合計の `MonthlySummary`、
+    /// まとめ・質問の「今月」と同じ区切りにするため）。
     static func monthDescriptor(containing date: Date, calendar: Calendar) -> FetchDescriptor<Entry> {
-        guard let month = calendar.dateInterval(of: .month, for: date) else {
+        guard let month = ReportPeriod.thisMonth.interval(now: date, calendar: calendar) else {
             return FetchDescriptor(predicate: #Predicate { _ in false })
         }
         let start = month.start
@@ -104,7 +105,7 @@ extension Entry {
     }
 }
 
-/// 月の集計（SaifuLogCore の MonthlySummary）にそのまま渡せるようにする。
+/// 集計（SaifuLogCore の LedgerSummary・MonthlySummary）にそのまま渡せるようにする。
 extension Entry: LedgerRecord {}
 
 /// どこから記録したか。rawValue は保存に使うので変えないこと。

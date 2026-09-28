@@ -137,16 +137,3 @@ struct SegmentedExtractionTests {
         #expect(await model.prompts == ["スーパー2480"])
     }
 }
-
-/// 読み方を差し替えられる解析器（FallbackEntryParser に AI の代わりとして渡す）。
-private struct StubParser: EntryParsing {
-    let body: @Sendable (String) async throws -> [ParsedEntry]
-
-    init(_ body: @escaping @Sendable (String) async throws -> [ParsedEntry]) {
-        self.body = body
-    }
-
-    func parse(_ text: String) async throws -> [ParsedEntry] {
-        try await body(text)
-    }
-}
