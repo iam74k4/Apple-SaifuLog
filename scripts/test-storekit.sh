@@ -35,7 +35,7 @@ TEST_RUNNER_REQUIRE_STOREKIT_TESTS=1 xcodebuild test-without-building \
   "$@" || status=$?
 
 if [ ! -d "$result" ]; then
-  echo "error: 購入のテストの結果（$result）がありません。xcodebuild が途中で止まった可能性があります。" >&2
+  echo "error: 購入のテストの結果（${result}）がありません。xcodebuild が途中で止まった可能性があります。" >&2
   exit 1
 fi
 

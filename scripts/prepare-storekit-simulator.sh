@@ -24,7 +24,7 @@ runtime_id() {
 }
 
 if [ -z "$(runtime_id)" ]; then
-  echo "iOS $os のシミュレータのランタイムがないので入れます（xcodebuild -downloadPlatform iOS -buildVersion $os）。" >&2
+  echo "iOS $os のシミュレータのランタイムがないので入れます（xcodebuild -downloadPlatform iOS -buildVersion ${os}）。" >&2
   xcodebuild -downloadPlatform iOS -buildVersion "$os" >&2
 fi
 runtime=$(runtime_id)
