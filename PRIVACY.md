@@ -75,10 +75,16 @@ Foundation Models を用いてお使いの iPhone の上で行い、外部へ送
 録音して保存したり、開発者へ送信したりはしません。マイクへのアクセスは、利用者が
 この機能を使うときにだけ求めます。
 
-### CSV 書き出し（予定の機能）
+### CSV 書き出し
 
-利用者が書き出しを選んだときだけ、記録を CSV ファイルにして、利用者が選んだ保存先や
-共有先へ渡します。開発者へ送信することはありません。
+設定の画面で利用者が「CSV ファイルを書き出す」を押したときだけ、選んだ期間（今月・先月・今年・すべて）の
+記録（日付・時刻・支出か収入か・カテゴリ・品目・金額・入力した文章）を CSV ファイルにします。ファイルは
+iOS の共有の画面に渡され、**利用者が選んだ共有先（アプリ、「ファイル」の保存先、AirDrop など）にだけ渡ります。**
+本アプリが自動で書き出したり、外部へ送信したりすることはありません。開発者へ送信することもありません。
+
+共有先に渡したファイルの取り扱いは、その共有先（アプリやサービス）に従います。家計の記録を含むため、
+渡す先はご注意ください。書き出しのためにアプリの中に一時的に作ったファイルは、共有の画面を閉じると削除します
+（共有の途中でアプリが終了したときは、次に設定の画面を開いたときに削除します）。
 
 ### アプリの iCloud バックアップ・同期と家族との共有（将来の任意の機能）
 
@@ -98,10 +104,16 @@ iCloud へのバックアップや同期を提供する場合の取り扱いで�
 
 ### 保存される設定
 
-初回の案内を終えたかどうかといったアプリの設定は、iOS の標準的な仕組み（UserDefaults）を用いて、
+初回の案内を終えたかどうかや週の始まり（日曜か月曜か）といったアプリの設定は、iOS の標準的な仕組み（UserDefaults）を用いて、
 お使いの iPhone の中の本アプリ専用の領域にのみ保存します。無料で使える回数の数え方に必要な情報などの
 設定を今後提供する場合も、同じ場所に保存します。これらを外部に送信することはありません。
 予算の金額は設定ではなく、上の家計の記録と同じ場所に保存します。
+
+### 設定の画面から開くページ
+
+設定の画面の「プライバシーポリシー」と「ライセンス」は、Safari で GitHub のページ（このポリシーと
+ライセンスの文書）を開きます。開いたページの閲覧には、GitHub のプライバシーポリシーが適用されます。
+本アプリが記録や設定をそのページへ送ることはありません。
 
 ### アプリの削除
 
@@ -199,10 +211,19 @@ If voice entry is offered, it is planned to use the on-device speech recognition
 Your voice is never recorded for storage and never sent to the developer. Access to the
 microphone will be requested only when you use this feature.
 
-### CSV Export (Planned Feature)
+### CSV Export
 
-Only when you choose to export, your records are written to a CSV file and handed to the
-destination or app you choose. Nothing is sent to the developer.
+Only when you tap Export CSV File in Settings, the records in the period you choose (this
+month, last month, this year, or all) are written to a CSV file, including the date, time,
+expense or income, category, item, amount, and the text you entered. The file is handed to the
+iOS share sheet and **goes only to the destination you choose there (an app, a location in
+Files, AirDrop, and so on).** The app never exports or sends your records on its own, and
+nothing is sent to the developer.
+
+Once you hand the file to a destination, it is handled according to that app or service. The
+file contains your financial records, so please choose the destination with care. The
+temporary file the app creates for the export is deleted when the share sheet closes (if the app
+quits while the share sheet is open, it is deleted the next time you open Settings).
 
 ### In-App iCloud Backup, Sync, and Sharing with Family (Future, Optional)
 
@@ -224,11 +245,17 @@ checked on your device through Apple's system.
 
 ### Settings We Store
 
-App settings, such as whether you have finished the first-launch introduction, are stored only
-on your own iPhone, in an area reserved for this app, using the standard iOS mechanism
+App settings, such as whether you have finished the first-launch introduction and which day
+your week starts on, are stored only on your own iPhone, in an area reserved for this app, using the standard iOS mechanism
 (UserDefaults). Settings offered in the future, such as the information needed to count
 free-tier usage, will be stored in the same place. They are never transmitted anywhere. Your
 budget amount is not a setting; it is stored in the same place as your records, described above.
+
+### Pages Opened from Settings
+
+Privacy Policy and License in Settings open pages on GitHub (this policy and the license
+document) in Safari. Your visit to those pages is covered by GitHub's privacy policy. The app
+does not send your records or settings to those pages.
 
 ### Deleting the App
 
