@@ -90,9 +90,22 @@ extension Entry {
         guard let month = ReportPeriod.thisMonth.interval(now: date, calendar: calendar) else {
             return FetchDescriptor(predicate: #Predicate { _ in false })
         }
-        let start = month.start
-        let end = month.end
+        return descriptor(spentIn: month)
+    }
+
+    /// 使った日時が `interval` に入る記録だけを読む条件（始まりは含み、終わりは含まない。`LedgerSummary` と同じ区切り）。
+    /// 月のまとめが、その月と前の月の記録を読むのに使う。
+    static func descriptor(spentIn interval: DateInterval) -> FetchDescriptor<Entry> {
+        let start = interval.start
+        let end = interval.end
         return FetchDescriptor(predicate: #Predicate { $0.spentAt >= start && $0.spentAt < end })
+    }
+
+    /// 使った日時のいちばん古い記録 1 件。月のまとめで、どの月までさかのぼれるかを決めるのに使う。
+    static var earliestDescriptor: FetchDescriptor<Entry> {
+        var descriptor = FetchDescriptor<Entry>(sortBy: [SortDescriptor(\.spentAt)])
+        descriptor.fetchLimit = 1
+        return descriptor
     }
 
     /// タイムラインに出す、記録した日時の新しいものから `limit` 件。

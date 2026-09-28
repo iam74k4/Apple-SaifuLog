@@ -616,6 +616,55 @@ struct HomeModelTests {
         #expect(try fixture.entries().map(\.amount) == [850])
     }
 
+    // MARK: - 月のまとめ
+
+    /// 帯の今月の合計を押すと、今月のまとめへ進む（帯と同じ月・同じ合計）。
+    @Test func presentMonthlyReportOpensCurrentMonth() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+        #expect(fixture.model.monthlyReport == nil)
+
+        fixture.model.presentMonthlyReport(calendar: TestSupport.calendar)
+
+        let report = try #require(fixture.model.monthlyReport)
+        #expect(report.month.start == TestSupport.date(2026, 9, 1))
+        #expect(report.report?.expense == 850)
+        // 開いただけでは「取り消す」は残る（戻ってからも取り消せる）。
+        #expect(fixture.model.canUndo)
+    }
+
+    /// まとめの一覧から消した記録は、ホームの「取り消す」の対象からも外す（戻ったあとで消えた記録を取り消そうとしないように）。
+    @Test func deletingFromMonthlyReportRemovesUndoTarget() async throws {
+        let fixture = try Fixture()
+        await fixture.send("スーパー2480、ドラッグ1200")
+        let supermarket = try #require(try fixture.entries().first)
+        fixture.model.presentMonthlyReport(calendar: TestSupport.calendar)
+        let report = try #require(fixture.model.monthlyReport)
+
+        report.presentEdit(supermarket)
+        #expect(try #require(report.editing).delete())
+
+        #expect(fixture.model.justRecorded.map(\.amount) == [1_200])
+        #expect(report.report?.expense == 1_200)
+    }
+
+    /// まとめの一覧から直前の記録を直したら、ホームから直したときと同じく「取り消す」を引っ込める。
+    @Test func editingFromMonthlyReportDismissesUndo() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ドラッグ1200")
+        let drug = try #require(try fixture.entries().first)
+        fixture.model.presentMonthlyReport(calendar: TestSupport.calendar)
+        let report = try #require(fixture.model.monthlyReport)
+
+        report.presentEdit(drug)
+        let editing = try #require(report.editing)
+        editing.category = .medical
+        #expect(editing.save())
+
+        #expect(!fixture.model.canUndo)
+        #expect(report.report?.breakdown.item(for: .medical)?.amount == 1_200)
+    }
+
     // MARK: - 予算
 
     /// 帯のボタンで「予算を決める」を開く。予算を決めていなければ空欄で開く。
