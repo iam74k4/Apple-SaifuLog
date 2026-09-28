@@ -22,9 +22,10 @@
 	<string>NL9ZXK2SGR</string>
 
 	<!--
-	  自動署名。CI は署名なしでアーカイブする（release.mk の ARCHIVE_SIGNING）ので、
-	  ここで Xcode にプロファイルとクラウド管理の配布証明書を用意させる。証明書の .p12 を
-	  Secrets に置かずに済む代わりに、API キーのロールは Admin が要る（docs/release-flow.md）。
+	  自動署名。App Store 向けの署名はここ（書き出し）で掛け直すので、Xcode にプロファイルと
+	  クラウド管理の配布証明書を用意させる（アーカイブは開発用の証明書で署名してある。release.mk の
+	  ARCHIVE_SIGNING）。配布用の証明書の .p12 を Secrets に置かずに済む代わりに、API キーのロールは
+	  Admin が要る（docs/release-flow.md）。
 	-->
 	<key>signingStyle</key>
 	<string>automatic</string>

@@ -8,8 +8,8 @@
   - 試作済み: 一行の読み取り（端末内 AI、使えない端末ではキーワード辞書）、タイムライン、記録直後の
     「取り消す」、長押しでの記録の削除（確認つき）、今月の支出と収入の合計。画面は縦向きのみ。
     保存先のデータ保護は NSFileProtectionComplete（ロック中は読めないようにする。実機での確認はまだ。
-    CI の署名なしのアーカイブでは提出物に載らないので、署名ありのアーカイブへの切り替えが要る。
-    `docs/design.md` §5-4）。
+    release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
+    main で `mode=export` の照合が通るかの確認はまだ。`docs/design.md` §5-4）。
   - **未実装:** 直す・予算・レシート・質問・まとめ・設定・プレミアム（StoreKit）・修正の記憶。
 - プロダクトの決定事項と未決事項は `docs/design.md` にある。仕様に迷ったらまずそこを見る。
 - README などに、実装していない機能を「できる」と書かない。予定は「予定」と書く。
@@ -77,11 +77,14 @@ docs: add privacy policy
   - `make version` — いまの `MARKETING_VERSION` を表示する
   - `make check-version` — `MARKETING_VERSION` と CHANGELOG 先頭の見出しの一致を確かめる
   - `make archive` — Release の .xcarchive を `build/` に作る。`BUILD_NUMBER=…` でビルド番号を上書きできる。
+    既定は署名あり。`ARCHIVE_SIGNING=NO` で署名なし（build.yml と `make ci`）、`ARCHIVE_KEYCHAIN=…` で署名に使う
+    キーチェーンを指定する（release.yml が、証明書を取り込んだ使い捨てのキーチェーンを渡す）。
     できたアプリの Info.plist にバージョン・ビルド番号・アイコンが入っているかも確かめる（CI の build でも走る）
   - `make export-ipa` — アーカイブから .ipa を書き出すだけ（送信しない）。署名とエンタイトルメントを表示し、
     エンタイトルメントのファイル（`SaifuLog/SaifuLog.entitlements`）のキーが載っていなければ止まる
     （`RELEASE_ENTITLEMENTS_CHECK=warn` なら警告だけ）。release.yml はアップロードの前に必ずこれを通す。
-    CI のアーカイブは署名なしでエンタイトルメントが必ず抜けるので、署名ありのアーカイブを入れるまでは `warn` を渡している
+    release.yml のアーカイブは署名あり（Apple Development の証明書を一時キーチェーンに取り込む）にしたが、
+    その経路はまだ一度も通していないので、所有者が main で `mode=export` の照合が通るのを確かめるまでは `warn` を渡している
   - `make upload` — `Config/ExportOptions.plist` で App Store Connect へ送る。ビルド番号はアーカイブに
     焼かれた値で、`make upload BUILD_NUMBER=…` では変わらない（違う値を渡すと止まる）。番号を変えるときは
     `make archive BUILD_NUMBER=…` から。認証は App Store Connect API キー
@@ -94,9 +97,11 @@ docs: add privacy policy
 - エンタイトルメントは `project.yml` の `targets.SaifuLog.entitlements.properties` に書く。
   `SaifuLog/SaifuLog.entitlements` は `make generate` が書き出す生成物（直接書き換えても消える）だが、
   コミットはする。いまは `com.apple.developer.default-data-protection = NSFileProtectionComplete` だけ。
-  CI は署名なしでアーカイブするのでエンタイトルメントが焼かれず、**いまの release.yml で送るビルドには
-  載らない**（照合は警告だけ）。署名ありのアーカイブへの切り替え方と、足したときに見ることは
-  `docs/release-flow.md` の「Capability（iCloud など）を足すとき」。
+  エンタイトルメントは署名ありのアーカイブにしか焼かれない。release.yml は開発用の証明書（Environment `release` の
+  Secrets `APPLE_DEV_CERT_P12_BASE64` / `APPLE_DEV_CERT_P12_PASSWORD`）で署名してアーカイブする。build.yml と
+  `make ci` のアーカイブは署名なしで、エンタイトルメントは焼かれない（組み立ての確認だけなので要らない）。
+  仕組みと証明書の年に一度の更新は `docs/release-flow.md` の「署名ありのアーカイブ」、Capability を足したときに
+  見ることは「Capability（iCloud など）を足すとき」。
 - 対象: iPhone のみ（`TARGETED_DEVICE_FAMILY = 1`）、縦向きのみ（`project.yml` の
   `INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone`）、iOS 26.0 以上、Swift 6（strict concurrency complete）。
   ビルドは Xcode 27（iOS 27 SDK）。iOS 27 でしか使えない API は `if #available(iOS 27, *)` で囲い、
@@ -147,8 +152,9 @@ docs: add privacy policy
 ### プライバシーと秘密情報
 - 解析・広告・トラッキングの SDK を入れない。1 つでも入れると、`PRIVACY.md` と App Store の
   プライバシー表示（データの収集なし）の両方が崩れる。データの扱いを変えるときは `PRIVACY.md` を先に直す。
-- **リポジトリは公開。** 証明書、.p8 などの鍵、個人情報をコミットしない。CI の鍵は GitHub の
-  Environment Secrets に置く（`docs/release-flow.md`）。
+- **リポジトリは公開。** 証明書、.p8 などの鍵、個人情報をコミットしない。CI の鍵と署名用の証明書（.p12）は
+  GitHub の Environment Secrets に置く（`docs/release-flow.md`）。Actions のログも誰でも読めるので、
+  ワークフローで証明書の名前や Secrets の中身を出さない。
 - ワークフローの `uses:` はコミットの SHA で固定し、版をコメントに書く（`@<SHA> # v7.0.1`）。
   Dependabot が組で書き換える。`scripts/asc.py` の依存は `scripts/requirements.in` を直し、
   `pip-compile --generate-hashes` で `scripts/requirements.txt`（生成物）を作り直す（手順はファイルの先頭）。

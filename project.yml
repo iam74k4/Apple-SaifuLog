@@ -39,8 +39,10 @@ targets:
     # ロック中は保存先を開けないので、ウィジェット・App Intents・バックグラウンドの処理がロック中に記録を
     # 読み書きする必要が出たら、NSFileProtectionCompleteUnlessOpen に下げるかを見直す（docs/design.md）。
     #
-    # CI は署名なしでアーカイブする（release.mk の ARCHIVE_SIGNING=NO）ので、ここに足したものが提出物に
-    # 載っているかは make export-ipa の出力で確かめる。
+    # エンタイトルメントは署名ありのアーカイブにしか焼かれない。release.yml は開発用の証明書を取り込んで
+    # 署名ありでアーカイブする（build.yml と make ci は署名なし）。ここに足したものが提出物に載っているかは
+    # make export-ipa の照合（CI は release.yml の mode=export）で確かめる（docs/release-flow.md の
+    # 「Capability（iCloud など）を足すとき」）。
     entitlements:
       path: SaifuLog/SaifuLog.entitlements
       properties:
