@@ -97,23 +97,35 @@ iCloud へのバックアップや同期を提供する場合の取り扱いで�
 
 導入する際には、このポリシーを更新します。
 
-### 購入の取り扱い（予定の機能）
+### 購入の取り扱い
 
-プレミアムの購入と復元は、Apple の App Store が扱う予定です。支払いの情報を開発者が受け取る
-ことはありません。購入済みかどうかの確認は、Apple の仕組みを通じて端末上で行います。
+プレミアムの購入、14日間の無料体験（価格 0 円の App 内課金）、購入の復元は、Apple の App Store の仕組み
+（StoreKit）が扱います。支払いの方法やお支払いの情報を、開発者が受け取ることはありません。
+
+本アプリは、プレミアムを使えるかを決めるために、Apple の仕組みがお使いの iPhone に持っている購入の記録
+（どの商品を買ったか、買った日時、ファミリー共有によるものか、返金などで取り消されたか）を端末上で読みます。
+無料体験の残りの日数も、この記録（体験を始めた日時）から端末上で計算します。**これらの購入の情報を、本アプリが
+開発者や第三者へ送信することはなく、本アプリの中にも保存しません**（使えるかどうかは、そのつど Apple の仕組みから読み直します）。
+購入の記録そのものは Apple が管理し、その取り扱いには Apple のプライバシーポリシーが適用されます。
+
+「購入の復元」を押したときは、Apple の App Store と購入の記録を同期します。このとき、Apple アカウントの
+確認を求められることがあります。なお、Apple は開発者に売上の集計を提供しますが、購入者の氏名や連絡先、
+支払いの情報は含まれません。
 
 ### 保存される設定
 
-初回の案内を終えたかどうかや週の始まり（日曜か月曜か）といったアプリの設定は、iOS の標準的な仕組み（UserDefaults）を用いて、
-お使いの iPhone の中の本アプリ専用の領域にのみ保存します。無料で使える回数の数え方に必要な情報などの
-設定を今後提供する場合も、同じ場所に保存します。これらを外部に送信することはありません。
-予算の金額は設定ではなく、上の家計の記録と同じ場所に保存します。
+初回の案内を終えたかどうか、週の始まり（日曜か月曜か）、無料体験が終わったときの案内を出したかどうかといった
+アプリの設定は、iOS の標準的な仕組み（UserDefaults）を用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存します。
+レシートの読み取りや家計への質問の機能を提供したら、無料で使った回数（月ごとの回数）も同じ場所に保存します。
+これらを外部に送信することはありません。予算の金額は設定ではなく、上の家計の記録と同じ場所に保存します。
+購入したかどうかは設定には保存しません（上の「購入の取り扱い」）。
 
 ### 設定の画面から開くページ
 
 設定の画面の「プライバシーポリシー」と「ライセンス」は、Safari で GitHub のページ（このポリシーと
 ライセンスの文書）を開きます。開いたページの閲覧には、GitHub のプライバシーポリシーが適用されます。
-本アプリが記録や設定をそのページへ送ることはありません。
+プレミアムの画面の「利用規約（Apple の標準 EULA）」は、Safari で Apple のページを開き、その閲覧には Apple の
+プライバシーポリシーが適用されます。本アプリが記録や設定をそれらのページへ送ることはありません。
 
 ### アプリの削除
 
@@ -237,25 +249,40 @@ contents.
 
 This policy will be updated when these features are introduced.
 
-### Purchases (Planned Feature)
+### Purchases
 
-Purchases and restores of Premium are planned to be handled by Apple's App Store. The
-developer never receives your payment information. Whether you have purchased Premium is
-checked on your device through Apple's system.
+Purchases of Premium, the 14-day free trial (an in-app purchase priced at 0 yen), and Restore
+Purchases are handled by Apple's App Store system (StoreKit). The developer never receives your
+payment method or payment information.
+
+To decide whether you can use Premium, the app reads, on your device, the purchase records that
+Apple's system keeps on your iPhone (which item was bought, when, whether it comes through Family
+Sharing, and whether it was revoked, for example by a refund). The days left in the free trial are
+also calculated on your device from these records (the date and time you started the trial). **The
+app never sends this purchase information to the developer or any third party, and does not store
+it in the app** (it reads it again from Apple's system each time). The purchase records themselves
+are managed by Apple and covered by Apple's privacy policy.
+
+When you tap Restore Purchases, the app syncs your purchase records with Apple's App Store, which may
+ask you to confirm your Apple Account. Apple provides the developer with aggregated sales reports,
+which do not include buyers' names, contact details, or payment information.
 
 ### Settings We Store
 
-App settings, such as whether you have finished the first-launch introduction and which day
-your week starts on, are stored only on your own iPhone, in an area reserved for this app, using the standard iOS mechanism
-(UserDefaults). Settings offered in the future, such as the information needed to count
-free-tier usage, will be stored in the same place. They are never transmitted anywhere. Your
-budget amount is not a setting; it is stored in the same place as your records, described above.
+App settings, such as whether you have finished the first-launch introduction, which day your
+week starts on, and whether the notice at the end of the free trial has been shown, are stored only
+on your own iPhone, in an area reserved for this app, using the standard iOS mechanism (UserDefaults).
+Once receipt reading and questions about your spending are offered, the number of times you have
+used them for free (counted per month) will be stored in the same place. They are never transmitted
+anywhere. Your budget amount is not a setting; it is stored in the same place as your records,
+described above. Whether you have purchased Premium is not stored as a setting (see Purchases above).
 
 ### Pages Opened from Settings
 
 Privacy Policy and License in Settings open pages on GitHub (this policy and the license
-document) in Safari. Your visit to those pages is covered by GitHub's privacy policy. The app
-does not send your records or settings to those pages.
+document) in Safari. Your visit to those pages is covered by GitHub's privacy policy. Terms of Use
+(Apple's Standard EULA) on the Premium screen opens a page on Apple's website in Safari, covered by
+Apple's privacy policy. The app does not send your records or settings to those pages.
 
 ### Deleting the App
 
