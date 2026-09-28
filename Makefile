@@ -6,6 +6,9 @@
 #     make generate             project.yml から SaifuLog.xcodeproj を生成する
 #     make build                生成 → シミュレータ向けに署名なしでビルド（CI と同じ経路）
 #     make test                 SaifuLogCore のテスト（swift test）
+#     make build-tests          アプリのテスト（SaifuLogTests）をビルドする（動かさない。CI と同じ経路）
+#     make test-app             アプリのテストをシミュレータで動かす（TEST_DESTINATION で宛先を変えられる）
+#     make ci                   CI（build.yml）と同じ 6 つ（build / test / build-tests / test-app / check-version / 署名なしの archive）
 #     make open                 生成して Xcode で開く
 #     make clean                生成物とビルドの残りを消す
 #
@@ -23,6 +26,12 @@ CORE_PACKAGE := Packages/SaifuLogCore
 # 機種や OS の版に左右されずにビルドできる。
 DESTINATION  := generic/platform=iOS Simulator
 
+# シミュレータ向けにビルドする CPU。汎用の宛先では ONLY_ACTIVE_ARCH が効かず、指定しないと
+# 使わない x86_64 まで毎回コンパイルして時間が約 2 倍になる。CI のランナーも手元の Mac も
+# Apple シリコンなので arm64 だけにする（Intel の Mac なら make build SIM_ARCHS=x86_64）。
+# 提出用の archive（generic/platform=iOS）はもともと arm64 だけなので関係しない。
+SIM_ARCHS    ?= arm64
+
 # DerivedData をリポジトリの中（build/、.gitignore 済み）に置く。
 # make clean で確実に消せるようにし、CI でも手元でも同じ場所を使うため。
 DERIVED_DATA := build/DerivedData
@@ -30,7 +39,13 @@ DERIVED_DATA := build/DerivedData
 # xcodebuild に足す引数（例: make build XCODEBUILD_FLAGS=-quiet）。
 XCODEBUILD_FLAGS ?=
 
-.PHONY: all generate build test open clean check-xcodegen
+# アプリのテスト（SaifuLogTests）を動かすシミュレータ。渡さなければ、入っているシミュレータから
+# いちばん新しい iOS の iPhone を選ぶ（scripts/pick-simulator.sh）。機種の名前を決め打ちすると、
+# CI のランナーのイメージや手元の Xcode でその機種が無くなった日に落ちるため。
+# 例: make test-app TEST_DESTINATION='platform=iOS Simulator,name=iPhone 17 Pro'
+TEST_DESTINATION ?= $(shell ./scripts/pick-simulator.sh)
+
+.PHONY: all generate build build-tests test test-app ci open clean check-xcodegen
 
 all: build
 
@@ -53,6 +68,7 @@ build: generate
 		-scheme $(SCHEME) \
 		-destination '$(DESTINATION)' \
 		-derivedDataPath $(DERIVED_DATA) \
+		ARCHS=$(SIM_ARCHS) \
 		CODE_SIGNING_ALLOWED=NO \
 		$(XCODEBUILD_FLAGS)
 
@@ -60,6 +76,49 @@ build: generate
 # macOS 上の swift test だけで回せる。速く、CI のランナーの機種にも左右されない。
 test:
 	swift test --package-path $(CORE_PACKAGE)
+
+# アプリのテスト（SaifuLogTests）と、スキームのテストに入っている全ターゲットをビルドする（動かさない）。
+# make build はスキームの build アクション（SaifuLog だけ）なので、テストのターゲットがコンパイルできなく
+# なっても通ってしまう。宛先と引数は make build と同じ（汎用のシミュレータ・署名なし・SIM_ARCHS だけ）。
+build-tests: generate
+	xcodebuild build-for-testing \
+		-project $(PROJECT) \
+		-scheme $(SCHEME) \
+		-destination '$(DESTINATION)' \
+		-derivedDataPath $(DERIVED_DATA) \
+		ARCHS=$(SIM_ARCHS) \
+		CODE_SIGNING_ALLOWED=NO \
+		$(XCODEBUILD_FLAGS)
+
+# アプリのテストをシミュレータで動かす。先に build-tests を通し（変わったところだけビルドし直す）、
+# できたものを test-without-building でそのまま動かす。
+# コアのテスト（SaifuLogCoreTests）は make test の swift test で回しているので、ここでは SaifuLogTests だけ。
+# 宛先が id= で決まっているときは、先に起動して起動し終えるまで待つ（simctl bootstatus -b）。起動の途中で
+# テストのアプリを開こうとすると「Busy (Application failed preflight checks)」で落ちることがあるため。
+test-app: build-tests
+	@test -n "$(TEST_DESTINATION)" || { echo "error: アプリのテストを動かすシミュレータがありません。TEST_DESTINATION で宛先を渡してください。"; exit 1; }
+	@udid=$$(printf '%s\n' '$(TEST_DESTINATION)' | sed -n 's/.*id=\([0-9A-Fa-f-]*\).*/\1/p'); \
+		if [ -n "$$udid" ]; then xcrun simctl bootstatus "$$udid" -b >/dev/null; fi
+	xcodebuild test-without-building \
+		-project $(PROJECT) \
+		-scheme $(SCHEME) \
+		-destination '$(TEST_DESTINATION)' \
+		-derivedDataPath $(DERIVED_DATA) \
+		-only-testing:SaifuLogTests \
+		$(XCODEBUILD_FLAGS)
+
+# 必須チェック build（.github/workflows/build.yml）と同じ確認を手元で通す。make build が
+# 通っても、CI はテスト（コアとアプリ）・版の検査・提出用のアーカイブまで見るので、それだけでは足りない。
+# 引数は build.yml と同じにする（片方を変えたらもう片方も）。BUILD_NUMBER が xcconfig の
+# 既定値（1）と重ならないのは、ビルド番号の上書きの検査を素通りさせないため。
+# CI は失敗しても残りのステップを続けるが、こちらは最初の失敗で止まる。
+ci:
+	$(MAKE) build
+	$(MAKE) test
+	$(MAKE) build-tests
+	$(MAKE) test-app
+	$(MAKE) check-version
+	$(MAKE) archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999
 
 open: generate
 	open $(PROJECT)

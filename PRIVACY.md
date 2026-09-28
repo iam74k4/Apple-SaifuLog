@@ -38,6 +38,8 @@ iPhone のバックアップ（iCloud バックアップや、Mac・PC へのバ
 場合、記録はバックアップの一部として保存されることがあります。これは Apple が提供する
 iOS の機能で、開発者はその内容を見られません。
 
+記録は 1 件ずつ、アプリの中で削除できます（タイムラインの記録を長押しして「削除」）。
+
 ### 端末内 AI の取り扱い
 
 入力した文章から日付・金額・カテゴリを読み取る処理には、Apple の Foundation Models
@@ -113,6 +115,13 @@ SaifuLog を削除すると、端末内の記録と設定も併せて削除さ�
 
 https://github.com/iam74k4/SaifuLog-Apple/issues
 
+セキュリティやプライバシーに関わる問題（記録が端末の外へ送られている疑いなど）や、公開の
+場に書けないご相談は、Issues ではなく GitHub の非公開の報告窓口（リポジトリの Security
+タブの「Report a vulnerability」）からお知らせください。内容は開発者とご本人だけが
+見られます。詳しくは [`SECURITY.md`](SECURITY.md) を参照してください。
+
+https://github.com/iam74k4/SaifuLog-Apple/security/advisories/new
+
 ---
 
 ## English
@@ -141,6 +150,9 @@ mechanism (SwiftData).
 If you back up your iPhone (for example with iCloud Backup, or to a Mac or PC), your
 records may be included in that backup. This is an iOS feature provided by Apple, and the
 developer cannot see its contents.
+
+You can delete your records one by one in the app (long-press a record in the timeline and
+choose Delete).
 
 ### How On-Device AI Is Used
 
@@ -221,3 +233,10 @@ Questions about this policy may be raised via Issues on the GitHub repository. I
 public, so please do not include personal information or your financial records.
 
 https://github.com/iam74k4/SaifuLog-Apple/issues
+
+For security or privacy problems (for example, a sign that records leave the device), or for
+anything you cannot write in public, please use GitHub's private reporting channel instead of
+Issues ("Report a vulnerability" on the repository's Security tab). Only the developer and you
+can see the report. See [`SECURITY.md`](SECURITY.md) for details.
+
+https://github.com/iam74k4/SaifuLog-Apple/security/advisories/new

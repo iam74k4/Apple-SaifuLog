@@ -21,7 +21,10 @@ develop で統合
 PR: develop → main ─ マージ ─▶ release.yml
                                   │
                                   ├─ upload（macOS: xcode-27）
+                                  │    承認済みの版でないかを App Store Connect で確かめ、
                                   │    make archive で .xcarchive を作り（署名なし）、
+                                  │    make export-ipa で送らずに書き出してエンタイトルメントを照合し
+                                  │    （いまは抜けていても警告だけ）、
                                   │    make upload でクラウド署名して App Store Connect へ送る
                                   │
                                   └─ submit（Linux）
@@ -34,16 +37,17 @@ PR: develop → main ─ マージ ─▶ release.yml
                                   │  通れば自動で配信開始（AFTER_APPROVAL）
                                   ▼
                             tag-release.yml（3 時間おき）
-                               配信中を見つけたら
+                               App Store Connect で配信中の版を見つけたら、
+                               そのビルドを作ったコミットに
                                タグ v<version> と GitHub Release を作る
 ```
 
 | 誰が | 何を |
 |---|---|
-| 自動（build.yml） | PR と push のたびに `make build`・`make test`・`make check-version` と、署名なしの `make archive`（提出物と同じ Release・実機向けの組み立てを、マージ前に一度通す。バージョン・ビルド番号・アイコンがアプリの Info.plist に入っているかも見る） |
-| 自動（release.yml / upload） | アーカイブ、クラウド署名、App Store Connect へのアップロード |
+| 自動（build.yml） | PR と push のたびに `make build`・`make test`（コアのテスト）・`make build-tests` と `make test-app`（アプリのテストのビルドと、シミュレータでの実行）・`make check-version` と、署名なしの `make archive`（提出物と同じ Release・実機向けの組み立てを、マージ前に一度通す。バージョン・ビルド番号・アイコンがアプリの Info.plist に入っているかも見る） |
+| 自動（release.yml / upload） | 承認済みの版ならスキップ、アーカイブ、エンタイトルメントの照合（送らずに書き出す。いまは抜けていても警告だけ）、クラウド署名、App Store Connect へのアップロード |
 | 自動（release.yml / submit） | 処理待ち、バージョンの用意、リリースノート、**審査への提出** |
-| 自動（tag-release.yml） | 配信を検知してタグと GitHub Release を作成 |
+| 自動（tag-release.yml） | 配信を検知し、配信されたビルドを作ったコミットにタグと GitHub Release を作成 |
 | 人 | バージョンを上げる、CHANGELOG を書く、App Store Connect の Web でしかできない設定、リジェクトの対応 |
 
 タグを最後に打つのは、リジェクトされた場合に「タグはあるのに世に出ていない」版を
@@ -58,21 +62,30 @@ PR: develop → main ─ マージ ─▶ release.yml
 - 作業ブランチは `develop` から切る（`feature/…`、`fix/…`、`docs/…`、`chore/…`）。
   コミットは Conventional Commits（`CLAUDE.md`）。
 - **develop → main の PR は「Create a merge commit」でマージする。** Squash すると、
-  main にだけ存在するコミットができて develop と履歴が分かれ、次の develop → main で
-  身に覚えのない差分や衝突が出る。作業ブランチ → develop は squash でよい。
+  main にだけ存在するコミットができて develop と履歴が分かれ、次の develop → main から毎回
+  `Config/Base.xcconfig` と `CHANGELOG.md` で衝突する。main の Ruleset は merge しか許さない
+  ようにしてある（下の「[6. ブランチと保護ルール](#6-ブランチと保護ルール)」）。作業ブランチ → develop は squash でよい。
 
 ### 二重に出さないための歯止め
 
 - `main` のバージョンに対応するタグ（`v<MARKETING_VERSION>`）が既にあれば、release.yml は
   何もしない。リリース後にドキュメント修正だけを main へ入れても、二重アップロードは起きない。
+- タグがまだ無くても、その版が App Store Connect で承認済み以降（配信待ち・配信中など）なら、
+  release.yml はアップロードせずに notice を出して終わる（`asc.py state --require-open`）。承認から
+  tag-release がタグを打つまでの間（最大 3 時間。`ASC_RELEASE_TYPE=MANUAL` なら配信を押すまで）に
+  版を上げずにマージしても、赤で落ちない。
 - 同じバージョンが App Store Connect で既に配信中なら、submit ジョブは
   「MARKETING_VERSION を上げてください」と言って止まる。
 - 同じバージョンが審査待ち・審査中なら、submit ジョブはビルドを差し替えずに止まる
   （アップロードしたビルドは TestFlight に残るだけ）。
+- 前の版が審査中・配信待ちのまま次の版を main へ入れると、submit ジョブは新しい版を作らずに、
+  前の版が片づいてから再実行するよう案内して止まる（App Store Connect は進行中の版を 1 つしか
+  持てない）。前の版のタグと Release は、配信が始まれば tag-release.yml が付ける。
 - tag-release.yml はタグと GitHub Release が既にあれば即座に終わる。タグだけがあって Release が
   無い（前回の実行が Release の作成で落ちた）ときは、配信状況を見直さずに Release だけを作る。
 - release.yml は同時に 1 つしか走らない（`concurrency`）。続けてマージしても、前の
-  アップロードを途中で打ち切らない。
+  アップロードを途中で打ち切らない。待っている実行が、後から来た実行（手動実行など）に
+  置き換えられて取り消されることもない（`queue: max`）。
 
 ---
 
@@ -86,13 +99,15 @@ Xcode が用意する（自動署名 + クラウド管理の配布証明書）�
 | もの | どこで | 補足 |
 |---|---|---|
 | Apple Developer Program | developer.apple.com | チーム ID は `NL9ZXK2SGR` |
-| **Bundle ID の登録** | Certificates, Identifiers & Profiles → Identifiers → **+** → App IDs | `com.iam74k4.SaifuLog`（Explicit）。Capability は今は要らない |
+| **Bundle ID の登録** | Certificates, Identifiers & Profiles → Identifiers → **+** → App IDs | `com.iam74k4.SaifuLog`（Explicit）。Capability の **Data Protection** をオンにして **Complete Protection** を選ぶ（エンタイトルメント `default-data-protection` と揃える） |
 | **アプリレコード** | App Store Connect → アプリ → **+** → 新規 App | プラットフォーム iOS、プライマリ言語は日本語、Bundle ID は上のもの、SKU は任意（例 `saifulog-ios`） |
 | App Store Small Business Program | developer.apple.com/app-store/small-business-program | 加入すると手数料が 15% になる（`docs/design.md` §6）。申し込みは別途 |
 
 Bundle ID を先に登録するのは、CI の export が**自動署名でもアプリ ID は登録しない**ため
 （`xcodebuild -help` の `signingStyle` の説明）。手元の Xcode で一度実機にビルドすれば
-自動で登録されるが、CI だけで回すなら先に作っておく。
+自動で登録されるが、CI だけで回すなら先に作っておく。Data Protection も同じ理由で、export は
+アプリ ID の Capability を変えないので、先にオンにしておく（アプリは
+`project.yml` のエンタイトルメントで保存先を NSFileProtectionComplete にしている。`docs/design.md` §5-4）。
 
 ### 2. App Store Connect API キーを作る
 
@@ -146,7 +161,7 @@ Environment が解決される前に評価される。Environment 側に置く�
 |---|---|---|
 | `ASC_AUTO_SUBMIT` | （未設定 = 提出する） | `false` にすると、main へのマージではアップロードだけして審査に出さない。手動実行で `mode=submit` を選んだときは、この値に関係なく提出する |
 | `ASC_RELEASE_TYPE` | `AFTER_APPROVAL` | `MANUAL` にすると、審査を通っても自分で配信開始を押すまで公開されない |
-| `BUILD_NUMBER_OFFSET` | `0` | ビルド番号の底上げ。下の「[ビルド番号の決め方](#ビルド番号の決め方)」 |
+| `BUILD_NUMBER_OFFSET` | `0` | ビルド番号の底上げ。0 以上の整数で、先頭に 0 を付けない（`010` はシェルが 8 進数として読むので、release.yml と tag-release.yml が止める）。下の「[ビルド番号の決め方](#ビルド番号の決め方)」 |
 
 `ASC_RELEASE_TYPE=MANUAL` にした場合、審査通過後に App Store Connect で
 「このバージョンをリリース」を押すまで配信は始まらない。tag-release.yml は
@@ -161,11 +176,11 @@ submit ジョブは提出の段階で止まる（アップロードまでは進�
 |---|---|---|
 | アプリ情報 | アプリ → 一般 → App 情報 | 名前（日本語の表記は `docs/design.md` §13 で未決）、サブタイトル（案: ja「ひとことで家計簿」/ en「Budget in one line」）、カテゴリ（ファイナンス）、コンテンツ配信権 |
 | 年齢制限 | App 情報 → 年齢制限 | 質問に答える |
-| 価格と配信状況 | 価格および配信状況 | 無料。配信する国と地域。**Apple Silicon 搭載の Mac と Apple Vision Pro での配信をオフにする**（iPhone 向けのアプリは、既定のままだとこれらでも配信される。README の「Mac には対応しません」と揃えるため） |
-| App のプライバシー | App のプライバシー | プライバシーポリシーの URL（`PRIVACY.md`）と、「データの収集なし」の回答（`docs/design.md` §11） |
+| 価格と配信状況 | 価格および配信状況 | 無料。配信する国と地域。**Apple Silicon 搭載の Mac と Apple Vision Pro での配信をオフにする**（iPhone 向けのアプリは、既定のままだとこれらでも配信される。README の「Mac と Apple Vision Pro では配信しません」と揃えるため）。**iPad は外せない**（iPhone 専用のアプリも iPad の App Store で配信され、iPhone 版が拡大して動く） |
+| App のプライバシー | App のプライバシー | プライバシーポリシーの URL（`https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md`。草案の注記を外して main へ入れてから。下の「初回リリース」の 4）と、「データの収集なし」の回答（`docs/design.md` §11） |
 | スクリーンショット | バージョン → iPhone | **6.9 インチ**（1320 × 2868 など）が必須。小さい画面の分は自動で縮小される |
 | 説明文など | バージョン | 説明、キーワード、**サポート URL（必須）**、著作権。英語ローカライズを出すなら en の分も |
-| App Review に関する情報 | バージョン → App Review に関する情報 | 連絡先と審査メモ。AI の機能は Apple Intelligence 対応機種でしか動かないこと、非対応機種でも記録はできること、ログインが要らないことを書いておく |
+| App Review に関する情報 | バージョン → App Review に関する情報 | 連絡先と審査メモ。AI の機能は Apple Intelligence 対応機種でしか動かないこと、非対応機種でも記録はできること、ログインが要らないことを書いておく。審査は iPad で行われることもあるので、提出の前に iPad のシミュレータ（iPhone 版の互換モード）でも一通り動くことを確かめる |
 | 輸出コンプライアンス | （Info.plist で回答） | `project.yml` で `ITSAppUsesNonExemptEncryption = NO` を入れている。未回答のビルドだと `asc.py wait-build` が止まる |
 | EU のトレーダー申告 | ビジネス | EU で配信するには、トレーダーかどうかの申告が要る。トレーダーの場合は住所などが EU のストアに表示される |
 | 契約・税金・口座 | ビジネス | 無料アプリだけなら不要。プレミアム（App 内課金）を出す前に有料 App 契約と口座・税の情報が要る |
@@ -186,25 +201,36 @@ git push -u origin develop
 `develop` になっているかを毎回確かめる（Dependabot の PR は設定で develop 宛てにしてある）。
 
 main と develop の保護は **Ruleset** で行う（Settings → Rules → Rulesets →
-New ruleset → New branch ruleset）。
+New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分ける。** 許すマージの方法
+（Allowed merge methods）は Ruleset ごとの設定で、main だけを merge に絞るため。
 
-| 設定 | 値 | 理由 |
-|---|---|---|
-| Ruleset name | `main-develop` など | |
-| Enforcement status | Active | |
-| Target branches | Add target → Include by pattern → `main`、`develop` の 2 つ | |
-| Restrict deletions | オン | develop → main をマージしたときの「ブランチの自動削除」や手違いで、統合ブランチが消えないように |
-| Require a pull request before merging | オン（Required approvals は **0**） | 直接 push を止める。1 人で開発していると自分の PR は承認できないので、承認数は 0 にする |
-| Require status checks to pass | オン → Add checks → **`build`** | CI の通っていない変更を入れない。`build` は build.yml のジョブ名 |
-| Block force pushes | オン | 履歴の書き換えを止める |
-| Bypass list | 空 | 抜け道を作らない（緊急時は一時的に Ruleset を Disabled にする） |
+| 設定 | `main` の Ruleset | `develop` の Ruleset | 理由 |
+|---|---|---|---|
+| Ruleset name | `main` | `develop` | |
+| Enforcement status | Active | Active | |
+| Target branches | Include by pattern → `main` | Include by pattern → `develop` | |
+| Restrict deletions | オン | オン | develop → main をマージしたときの「ブランチの自動削除」や手違いで、統合ブランチが消えないように |
+| Require a pull request before merging | オン（Required approvals は **0**） | オン（Required approvals は **0**） | 直接 push を止める。1 人で開発していると自分の PR は承認できないので、承認数は 0 にする |
+| └ Allowed merge methods | **Merge だけ** | Merge と Squash | develop → main を squash や rebase で入れると、main にだけあるコミットができて develop と履歴が分かれ、次のリリースから毎回 `Config/Base.xcconfig` と `CHANGELOG.md` で衝突する。作業ブランチ → develop は squash でよい |
+| Require status checks to pass | オン → Add checks → **`build`** | オン → Add checks → **`build`** | CI の通っていない変更を入れない。`build` は build.yml のジョブ名 |
+| Block force pushes | オン | オン | 履歴の書き換えを止める |
+| Bypass list | 空 | 空 | 抜け道を作らない（緊急時は一時的に Ruleset を Disabled にする） |
 
 - `build` は、build.yml が一度でも走らないと候補に出てこない。先にこのブランチを push して
   PR を作り、build が走ってから Ruleset を作る。
 - 「Require branches to be up to date before merging」は付けなくてよい。develop → main は
   もともと最新で、作業ブランチ → develop で毎回の取り込みを強いる手間の方が大きい。
-- Settings → General → Pull Requests で **Allow merge commits** を有効にしておく
-  （develop → main に使う）。
+- Settings → General → Pull Requests で **Allow merge commits**（develop → main に使う）と
+  **Allow squash merging**（作業ブランチ → develop に使う）を有効にしておく。どちらかを切ると、
+  Ruleset で許していても選べなくなる。
+
+### 7. リポジトリのセキュリティの設定
+
+| 設定 | 場所 | 理由 |
+|---|---|---|
+| Private vulnerability reporting を有効にする | Settings → Code security → Private vulnerability reporting | 脆弱性やプライバシーの問題を非公開で受け取る窓口（`SECURITY.md`、`PRIVACY.md` のお問い合わせ）。公開リポジトリで Admin 権限の鍵を CI に持たせているので、Issues に書かれる前に受け取れるようにする |
+| actions の SHA での固定を必須にする | Settings → Actions → General → Actions permissions の **Require actions to be pinned to a full-length commit SHA** | ワークフローの `uses:` はすべてコミットの SHA で固定してある（版はコメント）。タグの付け替えで中身が差し替わっても、鍵を持つジョブで知らないコードが動かないようにする。設定で必須にすると、タグで書いた `uses:` が紛れ込んだときに止まる |
+| 使える actions を GitHub 製に限る | 同じ画面で **Allow iam74k4, and select non-iam74k4, actions and reusable workflows** を選び、**Allow actions created by GitHub** だけにチェックを入れる | 使っているのは `actions/checkout` と `actions/setup-python` だけ。ほかを足すときは、ここと一緒に見直す |
 
 ---
 
@@ -220,41 +246,57 @@ New ruleset → New branch ruleset）。
      「このバージョンでの変更点」と GitHub Release の本文になる。** App Store は
      Markdown を表示しないので、太字・リンク・バッククォートを使わず、`- ` の
      箇条書きと平文で、利用者の目線で書く
-   - `make check-version` で一致を確かめる（CI でも検査される）
+   - `make check-version` で一致を確かめる（CI でも検査される）。PR の前に `make ci` を通すと、
+     CI（`build`）と同じ 6 つを手元で確かめられる
    - 実機での確認は、手元の Xcode から入れて行う（TestFlight のビルドは main へのマージで初めてできる）
 2. **PR: develop → main を作り、build が通ったら「Create a merge commit」でマージする**
+   （main の Ruleset は merge しか許さないので、ほかの方法は選べない）
 
 あとは待つ。目安は、アップロードまで 15〜30 分、App Store Connect の処理に 10 分〜1 時間、
 審査は多くが 1 日以内（混んでいると数日）。審査に通れば配信が始まり、3 時間以内に tag-release.yml が
-`v<version>` のタグと GitHub Release を作る。
+配信されたビルドを作ったコミットに `v<version>` のタグと GitHub Release を作る。
 
 ### 初回リリース（0.1.0）の進め方
 
 初回だけは、署名の経路と Web の設定がまだ一度も通っていないので、段階を分ける。
 
-1. 「一度だけの準備」の 1〜4 と 6 を済ませる。**リポジトリ変数 `ASC_AUTO_SUBMIT` を
+1. 「一度だけの準備」の 1〜4、6、7 を済ませる。**リポジトリ変数 `ASC_AUTO_SUBMIT` を
    `false` にしておく**（最初のマージではアップロードだけにする）
-   - アプリアイコン（1024 × 1024 の PNG）が `AppIcon.appiconset` に入っていることを確かめる。
-     App Store Connect はアイコンの無いビルドを受け付けない。今は仮のアイコンが入っていて、
-     消えていれば build.yml の `make archive` が止める（下の「[アプリアイコン](#アプリアイコンappiconappiconset)」）
+   - アプリアイコン（財布のライト・ダーク・色付きの 3 枚。1024 × 1024 の PNG）が
+     `AppIcon.appiconset` に入っていることを確かめる。App Store Connect はアイコンの無いビルドを
+     受け付けない。消えていれば build.yml の `make archive` が止める
+     （下の「[アプリアイコン](#アプリアイコンappiconappiconset)」）
 2. develop → main をマージする。release.yml の upload が走り、ビルドが App Store Connect に届く
+   - アップロードの前の「送る前に書き出して確かめる（送信しない）」で、書き出したアプリに
+     エンタイトルメント（データ保護の `default-data-protection`）が載っているかを照合する。
+     CI のアーカイブは署名なしなので、**いまは必ず抜けが見つかる。** 署名ありのアーカイブをまだ
+     release.yml に入れていないので、ここは警告（run の Annotations）を出すだけで、アップロードは続ける
+     （止めると、マージのたびにリリースが止まる）。警告が出たビルドは、保存先のデータ保護が
+     既定のクラス（初回のロック解除後は常に復号）のままになる。下の
+     「[Capability（iCloud など）を足すとき](#capabilityicloud-などを足すとき)」の手順で署名ありの
+     アーカイブに切り替えるまで、この状態が続く
    - export（署名）で落ちたら、Actions → release → **Run workflow** → `mode=export` で、
-     何も送らずに署名の経路だけを繰り返し試せる。ログに署名とエンタイトルメントが出る
+     何も送らずに署名の経路とエンタイトルメントの照合だけを繰り返し試せる（こちらの照合は、抜けていれば止まる）
 3. TestFlight に処理済みのビルドが現れたら、内部テスターとして実機に入れて確かめる
-4. 「一度だけの準備」の 5（Web の設定）を済ませる。初回の版は App Store Connect が
-   自動で作る「1.0（提出準備中）」を、submit ジョブが `0.1.0` に書き換えて使う
-   - アイコンを仮のまま審査に出すか、配色を決めて差し替えてから出すかをここで決める。
-     差し替えるなら、入れ替えを作業ブランチ → develop → main とマージしてから 5 へ進む
-     （`ASC_AUTO_SUBMIT` が `false` のままなので、マージではアップロードだけが走る。
-     5 の Web から出すときは、新しいアイコンのビルドを選ぶ）
-5. 審査に出す。どちらかで行う
+4. **`PRIVACY.md` を確定させる。** 冒頭の「草案 / Draft」の注記を外し、施行日（Effective date）に
+   日付を入れ、最終更新日も揃える。内容が実装と合っているかもここで見直す。作業ブランチ → develop →
+   main とマージする（`ASC_AUTO_SUBMIT` が `false` のままなので、main へのマージではアップロード
+   だけが走る）。`CLAUDE.md` の「ドキュメント」にある `PRIVACY.md` の説明（草案）も一緒に直す。
+   審査に出すポリシーの URL が「Draft」と書かれたページのままにならないようにするため
+5. 「一度だけの準備」の 5（Web の設定）を済ませる。プライバシーポリシーの URL には、4 で確定させた
+   main の `PRIVACY.md` を入れる
+6. 審査に出す。**`mode=submit` で出す。**
    - Actions → release → Run workflow → `mode=submit`（アーカイブからやり直し、
-     新しいビルド番号で送って提出する）
-   - App Store Connect の Web で、3 のビルドを選んで「審査に提出」
-6. `ASC_AUTO_SUBMIT` を消す（以降はマージで審査まで進む）
+     新しいビルド番号で送って提出する）。初回の版は App Store Connect が自動で作る
+     「1.0（提出準備中）」で、submit ジョブがこれを `0.1.0`（`MARKETING_VERSION`）に書き換えて使う
+   - App Store Connect の Web から出すときは、**先にバージョン番号を 1.0 から 0.1.0
+     （`MARKETING_VERSION` と同じ値）に書き換えてから**、ビルドを選んで「審査に提出」を押す。
+     1.0 のままだと 0.1.0 のビルドを選べないか、1.0 として配信されてしまう。後者だと tag-release.yml が
+     版の食い違い（1.0 と 0.1.0）で赤く止まり、タグと Release が作られない
+7. `ASC_AUTO_SUBMIT` を消す（以降はマージで審査まで進む）
 
-2〜5 の間も tag-release.yml は 3 時間おきに走る。App Store Connect に `0.1.0` の版がまだ無い
-（自動でできた「1.0」のまま）ので、「まだ配信前」として何もせずに終わる（失敗にはならない）。
+2〜6 の間も tag-release.yml は 3 時間おきに走る。App Store Connect に配信中の版がまだ無いので、
+「配信中の版はまだありません」として何もせずに終わる（失敗にはならない）。
 
 初回の版には「このバージョンでの変更点」の欄が無い。submit ジョブはリリースノートを
 入れられずに警告を出すが、そのまま提出へ進む（失敗ではない）。
@@ -278,16 +320,25 @@ New ruleset → New branch ruleset）。
 | XcodeGen の `shasum` が FAILED | 取ってきた zip が固定した版と違う。値を書き換えて通さず、XcodeGen の Release の digest を確かめる |
 | `Environment「release」の Secrets ... が足りません` | 「一度だけの準備」の 3 |
 | ジョブが始まらずに Environment の保護ルールで止まる | main 以外のブランチから手動実行した。Environment `release` は main からしか使えない（意図どおり） |
+| 「依存を入れる」などの `pip install` が `--require-hashes` や `--only-binary` のエラーで止まる | `scripts/requirements.txt` のハッシュと合わない、またはランナーの Python の版に合う wheel が無い。手で書き換えず、`scripts/requirements.in` の先頭にある手順（`pip-compile --generate-hashes --strip-extras`）で作り直す。Python の版（`setup-python` の `3.12`）を変えたときも作り直す |
 | export で `Cloud signing permission error` | API キーのロールが Admin でない |
 | export でプロファイルが作れない（アプリ ID が無い） | Bundle ID `com.iam74k4.SaifuLog` が未登録。「一度だけの準備」の 1 |
+| export でプロファイルに `com.apple.developer.default-data-protection` が無いと言われる | Bundle ID の設定で Data Protection（Complete Protection）がオンになっていない。「一度だけの準備」の 1 |
+| 「送る前に書き出して確かめる」に `書き出したアプリに、… のエンタイトルメントが載っていません` の警告が出る（`mode=export` の実行ではこのエラーで止まる） | 署名なし（`ARCHIVE_SIGNING=NO`）のアーカイブにはエンタイトルメントが焼かれない。署名ありのアーカイブを入れるまでは、いつもこうなる（ふだんのリリースは警告だけで送り、そのビルドにはエンタイトルメントが載っていない）。下の「[Capability（iCloud など）を足すとき](#capabilityicloud-などを足すとき)」に従い、アーカイブを署名ありに切り替える |
+| `v<version> は承認済み（…）で、タグが付くのを待っています` の notice が出て、アップロードがスキップされる | 承認から tag-release がタグを打つまでの間に、版を上げずに main へマージした。その版にはもうビルドを送れないので、何も送らずに終えている（失敗ではない）。待てば tag-release がタグを打つ。急ぐなら Actions → tag-release → Run workflow で手動実行する。マージした変更を出すには、版を上げて develop → main をやり直す |
 | アップロードでビルド番号の重複を言われる | 手元から大きい番号で送った、または release.yml の名前を変えた。`BUILD_NUMBER_OFFSET` で底上げする |
+| `BUILD_NUMBER_OFFSET は 0 以上の整数（先頭に 0 を付けない）にしてください` | リポジトリ変数 `BUILD_NUMBER_OFFSET` に `010` のような値が入っている。先頭の 0 を外す |
+| `make upload は BUILD_NUMBER を読みません` | 手元で `make upload BUILD_NUMBER=…` とした。ビルド番号はアーカイブに焼かれている。`make archive BUILD_NUMBER=…` で作り直してから `make upload` する |
 | `make archive` が `アプリにアイコンが入っていません` で止まる／アップロードでアイコンが無い（`CFBundleIconName` や `Missing required icon`）と言われる | `AppIcon.appiconset` に画像が無いか、`Contents.json` の `filename` で参照されていない。1024 × 1024 の PNG を置いて参照する（下の「[アプリアイコン](#アプリアイコンappiconappiconset)」） |
 | アップロードで `Invalid large app icon`（透過・アルファチャンネル）と言われる | 1024 × 1024 の PNG に透過（アルファチャンネル）がある。透過なしで書き出し直す。`sips -g hasAlpha <PNG>` が `no` になればよい |
 | `輸出コンプライアンス（暗号の使用）が未回答です` | Info.plist に `ITSAppUsesNonExemptEncryption` が入っていない。`project.yml` を直すか、TestFlight でそのビルドに回答してから submit ジョブを再実行する |
 | `秒待ちましたが処理が終わりませんでした` | App Store Connect の処理が遅い。処理が終わったのを確かめてから、失敗した submit ジョブだけを **Re-run failed jobs** で再実行する（アップロードはやり直さない） |
 | `... のため、ビルドを差し替えられません` | 審査中の版があるのに、バージョンを上げずに main へマージした。差し替えたいなら Web で審査から取り下げてから再実行、不要ならそのままでよい |
+| `前の版 X が … のため、Y の版を作れません` | 前の版の審査中（または配信待ちの間）に、版を上げて main へマージした。App Store Connect は進行中の版を 1 つしか持てない。前の版の配信が始まるか、リジェクトされる（取り下げる）のを待ってから、失敗した submit ジョブだけを **Re-run failed jobs** で再実行する。アップロードはやり直さなくてよい。前の版のタグと Release は tag-release が付ける |
+| 審査への追加で 409 が返り、Apple の理由（`errors[].detail` と `associatedErrors`）が並んで止まる | 提出に必要なものが足りない（スクリーンショット、説明文、サポート URL、年齢制限、App のプライバシーなど）。ログに並んだ理由を App Store Connect の Web で直してから、失敗した submit ジョブを **Re-run failed jobs** で再実行する。この版が既に入れ物に入っていただけのとき（前回の実行が提出の手前で落ちたなど）は、`asc.py` が入れ物の中身を確かめて先へ進むので、止まらない |
 | `既に配信済み ... MARKETING_VERSION を上げてください` | バージョンの上げ忘れ |
 | タグ `v<version>` はあるのに GitHub Release が無い | tag-release.yml がタグの push の後、Release の作成で落ちた。次の実行（3 時間以内。急ぐなら手動実行）で Release だけが作られる。タグは打ち直されない |
+| tag-release が `release.yml の実行を逆算できません` / `実行 #N が見つかりません` / `コミット … の版は …で、v… と合いません` で止まる | 配信されたビルドから、タグを打つコミットを割り出せなかった（手元から送ったビルド、配信待ちの版があるうちに `BUILD_NUMBER_OFFSET` を変えた、App Store Connect の版番号を `MARKETING_VERSION` に揃えずに提出した、など）。配信されたビルドを作ったコミットを確かめ、Actions → tag-release → Run workflow の `sha` にそのコミットを入れて手動実行する（下の「[`tag-release.yml`](#tag-releaseyml)」） |
 
 ---
 
@@ -301,9 +352,12 @@ New ruleset → New branch ruleset）。
 |---|---|
 | `make version` | いまの `MARKETING_VERSION` を表示する |
 | `make check-version` | `MARKETING_VERSION` と CHANGELOG 先頭の見出しの一致を確かめる |
-| `make archive` | Release の `.xcarchive` を `build/` に作る。`BUILD_NUMBER=…` でビルド番号を上書き、`ARCHIVE_SIGNING=NO` で署名なし（CI）。できたアプリの Info.plist にバージョン・ビルド番号・アイコンが入っているかを確かめる |
-| `make export-ipa` | アーカイブから `.ipa` を書き出すだけ。**送信しない。** 署名とエンタイトルメントを表示する |
-| `make upload` | `Config/ExportOptions.plist` で書き出し、そのまま App Store Connect へ送る。手元の端末では確認を挟む |
+| `make archive` | Release の `.xcarchive` を `build/` に作る。`BUILD_NUMBER=…` でビルド番号を上書き、`ARCHIVE_SIGNING=NO` で署名なし（CI）。できたアプリの Info.plist にバージョン・ビルド番号・アイコンが入っているかを確かめる。`BUILD_NUMBER` が `CURRENT_PROJECT_VERSION`（1）と同じ値だと、上書きが届いたかを確かめられないので警告を出す |
+| `make export-ipa` | アーカイブから `.ipa` を書き出すだけ。**送信しない。** 署名とエンタイトルメントを表示し、エンタイトルメントのファイル（`RELEASE_ENTITLEMENTS`。いまは自動で見つかる `SaifuLog/SaifuLog.entitlements`）のキーがすべて載っているかを照合する。抜けていれば止まる（`RELEASE_ENTITLEMENTS_CHECK=warn` なら警告だけ出して続ける）。release.yml はアップロードの前に必ずこれを通す（いまは `warn`） |
+| `make upload` | `Config/ExportOptions.plist` で書き出し、そのまま App Store Connect へ送る。手元の端末では確認を挟む。ビルド番号はアーカイブに焼かれた値で、`BUILD_NUMBER` を渡しても変わらない（アーカイブと違う値なら止まる） |
+
+開発用の `make ci`（Makefile）は、build.yml と同じ 6 つ（`make build`・`make test`・`make build-tests`・
+`make test-app`・`make check-version`・`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を順に通す。
 
 認証は、環境変数 `ASC_API_KEY_ID` / `ASC_API_ISSUER_ID` / `ASC_API_KEY_PATH`（.p8 のパス）が
 3 つとも揃っていれば API キー、無ければ Xcode にサインインしているアカウント。
@@ -311,7 +365,10 @@ New ruleset → New branch ruleset）。
 
 CI がアーカイブを**署名なし**で作るのは、使い捨てのランナーで自動署名すると、実行のたびに
 開発用の証明書が新しく作られ、その秘密鍵がランナーと一緒に消えるため。App Store 向けの
-署名は export の段階でクラウド管理の配布証明書を使って掛け直される。
+署名は export の段階でクラウド管理の配布証明書を使って掛け直される。ただし署名なしのアーカイブには
+エンタイトルメントが焼かれず、掛け直しもアーカイブにあるエンタイトルメントしか引き継がない。そのため
+`make export-ipa` の照合で、提出物にエンタイトルメントが載っているかを確かめてから送る。いまは署名ありの
+アーカイブを入れていないので、照合は警告だけにしている（下の「Capability（iCloud など）を足すとき」）。
 
 ### `Config/ExportOptions.plist`
 
@@ -327,8 +384,9 @@ CI がアーカイブを**署名なし**で作るのは、使い捨てのラン�
 
 ### アプリアイコン（`AppIcon.appiconset`）
 
-`SaifuLog/Resources/Assets.xcassets/AppIcon.appiconset` に 1024 × 1024 の PNG を 1 枚置き、
-`Contents.json` の `filename` で参照する。ホーム画面などの小さい大きさは Xcode（actool）が作る。
+`SaifuLog/Resources/Assets.xcassets/AppIcon.appiconset` に 1024 × 1024 の PNG を置き（ライトは必須、
+ダーク・色付きは任意。いまは 3 枚とも入っている）、`Contents.json` の `filename` で参照する。
+ホーム画面などの小さい大きさは Xcode（actool）が作る。
 
 - **アイコンが無いと、App Store Connect がアップロードを弾く。** AppIcon が空でもビルドと
   アーカイブは通ってしまうので、`make archive` の最後でアプリの Info.plist に `CFBundleIcons` が
@@ -355,22 +413,76 @@ BUILD_NUMBER = BUILD_NUMBER_OFFSET + run_number × 100 + run_attempt
 release.yml の名前を変える（`run_number` が 1 に戻る）か、手元から大きい番号で送ったときは、
 リポジトリ変数 `BUILD_NUMBER_OFFSET` にそれより大きい値を入れる。
 
+tag-release.yml は、この式を逆にたどって、配信されたビルドを作った release.yml の実行（とその
+コミット）を見つける。式を変えるときは tag-release.yml も一緒に直す。配信待ちの版があるうちに
+`BUILD_NUMBER_OFFSET` を変えると逆算がずれる（tag-release は版が合わずに止まるので、手動実行の
+`sha` でコミットを指定する）。
+
 `Config/Base.xcconfig` の `CURRENT_PROJECT_VERSION`（1）は手元のビルド用で、CI では使わない。
-手元から `make upload` するときは、CI の番号より大きい `BUILD_NUMBER` を渡す。
+手元から送るときは、`make archive BUILD_NUMBER=<CI より大きい番号>` でアーカイブを作り直してから
+`make upload` する。`make upload` は `BUILD_NUMBER` を読まない（アーカイブに焼かれた番号で送る。
+違う値を渡すと止まる）。手元から送ったビルドは release.yml の実行と結びつかないので、それが配信
+されたときは、tag-release を `sha` を指定して手動実行する。
+
+### `tag-release.yml`
+
+配信が始まった版に、タグ `v<version>` と GitHub Release で印を付ける。3 時間おきの cron と
+手動実行（Actions → tag-release → Run workflow）で動く。
+
+- **見るのは App Store Connect で配信中の版**（`asc.py version-info --live`）。main のバージョン
+  ではない。前の版の審査中に次の版を main へ入れても、前の版が配信されればその版に印が付く。
+  main のバージョンのタグと Release が既にあれば、App Store Connect を見ずに終わる。
+- **タグを打つのは、配信されたビルドを作ったコミット。** main の HEAD ではない。審査中に版を
+  上げずに main へ入れた変更（ドキュメントの修正など）は、配信されたビルドに入っていないため。
+  配信中の版に紐づいたビルド番号から、release.yml の式（上の「ビルド番号の決め方」）を逆にたどって
+  実行番号を出し、その実行の `head_sha` を Actions の API で引く。打つ前に、そのコミットが main の
+  履歴にあること、そのコミットの `Config/Base.xcconfig` の版がタグの版と同じことを確かめる。
+- 逆算できないとき（手元から送ったビルド、配信待ちの版があるうちに `BUILD_NUMBER_OFFSET` を変えた、
+  App Store Connect の版番号が `MARKETING_VERSION` と違う）は、赤で止まってコミットの指定を求める。
+- ジョブは 2 つに分けてある。鍵と書き込みの権限を同じジョブに置くと、そのジョブで動く依存の 1 つが
+  乗っ取られただけで、両方を一度に取られるため。
+
+| ジョブ | 持つもの | すること |
+|---|---|---|
+| `check` | Environment `release`（App Store Connect の鍵）、`contents: read`、`actions: read` | 配信状況を調べ、打つ版とコミットを決める。依存（`scripts/requirements.txt`）はここでだけ入れる |
+| `tag` | `contents: write` だけ（鍵も Environment も持たず、pip も実行しない） | タグの push と GitHub Release の作成。本文はタグのコミットの `CHANGELOG.md` の節 |
+
+手動実行の入力:
+
+| 入力 | 効果 |
+|---|---|
+| `sha` | タグを打つコミット。空なら、配信されたビルドのビルド番号から逆算する。逆算で止まったときに、配信されたビルドを作ったコミットを入れる |
+| `force` | App Store の配信状況を見ずに、main のバージョンのタグを打つ。コミットは `sha` が空なら、その版に紐づいたビルドから逆算する |
 
 ### `scripts/asc.py`
 
-App Store Connect API を叩く小さな道具。3 つの操作だけを持つ。
+App Store Connect API を叩く小さな道具。4 つの操作だけを持つ。
 
 | 操作 | 何をするか |
 |---|---|
 | `wait-build` | アップロードしたビルドの処理（`processingState`）が `VALID` になるのを待つ。輸出コンプライアンスが未回答なら止まる |
-| `submit` | バージョンを用意し（無ければ作る。編集中の版があれば番号を書き換えて使う）、ビルドを紐づけ、リリースノートを入れ、審査に出す |
-| `state` | いまそのバージョンがどう扱われているかを表示する。`--require-live` を付けると判定に使え、配信中なら終了コード 0、配信前なら 2（版がまだ App Store Connect に無い提出前も 2。`NOT_FOUND` と表示する）、それ以外の失敗は 1 で終わる（tag-release.yml が使う） |
+| `submit` | バージョンを用意し（無ければ作る。編集中の版があれば番号を書き換えて使う。既にある版の `releaseType` が指定と違えば合わせる）、ビルドを紐づけ、リリースノートを入れ、審査に出す。前の版が審査中・配信待ちなら、新しい版を作らずに案内を出して止まる。審査への追加で 409 が返ったら、Apple の理由（`errors[].detail` と `associatedErrors`）をそのまま出し、この版が本当に提出の入れ物に入っているときだけ先へ進む |
+| `state` | いまそのバージョンがどう扱われているかを表示する。`--require-open` は release.yml が使う（承認済み以降でもうビルドを送れなければ終了コード 2、版がまだ無ければ `NOT_FOUND` と出して 0）。`--require-live` は配信中なら 0、配信前なら 2（版がまだ無い提出前も 2。`NOT_FOUND` と表示する）で、配信を待つ判定に使える（いまのワークフローは使っていない） |
+| `version-info` | `--live`（配信中の版）か `--version X` の版について、`version=`・`state=`・`build=`（紐づいたビルド番号）の行を出す。版が無ければ終了コード 2。tag-release.yml が、タグを打つ版とコミットを決めるのに使う |
 
-認証は API キーから作る ES256 の JWT。依存は PyJWT だけで、HTTP は標準ライブラリ。
-.p8 は `ASC_API_KEY_P8`（中身）か `ASC_API_KEY_PATH`（パス）で渡す。後者は release.mk と
-同じ環境変数なので、手元からも試せる（`pip install "pyjwt[crypto]"` が要る）。
+認証は API キーから作る ES256 の JWT（有効期限 15 分。時計のずれに備えて発行時刻を 60 秒前にする）。
+GET が 401 で返ったら、トークンを作り直して 1 回だけやり直す（POST・PATCH はやり直さない）。
+依存は PyJWT（と cryptography）だけで、HTTP は標準ライブラリ。.p8 は `ASC_API_KEY_P8`（中身）か
+`ASC_API_KEY_PATH`（パス）で渡す。後者は release.mk と同じ環境変数なので、手元からも試せる。
+
+依存は `scripts/requirements.txt` に、推移依存まで版とハッシュで固定してある。Admin 権限の鍵を
+持つジョブで、PyPI のその日の最新をそのまま実行しないため。CI は
+`pip install --require-hashes --only-binary=:all: -r scripts/requirements.txt` で入れる（ソースからの
+ビルドも許さない）。手元で試すときも同じファイルから入れる。
+
+```bash
+python3 -m pip install --require-hashes -r scripts/requirements.txt
+```
+
+依存を変えるときは `scripts/requirements.in` を直し、ファイルの先頭にある手順（使い捨ての venv に
+pip-tools を入れて `pip-compile --generate-hashes --strip-extras scripts/requirements.in`）で
+`requirements.txt` を作り直す。手で書き換えない。版上げは Dependabot が `requirements.txt` ごと PR にする。
+
 fastlane を持ち込むと metadata ディレクトリ一式をリポジトリで管理することになるため、
 必要な部分だけを自前で持っている。
 
@@ -400,11 +512,18 @@ fastlane を持ち込むと metadata ディレクトリ一式をリポジトリ�
 | ランナー | `xcode-27`（パブリックプレビュー。Xcode 27.0 と iOS 27 SDK） | build.yml / release.yml の `runs-on` |
 | Xcode | `/Applications/Xcode_27.0.app` | 同 `DEVELOPER_DIR` |
 | XcodeGen | 2.46.0（公式 zip を SHA-256 で照合） | 同 `XCODEGEN_VERSION` / `XCODEGEN_SHA256` |
+| Python | 3.12（`actions/setup-python`） | release.yml / tag-release.yml の `python-version` |
+| actions | `actions/checkout`・`actions/setup-python` をコミットの SHA で固定（版はコメント） | 3 つのワークフローの `uses:` |
+| `scripts/asc.py` の依存 | PyJWT と推移依存を版とハッシュで固定 | `scripts/requirements.txt`（`scripts/requirements.in` から生成） |
 
 `macos-latest`（macos-26）の Xcode は 26.x 止まりで iOS 27 SDK が無い。iOS 27 の API を
 使った時点で CI だけが落ちるので、Xcode 27 の入った `xcode-27` を使っている。
-GA でラベルが変わったら、build.yml と release.yml を一緒に直す。どれも Dependabot の
-対象外なので、上げるときは手で、意図的な PR で上げる。
+GA でラベルが変わったら、build.yml と release.yml を一緒に直す。ランナー・Xcode・XcodeGen は
+Dependabot の対象外なので、上げるときは手で、意図的な PR で上げる。
+
+actions と Python の依存は Dependabot が月に一度 develop 宛てに PR を立てる。actions は SHA と
+版のコメントを組で書き換え、pip は `requirements.txt` をハッシュごと作り直す。`uses:` を足すときも
+タグではなく SHA で書く（Settings で SHA での固定を必須にしている。「一度だけの準備」の 7）。
 
 ### cron の注意
 
@@ -432,14 +551,28 @@ cron の時刻は UTC。
 
 ### Capability（iCloud など）を足すとき
 
-CI のアーカイブは署名なしなので、エンタイトルメントがアーカイブに焼かれない。iCloud
-（CloudKit）、App Groups、プッシュ通知などを足したら、main へ入れる前に
-`mode=export` で走らせ、ログの「エンタイトルメント」に載っているかを確かめる。
-抜け落ちていたら、アーカイブを署名ありに切り替える。
+CI のアーカイブは署名なしなので、エンタイトルメントがアーカイブに焼かれない。書き出しの段階の
+署名し直し（クラウド署名）も、アーカイブにあるエンタイトルメントしか引き継がない。いまのアプリは
+データ保護（`com.apple.developer.default-data-protection = NSFileProtectionComplete`）を
+エンタイトルメントに持っている（`project.yml` の `entitlements.properties` から `make generate` が
+`SaifuLog/SaifuLog.entitlements` を書き出す）が、**いまの release.yml で送るビルドには載らない。**
 
-- 開発用の証明書（.p12）を Secret に入れ、使い捨てのキーチェーンに取り込んでから
-  `ARCHIVE_SIGNING=YES` でアーカイブする。プロファイルは `-allowProvisioningUpdates` と
-  API キーで Xcode が用意する
+release.yml はアップロードの前に `make export-ipa` で書き出したアプリをこのファイルと照合する。
+署名ありのアーカイブをまだ入れていないので、照合は必ず抜けを見つける。そのため、いまは
+`RELEASE_ENTITLEMENTS_CHECK=warn` を渡して警告（run の Annotations）だけにし、アップロードは続けている。
+止めると、develop → main をマージするたびにリリースが止まるため。iCloud（CloudKit）、App Groups、
+プッシュ通知などを足したときも同じ照合が掛かる。`mode=export` で走らせたときの照合は、抜けていれば止まる
+（何も送らずに照合だけを試せる）。
+
+データ保護を提出物に載せるには、アーカイブを署名ありに切り替える。
+
+1. 開発用の証明書（.p12）とそのパスワードを Environment `release` の Secret に入れる
+2. release.yml の「アーカイブを作る」の前に、使い捨てのキーチェーンを作って .p12 を取り込み、
+   `make archive ARCHIVE_SIGNING=YES` でアーカイブする。プロファイルは `-allowProvisioningUpdates` と
+   API キーで Xcode が用意する。後片付けでキーチェーンを消す
+3. `mode=export` で走らせ、照合が通る（`OK: … のキーはすべて載っています`）ことを確かめる
+4. release.yml の「送る前に書き出して確かめる」から `RELEASE_ENTITLEMENTS_CHECK=warn` を外し、
+   抜けていれば止まるようにする
 
 Capability を足すときは、あわせて Bundle ID の設定（Identifiers）でその Capability を
 有効にする。export はアプリ ID の設定を変えないため。
@@ -463,11 +596,15 @@ Capability を足すときは、あわせて Bundle ID の設定（Identifiers�
 - `.github/workflows/release.yml` — main マージでアップロードし、審査に出す
 - `.github/workflows/tag-release.yml` — 配信を検知してタグと GitHub Release を作る
 - `.github/workflows/build.yml` — PR と push のビルド確認 CI（必須チェック `build`）
-- `.github/dependabot.yml` — GitHub Actions の版上げ PR（develop 宛て）
+- `.github/dependabot.yml` — GitHub Actions と `scripts/` の pip の版上げ PR（develop 宛て）
+- `Makefile` — 開発用のターゲットと `make ci`（build.yml と同じ 6 つ）
+- `scripts/pick-simulator.sh` — アプリのテストを動かすシミュレータを選ぶ（`make test-app`）
 - `release.mk` — `make version` / `check-version` / `archive` / `export-ipa` / `upload`
+- `project.yml` — エンタイトルメント（データ保護）の正。`SaifuLog/SaifuLog.entitlements` はここから生成する
 - `Config/ExportOptions.plist` — 書き出しと送信の設定
 - `Config/Base.xcconfig` — バージョンの正（`MARKETING_VERSION`）
 - `scripts/asc.py` — App Store Connect API を叩く道具
+- `scripts/requirements.in` / `scripts/requirements.txt` — `asc.py` の依存（txt は版とハッシュで固定した生成物）
 - `scripts/changelog-section.sh` — CHANGELOG から該当バージョンの節を取り出す
 - `scripts/check-version.sh` — バージョンを読み、CHANGELOG との一致を確かめる
 - `CHANGELOG.md` — 変更履歴（各節がリリースノートになる）

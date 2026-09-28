@@ -3,11 +3,12 @@
 
 main へマージしたあとの「アップロード → 処理待ち → 審査提出 → 配信確認」を
 人手を挟まずに進めるために使う。fastlane を丸ごと持ち込むほどの量ではないので、
-必要な 3 つの操作だけを置く。
+必要な操作だけを置く。
 
-    wait-build   アップロードしたビルドの処理が終わるのを待つ
-    submit       バージョンにビルドを紐づけ、リリースノートを入れて審査に出す
-    state        いま App Store 側がそのバージョンをどう扱っているかを表示する
+    wait-build     アップロードしたビルドの処理が終わるのを待つ
+    submit         バージョンにビルドを紐づけ、リリースノートを入れて審査に出す
+    state          いま App Store 側がそのバージョンをどう扱っているかを表示する
+    version-info   配信中（または指定した）版の版番号・状態・紐づいたビルド番号を表示する
 
 認証は App Store Connect API キー（.p8）。次の環境変数を読む。
 
@@ -18,12 +19,14 @@ main へマージしたあとの「アップロード → 処理待ち → 審�
     ASC_BUNDLE_ID       対象アプリのバンドル ID（--bundle-id でも渡せる）
 
 依存は PyJWT（と cryptography）だけ。HTTP は標準ライブラリで足りる。
+CI は scripts/requirements.txt（版とハッシュで固定）から入れる。
 """
 
 import argparse
 import http.client
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -36,6 +39,33 @@ PLATFORM = "IOS"
 # 配信が始まった状態。ここに来たらタグを打ってよい。
 # appVersionState では READY_FOR_DISTRIBUTION、旧 appStoreState では READY_FOR_SALE。
 LIVE_STATES = {"READY_FOR_SALE", "READY_FOR_DISTRIBUTION"}
+# 審査に出してから配信が始まるまでの、進行中の状態。App Store Connect は進行中の版を
+# 1 つしか持てないので、この状態の版があるあいだは新しい版を作れない（POST は 409）。
+IN_FLIGHT_STATES = {
+    "WAITING_FOR_REVIEW",
+    "IN_REVIEW",
+    "WAITING_FOR_EXPORT_COMPLIANCE",
+    "PENDING_CONTRACT",
+    "ACCEPTED",
+    "PENDING_APPLE_RELEASE",
+    "PENDING_DEVELOPER_RELEASE",
+    "PROCESSING_FOR_DISTRIBUTION",
+    "PROCESSING_FOR_APP_STORE",
+}
+# 承認済み以降の状態。この版にはもう新しいビルドを送れない（Apple がアップロードを弾く）。
+# release.yml は、タグが付く前（承認から tag-release が気づくまで）にこの状態の版を
+# 見つけたら、アップロードせずに終える。
+CLOSED_STATES = LIVE_STATES | {
+    "ACCEPTED",
+    "PENDING_APPLE_RELEASE",
+    "PENDING_DEVELOPER_RELEASE",
+    "PROCESSING_FOR_DISTRIBUTION",
+    "PROCESSING_FOR_APP_STORE",
+    "PREORDER_READY_FOR_SALE",
+    "REPLACED_WITH_NEW_VERSION",
+    "DEVELOPER_REMOVED_FROM_SALE",
+    "REMOVED_FROM_SALE",
+}
 # 人が App Store Connect で操作しないと先に進まない状態。待っても変わらない。
 STUCK_STATES = {
     "DEVELOPER_REJECTED",
@@ -56,6 +86,9 @@ EDITABLE_STATES = {
     "METADATA_REJECTED",
     "INVALID_BINARY",
 }
+
+# App Store Connect の版番号とビルド番号の形（ピリオドで区切った 3 つまでの整数）。
+NUMBER_PATTERN = re.compile(r"[0-9]+(\.[0-9]+){0,2}")
 
 # 引数 --bundle-id か環境変数 ASC_BUNDLE_ID から main() で埋める。
 BUNDLE_ID = None
@@ -94,13 +127,18 @@ def private_key():
 
 
 def token():
-    """20 分で切れる ES256 の JWT を作る。Apple は 20 分より長いものを拒む。"""
+    """15 分で切れる ES256 の JWT を作る。
+
+    Apple は有効期間が 20 分より長いものを拒む。ちょうど 20 分にすると、ランナーの時計が
+    Apple より少し遅れているだけで「長すぎる」とみなされて 401 になるので、余裕を持たせる。
+    iat を 1 分前にするのも同じ理由（時計が進んでいると「未来に発行された」扱いになる）。
+    """
     # import をここまで遅らせるのは、PyJWT の無い手元でも --help や引数の確認が
     # できるようにするため。
     try:
         import jwt
     except ImportError:
-        die('PyJWT が要ります: pip install "pyjwt[crypto]"')
+        die("PyJWT が要ります: pip install --require-hashes -r scripts/requirements.txt")
     key_id = os.environ.get("ASC_API_KEY_ID")
     issuer = os.environ.get("ASC_API_ISSUER_ID")
     key = private_key()
@@ -111,7 +149,7 @@ def token():
         )
     now = int(time.time())
     return jwt.encode(
-        {"iss": issuer, "iat": now, "exp": now + 20 * 60, "aud": "appstoreconnect-v1"},
+        {"iss": issuer, "iat": now - 60, "exp": now + 15 * 60, "aud": "appstoreconnect-v1"},
         key,
         algorithm="ES256",
         headers={"kid": key_id, "typ": "JWT"},
@@ -126,6 +164,8 @@ def api(method, path, body=None, params=None, attempts=4):
     呼び直すのは「Apple 側で処理されていないと分かっている」ものに限る。
     429（混雑）はどのメソッドでも処理前に弾かれている。5xx と通信断は GET だけにする。
     POST を呼び直すと、提出の入れ物などが二重にできうるため。
+    GET の 401 も 1 回だけ呼び直す。時計のずれなどで JWT が一度だけ弾かれることがあり、
+    トークンは呼ぶたびに作り直すので、2 回目は通りうる。続けて 401 なら鍵の設定の誤り。
     """
     url = BASE + path
     if params:
@@ -144,7 +184,10 @@ def api(method, path, body=None, params=None, attempts=4):
         except urllib.error.HTTPError as error:
             # Apple のエラーは本文にしか理由が書かれていない。捨てると原因が追えない。
             detail = error.read().decode(errors="replace")
-            retryable = error.code == 429 or (method == "GET" and error.code >= 500)
+            retryable = error.code == 429 or (
+                method == "GET"
+                and (error.code >= 500 or (error.code == 401 and attempt == 1))
+            )
             if not retryable or attempt == attempts:
                 raise ApiError(error.code, detail) from None
             log(f"HTTP {error.code}。{attempt * 15} 秒待って呼び直します（{method} {path}）。")
@@ -167,9 +210,41 @@ def api(method, path, body=None, params=None, attempts=4):
 
 class ApiError(Exception):
     def __init__(self, status, detail):
-        super().__init__(f"HTTP {status}: {detail}")
+        super().__init__(f"HTTP {status}:\n{describe_errors(detail)}")
         self.status = status
         self.detail = detail
+
+
+def describe_errors(detail):
+    """Apple のエラー本文（JSON）を、人が読める行に直す。
+
+    本当の理由は errors[].detail と、提出の段階では meta.associatedErrors（スクリーンショットや
+    説明文の不足など、版にぶら下がる項目ごとのエラー）にしか書かれていない。JSON のまま
+    1 行でログに出すと埋もれるので、1 件ずつ行に分ける。読めない形ならそのまま返す。
+    """
+    try:
+        errors = json.loads(detail).get("errors") or []
+    except (ValueError, AttributeError):
+        return detail
+    if not errors:
+        return detail
+    lines = []
+
+    def add(error, indent):
+        code = error.get("code", "")
+        text = error.get("detail") or error.get("title") or ""
+        pointer = (error.get("source") or {}).get("pointer")
+        where = f"（{pointer}）" if pointer else ""
+        lines.append(f"{indent}- {code}: {text}{where}")
+
+    for error in errors:
+        add(error, "")
+        associated = (error.get("meta") or {}).get("associatedErrors") or {}
+        for target, children in associated.items():
+            lines.append(f"    {target}")
+            for child in children:
+                add(child, "      ")
+    return "\n".join(lines)
 
 
 def app_id():
@@ -278,21 +353,22 @@ def find_version(app, version_string):
     return found[0] if found else None
 
 
-def find_editable_version(app):
-    """版番号を問わず、いま編集できる iOS の版を探す。
+def list_versions(app):
+    """版番号を問わず、このアプリの iOS の版を並べる。
 
-    iOS はアプリレコードを作った時点で「1.0（提出準備中）」が自動でできる。
-    また App Store Connect は編集中の版を 1 つしか持てないため、それが残っていると
-    新しい版の POST は失敗する。状態での絞り込みは手元で行う（API 側の
-    フィルタの対応状況に左右されないようにするため）。
+    状態での絞り込みは呼び出し側で行う（API 側のフィルタの対応状況に左右されない
+    ようにするため）。
     """
-    found = api(
+    return api(
         "GET",
         f"/v1/apps/{app}/appStoreVersions",
         params={"filter[platform]": PLATFORM, "limit": 50},
     )["data"]
-    for version in found:
-        if version_state(version) in EDITABLE_STATES:
+
+
+def first_in_states(versions, states):
+    for version in versions:
+        if version_state(version) in states:
             return version
     return None
 
@@ -321,9 +397,30 @@ def find_or_create_version(app, version_string, release_type):
     if version is not None:
         state = ensure_editable(version, version_string)
         log(f"既存のバージョン {version_string} を使います（{state}）。")
+        # リジェクト後の出し直しの前に ASC_RELEASE_TYPE を MANUAL へ変えても、作った時点の
+        # releaseType のままだと、承認と同時に配信が始まってしまう。既存の版でも揃える
+        # （ensure_editable を通ったので、編集できる状態にある）。
+        current = version["attributes"].get("releaseType")
+        if current != release_type:
+            log(f"releaseType を {current} から {release_type} に変えます。")
+            api(
+                "PATCH",
+                f"/v1/appStoreVersions/{version['id']}",
+                body={
+                    "data": {
+                        "type": "appStoreVersions",
+                        "id": version["id"],
+                        "attributes": {"releaseType": release_type},
+                    }
+                },
+            )
         return version["id"]
 
-    editable = find_editable_version(app)
+    versions = list_versions(app)
+    # iOS はアプリレコードを作った時点で「1.0（提出準備中）」が自動でできる。
+    # また App Store Connect は編集中の版を 1 つしか持てないため、それが残っていると
+    # 新しい版の POST は失敗する。
+    editable = first_in_states(versions, EDITABLE_STATES)
     if editable is not None:
         # 自動でできた 1.0 や、前の版の作りかけが残っている。新しく作ろうとすると
         # 失敗するので、その版の番号を書き換えて使う。
@@ -347,6 +444,20 @@ def find_or_create_version(app, version_string, release_type):
             },
         )
         return editable["id"]
+
+    # 前の版の審査中に版を上げて main へマージすると、ここに来る。進行中の版があるあいだは
+    # 新しい版を作れず、POST は理由の分かりにくい 409 で落ちるので、先に止めて次の手を示す。
+    in_flight = first_in_states(versions, IN_FLIGHT_STATES)
+    if in_flight is not None:
+        old = in_flight["attributes"].get("versionString")
+        die(
+            f"前の版 {old} が {version_state(in_flight)} のため、{version_string} の版を作れません"
+            "（App Store Connect は進行中の版を 1 つしか持てません）。"
+            f"{old} の配信が始まるか、リジェクトされる（または審査から取り下げる）のを待ってから、"
+            "失敗した submit ジョブを再実行してください（Re-run failed jobs）。"
+            "アップロードしたビルドは TestFlight に残っているので、アップロードからやり直す必要はありません。"
+            f"{old} のタグと GitHub Release は、配信が始まれば tag-release が付けます。"
+        )
 
     log(f"バージョン {version_string} を作ります（releaseType={release_type}）。")
     created = api(
@@ -473,10 +584,19 @@ def submit_for_review(app, version_id):
             },
         )
     except ApiError as error:
-        # 同じバージョンが既に入っている場合は、そのまま提出へ進めばよい。
+        # 409 は「同じ版が既に入っている」とは限らない。スクリーンショットや説明文の不足など、
+        # 提出に要るものが欠けているときも 409 で、本当の理由は本文にしか無い。理由を必ず
+        # ログに出し、入れ物の中身を見て、この版が本当に入っているときだけ提出へ進む。
         if error.status != 409:
             raise
-        log("このバージョンは既に入れ物の中にありました。")
+        log(f"入れ物にバージョンを入れられませんでした（HTTP 409）:\n{describe_errors(error.detail)}")
+        if not submission_contains(submission_id, version_id):
+            die(
+                "入れ物にこのバージョンが入っていません。上の理由（App Store Connect の"
+                "バージョンのページにも出ます）を解消してから、失敗した submit ジョブを"
+                "再実行してください（Re-run failed jobs）。"
+            )
+        log("このバージョンは既に入れ物の中にありました。提出へ進みます。")
 
     api(
         "PATCH",
@@ -490,6 +610,20 @@ def submit_for_review(app, version_id):
         },
     )
     log("審査に提出しました。")
+
+
+def submission_contains(submission_id, version_id):
+    """提出の入れ物に、その版が既に入っているか。"""
+    items = api(
+        "GET",
+        f"/v1/reviewSubmissions/{submission_id}/items",
+        params={"include": "appStoreVersion", "limit": 200},
+    )["data"]
+    for item in items:
+        related = (item.get("relationships") or {}).get("appStoreVersion") or {}
+        if (related.get("data") or {}).get("id") == version_id:
+            return True
+    return False
 
 
 def cmd_submit(args):
@@ -517,11 +651,17 @@ def cmd_submit(args):
 def cmd_state(args):
     version = find_version(app_id(), args.version)
     if version is None:
+        if args.require_open:
+            # 版がまだ無い = これから作る。ビルドはそのまま送ってよい。
+            print("NOT_FOUND")
+            log(f"まだ App Store Connect に {args.version} の版がありません。ビルドを送れます。")
+            return
         if args.require_live:
             # 版がまだ無いのは、配信前のふつうの待ち時間。main へのマージから submit ジョブが版を
             # 作る（書き換える）までの間と、初回に ASC_AUTO_SUBMIT=false で手で提出するまでの間
-            # （数日かかりうる）がこれにあたる。失敗（1）で返すと、tag-release.yml の 3 時間おきの
-            # 実行がその間ずっと赤くなり、失敗の通知が溜まるので、「まだ配信前」（2）で返す。
+            # （数日かかりうる）がこれにあたる。失敗（1）ではなく「まだ配信前」（2）で返し、
+            # 配信を待つ判定（cron で回す通知など）が、その間ずっと失敗にならないようにする。
+            # tag-release.yml は配信中の版を version-info --live で探すので、これは使っていない。
             print("NOT_FOUND")
             log(f"まだ App Store Connect に {args.version} の版がありません（提出前）。")
             sys.exit(2)
@@ -536,6 +676,54 @@ def cmd_state(args):
         )
         log(f"{args.version} は {state}。{hint}")
         sys.exit(2)
+    if args.require_open and state in CLOSED_STATES:
+        log(f"{args.version} は {state}（承認済み以降）。この版にはもう新しいビルドを送れません。")
+        sys.exit(2)
+
+
+# --- version-info ---------------------------------------------------------
+
+
+def attached_build_number(version_id):
+    """その版に紐づいているビルドのビルド番号（CFBundleVersion）。無ければ空文字。"""
+    build = api("GET", f"/v1/appStoreVersions/{version_id}/build").get("data")
+    return (build or {}).get("attributes", {}).get("version") or ""
+
+
+def cmd_version_info(args):
+    """tag-release.yml が、タグを打つ版とコミットを決めるのに使う。
+
+    main のバージョンではなく App Store Connect で配信中の版を見るのは、前の版の審査中に
+    次の版を main へ入れたときも、前の版に印を付けるため。ビルド番号は、どのコミットの
+    ビルドが配信されたかを逆算する（release.yml の実行番号から作っている）のに使う。
+
+    出力は $GITHUB_OUTPUT にそのまま足せる key=value の行。Apple から来た値を形も
+    確かめずにシェルへ渡さないよう、ここで版とビルド番号と状態の書式を確かめる。
+    版が無ければ（配信中の版がまだ無い初回の配信前など）終了コード 2。
+    """
+    app = app_id()
+    if args.live:
+        version = first_in_states(list_versions(app), LIVE_STATES)
+        missing = "配信中の版はまだありません。"
+    else:
+        version = find_version(app, args.version)
+        missing = f"App Store Connect に {args.version} の版がありません。"
+    if version is None:
+        log(missing)
+        sys.exit(2)
+
+    version_string = version["attributes"].get("versionString") or ""
+    state = version_state(version) or ""
+    build = attached_build_number(version["id"])
+    if not NUMBER_PATTERN.fullmatch(version_string):
+        die(f"版番号「{version_string}」が X.Y.Z の形ではありません。")
+    if build and not NUMBER_PATTERN.fullmatch(build):
+        die(f"ビルド番号「{build}」がピリオド区切りの整数ではありません。")
+    if not re.fullmatch(r"[A-Z_]+", state):
+        die(f"版の状態「{state}」を読めません。")
+    print(f"version={version_string}")
+    print(f"state={state}")
+    print(f"build={build}")
 
 
 # --- entry ----------------------------------------------------------------
@@ -581,12 +769,27 @@ def main():
 
     state = sub.add_parser("state", help="バージョンの状態を表示する")
     state.add_argument("--version", required=True)
-    state.add_argument(
+    require = state.add_mutually_exclusive_group()
+    require.add_argument(
         "--require-live",
         action="store_true",
         help="配信中でなければ（版がまだ無い提出前も含めて）終了コード 2 で終わる",
     )
+    require.add_argument(
+        "--require-open",
+        action="store_true",
+        help="承認済み以降（この版にはもうビルドを送れない）なら終了コード 2 で終わる。版がまだ無ければ 0",
+    )
     state.set_defaults(func=cmd_state)
+
+    info = sub.add_parser(
+        "version-info",
+        help="版の版番号・状態・紐づいたビルド番号を key=value の行で表示する",
+    )
+    target = info.add_mutually_exclusive_group(required=True)
+    target.add_argument("--live", action="store_true", help="いま配信中の版")
+    target.add_argument("--version", help="この版番号の版")
+    info.set_defaults(func=cmd_version_info)
 
     args = parser.parse_args()
     BUNDLE_ID = args.bundle_id

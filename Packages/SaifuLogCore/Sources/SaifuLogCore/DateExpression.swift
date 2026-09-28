@@ -4,40 +4,83 @@ import Foundation
 ///
 /// AI には日付の表記を抜き出させるだけにして、日付の計算はここで行う。
 /// 端末内のモデルに日数の差を数えさせると間違えることがあるため。
+///
+/// 何日前かは負の数にもなる（-1 = 明日）。払う予定の家賃のように、少し先の日付で記録することがあるため。
+/// 暦は、渡されたものではなくグレゴリオ暦で数える（タイムゾーンだけ渡されたものを使う）。
+/// 和暦・仏暦の設定でも「2026/9/26」の 2026 を西暦として読むため。
 public enum DateExpression {
-    /// 日付の表記（「今日」「昨日」「一昨日」「おととい」「3日前」「9/26」「9月26日」「2026/9/26」）が
-    /// 何日前か。読めなければ nil。
+    /// 年を省いた月日を、今日から何日先まで未来の日付として読むか。
+    static let futureWindow = 60
+
+    /// 日付の表記（「今日」「昨日」「一昨日」「おととい」「3日前」「9/26」「9-26」「9.26」「9月26日」「26日」
+    /// 「2026/9/26」「25/9/26」「R7/9/26」「2025年9月26日」）が何日前か。読めなければ nil。
     public static func daysAgo(in expression: String, now: Date, calendar: Calendar) -> Int? {
         EntryScan(TextNormalizer.normalize(expression), now: now, calendar: calendar).daysAgo
     }
 
-    /// 年を省いた月日が何日前か。今年のその日がまだ来ていなければ去年のこととみなす。
-    /// 家計簿に書くのは使ったあとの記録なので、未来の日付は考えない。
-    /// 存在しない日付（2/30 など）は nil。
+    /// 年を省いた月日が何日前か。存在しない日付（2/30 など）は nil。
+    ///
+    /// 今日から 60 日先までは未来の日付として読む（年をまたぐなら来年の日付。12/20 に書いた「1/5」は来年の 1/5）。
+    /// それより先の月日は去年のこととみなす（9/28 に書いた「12/31」は去年の 12/31）。
+    /// 家計簿に書くのはおおむね使ったあとの記録だが、払う予定の家賃のように少し先の日付で書くこともあるため。
     public static func daysAgo(month: Int, day: Int, now: Date, calendar: Calendar) -> Int? {
-        let thisYear = calendar.component(.year, from: calendar.startOfDay(for: now))
-        return daysAgo(year: thisYear, month: month, day: day, now: now, calendar: calendar)
-            ?? daysAgo(year: thisYear - 1, month: month, day: day, now: now, calendar: calendar)
+        let calendar = calendar.gregorianForParsing
+        let thisYear = calendar.component(.year, from: now)
+        let candidates = [thisYear + 1, thisYear, thisYear - 1].compactMap {
+            daysAgo(year: $0, month: month, day: day, now: now, calendar: calendar)
+        }
+        // 今日の 60 日先から、1 年前までの 365 日の中に入る年を採る。
+        let window = -futureWindow...(364 - futureWindow)
+        if let days = candidates.first(where: { window.contains($0) }) { return days }
+        // 2/29 のように、その 365 日の中に無い日付は、過去のいちばん近い日にする。
+        return candidates.filter { $0 >= 0 }.min()
     }
 
-    /// 年まで書かれた日付（「2026/9/26」）が何日前か。未来の日付と存在しない日付は nil。
+    /// 日だけ（「26日」）が何日前か。今月のその日として読む（まだ来ていない日でも今月）。
+    /// 今月に無い日（9 月の 31 日）は nil。
+    public static func daysAgo(day: Int, now: Date, calendar: Calendar) -> Int? {
+        let calendar = calendar.gregorianForParsing
+        let today = calendar.dateComponents([.year, .month], from: now)
+        guard let year = today.year, let month = today.month else { return nil }
+        return daysAgo(year: year, month: month, day: day, now: now, calendar: calendar)
+    }
+
+    /// 年まで書かれた日付（「2026/9/26」）が何日前か。未来の日付は負の数。存在しない日付は nil。
     public static func daysAgo(year: Int, month: Int, day: Int, now: Date, calendar: Calendar) -> Int? {
         guard (1...12).contains(month), (1...31).contains(day) else { return nil }
-        let today = calendar.startOfDay(for: now)
+        let calendar = calendar.gregorianForParsing
+        // 正午で組み立てて日数の差を数える。深夜 0 時に夏時間へ切り替わる地域では、その日の 0 時が存在せず、
+        // 0 時で組み立てると 1 日ずれるため。
         // 2/30 を 3/2 に繰り上げて返すことがあるので、組み立て直した年月日が一致するかで確かめる。
-        guard let date = calendar.date(from: DateComponents(year: year, month: month, day: day)),
+        let today = calendar.dateComponents([.year, .month, .day], from: now)
+        guard let date = calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12)),
               calendar.component(.year, from: date) == year,
               calendar.component(.month, from: date) == month,
               calendar.component(.day, from: date) == day,
-              date <= today
+              let todayNoon = calendar.date(
+                  from: DateComponents(year: today.year, month: today.month, day: today.day, hour: 12)
+              )
         else { return nil }
-        return calendar.dateComponents([.day], from: date, to: today).day
+        return calendar.dateComponents([.day], from: date, to: todayNoon).day
     }
 
-    /// 何日前かから日時を作る。今日なら `now` そのもの、過去の日なら同じ時刻のその日。
+    /// 何日前かから日時を作る。今日なら `now` そのもの、ほかの日なら同じ時刻のその日（負の数は未来の日）。
     /// 時刻を残すのは、同じ日の記録を入力した順に並べられるようにするため。
     public static func date(daysAgo: Int, now: Date, calendar: Calendar) -> Date {
-        guard daysAgo > 0 else { return now }
+        guard daysAgo != 0 else { return now }
         return calendar.date(byAdding: .day, value: -daysAgo, to: now) ?? now
+    }
+}
+
+extension Calendar {
+    /// 日付の解析に使う暦。グレゴリオ暦で、タイムゾーンだけ `self` のもの。
+    ///
+    /// 和暦の設定では「2026/9/26」が 2026 年（令和 2026 年）の未来の日になり、仏暦の設定では 1483 年になる。
+    /// 利用者が書く年は西暦なので、暦の設定によらずグレゴリオ暦で数える。
+    var gregorianForParsing: Calendar {
+        guard identifier != .gregorian else { return self }
+        var gregorian = Calendar(identifier: .gregorian)
+        gregorian.timeZone = timeZone
+        return gregorian
     }
 }

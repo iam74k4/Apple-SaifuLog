@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "ja",
   "strings" : {
+    "%@の記録を削除します。この操作は取り消せません。" : {
+      "comment" : "記録の削除の確認の本文。%@ は「ランチ ¥850」のような品目と金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” will be deleted. This can’t be undone."
+          }
+        }
+      }
+    },
     "OK" : {
       "comment" : "アラートを閉じるボタン",
       "localizations" : {
@@ -19,6 +30,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Include the amount as a number, like “ランチ 850”."
+          }
+        }
+      }
+    },
+    "この記録を削除しますか？" : {
+      "comment" : "記録の削除の確認の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this record?"
           }
         }
       }
@@ -57,12 +79,12 @@
       }
     },
     "ランチ 850 のように入力" : {
-      "comment" : "入力欄のプレースホルダ。例の「ランチ 850」は訳さない（解析が日本語の入力を前提にしているため）",
+      "comment" : "入力欄のプレースホルダ。例の「ランチ 850」は訳さない（解析が日本語の入力を前提にしているため）。英訳は短く保つ（長いと既定の文字サイズでも例が「…」で切れる）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Type something like “ランチ 850”"
+            "value" : "e.g. “ランチ 850”"
           }
         }
       }
@@ -111,6 +133,28 @@
         }
       }
     },
+    "保存に失敗しました。もう一度お試しください。" : {
+      "comment" : "取り消し・削除を保存できなかったときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t save the change. Please try again."
+          }
+        }
+      }
+    },
+    "保存に失敗しました。もう一度送ってください。" : {
+      "comment" : "記録を保存できなかったときのアラートの本文。送った文は入力欄に戻っている",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t save the record. Please send it again."
+          }
+        }
+      }
+    },
     "光熱・通信" : {
       "comment" : "カテゴリ",
       "localizations" : {
@@ -118,6 +162,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Utilities & phone"
+          }
+        }
+      }
+    },
+    "削除" : {
+      "comment" : "記録の長押しメニュー・VoiceOver の操作・削除の確認のボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        }
+      }
+    },
+    "削除しました: %@" : {
+      "comment" : "記録を削除した後に VoiceOver で読み上げる内容。%@ は「ランチ ¥850」のような品目と金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleted: %@"
+          }
+        }
+      }
+    },
+    "削除できませんでした" : {
+      "comment" : "記録を削除できなかったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t delete"
+          }
+        }
+      }
+    },
+    "前の記録を表示" : {
+      "comment" : "タイムラインの先頭で、さらに前の記録を読み込むボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show earlier records"
           }
         }
       }
@@ -144,6 +232,17 @@
         }
       }
     },
+    "取り消しました: %@" : {
+      "comment" : "「取り消す」を押した後に VoiceOver で読み上げる内容。%@ は「食費 ¥850」を並べたもの",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undone: %@"
+          }
+        }
+      }
+    },
     "取り消す" : {
       "comment" : "記録の直後に出るバナーのボタン",
       "localizations" : {
@@ -151,6 +250,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Undo"
+          }
+        }
+      }
+    },
+    "取り消せませんでした" : {
+      "comment" : "直前の記録を取り消せなかったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t undo"
           }
         }
       }
@@ -173,6 +283,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Daily goods"
+          }
+        }
+      }
+    },
+    "直前の記録を取り消す" : {
+      "comment" : "入力欄の VoiceOver の操作。記録の直後だけ出る",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo last record"
           }
         }
       }
@@ -210,6 +331,17 @@
         }
       }
     },
+    "記録できませんでした" : {
+      "comment" : "記録を保存できなかったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t record"
+          }
+        }
+      }
+    },
     "読み取り中" : {
       "comment" : "送信後、解析中の送信ボタンの VoiceOver ラベル",
       "localizations" : {
@@ -239,6 +371,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No amount found"
+          }
+        }
+      }
+    },
+    "閉じる" : {
+      "comment" : "「記録しました / 取り消す」のバナーを閉じる VoiceOver の操作",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dismiss"
           }
         }
       }
