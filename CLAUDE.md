@@ -18,6 +18,9 @@
     main で `mode=export` の照合が通るかの確認はまだ。`docs/design.md` §5-4）。
   - **未実装:** カテゴリ別の予算（を出すこと）・レシート・質問・まとめ・設定・プレミアム（StoreKit）・
     iCloud 同期・家族との共有・声で記録・修正の記憶。
+  - 実機での確認の手段: release.yml の手動実行 `mode=testflight` で、develop のビルドを診断画面入りで TestFlight の
+    社内テスト専用に送れるようにした（審査には出ない）。Environment `release` の配備ブランチへの develop の追加
+    （所有者の作業）と、実際に TestFlight で入れての確認はまだ（`docs/release-flow.md` の「TestFlight で実機に入れる（社内テスト）」）。
 - プロダクトの決定事項と未決事項は `docs/design.md` にある。仕様に迷ったらまずそこを見る。
 - README などに、実装していない機能を「できる」と書かない。予定は「予定」と書く。
   逆に、機能を足したら README・`docs/design.md`・`PRIVACY.md` の「予定」も外す。
@@ -33,7 +36,8 @@
 
 **`main` へのマージがリリースの合図になる。** App Store Connect へのアップロードと審査への
 提出が自動で走り、配信が始まるとタグと GitHub Release が自動で作られる（`docs/release-flow.md`）。
-リリースするつもりのない変更を main へ入れない。
+リリースするつもりのない変更を main へ入れない。main へ入れる前に実機で確かめるときは、release.yml を
+develop から `mode=testflight` で手動実行する（TestFlight の社内テスト専用。審査には出ない）。
 
 **develop → main は merge commit でだけマージする**（main の Ruleset は merge しか許さない）。
 squash や rebase で入れると main にだけあるコミットができ、次のリリースから毎回
@@ -87,7 +91,9 @@ docs: add privacy policy
   - `make archive` — Release の .xcarchive を `build/` に作る。`BUILD_NUMBER=…` でビルド番号を上書きできる。
     既定は署名あり。`ARCHIVE_SIGNING=NO` で署名なし（build.yml と `make ci`）、`ARCHIVE_KEYCHAIN=…` で署名に使う
     キーチェーンを指定する（release.yml が、証明書を取り込んだ使い捨てのキーチェーンを渡す）。
-    できたアプリの Info.plist にバージョン・ビルド番号・アイコンが入っているかも確かめる（CI の build でも走る）
+    `INTERNAL_BUILD=YES` で社内テスト用（診断画面入り。release.yml の `mode=testflight` だけが渡す。既定は `NO`）。
+    できたアプリの Info.plist にバージョン・ビルド番号・アイコンが入っているかと、診断画面が `INTERNAL_BUILD` の
+    とおりに入っているか（`NO` なら入っていないか）も確かめる（CI の build でも走る）
   - `make export-ipa` — アーカイブから .ipa を書き出すだけ（送信しない）。署名とエンタイトルメントを表示し、
     エンタイトルメントのファイル（`SaifuLog/SaifuLog.entitlements`）のキーが載っていなければ止まる
     （`RELEASE_ENTITLEMENTS_CHECK=warn` なら警告だけ）。release.yml はアップロードの前に必ずこれを通す。
@@ -96,7 +102,9 @@ docs: add privacy policy
   - `make upload` — `Config/ExportOptions.plist` で App Store Connect へ送る。ビルド番号はアーカイブに
     焼かれた値で、`make upload BUILD_NUMBER=…` では変わらない（違う値を渡すと止まる）。番号を変えるときは
     `make archive BUILD_NUMBER=…` から。認証は App Store Connect API キー
-    （環境変数 `ASC_API_KEY_ID` / `ASC_API_ISSUER_ID` / `ASC_API_KEY_PATH`）
+    （環境変数 `ASC_API_KEY_ID` / `ASC_API_ISSUER_ID` / `ASC_API_KEY_PATH`）。社内テスト用のアーカイブは
+    `INTERNAL_BUILD=YES` で送り、TestFlight の社内テスト専用（`testFlightInternalTestingOnly`）になる
+    （`make export-ipa` も同じ。アーカイブの診断画面の有無と `INTERNAL_BUILD` が合わなければ止まる）
 - 署名のチームは `Config/Base.xcconfig` の `DEVELOPMENT_TEAM`。手元で別のチームを使うときは
   `.gitignore` 済みの `Config/Secrets.xcconfig` で上書きする（Base.xcconfig が `#include?` で読む）。
   追跡しているファイルを書き換えると、うっかりコミットして全員の署名が変わるため。
@@ -127,7 +135,16 @@ docs: add privacy policy
 ### コードの置き場所
 - `SaifuLog/` — アプリ本体。起動と保存先を開く部分・設定のキー（`App/`）、SwiftUI の画面と画面ごとの
   `@Observable` のモデル（`Views/`）、SwiftData のモデルと保存先の作り方（`Models/`）、
-  Foundation Models を使う部分（`AI/`）、`Resources/`（Assets、String Catalog など）。
+  Foundation Models を使う部分（`AI/`）、`Resources/`（Assets、String Catalog など）、
+  実機での確認に使う診断画面（`Diagnostics/`）。
+- 診断画面（`SaifuLog/Diagnostics/`）は、社内テスト用のビルド（Swift の条件 `INTERNAL_DIAGNOSTICS`。
+  `make archive INTERNAL_BUILD=YES`）と DEBUG のビルドにだけ入れる。コードは必ず `#if DEBUG || INTERNAL_DIAGNOSTICS` で
+  囲い（入口のボタンや `HomeView` のシートも）、App Store へ出すビルドに入れない（`make archive` がアプリの中の印
+  `DiagnosticsReport.buildMarker` を探し、入っていれば止まる）。コピーする文に家計の中身（金額・メモ・入力した文・
+  予算の額）や端末の名前を入れない（テストで確かめている）。プライバシーマニフェストで理由の申告が要る API
+  （ファイルの日時・空き容量・起動からの時間など）は使わない（社内テスト用のビルドもアップロードで検査される）。
+  DEBUG のビルド（Xcode の Run の既定）でもホームの帯に診断のボタンが出るので、App Store 用のスクリーンショットは
+  Scheme の Run を Release にして撮る（`docs/release-flow.md` の「一度だけの準備」の 5）。
 - `Packages/SaifuLogCore/` — 純粋なロジック（金額・日付の読み取り、キーワード辞書による解析、
   割り勘や合計・残りの計算など）とそのテスト。**FoundationModels / SwiftData / SwiftUI を入れない。**
   CI の macOS ランナー上で `swift test` を回すため、platforms は `.iOS(.v26), .macOS(.v14)` に保つ。
@@ -140,7 +157,7 @@ docs: add privacy policy
   ホーム画面の表示名は
   `SaifuLog/Resources/InfoPlist.xcstrings` の `CFBundleDisplayName`（ja「サイフログ」/ en「SaifuLog」）。
 - アプリアイコンは `Resources/Assets.xcassets/AppIcon.appiconset/` の 3 枚（1024 × 1024・透過なし）。
-  `AppIcon.png`（ライト: 白地に黒い財布）、`AppIcon-Dark.png`（ダーク）、`AppIcon-Tinted.png`（色付き）。
+  `AppIcon.png`（ライト: 真っ白の地に黒い財布）、`AppIcon-Dark.png`（ダーク: 真っ黒の地に白い財布（ライトの反転））、`AppIcon-Tinted.png`（色付き）。
   元の SVG は `design/icon/`。**AppIcon を空にしない。** 空でもビルドは通るが、App Store Connect が
   アップロードを弾く（`make archive` の検査で止まる）。
 
@@ -183,7 +200,7 @@ docs: add privacy policy
 - 指示文と `@Guide` には具体的な数字や単位の例を書かない。モデルが入力に無くても写して返すため。
 - Apple Intelligence が使えない端末（非対応機種・オフ・モデル準備中）や、生成が失敗したときは、
   キーワード辞書によるルールベース解析に切り替える。**AI が無くても記録できるアプリであること。**
-- 記録の直後に必ず「直す」「取り消す」を出す（いまあるのは「取り消す」）。記録は長押しでいつでも
+- 記録の直後に必ず「直す」「取り消す」を出す。記録は長押しでいつでも
   削除できるようにする（確認つき。VoiceOver の操作からも）。
 
 ### プライバシーと秘密情報
@@ -202,7 +219,8 @@ docs: add privacy policy
 
 ## ドキュメント
 - `docs/design.md` — プロダクトの設計と決定事項（入力と AI、収益化、画面、未決事項）
-- `docs/release-flow.md` — リリースフロー（main マージで App Store Connect へ自動アップロード）
+- `docs/release-flow.md` — リリースフロー（main マージで App Store Connect へ自動アップロード。develop のビルドを
+  TestFlight の社内テストで試す `mode=testflight` も）
 - `PRIVACY.md` — プライバシーポリシー（草案。初回リリースの手順で草案の注記を外し、施行日を入れて
   main へ入れてから審査に出す。`docs/release-flow.md` の「初回リリース（0.1.0）の進め方」）
 - `SECURITY.md` — 脆弱性・プライバシーの問題の非公開の報告窓口

@@ -17,6 +17,12 @@ struct HomeView: View {
     @Environment(\.accessibilitySwitchControlEnabled) private var switchControlEnabled
 
     @State private var model: HomeModel
+    #if DEBUG || INTERNAL_DIAGNOSTICS
+    /// 診断画面を出しているか。社内テスト用のビルドと DEBUG だけの画面なので、App Store へ出すビルドにも入る
+    /// `HomeModel` には持たせず、ここに置く。
+    @State private var showsDiagnostics = false
+    @Environment(\.modelContext) private var modelContext
+    #endif
 
     init(model: HomeModel) {
         _model = State(initialValue: model)
@@ -55,6 +61,13 @@ struct HomeView: View {
                 .sheet(item: $model.editing) { editing in
                     EditEntrySheet(model: editing)
                 }
+                #if DEBUG || INTERNAL_DIAGNOSTICS
+                .sheet(isPresented: $showsDiagnostics) {
+                    DiagnosticsView(model: DiagnosticsModel(context: modelContext))
+                }
+                // 帯の右上に診断のボタンを出させる（渡さなければ出ない）。
+                .environment(\.openDiagnostics, OpenDiagnosticsAction { showsDiagnostics = true })
+                #endif
                 .confirmationDialog(
                     "この記録を削除しますか？",
                     isPresented: showsDeletionConfirmation,

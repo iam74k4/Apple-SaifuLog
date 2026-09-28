@@ -15,6 +15,10 @@ struct SummaryHeader: View {
     let editBudget: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    #if DEBUG || INTERNAL_DIAGNOSTICS
+    /// 診断画面を出す（社内テスト用のビルドと DEBUG だけ。ホームが環境で渡す）。
+    @Environment(\.openDiagnostics) private var openDiagnostics
+    #endif
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -63,20 +67,48 @@ struct SummaryHeader: View {
                 HStack(spacing: 0) {
                     titleText
                     Spacer(minLength: 8)
-                    budgetButton
+                    trailingButtons
                 }
                 VStack(alignment: .leading, spacing: 0) {
                     titleText
-                    budgetButton
+                    trailingButtons
                 }
             }
         } else {
             HStack(spacing: 0) {
                 titleText
                 Spacer(minLength: 8)
-                budgetButton
+                trailingButtons
             }
         }
+    }
+
+    /// 見出しの行の右のボタン。ふだんは予算のボタンだけで、社内テスト用のビルドでは診断のボタンが前に付く。
+    private var trailingButtons: some View {
+        HStack(spacing: 0) {
+            diagnosticsButton
+            budgetButton
+        }
+    }
+
+    /// 診断画面を開く小さなボタン（社内テスト用のビルドと DEBUG だけ）。予算のボタンより目立たせない。
+    @ViewBuilder
+    private var diagnosticsButton: some View {
+        #if DEBUG || INTERNAL_DIAGNOSTICS
+        if let openDiagnostics {
+            Button {
+                openDiagnostics()
+            } label: {
+                Image(systemName: "stethoscope")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.inkSecondary)
+                    // 小さく見せても、押せる範囲は 44pt 四方以上にする。
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(.rect)
+            }
+            .accessibilityLabel("診断")
+        }
+        #endif
     }
 
     private var titleText: some View {

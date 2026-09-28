@@ -9,6 +9,11 @@ name: release
 #             通るのを確かめるまでは警告だけ）
 #   submit  … 処理の終了を待ち、バージョンにビルドを紐づけ、審査に出す（Linux）
 #
+# 手動実行の mode=testflight は、develop（Environment の配備ブランチが許すブランチ）のビルドを実機で確かめるためのもの。
+# 診断画面入り（make archive INTERNAL_BUILD=YES）でアーカイブし、TestFlight の社内テスト専用
+# （testFlightInternalTestingOnly）として送るだけで、submit は走らない。社内テスト専用のビルドは、Apple が審査にも
+# 外部テストにも出させない。
+#
 # 配信が始まったあとのタグ打ちは tag-release.yml が引き取る。
 # 必要な Secrets と一度だけの準備は docs/release-flow.md にまとめてある。未設定のまま
 # main へマージすると、API キーの書き出しか証明書の取り込みの段階で落ちる（プロダクトには影響しない）。
@@ -16,14 +21,16 @@ name: release
 on:
   push:
     branches: [main]
-  # Secrets を直した後の再実行や、疎通確認のために手でも回せるようにする。
-  # Environment（release）の配備ブランチを main に限っているので、main からしか走らない。
+  # Secrets を直した後の再実行や、疎通確認、develop のビルドを TestFlight で試すために手でも回せるようにする。
+  # 走らせられるのは、Environment（release）の配備ブランチが許すブランチ（main と develop）だけ。そのうえで、
+  # App Store へ出せるビルドを送る mode（submit / upload）は main からだけにする（upload ジョブの「出す版かどうかを判定」
+  # で止め、submit ジョブも if で main に限る）。develop から送れるのは、審査に出せない社内テスト専用のビルドだけ。
   workflow_dispatch:
     inputs:
       mode:
-        description: "どこまでやるか（submit: 審査に出すまで / upload: アップロードまで / export: 書き出すだけで送信しない）"
+        description: "どこまでやるか（submit: 審査に出すまで / upload: アップロードまで / export: 書き出すだけで送信しない / testflight: 診断画面入りで TestFlight の社内テストへ送るだけ。develop から選ぶ）"
         type: choice
-        options: [submit, upload, export]
+        options: [submit, upload, export, testflight]
         default: submit
 
 # アップロードを途中で打ち切ると App Store Connect に処理中のビルドが残るため、
@@ -49,12 +56,17 @@ jobs:
     timeout-minutes: 60
     # App Store Connect の API キーは Environment（release）の Secrets に置く。
     # リポジトリ Secrets だと、どのブランチのどのワークフローからも読めてしまう。
-    # Environment 側で配備ブランチを main に限れば、提出に使える鍵は main を通った
-    # コードからしか触れない。
+    # Environment 側で配備ブランチを main と develop に限り、鍵に触れるのを保護ルール（Ruleset で直接 push できず、
+    # PR と build が必須）の掛かったブランチのコードだけにする。審査に出すのを main に限っているのは Environment ではなく
+    # このファイルの条件（下の「出す版かどうかを判定」と submit ジョブの if）で、その条件を develop で外されないことは
+    # develop の Ruleset に頼っている（docs/release-flow.md の「一度だけの準備」の 3）。
     environment: release
     env:
       # push のときは inputs が空なので、ふだんのリリース（submit）として扱う。
       MODE: ${{ inputs.mode || 'submit' }}
+      # 診断画面を入れるか（release.mk の INTERNAL_BUILD）。mode=testflight のときだけ YES にする。main への push と
+      # ほかの mode は必ず NO。release.mk がアーカイブの中身と照らし合わせ、食い違えばアーカイブとアップロードの前で止まる。
+      INTERNAL_BUILD: ${{ inputs.mode == 'testflight' && 'YES' || 'NO' }}
       # 以下 3 つは build.yml と同じ値にする。CI で通ったものと提出物を同じ道具で作るため。
       DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
       XCODEGEN_VERSION: "2.46.0"
@@ -78,10 +90,30 @@ jobs:
           # バージョンの読み方は scripts/check-version.sh の 1 か所に寄せている。
           VERSION=$(./scripts/check-version.sh --print)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # App Store へ出せるビルド（審査に出せる形）を送るのは main からだけ。Environment（release）の配備ブランチに
+          # develop を足したのは mode=testflight のためで、develop のビルドを審査に出せる形で送らせないため。
+          case "$MODE" in
+            submit | upload)
+              if [ "$GITHUB_REF" != refs/heads/main ]; then
+                echo "::error::mode=${MODE} は main からだけ走らせられます（いま: ${GITHUB_REF_NAME}）。develop のビルドを実機で確かめるなら mode=testflight を選んでください。"
+                exit 1
+              fi ;;
+          esac
           if [ "$MODE" = export ]; then
             # 書き出すだけなら App Store Connect に何も残らないので、配信済みの版でも走らせてよい。
             echo "GO=true" >> "$GITHUB_ENV"
             echo "v$VERSION を書き出すだけにします（送信しません）。"
+          elif [ "$MODE" = testflight ]; then
+            # testflight はタグがあってもスキップしない（二重に出す心配が無い。社内テスト専用のビルドは審査に出せず、
+            # 同じ版のビルドが TestFlight に増えるだけで、番号は実行ごとに増える）。ただし、タグがある版は配信済みで、
+            # Apple はその版の新しいビルドを TestFlight にも受け付けない（承認された版は閉じる）。20 分かけて
+            # アーカイブしてからアップロードで弾かれるより、ここで理由と直し方を出して止める。
+            if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+              echo "::error::v${VERSION} は配信済み（タグあり）で、Apple はこの版の新しいビルドを TestFlight にも受け付けません。作業ブランチで MARKETING_VERSION（Config/Base.xcconfig）と CHANGELOG.md の先頭の見出しを次の版に上げて develop へ入れてから、もう一度走らせてください。"
+              exit 1
+            fi
+            echo "GO=true" >> "$GITHUB_ENV"
+            echo "v$VERSION を TestFlight の社内テスト専用で送ります（診断画面入り。審査には出しません。ブランチ: ${GITHUB_REF_NAME}）。"
           elif git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
             # タグがある = 配信済みの版。バージョンを上げずに main へマージした
             # （ドキュメント修正など）だけなので、アップロードしない。
@@ -161,7 +193,12 @@ jobs:
           CODE=$?
           set -e
           echo "state=$STATE"
-          if [ "$CODE" -eq 2 ]; then
+          if [ "$CODE" -eq 2 ] && [ "$MODE" = testflight ]; then
+            # 承認済み以降の版は、TestFlight の社内テスト用のビルドも受け付けない。頼まれて送る実行なので、
+            # 黙ってスキップせずに止める（届かないビルドを待たせない）。
+            echo "::error::v${VERSION} は承認済み（${STATE}）で、Apple はこの版の新しいビルドを TestFlight にも受け付けません。作業ブランチで MARKETING_VERSION と CHANGELOG.md の先頭の見出しを次の版に上げて develop へ入れてから、もう一度走らせてください。"
+            exit 1
+          elif [ "$CODE" -eq 2 ]; then
             echo "GO=false" >> "$GITHUB_ENV"
             echo "::notice::v${VERSION} は承認済み（${STATE}）で、タグが付くのを待っています。この版にはもうビルドを送れないので、アップロードをスキップします（タグは tag-release が付けます）。"
           elif [ "$CODE" -ne 0 ]; then
@@ -296,6 +333,13 @@ jobs:
       # その実行のコミットにタグを打つ。式を変えるときは tag-release.yml も一緒に直す。
       # 配信待ちの版があるうちに BUILD_NUMBER_OFFSET を変えると逆算がずれる（tag-release は
       # 版が合わずに止まるので、手動実行の sha でコミットを指定する）。
+      #
+      # mode=testflight もこの式で番号を付ける（TestFlight 用に別のワークフローを作らない）。社内テスト用のビルドも、
+      # App Store へ出すビルドと同じ版（MARKETING_VERSION）の中で番号の重複を許されない。別のワークフローにすると
+      # run_number が 1 から別々に数えられ、同じ版の中で番号がぶつかる。同じ release.yml の実行番号を分け合えば、
+      # mode にかかわらず、番号は実行ごとに必ず増える（testflight の実行の後の main の実行は、それより大きい番号になる）。
+      # testflight の実行が tag-release.yml の逆算に紛れることはない。逆算するのは App Store で配信中の版に紐づいた
+      # ビルドの番号だけで、社内テスト専用のビルドは版に紐づけられない（審査に出せない）ため。
       - name: アーカイブを作る
         id: archive
         if: env.GO == 'true'
@@ -321,7 +365,9 @@ jobs:
             echo "::error::署名のキーチェーンがありません（「署名の証明書を一時キーチェーンに取り込む」が先に走っていない）。"
             exit 1
           fi
-          make archive ARCHIVE_SIGNING=YES ARCHIVE_KEYCHAIN="$SIGNING_KEYCHAIN_PATH" BUILD_NUMBER="$BUILD_NUMBER"
+          # INTERNAL_BUILD は mode=testflight のときだけ YES（job の env）。release.mk が、できたアプリに診断画面が
+          # そのとおりに入っているか（入っていないか）を確かめる。
+          make archive ARCHIVE_SIGNING=YES ARCHIVE_KEYCHAIN="$SIGNING_KEYCHAIN_PATH" BUILD_NUMBER="$BUILD_NUMBER" INTERNAL_BUILD="$INTERNAL_BUILD"
 
           # 後続（asc.py wait-build）へは、計算した値ではなく、できあがったアーカイブの
           # 値を渡す。二か所で同じ式を持つと、片方だけずれたときに処理待ちが空振りする。
@@ -343,10 +389,11 @@ jobs:
         env:
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
-        run: make export-ipa RELEASE_ENTITLEMENTS_CHECK=warn
+        run: make export-ipa RELEASE_ENTITLEMENTS_CHECK=warn INTERNAL_BUILD="$INTERNAL_BUILD"
 
       # exportArchive の destination=upload（Config/ExportOptions.plist）で、書き出しと
       # 送信を 1 回で行う。altool は非推奨が続いているので使わない。
+      # mode=testflight（INTERNAL_BUILD=YES）は、release.mk が testFlightInternalTestingOnly を true にした写しで送る。
       - name: App Store Connect へアップロード
         id: upload
         if: env.GO == 'true' && env.MODE != 'export'
@@ -354,10 +401,21 @@ jobs:
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
           BUILD: ${{ steps.archive.outputs.build }}
+          VERSION: ${{ steps.plan.outputs.version }}
         run: |
-          make upload
+          make upload INTERNAL_BUILD="$INTERNAL_BUILD"
           echo "uploaded=true" >> "$GITHUB_OUTPUT"
           echo "アップロード完了（ビルド ${BUILD}）。"
+          if [ "$MODE" = testflight ]; then
+            echo "::notice::v${VERSION}（ビルド ${BUILD}）を TestFlight の社内テスト専用で送りました。App Store Connect の処理（10 分〜1 時間）が終わると、iPhone の TestFlight アプリから入れられます（docs/release-flow.md の「TestFlight で実機に入れる（社内テスト）」）。"
+            {
+              echo "### TestFlight（社内テスト専用）"
+              echo ""
+              echo "- 版 ${VERSION}、ビルド ${BUILD}（診断画面入り。ブランチ ${GITHUB_REF_NAME}）"
+              echo "- 審査には出していません（社内テスト専用のビルドは審査にも外部テストにも出せません）"
+              echo "- App Store Connect の処理が終わると、TestFlight アプリに現れます"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       # 疎通確認用。送信せずに .ipa を書き出し、署名とエンタイトルメントをログに出す。
       # こちらはエンタイトルメントの照合を止める扱い（既定の error）のままにする。署名ありのアーカイブで
@@ -369,7 +427,7 @@ jobs:
         env:
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
-        run: make export-ipa
+        run: make export-ipa INTERNAL_BUILD="$INTERNAL_BUILD"
 
       # GitHub のランナーはジョブごとに捨てられるが、鍵を置きっぱなしにしない習慣として消す
       # （セルフホストに移したときにも、そのまま安全なように）。成否や取り消しにかかわらず走らせる（always()）。
@@ -392,14 +450,19 @@ jobs:
   # （macOS ランナーの枠を長く塞がない）。
   submit:
     needs: upload
-    # 審査に出すのは次のどちらか。
+    # 審査に出すのは、main の実行で次のどちらかのとき。
     #   - main への push（ふだんのリリース）。リポジトリ変数 ASC_AUTO_SUBMIT が 'false' なら出さない
     #   - 手動実行で mode=submit を選んだとき。明示的な指示なので ASC_AUTO_SUBMIT は見ない
     #     （ASC_AUTO_SUBMIT=false で上げた初回のビルドを確かめたあと、手で出すため）
+    # main 以外（develop など）の実行からは審査に出さない（github.ref で明示する）。Environment（release）の配備
+    # ブランチに develop を足したので、Environment の設定だけでは main に絞れなくなったため。この条件は走らせる
+    # ブランチ側のこのファイルにあるので、develop で外されないことは develop の Ruleset に頼っている。mode=testflight は
+    # 下の条件のどれにも当たらず、このジョブは走らない（社内テスト専用のビルドは、そもそも審査に出せない）。
     # ここ（job の if）は Environment を解決する前に評価されるので、vars はリポジトリの
     # Variables しか読めない。ASC_AUTO_SUBMIT を Environment 側に置くと効かない。
     if: >-
       needs.upload.outputs.uploaded == 'true' &&
+      github.ref == 'refs/heads/main' &&
       ((github.event_name == 'push' && vars.ASC_AUTO_SUBMIT != 'false') ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'submit'))
     runs-on: ubuntu-24.04

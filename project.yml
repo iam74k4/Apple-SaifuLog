@@ -70,6 +70,15 @@ targets:
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES
         SWIFT_EMIT_LOC_STRINGS: YES
         ENABLE_PREVIEWS: YES
+        # 社内テスト用のビルド（TestFlight の社内テスト専用。release.yml の mode=testflight）だけ YES にする。
+        # make archive INTERNAL_BUILD=YES がコマンドラインで上書きする（release.mk）。YES のときだけ Swift の条件
+        # INTERNAL_DIAGNOSTICS が付き、診断画面（SaifuLog/Diagnostics）が入る（DEBUG のビルドにも入る）。
+        # App Store へ出すビルドに入っていないことは、release.mk がアーカイブの中身で確かめる。
+        # 条件をここ（アプリのターゲット）で組み立て、コマンドラインには SAIFULOG_INTERNAL_BUILD だけを渡すのは、
+        # SWIFT_ACTIVE_COMPILATION_CONDITIONS をコマンドラインで渡すと、コアのパッケージを含むすべてのターゲットに掛かるため。
+        SAIFULOG_INTERNAL_BUILD: NO
+        SAIFULOG_INTERNAL_CONDITIONS_YES: INTERNAL_DIAGNOSTICS
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) $(SAIFULOG_INTERNAL_CONDITIONS_$(SAIFULOG_INTERNAL_BUILD))
 
   # アプリ側（SaifuLog/）のテスト。SwiftData の保存と読み込みの条件、保存の失敗の扱いなど、
   # コアに置けない（SwiftData に依存する）部分を確かめる。シミュレータで動かすので make test（swift test）とは
