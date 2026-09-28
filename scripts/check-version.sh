@@ -84,7 +84,7 @@ version=$defs
 # App Store は「ピリオドで区切った 3 つまでの整数」しか受け付けない。
 # $(VAR) の参照などが入っていると、ここで読めてもアップロードで弾かれる。
 if ! printf '%s\n' "$version" | grep -Eq '^[0-9]+(\.[0-9]+){0,2}$'; then
-  err "MARKETING_VERSION の値「$version」は X.Y.Z の形ではありません。"
+  err "MARKETING_VERSION の値「${version}」は X.Y.Z の形ではありません。"
   exit 1
 fi
 
@@ -109,7 +109,7 @@ if [ -z "$latest" ]; then
   exit 1
 fi
 if [ "$version" != "$latest" ]; then
-  err "バージョンが食い違っています（MARKETING_VERSION=$version / CHANGELOG=$latest）。Config/Base.xcconfig か CHANGELOG.md の先頭の見出しを合わせてください。"
+  err "バージョンが食い違っています（MARKETING_VERSION=$version / CHANGELOG=${latest}）。Config/Base.xcconfig か CHANGELOG.md の先頭の見出しを合わせてください。"
   exit 1
 fi
 

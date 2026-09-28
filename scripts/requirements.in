@@ -1,0 +1,13 @@
+# scripts/asc.py の依存。CI（release.yml / tag-release.yml）は、ここから作った
+# requirements.txt を pip install --require-hashes で入れる。
+#
+# requirements.txt は推移依存（cryptography、cffi など）まで版とハッシュで固定した生成物で、
+# 手で書き換えない。ここを直したら、使い捨ての venv に pip-tools を入れて作り直す。
+#
+#   d=$(mktemp -d) && python3 -m venv "$d" && "$d/bin/pip" install pip-tools
+#   "$d/bin/pip-compile" --generate-hashes --strip-extras scripts/requirements.in
+#
+# ハッシュで固定するのは、Admin 権限の App Store Connect の鍵を持つジョブで、PyPI の
+# その日の最新をそのまま実行しないため。版上げは Dependabot（.github/dependabot.yml）が
+# requirements.txt ごと PR にする。
+pyjwt[crypto]>=2.8,<3

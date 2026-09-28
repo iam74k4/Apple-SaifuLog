@@ -2,14 +2,33 @@ name: tag-release
 
 # 配信が始まった版に、タグと GitHub Release で印を付ける。
 #
-# 定期的に App Store Connect を見て、main のバージョンが配信中（READY_FOR_SALE /
-# READY_FOR_DISTRIBUTION）になっていて、まだタグが無ければ打つ。審査の所要時間は
-# 読めないので、「終わったら人が実行する」ではなく「終わったのを見つけたら勝手に打つ」形にする。
+# 定期的に App Store Connect を見て、配信中（READY_FOR_SALE / READY_FOR_DISTRIBUTION）の版に
+# まだタグが無ければ打つ。審査の所要時間は読めないので、「終わったら人が実行する」ではなく
+# 「終わったのを見つけたら勝手に打つ」形にする。
 # タグはあるのに GitHub Release が無い（前回の実行が途中で落ちた）ときは、Release だけを作る。
+#
+# 見るのは main のバージョンではなく、App Store Connect で配信中の版。前の版の審査中に
+# 版を上げて main へマージしても、前の版が配信されればその版に印が付く（main のバージョンだけを
+# 見ていると、前の版のタグと Release がいつまでも作られない）。
+#
+# タグは main の HEAD ではなく、配信されたビルドを作ったコミットに打つ。審査中に版を上げずに
+# main へ入れた変更（ドキュメントの修正など）は、配信されたビルドには入っていないため。
+# コミットは、配信中の版に紐づくビルド番号から release.yml の実行を逆算して求める
+# （ビルド番号 = BUILD_NUMBER_OFFSET + 実行番号 × 100 + 再実行の回数。release.yml の
+# 「アーカイブを作る」）。逆算できないとき（手元から送ったビルド、BUILD_NUMBER_OFFSET を
+# 変えた後など）は止まるので、手動実行の sha でコミットを指定する。
 #
 # アップロードの時点でタグを打たないのは、リジェクトされた場合に「タグはあるのに
 # 世に出ていない」版を残さないため。release.yml はタグの有無で「配信済みか」を
 # 判定しているので、先に打つとリジェクト後の出し直しもスキップされてしまう。
+#
+# ジョブを 2 つに分けている。
+#   check … App Store Connect の鍵（Environment release）で配信状況を調べ、打つ版とコミットを
+#           決める。書き込みの権限は持たない
+#   tag   … タグと GitHub Release を作る。contents: write を持つ代わりに、鍵も Environment も
+#           持たず、pip も実行しない
+# 鍵と書き込みの権限を同じジョブに置くと、そのジョブで動く依存の 1 つが乗っ取られただけで、
+# Admin 権限の鍵とリポジトリへの書き込みの両方を一度に取られるため。
 #
 # 注意: cron はこのリポジトリの既定ブランチ（main）にあるファイルで動く。
 # このワークフローを直したら main に入るまで反映されない（develop へマージ
@@ -23,23 +42,27 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: "App Store の状態を見ずにタグを打つ"
+        description: "App Store の配信状況を見ずに、main のバージョンのタグを打つ"
         type: boolean
         default: false
+      sha:
+        description: "タグを打つコミット（空なら、配信されたビルドのビルド番号から release.yml の実行を逆算して決める）"
+        type: string
+        default: ""
 
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
 
-permissions:
-  contents: write
+# 既定では何も許さず、ジョブごとに要るものだけを足す。
+permissions: {}
 
 env:
   ASC_BUNDLE_ID: com.iam74k4.SaifuLog
 
 jobs:
-  tag:
-    # Xcode は要らない（API を叩いてタグを打つだけ）。版は固定して、イメージの更新で
+  check:
+    # Xcode は要らない（API を叩くだけ）。版は固定して、イメージの更新で
     # 挙動が変わらないようにする。
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -50,17 +73,29 @@ jobs:
     # 通知だけが溜まる）。鍵の保護は Required reviewers ではなく、配備ブランチを
     # main に限る設定で行う。
     environment: release
+    permissions:
+      # checkout、タグと GitHub Release の有無の確認
+      contents: read
+      # release.yml の実行を引く（ビルド番号 → コミット）
+      actions: read
+    outputs:
+      todo: ${{ steps.plan.outputs.todo }}
+      version: ${{ steps.plan.outputs.version }}
+      tagged: ${{ steps.plan.outputs.tagged }}
+      sha: ${{ steps.plan.outputs.sha }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # 見るのは常に main の中身。手動実行を別のブランチから掛けても
-          # 判定がぶれないよう明示する。
+          # 判定がぶれないよう明示する。タグを打つコミットが main の履歴にあるかも、ここで確かめる。
           ref: main
           fetch-depth: 0
+          # このジョブは push しない。トークンを .git/config に残さない。
+          persist-credentials: false
 
-      - name: 打つべきタグと GitHub Release があるか調べる
-        id: check
+      - name: main のバージョンが済んでいるか調べる
+        id: main
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -72,79 +107,200 @@ jobs:
           # 「済み」はタグではなく GitHub Release の有無で決める。タグの push の後で
           # gh release create が落ちる（API の一時的なエラーなど）と、タグだけが残る。タグの有無で
           # 決めると、以降の実行がすべて「済み」で終わり、Release がいつまでも作られない。
+          # main の版が済んでいれば、それより前の版も済んでいる（配信は版の順にしか進まない）。
           if gh release view "v$VERSION" >/dev/null 2>&1; then
-            echo "todo=false" >> "$GITHUB_OUTPUT"
-            echo "v$VERSION のタグと GitHub Release は既にあります。何もしません。"
+            echo "done=true" >> "$GITHUB_OUTPUT"
+            echo "v${VERSION} のタグと GitHub Release は既にあります。何もしません。"
           elif git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
             # タグは配信を確かめてから打っている（または force で人が打たせた）ので、
             # 配信状況は見直さずに Release だけを作る。
-            echo "todo=true" >> "$GITHUB_OUTPUT"
+            echo "done=false" >> "$GITHUB_OUTPUT"
             echo "tagged=true" >> "$GITHUB_OUTPUT"
-            echo "v$VERSION のタグはありますが、GitHub Release がありません。Release だけを作ります。"
+            echo "v${VERSION} のタグはありますが、GitHub Release がありません。Release だけを作ります。"
           else
-            echo "todo=true" >> "$GITHUB_OUTPUT"
+            echo "done=false" >> "$GITHUB_OUTPUT"
             echo "tagged=false" >> "$GITHUB_OUTPUT"
-            echo "v$VERSION のタグがまだありません。配信状況を確認します。"
+            echo "v${VERSION} のタグがまだありません。配信状況を確認します。"
           fi
 
-      - uses: actions/setup-python@v7
-        if: steps.check.outputs.todo == 'true' && steps.check.outputs.tagged != 'true' && !inputs.force
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        if: steps.main.outputs.done != 'true' && steps.main.outputs.tagged != 'true'
         with:
           python-version: "3.12"
 
-      - name: 配信が始まっているか確認する
-        id: live
-        if: steps.check.outputs.todo == 'true' && steps.check.outputs.tagged != 'true' && !inputs.force
+      # 版とハッシュで固定した依存だけを入れる（scripts/requirements.in）。Admin 権限の鍵を
+      # 持つジョブで、PyPI のその日の最新をそのまま実行しないため。ソースからのビルド
+      # （setup.py などを実行する）も許さない。
+      - name: 依存を入れる
+        if: steps.main.outputs.done != 'true' && steps.main.outputs.tagged != 'true'
+        run: |
+          python3 -m pip install --quiet --require-hashes --only-binary=:all: -r scripts/requirements.txt
+
+      # 前のステップの出力や入力は、run の中に式で直接埋め込まず env を通して渡す。
+      # 埋め込むとシェルの文として解釈され、値によってはコマンドとして実行されうるため。
+      - name: 打つ版とコミットを決める
+        id: plan
+        if: steps.main.outputs.done != 'true'
         env:
+          GH_TOKEN: ${{ github.token }}
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
           ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
-          VERSION: ${{ steps.check.outputs.version }}
+          MAIN_VERSION: ${{ steps.main.outputs.version }}
+          MAIN_TAGGED: ${{ steps.main.outputs.tagged }}
+          FORCE: ${{ inputs.force || false }}
+          INPUT_SHA: ${{ inputs.sha || '' }}
+          BUILD_NUMBER_OFFSET: ${{ vars.BUILD_NUMBER_OFFSET || '0' }}
         run: |
-          pip install --quiet "pyjwt[crypto]>=2.8,<3"
-          # 配信前なら終了コード 2。App Store Connect に版がまだ無い（提出前。main へのマージ直後や、
-          # 初回に ASC_AUTO_SUBMIT=false で手で提出するまで）ときも 2 になる。
-          # 審査待ちや提出待ちは失敗ではないので、ここでは落とさない。
-          set +e
-          STATE=$(python3 scripts/asc.py state --version "$VERSION" --require-live)
-          CODE=$?
-          set -e
-          echo "state=$STATE"
-          if [ "$CODE" -eq 0 ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          elif [ "$CODE" -eq 2 ]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "まだ配信前です。次の実行でまた見ます。"
-          else
-            exit "$CODE"
+          set -o pipefail
+          out() { echo "$1" >> "$GITHUB_OUTPUT"; }
+          fail() { echo "::error::$1"; exit 1; }
+          has_release() { gh release view "v$1" >/dev/null 2>&1; }
+          has_tag() { git rev-parse -q --verify "refs/tags/v$1" >/dev/null; }
+          field() { printf '%s\n' "$INFO" | sed -n "s/^$1=//p"; }
+
+          if [ "$MAIN_TAGGED" = true ]; then
+            out todo=true; out tagged=true; out version="$MAIN_VERSION"
+            exit 0
           fi
 
+          INFO=
+          if [ "$FORCE" = true ]; then
+            VERSION=$MAIN_VERSION
+            echo "force: 配信状況を見ずに v${VERSION} のタグを打ちます。"
+            if [ -z "$INPUT_SHA" ]; then
+              # コミットはやはり、その版に紐づいたビルドから逆算する。
+              set +e
+              INFO=$(python3 scripts/asc.py version-info --version "$VERSION")
+              CODE=$?
+              set -e
+              [ "$CODE" -eq 0 ] || fail "v${VERSION} に紐づいたビルドを App Store Connect から取れませんでした。手動実行の sha でタグを打つコミットを指定してください。"
+            fi
+          else
+            # 配信中の版が無ければ終了コード 2。初回の配信前（提出前・審査待ちを含む）は
+            # 失敗ではないので、ここでは落とさない。
+            set +e
+            INFO=$(python3 scripts/asc.py version-info --live)
+            CODE=$?
+            set -e
+            if [ "$CODE" -eq 2 ]; then
+              out todo=false
+              echo "配信中の版はまだありません。次の実行でまた見ます。"
+              exit 0
+            fi
+            [ "$CODE" -eq 0 ] || exit "$CODE"
+            VERSION=$(field version)
+            echo "App Store Connect で配信中: v${VERSION}（$(field state)）"
+            if [ "$VERSION" != "$MAIN_VERSION" ]; then
+              echo "main の v${MAIN_VERSION} はまだ配信前です。配信中の v${VERSION} に印が付いているかを見ます。"
+            fi
+            if has_release "$VERSION"; then
+              out todo=false
+              echo "v${VERSION} のタグと GitHub Release は既にあります。何もしません。"
+              exit 0
+            fi
+            if has_tag "$VERSION"; then
+              out todo=true; out tagged=true; out version="$VERSION"
+              echo "v${VERSION} のタグはありますが、GitHub Release がありません。Release だけを作ります。"
+              exit 0
+            fi
+          fi
+
+          if [ -n "$INPUT_SHA" ]; then
+            # 「-」で始まる値などを git のオプションとして読ませないよう、形を確かめてから渡す。
+            printf '%s\n' "$INPUT_SHA" | grep -Eq '^[0-9a-fA-F]{7,40}$' || fail "sha「${INPUT_SHA}」はコミットの SHA（16 進 7〜40 桁）にしてください。"
+            SHA=$(git rev-parse --verify -q "${INPUT_SHA}^{commit}") || fail "コミット ${INPUT_SHA} が見つかりません。"
+            echo "指定されたコミット ${SHA} に打ちます。"
+          else
+            BUILD=$(field build)
+            case "$BUILD" in
+              '') fail "v${VERSION} の版にビルドが紐づいていません。手動実行の sha でタグを打つコミットを指定してください。" ;;
+              *[!0-9]* | 0*) fail "ビルド番号 ${BUILD} は release.yml が付ける形（先頭が 0 でない整数）ではありません（手元から送ったビルドなど）。手動実行の sha でタグを打つコミットを指定してください。" ;;
+            esac
+            case "$BUILD_NUMBER_OFFSET" in
+              '' | *[!0-9]* | 0?*) fail "リポジトリ変数 BUILD_NUMBER_OFFSET は 0 以上の整数（先頭に 0 を付けない）にしてください（いま: ${BUILD_NUMBER_OFFSET}）。" ;;
+            esac
+            # release.yml の「BUILD_NUMBER_OFFSET + 実行番号 × 100 + 再実行の回数」を逆にたどる。
+            N=$(( BUILD - BUILD_NUMBER_OFFSET ))
+            RUN=$(( N / 100 ))
+            ATTEMPT=$(( N % 100 ))
+            if [ "$N" -le 0 ] || [ "$RUN" -lt 1 ] || [ "$ATTEMPT" -lt 1 ]; then
+              fail "ビルド番号 ${BUILD}（BUILD_NUMBER_OFFSET=${BUILD_NUMBER_OFFSET}）から release.yml の実行を逆算できません。手動実行の sha でタグを打つコミットを指定してください。"
+            fi
+            SHAS=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?per_page=100" \
+              --jq ".workflow_runs[] | select(.run_number == $RUN) | .head_sha")
+            SHA=$(printf '%s\n' "$SHAS" | sed -n 1p)
+            [ -n "$SHA" ] || fail "ビルド番号 ${BUILD} に当たる release.yml の実行 #${RUN} が見つかりません。手動実行の sha でタグを打つコミットを指定してください。"
+            echo "ビルド ${BUILD} は release.yml の実行 #${RUN}（${ATTEMPT} 回目）のもの。コミット ${SHA} に打ちます。"
+          fi
+
+          # 打つ前に確かめる。main の履歴にあること（配信されるのは main から作ったビルドだけ）と、
+          # そのコミットの版がタグの版と同じこと。逆算がずれていれば（BUILD_NUMBER_OFFSET を
+          # 変えた後など）、たいていここで版が合わずに止まる。
+          printf '%s\n' "$SHA" | grep -Eq '^[0-9a-f]{40}$' || fail "コミット「${SHA}」の形が SHA ではありません。"
+          git merge-base --is-ancestor "$SHA" HEAD || fail "コミット ${SHA} は main の履歴にありません。"
+          git show "$SHA:Config/Base.xcconfig" > "$RUNNER_TEMP/Base.xcconfig"
+          GOT=$(./scripts/check-version.sh --print --xcconfig "$RUNNER_TEMP/Base.xcconfig")
+          if [ "$GOT" != "$VERSION" ]; then
+            fail "コミット ${SHA} の版は ${GOT} で、v${VERSION} と合いません。BUILD_NUMBER_OFFSET を変えた後の実行、手元から送ったビルド、App Store Connect の版番号を MARKETING_VERSION に揃えずに提出した、のどれかが考えられます。確かめたうえで、手動実行の sha でタグを打つコミットを指定してください。"
+          fi
+
+          out todo=true; out tagged=false; out version="$VERSION"; out sha="$SHA"
+
+  tag:
+    needs: check
+    if: needs.check.outputs.todo == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # タグの push と GitHub Release の作成だけに使う。App Store Connect の鍵（Environment）は
+    # 持たせず、外から取ってきたものも実行しない。
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
       - name: タグと GitHub Release を作る
-        if: >-
-          steps.check.outputs.todo == 'true' &&
-          (inputs.force || steps.check.outputs.tagged == 'true' || steps.live.outputs.ready == 'true')
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.check.outputs.version }}
+          VERSION: ${{ needs.check.outputs.version }}
+          SHA: ${{ needs.check.outputs.sha }}
         run: |
-          TAG="v$VERSION"
-          # CHANGELOG の該当節をそのままリリースノートにする。GitHub は Markdown を
-          # 表示できるので、App Store 向けの --plain は付けない。
-          ./scripts/changelog-section.sh "$VERSION" > "$RUNNER_TEMP/notes.md"
-          if [ ! -s "$RUNNER_TEMP/notes.md" ]; then
-            echo "::warning::CHANGELOG.md に [$VERSION] の節が見つかりません。ノート無しで作ります。"
+          # check ジョブの出力には App Store Connect から来た値が入る。形を確かめてから使う。
+          if ! printf '%s\n' "$VERSION" | grep -Eq '^[0-9]+(\.[0-9]+){0,2}$'; then
+            echo "::error::版「${VERSION}」が X.Y.Z の形ではありません。"
+            exit 1
           fi
+          TAG="v$VERSION"
 
           # 前回の実行がタグの push の後（Release の作成）で落ちていたら、タグはもうある。
           # 打ち直さずに、Release だけを作る。
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-            echo "$TAG のタグは既にあります。GitHub Release だけを作ります。"
+            echo "${TAG} のタグは既にあります。GitHub Release だけを作ります。"
           else
+            if ! printf '%s\n' "$SHA" | grep -Eq '^[0-9a-f]{40}$' || ! git merge-base --is-ancestor "$SHA" HEAD; then
+              echo "::error::タグを打つコミット「${SHA}」が main の履歴にありません。"
+              exit 1
+            fi
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag -a "$TAG" -m "SaifuLog $TAG"
-            git push origin "$TAG"
+            git tag -a "$TAG" "$SHA" -m "SaifuLog $TAG"
+            git push origin "refs/tags/$TAG"
+            echo "${TAG} を ${SHA} に打ちました。"
           fi
+
+          # CHANGELOG の該当節をそのままリリースノートにする。読むのはタグのコミットの
+          # CHANGELOG（main の HEAD は次の版の内容に進んでいることがある）。GitHub は
+          # Markdown を表示できるので、App Store 向けの --plain は付けない。
+          git show "$TAG:CHANGELOG.md" > "$RUNNER_TEMP/CHANGELOG.md"
+          ./scripts/changelog-section.sh "$VERSION" "$RUNNER_TEMP/CHANGELOG.md" > "$RUNNER_TEMP/notes.md"
+          if [ ! -s "$RUNNER_TEMP/notes.md" ]; then
+            echo "::warning::CHANGELOG.md に [$VERSION] の節が見つかりません。ノート無しで作ります。"
+          fi
+
           # --verify-tag: リモートにタグが無ければ作らずに止める。gh が別のコミットに
           # 軽量タグを作ってしまうのを防ぐため。
           gh release create "$TAG" --verify-tag --title "SaifuLog $TAG" --notes-file "$RUNNER_TEMP/notes.md"

@@ -1,6 +1,6 @@
 name: build
 
-# ビルドとテストが通ることと、提出用のアーカイブが作れることを見る CI。
+# ビルドとテスト（コアとアプリ）が通ることと、提出用のアーカイブが作れることを見る CI。
 # これが無いと、コンパイルすら確認されていない変更が develop に入りうる。
 #
 # ジョブ名 build がそのまま status check の名前になり、main / develop の保護ルールで
@@ -13,13 +13,15 @@ on:
   pull_request:
     branches: [main, develop]
 
-# PR は最新の push だけ見れば足りるので打ち切る。
-# main / develop は各コミットの結果を残したいので打ち切らない。
-# 一括で cancel-in-progress: true にすると、続けてマージしたときに
-# 先のマージコミットの build が後続に殺され、統合ブランチに
-# 「ビルドが通るか確認されていないコミット」が残る。
+# PR は最新の push だけ見れば足りるので、ブランチ（ref）ごとのグループにして打ち切る。
+# main / develop への push は各コミットの結果を残したいので、コミット（SHA）ごとの
+# グループにして、打ち切りも置き換えも起きないようにする。
+# ref ごとのグループのままだと、cancel-in-progress: false でも、待っている実行は後から
+# 来た実行に置き換えられて取り消される（待機は 1 つまで）。続けてマージしたときに
+# 途中のマージコミットの build が走らず、統合ブランチに「ビルドが通るか確認されていない
+# コミット」が残る。
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -46,11 +48,11 @@ jobs:
     # CI だけが落ちる。xcode-27 が GA でラベルを変えたら、release.yml と一緒に直す。
     runs-on: xcode-27
     # 固まったときに macOS ランナーを 6 時間（既定の上限）使い切らないようにする。
-    # シミュレータ向けのビルドと、Release の実機向けアーカイブの 2 回分を見込んだ値。
-    timeout-minutes: 45
+    # シミュレータ向けのビルド、アプリのテスト（シミュレータの起動を含む）、Release の実機向けアーカイブを見込んだ値。
+    timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # 失敗したときに、どのツールチェーンで起きたのかを追えるようにする。
       # DEVELOPER_DIR が無いときは、イメージ側で Xcode が入れ替わっている。
@@ -93,6 +95,20 @@ jobs:
         if: ${{ !cancelled() }}
         run: make test
 
+      # アプリのテスト（SaifuLogTests）と、スキームのテストに入っている全ターゲットをコンパイルする。
+      # 上の make build はスキームの build アクション（SaifuLog だけ）なので、テストのターゲットが
+      # コンパイルできなくなっても通ってしまう。汎用の宛先なので、ランナーのシミュレータには左右されない。
+      - name: アプリのテストをビルド
+        if: ${{ !cancelled() }}
+        run: make build-tests
+
+      # SwiftData の保存と読み込みの条件、保存の失敗の扱い、AI の区間ごとの呼び出しなど、コアに置けない部分の
+      # テストをシミュレータで動かす。機種は決め打ちせず、ランナーにある iPhone のシミュレータから
+      # scripts/pick-simulator.sh が選ぶ（make test-app の TEST_DESTINATION の既定）。
+      - name: アプリのテスト
+        if: ${{ !cancelled() }}
+        run: make test-app
+
       # Config/Base.xcconfig と CHANGELOG.md が食い違ったまま main へ進むと、
       # App Store のリリースノートが別バージョンのものになる。
       # リリースノートは CHANGELOG の節をそのまま使うため、ここでずれを止める。
@@ -110,6 +126,9 @@ jobs:
       # 署名なし（ARCHIVE_SIGNING=NO）で、ASC_* も渡さないので Secrets は要らない
       # （release.mk の release-auth は 3 つとも無い状態を受け付ける）。BUILD_NUMBER を渡すのは、
       # ビルド番号の上書きが Info.plist に届くかの検査まで通すため。値は検査用で、何も送らない。
+      # xcconfig の既定値（CURRENT_PROJECT_VERSION = 1）と同じ値を渡すと、上書きが届いて
+      # いなくても番号が一致して検査が素通りするので、既定値と重ならない値にする。
+      # Makefile の make ci も同じ値を使う（片方を変えたらもう片方も）。
       - name: 提出用のアーカイブまで通す
         if: ${{ !cancelled() }}
-        run: make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=1
+        run: make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999

@@ -3,7 +3,9 @@ name: release
 # main へのマージで、App Store 提出用のアーカイブを作り、App Store Connect へ
 # アップロードして、そのまま審査に出すところまでを自動で進める。
 #
-#   upload  … アーカイブを作り、クラウド署名で書き出して App Store Connect へ送る（macOS ランナー）
+#   upload  … アーカイブを作り、クラウド署名で書き出して App Store Connect へ送る（macOS ランナー）。
+#             送る前に、送らずに書き出して署名とエンタイトルメントを確かめる（エンタイトルメントの抜けは、
+#             署名ありのアーカイブを入れるまでは警告だけ）
 #   submit  … 処理の終了を待ち、バージョンにビルドを紐づけ、審査に出す（Linux）
 #
 # 配信が始まったあとのタグ打ちは tag-release.yml が引き取る。
@@ -25,9 +27,13 @@ on:
 
 # アップロードを途中で打ち切ると App Store Connect に処理中のビルドが残るため、
 # 後続を待たせる（cancel はしない）。
+# queue: max にするのは、待っている実行を後から来た実行に置き換えさせないため。既定
+# （queue: single）では待機は 1 つまでで、main への push の実行が待っているところへ手で
+# 実行（mode=export など）を掛けると、push の実行が取り消されて、そのマージが提出されない。
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
+  queue: max
 
 permissions:
   contents: read
@@ -58,11 +64,13 @@ jobs:
       uploaded: ${{ steps.upload.outputs.uploaded }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # 「この版はもう出したか」をタグの有無で判定するため、履歴とタグが全部要る。
           fetch-depth: 0
 
+      # 進めるかどうかは GO（GITHUB_ENV）で後続へ渡す。ここで決め、App Store Connect の
+      # 状態を見たところ（下の「承認済みの版でないか確かめる」）で取り消すことがある。
       - name: 出す版かどうかを判定
         id: plan
         run: |
@@ -71,20 +79,20 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           if [ "$MODE" = export ]; then
             # 書き出すだけなら App Store Connect に何も残らないので、配信済みの版でも走らせてよい。
-            echo "go=true" >> "$GITHUB_OUTPUT"
+            echo "GO=true" >> "$GITHUB_ENV"
             echo "v$VERSION を書き出すだけにします（送信しません）。"
           elif git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
             # タグがある = 配信済みの版。バージョンを上げずに main へマージした
             # （ドキュメント修正など）だけなので、アップロードしない。
-            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "GO=false" >> "$GITHUB_ENV"
             echo "v$VERSION は配信済み（タグあり）。アップロードをスキップします。"
           else
-            echo "go=true" >> "$GITHUB_OUTPUT"
-            echo "v$VERSION をアップロードします（mode=$MODE）。"
+            echo "GO=true" >> "$GITHUB_ENV"
+            echo "v$VERSION をアップロードします（mode=${MODE}）。"
           fi
 
       - name: ツールチェーンを表示
-        if: steps.plan.outputs.go == 'true'
+        if: env.GO == 'true'
         run: |
           if [ ! -d "$DEVELOPER_DIR" ]; then
             echo "::error::$DEVELOPER_DIR がありません。ランナーのイメージが変わった可能性があります。"
@@ -96,7 +104,7 @@ jobs:
 
       # build.yml と同じ手順。理由はそちらのコメントを参照。
       - name: XcodeGen を入れる
-        if: steps.plan.outputs.go == 'true'
+        if: env.GO == 'true'
         run: |
           curl -fsSL --retry 3 -o "$RUNNER_TEMP/xcodegen.zip" \
             "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN_VERSION/xcodegen.zip"
@@ -111,7 +119,7 @@ jobs:
       # ファイル名にキー ID（Secret）を入れないのは、パスを GITHUB_ENV で後続の
       # ステップへ渡すため。Secret を含む値を広げる範囲は小さくしておく。
       - name: API キーを一時ファイルに書き出す
-        if: steps.plan.outputs.go == 'true'
+        if: env.GO == 'true'
         env:
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
@@ -124,6 +132,39 @@ jobs:
           KEY_PATH="$RUNNER_TEMP/asc_api_key.p8"
           (umask 077 && printf '%s\n' "$ASC_API_KEY_P8" > "$KEY_PATH")
           echo "ASC_API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      # 承認から tag-release がタグを打つまで（最大 3 時間。ASC_RELEASE_TYPE=MANUAL なら配信を
+      # 押すまで）の間は、タグが無くても、その版にはもう新しいビルドを送れない（Apple が
+      # アップロードを弾く）。その間に版を上げずに main へマージすると、タグが付いたあとと
+      # 同じく出すものは無いのに、アップロードが赤で落ちる。App Store Connect の状態を見て、
+      # 承認済み以降ならアップロードせずに終える。版がまだ無い（これから作る）ときや、
+      # 審査待ち・審査中はそのまま進む（審査中なら submit ジョブが差し替えずに止まる）。
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        if: env.GO == 'true' && env.MODE != 'export'
+        with:
+          python-version: "3.12"
+
+      - name: 承認済みの版でないか確かめる
+        if: env.GO == 'true' && env.MODE != 'export'
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          # 版とハッシュで固定した依存だけを入れる。理由は submit ジョブの「依存を入れる」を参照。
+          python3 -m pip install --quiet --require-hashes --only-binary=:all: -r scripts/requirements.txt
+          # .p8 は上で書き出した ASC_API_KEY_PATH から読む。
+          set +e
+          STATE=$(python3 scripts/asc.py state --version "$VERSION" --require-open)
+          CODE=$?
+          set -e
+          echo "state=$STATE"
+          if [ "$CODE" -eq 2 ]; then
+            echo "GO=false" >> "$GITHUB_ENV"
+            echo "::notice::v${VERSION} は承認済み（${STATE}）で、タグが付くのを待っています。この版にはもうビルドを送れないので、アップロードをスキップします（タグは tag-release が付けます）。"
+          elif [ "$CODE" -ne 0 ]; then
+            exit "$CODE"
+          fi
 
       # ビルド番号（CFBundleVersion）は「同じ版の中で、前に送ったものより必ず大きい」ことが
       # 求められる。重複すると App Store Connect がアップロードを弾く。
@@ -140,17 +181,23 @@ jobs:
       # release.yml の名前を変えると run_number は 1 からやり直しになる。そのときや、
       # 手元から大きい番号で送ってしまったときは、リポジトリ変数 BUILD_NUMBER_OFFSET で
       # 底上げする（docs/release-flow.md）。
+      #
+      # tag-release.yml は、配信されたビルドの番号からこの式を逆にたどって実行を見つけ、
+      # その実行のコミットにタグを打つ。式を変えるときは tag-release.yml も一緒に直す。
+      # 配信待ちの版があるうちに BUILD_NUMBER_OFFSET を変えると逆算がずれる（tag-release は
+      # 版が合わずに止まるので、手動実行の sha でコミットを指定する）。
       - name: アーカイブを作る
         id: archive
-        if: steps.plan.outputs.go == 'true'
+        if: env.GO == 'true'
         env:
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
           BUILD_NUMBER_OFFSET: ${{ vars.BUILD_NUMBER_OFFSET || '0' }}
         run: |
+          # 先頭の 0 を許すと、シェルの算術式が 8 進数として読む（010 → 8）。
           case "$BUILD_NUMBER_OFFSET" in
-            '' | *[!0-9]*)
-              echo "::error::リポジトリ変数 BUILD_NUMBER_OFFSET は 0 以上の整数にしてください（いま: $BUILD_NUMBER_OFFSET）。"
+            '' | *[!0-9]* | 0?*)
+              echo "::error::リポジトリ変数 BUILD_NUMBER_OFFSET は 0 以上の整数（先頭に 0 を付けない）にしてください（いま: ${BUILD_NUMBER_OFFSET}）。"
               exit 1 ;;
           esac
           BUILD_NUMBER=$(( BUILD_NUMBER_OFFSET + GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT ))
@@ -164,11 +211,28 @@ jobs:
           BUILD=$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleVersion" build/SaifuLog.xcarchive/Info.plist)
           echo "build=$BUILD" >> "$GITHUB_OUTPUT"
 
+      # 送る前に、送らずに書き出して確かめる。App Store Connect には何も残らない。署名の経路
+      # （クラウド署名）の確認を兼ね、書き出したアプリをエンタイトルメントのファイルと照合する（release.mk）。
+      #
+      # 照合は、いまは警告だけにする（RELEASE_ENTITLEMENTS_CHECK=warn）。アーカイブが署名なし
+      # （ARCHIVE_SIGNING=NO）で、書き出しの段階の署名し直しはアーカイブにあるエンタイトルメントしか
+      # 引き継がないので、データ保護（default-data-protection）は必ず抜けとして見つかる。止めると
+      # develop → main をマージするたびにリリースが止まる。抜けは run の Annotations に警告として残る。
+      # 署名ありのアーカイブ（証明書の取り込みと ARCHIVE_SIGNING=YES）を入れ、mode=export で照合が
+      # 通ることを確かめたら、warn を外して止まるようにする（docs/release-flow.md の
+      # 「Capability（iCloud など）を足すとき」）。
+      - name: 送る前に書き出して確かめる（送信しない）
+        if: env.GO == 'true' && env.MODE != 'export'
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        run: make export-ipa RELEASE_ENTITLEMENTS_CHECK=warn
+
       # exportArchive の destination=upload（Config/ExportOptions.plist）で、書き出しと
       # 送信を 1 回で行う。altool は非推奨が続いているので使わない。
       - name: App Store Connect へアップロード
         id: upload
-        if: steps.plan.outputs.go == 'true' && env.MODE != 'export'
+        if: env.GO == 'true' && env.MODE != 'export'
         env:
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
@@ -176,13 +240,15 @@ jobs:
         run: |
           make upload
           echo "uploaded=true" >> "$GITHUB_OUTPUT"
-          echo "アップロード完了（ビルド $BUILD）。"
+          echo "アップロード完了（ビルド ${BUILD}）。"
 
       # 疎通確認用。送信せずに .ipa を書き出し、署名とエンタイトルメントをログに出す。
+      # こちらはエンタイトルメントの照合を止める扱い（既定の error）のままにする。署名ありのアーカイブに
+      # 切り替えたあと、照合が通るかをこの実行の成否で確かめるため。
       # 書き出した .ipa はアーティファクトにしない。リポジトリが公開なので、
       # 審査前のアプリを誰でも落とせる状態になるため。
       - name: 書き出すだけ（送信しない）
-        if: steps.plan.outputs.go == 'true' && env.MODE == 'export'
+        if: env.GO == 'true' && env.MODE == 'export'
         env:
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
@@ -214,14 +280,18 @@ jobs:
     timeout-minutes: 90
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
+      # 版とハッシュで固定した依存だけを入れる（scripts/requirements.in）。Admin 権限の鍵を
+      # 持つジョブで、PyPI のその日の最新をそのまま実行しないため。ソースからのビルド
+      # （setup.py などを実行する）も許さない。
       - name: 依存を入れる
-        run: pip install --quiet "pyjwt[crypto]>=2.8,<3"
+        run: |
+          python3 -m pip install --quiet --require-hashes --only-binary=:all: -r scripts/requirements.txt
 
       # 前のジョブの出力や変数は、run の中に式で直接埋め込まず env を通して渡す。
       # 埋め込むとシェルの文として解釈され、値によってはコマンドとして実行されうるため。

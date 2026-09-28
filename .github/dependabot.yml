@@ -1,19 +1,34 @@
 version: 2
 
-# GitHub Actions のバージョン更新だけを見る。Packages/SaifuLogCore に外部の依存は
-# 今のところ無い（できたら package-ecosystem: "swift" を足す）。
+# GitHub Actions と、scripts/asc.py の Python の依存（scripts/requirements.txt）の
+# バージョン更新を見る。Packages/SaifuLogCore に外部の依存は今のところ無い
+# （できたら package-ecosystem: "swift" を足す）。
 #
 # actions/checkout などは Node の実行環境が非推奨になるたびにメジャー版が上がり、
 # 放っておくと警告のあと突然動かなくなる。気づいた人が手で上げるより、PR で知らせてもらう。
+# actions はコミットの SHA で固定し、版をコメントに残している（uses: …@<SHA> # v7.0.1）。
+# Dependabot は SHA とコメントを組で書き換える。
 #
-# ワークフローの env で固定している Xcode（DEVELOPER_DIR）と XcodeGen（XCODEGEN_VERSION）、
-# pip で入れる PyJWT はここでは追えない。上げるときは手で、build.yml と release.yml を一緒に直す。
+# requirements.txt は pip-compile で版とハッシュまで固定した生成物（scripts/requirements.in）。
+# Dependabot は pip-compile の形を読み、ハッシュごと作り直した PR を立てる。
+#
+# ワークフローの env で固定している Xcode（DEVELOPER_DIR）と XcodeGen（XCODEGEN_VERSION）は
+# ここでは追えない。上げるときは手で、build.yml と release.yml を一緒に直す。
 #
 # PR の宛先は develop。既定のままだと main へ直接 PR が立ち、develop を経由する
 # ブランチ運用と食い違う（main へのマージは App Store への提出の合図になる）。
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "develop"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore"
+
+  - package-ecosystem: "pip"
+    directory: "/scripts"
     target-branch: "develop"
     schedule:
       interval: "monthly"
