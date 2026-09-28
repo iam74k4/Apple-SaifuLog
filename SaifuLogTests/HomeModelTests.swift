@@ -690,7 +690,7 @@ struct HomeModelTests {
         let setup = try #require(fixture.model.budgetSetup)
         #expect(setup.totalText.isEmpty)
         #expect(!setup.hadTotalBudget)
-        // カテゴリ別の予算（プレミアム）は、購入の仕組みを作るまで出さない。
+        // カテゴリ別の予算（プレミアム）は、無料では出さない。
         #expect(!setup.showsCategoryBudgets)
     }
 
@@ -723,6 +723,129 @@ struct HomeModelTests {
 
         #expect(fixture.pendingWrites.count == 0)
         #expect(try fixture.context.fetchCount(FetchDescriptor<Budget>()) == 1)
+    }
+
+    // MARK: - プレミアム
+
+    /// プレミアムの状態を決めたホーム（StoreKit を使わない）。設定の領域は使い捨て。
+    @MainActor
+    final class PremiumFixture {
+        let context: ModelContext
+        let suiteName = "HomeModelTests.\(UUID().uuidString)"
+        let defaults: UserDefaults
+        let purchases: PurchaseManager
+        let model: HomeModel
+
+        init(_ records: [PremiumPurchase], load: Bool = true) async throws {
+            context = try TestSupport.makeContext()
+            defaults = try #require(UserDefaults(suiteName: suiteName))
+            purchases = await TestSupport.purchases(records, load: load)
+            model = HomeModel(
+                store: EntryStore(context: context), purchases: purchases, defaults: defaults,
+                now: { TestSupport.now }, announce: { _ in }
+            )
+        }
+
+        func cleanUp() {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+    }
+
+    /// カテゴリ別の予算は、プレミアムと体験中だけ出す。体験が終わったら出さない。
+    @Test(arguments: [
+        ([PremiumPurchase](), false),
+        ([TestSupport.trial(startedDaysAgo: 3)], true),
+        ([TestSupport.trial(startedDaysAgo: 20)], false),
+        ([PremiumPurchase(product: .premium, purchaseDate: TestSupport.now)], true),
+        ([PremiumPurchase(product: .premium, ownership: .familyShared, purchaseDate: TestSupport.now)], true),
+    ])
+    func categoryBudgetsFollowPremium(records: [PremiumPurchase], expected: Bool) async throws {
+        let fixture = try await PremiumFixture(records)
+        defer { fixture.cleanUp() }
+
+        fixture.model.presentBudgetSetup()
+
+        #expect(fixture.model.budgetSetup?.showsCategoryBudgets == expected)
+    }
+
+    /// 設定にも同じ PurchaseManager を渡す（設定から開く予算の画面・プレミアムのシートが同じ状態を見る）。
+    @Test func settingsShareSamePurchases() async throws {
+        let fixture = try await PremiumFixture([TestSupport.trial(startedDaysAgo: 1)])
+        defer { fixture.cleanUp() }
+
+        fixture.model.presentSettings()
+
+        let settings = try #require(fixture.model.settings)
+        #expect(settings.purchases === fixture.purchases)
+        settings.presentBudgetSetup()
+        #expect(settings.budgetSetup?.showsCategoryBudgets == true)
+    }
+
+    /// 体験が終わった後の最初の起動で一度だけ出し、二度と出さない。
+    @Test func trialEndedPremiumIsShownOnce() async throws {
+        let fixture = try await PremiumFixture([TestSupport.trial(startedDaysAgo: 15)])
+        defer { fixture.cleanUp() }
+
+        fixture.model.presentPremiumIfTrialEnded()
+
+        #expect(fixture.model.premiumSheet != nil)
+        #expect(fixture.defaults.bool(for: AppSettings.hasShownTrialEndedPremium))
+
+        // 閉じた後、前面に戻っても、次の起動（新しいホーム）でも出さない。
+        fixture.model.premiumSheet = nil
+        fixture.model.presentPremiumIfTrialEnded()
+        #expect(fixture.model.premiumSheet == nil)
+        let relaunched = HomeModel(
+            store: EntryStore(context: fixture.context), purchases: fixture.purchases, defaults: fixture.defaults,
+            now: { TestSupport.now }, announce: { _ in }
+        )
+        relaunched.presentPremiumIfTrialEnded()
+        #expect(relaunched.premiumSheet == nil)
+    }
+
+    /// 体験中・無料（体験の前）・プレミアムでは出さない。
+    @Test(arguments: [
+        [PremiumPurchase](),
+        [TestSupport.trial(startedDaysAgo: 13)],
+        [TestSupport.trial(startedDaysAgo: 20), PremiumPurchase(product: .premium, purchaseDate: TestSupport.now)],
+    ])
+    func trialEndedPremiumIsNotShownOtherwise(records: [PremiumPurchase]) async throws {
+        let fixture = try await PremiumFixture(records)
+        defer { fixture.cleanUp() }
+
+        fixture.model.presentPremiumIfTrialEnded()
+
+        #expect(fixture.model.premiumSheet == nil)
+        #expect(!fixture.defaults.bool(for: AppSettings.hasShownTrialEndedPremium))
+    }
+
+    /// 購入の事実を読み終える前は、無料と見分けがつかないので出さない。読み終えたら出す。
+    @Test func trialEndedPremiumWaitsForPurchasesToLoad() async throws {
+        let fixture = try await PremiumFixture([TestSupport.trial(startedDaysAgo: 15)], load: false)
+        defer { fixture.cleanUp() }
+
+        fixture.model.presentPremiumIfTrialEnded()
+        #expect(fixture.model.premiumSheet == nil)
+
+        await fixture.purchases.refreshPurchases()
+        fixture.model.presentPremiumIfTrialEnded()
+        #expect(fixture.model.premiumSheet != nil)
+    }
+
+    /// ほかのシートや画面を出しているときは重ねて出さず、閉じた後に出す（出したことにもしない）。
+    @Test func trialEndedPremiumWaitsForOtherScreens() async throws {
+        let fixture = try await PremiumFixture([TestSupport.trial(startedDaysAgo: 15)])
+        defer { fixture.cleanUp() }
+        fixture.model.presentBudgetSetup()
+
+        fixture.model.presentPremiumIfTrialEnded()
+
+        #expect(fixture.model.premiumSheet == nil)
+        #expect(!fixture.defaults.bool(for: AppSettings.hasShownTrialEndedPremium))
+
+        fixture.model.budgetSetup = nil
+        fixture.model.presentPremiumIfTrialEnded()
+        #expect(fixture.model.premiumSheet != nil)
     }
 
     // MARK: - 日付とタイムライン

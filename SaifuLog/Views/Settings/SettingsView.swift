@@ -3,8 +3,8 @@ import SwiftUI
 
 /// ⑧ 設定。必要なときだけ開く画面。ホームの帯の右上の歯車から横に進む。
 ///
-/// 月の予算（② のシートを開く）、週の始まり、記録の CSV 書き出し、このアプリについて（プライバシーポリシー・
-/// ライセンス・版）を並べる。購入の復元・プレミアムと iCloud 同期の行は、その仕組みを作るまで出さない。
+/// プレミアム（⑨ のシートを開く・購入の復元）、月の予算（② のシートを開く）、週の始まり、記録の CSV 書き出し、
+/// このアプリについて（プライバシーポリシー・ライセンス・版）を並べる。iCloud 同期の行は、その仕組みを作るまで出さない。
 ///
 /// 状態と操作は `SettingsModel` が持つ。ここは表示と、共有のシート・アラートの出し入れだけ。
 /// 押せる行の名前は墨にし、操作のボタン（「CSV ファイルを書き出す」）だけ、ほかの画面のボタンと同じ tint（AccentColor。
@@ -17,6 +17,7 @@ struct SettingsView: View {
 
     var body: some View {
         List {
+            premiumSection
             budgetSection
             calendarSection
             exportSection
@@ -33,6 +34,9 @@ struct SettingsView: View {
         .sheet(item: $model.budgetSetup, onDismiss: { model.reloadBudget() }) { budgetSetup in
             BudgetSetupSheet(model: budgetSetup)
         }
+        .sheet(item: $model.premiumSheet) { premium in
+            PremiumSheet(model: premium)
+        }
         .alert(
             alertTitle,
             isPresented: showsExportAlert,
@@ -41,6 +45,16 @@ struct SettingsView: View {
             Button("OK", role: .cancel) {}
         } message: { alert in
             alertMessage(alert)
+        }
+        // 購入の復元の結果（ホームと同じく、同じ画面に種類ごとのアラートを付ける）。
+        .alert(
+            model.purchaseAlert?.title ?? Text(verbatim: ""),
+            isPresented: showsPurchaseAlert,
+            presenting: model.purchaseAlert
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { alert in
+            alert.message
         }
         // 書き出したファイルを共有のシートで渡し、閉じたらファイルを消す。
         .background(
@@ -51,6 +65,53 @@ struct SettingsView: View {
                 .accessibilityHidden(true)
         )
         .onDisappear { model.cancelExport() }
+    }
+
+    // MARK: - プレミアム
+
+    private var premiumSection: some View {
+        Section {
+            Button {
+                model.presentPremium()
+            } label: {
+                LabeledContent {
+                    model.purchases.status.summaryText
+                        .foregroundStyle(Theme.inkSecondary)
+                } label: {
+                    Text("プレミアム")
+                        .foregroundStyle(Theme.ink)
+                }
+                .frame(minHeight: 44)
+                .contentShape(.rect)
+            }
+            .accessibilityHint("無料との違いと購入の画面を開きます")
+            .listRowBackground(Theme.surface)
+            Button {
+                model.restorePurchases()
+            } label: {
+                HStack(spacing: 12) {
+                    Text("購入の復元")
+                    Spacer(minLength: 0)
+                    if model.purchases.isRestoring {
+                        ProgressView()
+                            .accessibilityHidden(true)
+                    }
+                }
+                .frame(minHeight: 44)
+                .contentShape(.rect)
+            }
+            .disabled(model.purchases.isRestoring || model.purchases.isPurchasing)
+            .accessibilityHint("この Apple アカウントで購入したプレミアムを読み込みます")
+            .listRowBackground(Theme.surface)
+        } header: {
+            sectionHeader("プレミアム")
+        } footer: {
+            sectionFooter("購入は Apple アカウントに記録されます。機種を変えたときなどにプレミアムが使えなければ、「購入の復元」をお試しください。")
+        }
+    }
+
+    private var showsPurchaseAlert: Binding<Bool> {
+        Binding(get: { model.purchaseAlert != nil }, set: { if !$0 { model.purchaseAlert = nil } })
     }
 
     // MARK: - 予算

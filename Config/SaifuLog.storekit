@@ -1,0 +1,73 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "5AF10E27",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "1800",
+      "familyShareable" : true,
+      "internalID" : "9C2B7E41",
+      "localizations" : [
+        {
+          "description" : "買い切りでプレミアムの機能をすべて使えます。ファミリー共有に対応。",
+          "displayName" : "サイフログ プレミアム",
+          "locale" : "ja"
+        },
+        {
+          "description" : "Unlock every Premium feature with a one-time purchase. Supports Family Sharing.",
+          "displayName" : "SaifuLog Premium",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.iam74k4.SaifuLog.premium",
+      "referenceName" : "Premium",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "0",
+      "familyShareable" : false,
+      "internalID" : "4E8D1A63",
+      "localizations" : [
+        {
+          "description" : "14日間、プレミアムの機能を無料で試せます。終わっても自動で課金されません。",
+          "displayName" : "14日間の無料体験",
+          "locale" : "ja"
+        },
+        {
+          "description" : "Try every Premium feature free for 14 days. You won't be charged when it ends.",
+          "displayName" : "14-Day Free Trial",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.iam74k4.SaifuLog.trial14",
+      "referenceName" : "Trial 14 Days",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "ja",
+    "_storefront" : "JPN",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

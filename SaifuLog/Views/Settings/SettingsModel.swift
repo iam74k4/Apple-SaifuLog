@@ -3,12 +3,14 @@ import Observation
 import SaifuLogCore
 import SwiftData
 
-/// 「設定」（⑧）の状態と操作。月の予算を開く、週の始まり、記録の CSV 書き出し、このアプリについて。
+/// 「設定」（⑧）の状態と操作。プレミアム（⑨ を開く・購入の復元）、月の予算を開く、週の始まり、記録の CSV 書き出し、
+/// このアプリについて。
 ///
 /// 画面（`SettingsView`）から切り離し、保存先・設定の置き場所・時計・書き出し先を差し替えて SaifuLogTests で
 /// 確かめられるようにしている。CSV の中身はコア（`LedgerCSVWriter`）、ファイルの作成は `LedgerExporter` が受け持つ。
+/// 購入と復元そのものは、アプリで 1 つの `PurchaseManager` が受け持つ。
 ///
-/// 購入の復元・プレミアムの行と iCloud 同期の行は、その仕組みを作るまで出さない（まだできないことを設定に並べない）。
+/// iCloud 同期の行は、その仕組みを作るまで出さない（まだできないことを設定に並べない）。
 @MainActor
 @Observable
 final class SettingsModel {
@@ -27,6 +29,12 @@ final class SettingsModel {
     var exportAlert: ExportAlert?
     /// 「予算を決める」のシートの状態と操作。シートを出していなければ nil（シートを閉じると画面が nil に戻す）。
     var budgetSetup: BudgetSetupModel?
+    /// 「プレミアム」のシートの状態と操作。シートを出していなければ nil（シートを閉じると画面が nil に戻す）。
+    var premiumSheet: PremiumSheetModel?
+    /// 購入の復元の結果（アラートを出す）。
+    var purchaseAlert: PurchaseAlert?
+    /// プレミアムの購入と状態（アプリで 1 つ）。
+    let purchases: PurchaseManager
     /// いまの月の予算。決めていないか、読めなければ nil。
     private(set) var totalBudget: Int?
     /// 端末の設定（地域と iOS の設定）の週の始まり（1 = 日曜）。「端末の設定に合わせる」の選択肢に曜日を添える。
@@ -54,6 +62,8 @@ final class SettingsModel {
 
     /// - Parameters:
     ///   - budgetStore: 予算の読み書き。渡さなければ `context` を使う。
+    ///   - purchases: プレミアムの購入と状態。アプリはホームから同じもの（`SaifuLogApp` の 1 つ）を渡す。渡さなければ
+    ///     購入の無い状態（テストとプレビュー用）。
     ///   - defaults: 設定の置き場所。アプリは `UserDefaults.standard`（`AppSettings` の決まり）、テストは使い捨ての領域。
     ///   - exporter: 記録をファイルに書き出す。渡さなければ `context` と同じ保存先から、アプリの一時ディレクトリへ書き出す。
     ///     テストで書き出し先を使い捨ての場所にし、書き出しがメインスレッドの外で進むかを確かめる。
@@ -65,6 +75,7 @@ final class SettingsModel {
     init(
         context: ModelContext,
         budgetStore: BudgetStore? = nil,
+        purchases: PurchaseManager? = nil,
         defaults: UserDefaults = .standard,
         exporter: LedgerExporter? = nil,
         csvLanguage: LedgerCSVWriter.Language = LedgerCSVWriter.Language(localization: Bundle.main.preferredLocalizations.first),
@@ -74,6 +85,7 @@ final class SettingsModel {
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
     ) {
         self.budgetStore = budgetStore ?? BudgetStore(context: context)
+        self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
         self.defaults = defaults
         self.exporter = exporter ?? LedgerExporter(container: context.container)
         self.csvLanguage = csvLanguage
@@ -97,9 +109,28 @@ final class SettingsModel {
 
     // MARK: - 予算
 
-    /// 「予算を決める」のシートを出す（ホームの帯のボタンと同じ画面）。
+    /// 「予算を決める」のシートを出す（ホームの帯のボタンと同じ画面）。カテゴリ別の予算はプレミアムと体験中だけ出す。
     func presentBudgetSetup() {
-        budgetSetup = BudgetSetupModel(store: budgetStore, announce: announce)
+        budgetSetup = BudgetSetupModel(
+            store: budgetStore, showsCategoryBudgets: purchases.status.unlocksPremium, announce: announce
+        )
+    }
+
+    // MARK: - プレミアム
+
+    /// 「プレミアム」のシート（⑨）を出す。
+    func presentPremium() {
+        premiumSheet = PremiumSheetModel(purchases: purchases, announce: announce)
+    }
+
+    /// 購入の復元。終わるのを待つ Task を返す（テストで使う）。購入や復元の途中は受け付けない（nil を返す）。
+    @discardableResult
+    func restorePurchases() -> Task<Void, Never>? {
+        guard !purchases.isPurchasing, !purchases.isRestoring else { return nil }
+        return Task {
+            let outcome = await purchases.restore()
+            purchaseAlert = PurchaseAlert(outcome)
+        }
     }
 
     /// いまの予算を読み直す（予算を決める画面を閉じたとき）。

@@ -28,10 +28,29 @@ enum AppSettings {
     /// 週の始まり（設定の画面で選ぶ）。既定は端末の設定（地域と iOS の設定）に合わせる。
     /// 画面の根元（`AppRootView`）が画面の暦の週の始まりに当てはめ、`ReportPeriod` の今週・先週の区切りに効かせる。
     static let weekStart = AppSetting(key: "weekStart", defaultValue: WeekStart.system)
+    /// 無料体験が終わったときのプレミアムの案内（⑨）を出したか。体験が終わった後の最初の起動で一度だけ出し、
+    /// しつこく出さない（`HomeModel.presentPremiumIfTrialEnded`）。プレミアムを買ったかどうかはここに置かない
+    /// （購入の事実は StoreKit が持つ。覚えた値が App Store の記録と食い違うと、返金された購入でも使えてしまうため）。
+    static let hasShownTrialEndedPremium = AppSetting(key: "hasShownTrialEndedPremium", defaultValue: false)
+    /// レシートの読み取りを無料で使った回数（暦の月ごと。`QuotaStore`）。
+    static let receiptScanQuota = AppSetting(key: "quota.receiptScan", defaultValue: UsageQuota())
+    /// 家計への質問を無料で使った回数（暦の月ごと。`QuotaStore`）。
+    static let questionQuota = AppSetting(key: "quota.question", defaultValue: UsageQuota())
+
+    /// 機能ごとの、無料で使った回数の設定。
+    static func quota(for feature: QuotaFeature) -> AppSetting<UsageQuota> {
+        switch feature {
+        case .receiptScan: receiptScanQuota
+        case .question: questionQuota
+        }
+    }
 
     /// すべての設定のキー。重なりが無いことをテストで確かめる。
     static var allKeys: [String] {
-        [hasCompletedOnboarding.key, iCloudSyncEnabled.key, weekStart.key]
+        [
+            hasCompletedOnboarding.key, iCloudSyncEnabled.key, weekStart.key, hasShownTrialEndedPremium.key,
+            receiptScanQuota.key, questionQuota.key,
+        ]
     }
 }
 
@@ -67,5 +86,20 @@ extension UserDefaults {
     /// 選択肢の設定を書く（rawValue で保存する。`@AppStorage` と同じ形なので、画面の `@AppStorage` にも伝わる）。
     func set<Value: RawRepresentable>(_ value: Value, for setting: AppSetting<Value>) where Value.RawValue == String {
         set(value.rawValue, forKey: setting.key)
+    }
+
+    /// 形のある設定（無料で使った回数など）を JSON で読む。まだ書いていないか、読めない値（壊れた値・新しい版で形を
+    /// 変えた値を古い版で読んだときなど）なら既定値。
+    func decodedValue<Value: Codable>(for setting: AppSetting<Value>) -> Value {
+        guard let data = data(forKey: setting.key), let value = try? JSONDecoder().decode(Value.self, from: data) else {
+            return setting.defaultValue
+        }
+        return value
+    }
+
+    /// 形のある設定を JSON で書く。
+    func setEncoded<Value: Codable>(_ value: Value, for setting: AppSetting<Value>) {
+        guard let data = try? JSONEncoder().encode(value) else { return }
+        set(data, forKey: setting.key)
     }
 }

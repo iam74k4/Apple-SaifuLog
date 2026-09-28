@@ -4,7 +4,7 @@ import SaifuLogCore
 import SwiftData
 import SwiftUI
 
-/// ホームの状態と操作（送信・取り消し・直す・削除・予算を決める画面と月のまとめと設定の出し入れ）。
+/// ホームの状態と操作（送信・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ）。
 ///
 /// 画面（`HomeView`）から切り離し、解析器・時計・読み上げを差し替えて SaifuLogTests で確かめられるようにしている。
 /// 画面は、ここの値を表示し、操作をここへ渡すだけにする。
@@ -31,6 +31,10 @@ final class HomeModel {
     var monthlyReport: MonthlyReportModel?
     /// 「設定」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
     var settings: SettingsModel?
+    /// 無料体験が終わった後の最初の起動に出す「プレミアム」のシート。出していなければ nil（閉じると画面が nil に戻す）。
+    var premiumSheet: PremiumSheetModel?
+    /// プレミアムの購入と状態（アプリで 1 つ）。カテゴリ別の予算を出すかの判定と、設定・プレミアムのシートに渡す。
+    let purchases: PurchaseManager
     /// 今日。「今月」の範囲と、日付に年を添えるかの基準にする。
     ///
     /// 描画のたびに `.now` を読むだけだと、アプリを開いたまま（または裏に置いたまま）月をまたいだとき、
@@ -43,6 +47,7 @@ final class HomeModel {
     @ObservationIgnored private let store: EntryStore
     @ObservationIgnored private let budgetStore: BudgetStore
     @ObservationIgnored private let pendingWrites: PendingStoreWrites
+    @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let makeParser: (Date, Calendar) -> any EntryParsing
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
@@ -51,6 +56,8 @@ final class HomeModel {
     ///   - budgetStore: 予算の読み書き。渡さなければ記録と同じ保存先（`store` の ModelContext）を使う。
     ///   - pendingWrites: 解析を待ってから記録する処理を数える先（`StoreHost.pendingWrites`）。保存先を開き直すとき、
     ///     記録し終えるのを待ってもらうため。
+    ///   - purchases: プレミアムの購入と状態。アプリは `SaifuLogApp` の 1 つを渡す。渡さなければ購入の無い状態（テスト用）。
+    ///   - defaults: 設定の置き場所（体験の終わりの案内を出したか）。アプリは `UserDefaults.standard`、テストは使い捨ての領域。
     ///   - makeParser: 送信のたびに解析器を選ぶ（AI の使える・使えないは途中から変わるため）。送った瞬間の日時と暦を渡し、
     ///     「昨日」「9/26」をその日時を基準に読ませる。テストで差し替える。
     ///   - now: 記録の日時と「今日」の基準。テストで固定の日時にする。
@@ -59,6 +66,8 @@ final class HomeModel {
         store: EntryStore,
         budgetStore: BudgetStore? = nil,
         pendingWrites: PendingStoreWrites = PendingStoreWrites(),
+        purchases: PurchaseManager? = nil,
+        defaults: UserDefaults = .standard,
         makeParser: @escaping (Date, Calendar) -> any EntryParsing = { EntryParserFactory.makeParser(now: $0, calendar: $1) },
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
@@ -66,14 +75,16 @@ final class HomeModel {
         self.store = store
         self.budgetStore = budgetStore ?? BudgetStore(context: store.context)
         self.pendingWrites = pendingWrites
+        self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
+        self.defaults = defaults
         self.makeParser = makeParser
         self.now = now
         self.announce = announce
         self.today = now()
     }
 
-    convenience init(context: ModelContext, pendingWrites: PendingStoreWrites = PendingStoreWrites()) {
-        self.init(store: EntryStore(context: context), pendingWrites: pendingWrites)
+    convenience init(context: ModelContext, pendingWrites: PendingStoreWrites = PendingStoreWrites(), purchases: PurchaseManager) {
+        self.init(store: EntryStore(context: context), pendingWrites: pendingWrites, purchases: purchases)
     }
 
     /// 直前の記録を取り消せるか（「取り消す」のバナーと入力欄の VoiceOver の操作を出すか）。
@@ -248,7 +259,10 @@ final class HomeModel {
     ///
     /// 予算の保存は同期的に書き込む（送信のように、あとで書き込む処理ではない）ので、`pendingWrites` には数えない。
     func presentBudgetSetup() {
-        budgetSetup = BudgetSetupModel(store: budgetStore, announce: announce)
+        // カテゴリ別の予算はプレミアムと体験中だけ出す（開く時点の状態で決める）。
+        budgetSetup = BudgetSetupModel(
+            store: budgetStore, showsCategoryBudgets: purchases.status.unlocksPremium, announce: announce
+        )
     }
 
     // MARK: - 月のまとめ
@@ -275,7 +289,24 @@ final class HomeModel {
     ///
     /// 設定から開く「予算を決める」も、ホームの帯から開くときと同じ保存先と読み上げを使う。
     func presentSettings() {
-        settings = SettingsModel(context: store.context, budgetStore: budgetStore, now: now, announce: announce)
+        settings = SettingsModel(
+            context: store.context, budgetStore: budgetStore, purchases: purchases, defaults: defaults, now: now, announce: announce
+        )
+    }
+
+    // MARK: - プレミアム
+
+    /// 無料体験が終わった後の最初の起動で、一度だけ「プレミアム」のシートを出す。
+    ///
+    /// 出したことは設定に書き、二度と出さない（しつこく出さない）。購入の事実を読み終えるまでは出さない（読み終える前は
+    /// 無料と見分けがつかないため）。ほかのシートや画面を出しているときは出さず、次に呼ばれたときに出す（重ねて出すと、
+    /// 利用者の操作を遮るため）。ホームが出たとき・前面に戻ったとき・プレミアムの状態が変わったときに呼ぶ。
+    func presentPremiumIfTrialEnded() {
+        guard purchases.hasLoadedPurchases, case .trialEnded = purchases.status else { return }
+        guard !defaults.bool(for: AppSettings.hasShownTrialEndedPremium) else { return }
+        guard budgetSetup == nil, editing == nil, monthlyReport == nil, settings == nil, premiumSheet == nil else { return }
+        premiumSheet = PremiumSheetModel(purchases: purchases, announce: announce)
+        defaults.set(true, for: AppSettings.hasShownTrialEndedPremium)
     }
 
     // MARK: - 日付とタイムライン
@@ -283,6 +314,8 @@ final class HomeModel {
     /// 「今日」を読み直す。前面に戻ったときと、日付が変わったとき（0 時・時間帯の変更など）に呼ぶ。
     func refreshToday() {
         today = now()
+        // 体験の残りの日数と終わりも、今の時刻で出し直す。
+        purchases.clockDidChange()
     }
 
     /// タイムラインにさらに前の記録を読み込む。
