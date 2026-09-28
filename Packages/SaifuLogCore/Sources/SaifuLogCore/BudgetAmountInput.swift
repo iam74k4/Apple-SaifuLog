@@ -29,6 +29,16 @@ public enum BudgetAmountInput {
 
     /// 半角と全角の数字だけを半角にして取り出し、先頭の 0 を落として桁数で切る。
     static func digits(in text: String) -> String {
+        AmountInputDigits.extract(from: text, maximumDigits: maximumDigits)
+    }
+}
+
+/// 金額の入力欄（予算・記録を直すシート）から数字を取り出す。入力欄ごとにそろえ方が変わらないよう、ここにまとめる。
+enum AmountInputDigits {
+    /// 半角と全角の数字だけを半角にして取り出し、先頭の 0 を落として `maximumDigits` 桁で切る。
+    ///
+    /// 桁数を超えた分は後ろを捨てる（前を捨てると、打ったつもりの額と桁がずれるため）。
+    static func extract(from text: String, maximumDigits: Int) -> String {
         var digits = ""
         for scalar in text.unicodeScalars {
             switch scalar.value {
