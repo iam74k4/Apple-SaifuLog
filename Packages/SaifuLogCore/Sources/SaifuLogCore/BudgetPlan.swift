@@ -97,6 +97,19 @@ public struct BudgetPlan: Sendable, Hashable {
         }
     }
 
+    /// その対象の、いま有効な予算をその額に決めた日時（有効とみなす行の `updatedAt`）。決めていなければ nil。
+    ///
+    /// 予算は月ごとに持たない（毎月同じ額）ので、前の月の予算がいくらだったかは残らない。ただ、アプリは予算を書くとき
+    /// （`BudgetStore.setAmounts`）に、有効な行の額が同じなら行を書き換えない（書き込んだ日時を動かさない）ので、
+    /// この日時より後はずっとこの額だったと言える。月のまとめはこれを使い、この日時を含む月とそれより後の月にだけ
+    /// 予算の進みを出す（`MonthlyReport`）。
+    public static func decidedAt<Records: Sequence>(_ scope: BudgetScope, in records: Records) -> Date?
+    where Records.Element: BudgetRecord {
+        let rows = records.filter { BudgetScope(rawValue: $0.scopeRawValue) == scope }
+        guard let row = preferred(rows), row.amount > 0 else { return nil }
+        return row.updatedAt
+    }
+
     /// その対象の予算。決めていなければ nil。
     public func amount(for scope: BudgetScope) -> Int? {
         switch scope {
