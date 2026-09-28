@@ -98,4 +98,25 @@ struct LedgerSummaryTests {
         #expect(LedgerSummary(records: records, interval: thisWeek, calendar: calendar).expense == 850)
         #expect(LedgerSummary(records: records, interval: lastWeek, calendar: calendar).expense == 1_000)
     }
+
+    @Test("件数も合計と同じ区切りで数える（支出・収入・カテゴリ別）")
+    func counts() {
+        let records = [
+            TestRecord(amount: 850, category: .food, spentAt: Fixture.date(2026, 9, 28, hour: 12)),
+            TestRecord(amount: 2_480, category: .food, spentAt: Fixture.date(2026, 9, 29, hour: 19)),
+            TestRecord(amount: 400, category: .cafe, spentAt: Fixture.date(2026, 9, 30, hour: 15)),
+            TestRecord(amount: 3_000, isIncome: true, category: .food, spentAt: Fixture.date(2026, 10, 1)),
+            // 終わりの時刻ちょうどは次の期間。
+            TestRecord(amount: 9_999, category: .cafe, spentAt: Fixture.date(2026, 10, 5)),
+        ]
+
+        let summary = LedgerSummary(records: records, interval: Self.week, calendar: Fixture.calendar)
+
+        #expect(summary.expenseCount == 3)
+        #expect(summary.incomeCount == 1)
+        #expect(summary.recordCount == 4)
+        #expect(summary.expenseCountByCategory == [.food: 2, .cafe: 1])
+        #expect(summary.expenseCount(in: .food) == 2)
+        #expect(summary.expenseCount(in: .transport) == 0)
+    }
 }
