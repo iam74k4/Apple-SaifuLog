@@ -264,4 +264,50 @@ struct ExtractedEntryTests {
         #expect(entries.map(\.amount) == [4_000, 1_000])
         #expect(entries.map(\.daysAgo) == [1, 1])
     }
+
+    // MARK: - ルールベースと同じ件の分け方と、添えた額の扱い
+
+    @Test("日付や数量の句から書き始めた次の件も、区間ごとに突き合わせる")
+    func resolveAllAfterNumericDate() throws {
+        let entries = try ExtractedEntry.resolveAll([
+            extracted(item: "ランチ", amount: "850", date: "9/26"),
+            extracted(item: "カフェ", amount: "400", category: "カフェ", date: "9/27"),
+        ], against: input("9/26 ランチ 850 9/27 カフェ 400"))
+        #expect(entries == [
+            ParsedEntry(amount: 850, category: .food, memo: "ランチ", daysAgo: 2),
+            ParsedEntry(amount: 400, category: .cafe, memo: "カフェ", daysAgo: 1),
+        ])
+
+        let split = try ExtractedEntry.resolveAll([
+            extracted(item: "焼肉", amount: "12000"),
+            extracted(item: "ランチ", amount: "850"),
+        ], against: input("焼肉12000 4人で割り勘 ランチ 850"))
+        #expect(split.map(\.amount) == [3_000, 850])
+        #expect(split.map(\.splitCount) == [4, 1])
+    }
+
+    // 添えた額（税抜き・値引き・合計・おつり・ポイント）をモデルが金額として返しても、その額では記録しない。
+    @Test("主な金額に添えた額は、金額として突き合わせない", arguments: [
+        ("1000", "ランチ 1000円 (税込1100円)"),
+        ("100", "ランチ 850 100円引き"),
+        ("150", "ランチ 850円 おつり150円"),
+        ("10000", "家電 12万8千円 ポイント1万"),
+        ("1250", "ランチ850 コーヒー400 合計1250"),
+    ])
+    func rejectsSupplementaryAmount(amountText: String, text: String) {
+        #expect(throws: ExtractedEntry.ResolveError.ungroundedAmount) {
+            try resolve(extracted(amount: amountText), text)
+        }
+    }
+
+    @Test("税込みの額を返せばその額、値引きの前の額を返せば引いた額で記録する（ルールベースと同じ）", arguments: [
+        ("1100", "ランチ 1000円 (税込1100円)", 1_100),
+        ("税込1100円", "ランチ 1000円 (税込1100円)", 1_100),
+        ("850", "ランチ 850 100円引き", 750),
+        ("128000", "家電 12万8千円 ポイント1万", 128_000),
+    ])
+    func acceptsPrimaryAmountWithSupplement(amountText: String, text: String, amount: Int) throws {
+        #expect(try resolve(extracted(item: "ランチ", amount: amountText), text).amount == amount)
+        #expect(input(text).ruleBasedEntries.map(\.amount) == [amount])
+    }
 }

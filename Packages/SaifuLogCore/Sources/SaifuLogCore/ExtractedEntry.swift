@@ -62,6 +62,8 @@ public struct ExtractedEntry: Sendable, Hashable {
     /// 数字は AI に作らせない。モデルが入力に無い値を返しても、それで保存する金額や日付が
     /// 変わらないよう、次のように扱う。
     /// - 金額: 区間に書かれた金額のどれとも一致しなければ `ResolveError.ungroundedAmount` を投げる。
+    ///   その件の金額に採らない額（税抜きの値段・値引き・合計・おつり・ポイント）とは突き合わせない。
+    ///   マイナスを付けない値引き（「850 100円引き」）は、ルールベースと同じく引いた額で記録する。
     ///   「-500」のようにマイナスを付けて書かれた額は、モデルの答えによらず返金として収入にする
     /// - 日付: 表記の指す日が、区間に書かれた日付かこの件に割り当てた日付と一致するときだけ使う。
     ///   そうでなければ入力から割り当てた日付を使う（「一昨日」の入力に「昨日」と返されても 1 日ずれない）
@@ -90,7 +92,7 @@ public struct ExtractedEntry: Sendable, Hashable {
 
         let groundedItem = segment.groundedItem(from: item, memo: candidate.memo)
         return ParsedEntry.assemble(
-            total: amount.value,
+            total: candidate.value,
             category: groundedItem == nil ? segment.ruleCategory : EntryCategory(displayName: categoryName) ?? .other,
             isIncome: amount.isNegative || (isIncome && !IncomeRule.contradictsIncome(segment.contextText)),
             item: groundedItem ?? candidate.memo,

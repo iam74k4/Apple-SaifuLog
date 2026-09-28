@@ -45,7 +45,8 @@ public struct InputSegment: Sendable, Hashable {
     /// この区間をルールベースで読んだ記録。AI がこの件だけ読めなかったときの代わりにも使える。
     public let ruleBasedEntry: ParsedEntry
 
-    /// 区間の中の金額と、その金額を採ったときのメモ（金額・割り勘の語を除いた残り）。値引きの額（`isDiscount`）も含む。
+    /// 区間の中の金額と、その金額を採ったときのメモ（金額・割り勘の語を除いた残り）。採らない額（`isSupplementary`。
+    /// 値引きの説明・税抜きの値段・合計・おつり・ポイント）も含む。
     let candidates: [Candidate]
     /// ルールベースで採った金額の位置（`candidates` の添字）。
     let chosenIndex: Int
@@ -64,6 +65,8 @@ public struct InputSegment: Sendable, Hashable {
 
     struct Candidate: Sendable, Hashable {
         var amount: EntryScan.Amount
+        /// この金額を採ったときに記録する額。マイナスを付けない値引き（「850 100円引き」）を引いた額。
+        var value: Int
         var memo: String
     }
 
@@ -85,18 +88,24 @@ public struct InputSegment: Sendable, Hashable {
 
         let splitRanges = segment.split.map { [$0.wordRange, $0.countRange] } ?? []
         let amountRanges = segment.amounts.map(\.range)
-        candidates = segment.amounts.map { amount in
+        // 税抜きの値段・合計・おつりは、どの金額を採ってもメモから除く（記録した額と違う金額が並んで紛らわしいため）。
+        let omittedRanges = segment.amounts.filter(\.role.isOmittedFromMemo).map(\.range)
+        candidates = segment.amounts.indices.map { k in
+            let amount = segment.amounts[k]
             // 割り勘の語と人数はメモから除く（割った内容は assemble が書き足す）。
             // 1 人分の額を採るときは、区間のほかの金額（総額）も除く。残すと「焼肉 12000」のように、記録した額と
             // 違う金額がメモに並ぶため。1 人分であることも assemble が「（4人で割り勘・1人分）」と書き足す。
-            let excluded = (amount.isPerPerson ? amountRanges : [amount.range]) + splitRanges
-            return Candidate(amount: amount, memo: scan.text(in: segment.range, excluding: excluded))
+            let excluded = (amount.isPerPerson ? amountRanges : [amount.range]) + splitRanges + omittedRanges
+            return Candidate(
+                amount: amount, value: segment.recordedValue(at: k),
+                memo: scan.text(in: segment.range, excluding: excluded)
+            )
         }
         chosenIndex = candidates.firstIndex { $0.amount == segment.amount } ?? candidates.count - 1
 
         let chosen = candidates[chosenIndex]
         ruleBasedEntry = ParsedEntry.assemble(
-            total: chosen.amount.value,
+            total: chosen.value,
             category: ruleCategory,
             isIncome: chosen.amount.isNegative || IncomeRule.isIncome(contextText),
             item: chosen.memo,
@@ -109,11 +118,13 @@ public struct InputSegment: Sendable, Hashable {
     /// `value` 円の金額が区間に書かれていれば、その金額。ルールベースで採った金額を優先する。
     ///
     /// 掛け算（「500×3」）は、単価の 500 でも掛けた額の 1500 でも、掛けた額の金額と突き合わせる。
-    /// 個数の 3 は突き合わせない。値引きの額（「ランチ 850(-100引き)」の 100）も突き合わせない。
+    /// 個数の 3 は突き合わせない。その件の金額に採らない額（`isSupplementary`。「ランチ 850(-100引き)」の 100、
+    /// 「1000円 (税込1100円)」の 1000、「850 100円引き」の 100、合計・おつり・ポイント）も突き合わせない。
     /// その額を記録すると、850 円の支出が 100 円の記録になるため（ルールベースで読み直させる）。
     func candidate(matching value: Int) -> Candidate? {
         let matches = { (candidate: Candidate) in
-            !candidate.amount.isDiscount && (candidate.amount.value == value || candidate.amount.unitPrice == value)
+            !candidate.amount.isSupplementary
+                && (candidate.amount.value == value || candidate.amount.unitPrice == value)
         }
         if matches(candidates[chosenIndex]) { return candidates[chosenIndex] }
         return candidates.first(where: matches)
