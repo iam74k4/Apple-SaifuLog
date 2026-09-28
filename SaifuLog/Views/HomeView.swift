@@ -5,10 +5,10 @@ import UIKit
 
 /// ホーム。今月の合計、記録のタイムライン、入力欄を 1 画面に置く。
 ///
-/// 記録も（将来は）質問も同じ入力欄から行う。入口を分けると「どこに書けばいいか」を
-/// 利用者に考えさせることになるため。
+/// 記録も質問も同じ入力欄から行う。入口を分けると「どこに書けばいいか」を利用者に考えさせることになるため。
+/// 質問とその返事は、記録の吹き出しと同じタイムラインに送った順で出す（保存はしない）。
 ///
-/// 状態と操作（送信・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ）は `HomeModel` が持つ。ここは表示と、
+/// 状態と操作（送信・質問・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ）は `HomeModel` が持つ。ここは表示と、
 /// 環境（文字の大きさ・支援技術・前面かどうか）に合わせた出し方だけを受け持つ。
 struct HomeView: View {
     @Environment(\.calendar) private var calendar
@@ -123,9 +123,13 @@ struct HomeView: View {
         EntryTimeline(
             limit: model.timelineLimit,
             today: model.today,
+            questions: model.questions,
             showMore: { model.showMoreTimeline() },
             edit: { model.presentEdit($0, calendar: calendar) },
-            requestDelete: { model.requestDelete($0) }
+            requestDelete: { model.requestDelete($0) },
+            openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
+            setBudget: { model.presentBudgetSetup() },
+            openPremium: { model.presentPremium() }
         )
         .background(Theme.background)
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -223,38 +227,82 @@ private extension HomeModel.StoreFailure {
 }
 
 /// 記録のタイムライン。記録した日時の新しいものから `limit` 件を読み、古い順（新しいものが下）に並べる。
+/// この起動の間に送った質問とその返事も、送った順に同じ流れへ差し込む。
 ///
 /// 全期間を読むと、記録が増えるほど開くのも描き直すのも遅くなる。読み込む件数は `limit` で区切り、
 /// さかのぼりたいときは上の「前の記録を表示」で増やす。
 private struct EntryTimeline: View {
     let limit: Int
     let today: Date
+    let questions: [QuestionExchange]
     let showMore: () -> Void
     let edit: (Entry) -> Void
     let requestDelete: (Entry) -> Void
+    let openReport: (Date) -> Void
+    let setBudget: () -> Void
+    let openPremium: () -> Void
 
     @Query private var recentEntries: [Entry]
 
     init(
         limit: Int,
         today: Date,
+        questions: [QuestionExchange],
         showMore: @escaping () -> Void,
         edit: @escaping (Entry) -> Void,
-        requestDelete: @escaping (Entry) -> Void
+        requestDelete: @escaping (Entry) -> Void,
+        openReport: @escaping (Date) -> Void,
+        setBudget: @escaping () -> Void,
+        openPremium: @escaping () -> Void
     ) {
         self.limit = limit
         self.today = today
+        self.questions = questions
         self.showMore = showMore
         self.edit = edit
         self.requestDelete = requestDelete
+        self.openReport = openReport
+        self.setBudget = setBudget
+        self.openPremium = openPremium
         _recentEntries = Query(Entry.timelineDescriptor(limit: limit))
+    }
+
+    /// タイムラインの 1 つ（記録か、質問とその返事）。
+    private enum Item: Identifiable {
+        case entry(Entry)
+        case question(QuestionExchange)
+
+        var id: ItemID {
+            switch self {
+            case .entry(let entry): .entry(entry.persistentModelID)
+            case .question(let exchange): .question(exchange.id)
+            }
+        }
+
+        /// 並べる日時。記録は記録した日時（送った順）、質問は送った日時。
+        var date: Date {
+            switch self {
+            case .entry(let entry): entry.createdAt
+            case .question(let exchange): exchange.askedAt
+            }
+        }
+    }
+
+    private enum ItemID: Hashable {
+        case entry(PersistentIdentifier)
+        case question(UUID)
+    }
+
+    /// 記録と質問を、送った順（古いものが上）に並べる。
+    private var items: [Item] {
+        (recentEntries.map(Item.entry) + questions.map(Item.question)).sorted { $0.date < $1.date }
     }
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    if recentEntries.isEmpty {
+                    if recentEntries.isEmpty && questions.isEmpty {
                         EmptyTimelineView()
                     }
                     // 読み込んだ件数が上限に届いていれば、まだ前の記録があるかもしれない。
@@ -263,9 +311,17 @@ private struct EntryTimeline: View {
                             .font(.subheadline)
                             .frame(minHeight: 44)
                     }
-                    ForEach(recentEntries.reversed()) { entry in
-                        EntryBubble(entry: entry, today: today, edit: { edit(entry) }, requestDelete: { requestDelete(entry) })
-                            .id(entry.persistentModelID)
+                    ForEach(items) { item in
+                        switch item {
+                        case .entry(let entry):
+                            EntryBubble(entry: entry, today: today, edit: { edit(entry) }, requestDelete: { requestDelete(entry) })
+                                .id(item.id)
+                        case .question(let exchange):
+                            QuestionExchangeView(
+                                exchange: exchange, openReport: openReport, setBudget: setBudget, openPremium: openPremium
+                            )
+                            .id(item.id)
+                        }
                     }
                 }
                 .padding()
@@ -275,13 +331,18 @@ private struct EntryTimeline: View {
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: recentEntries.first?.persistentModelID) { _, id in
                 guard let id else { return }
-                withAnimation { proxy.scrollTo(id, anchor: .bottom) }
+                withAnimation { proxy.scrollTo(ItemID.entry(id), anchor: .bottom) }
+            }
+            // 質問を送ったときと、返事が届いた（カードが伸びた）ときに、いちばん下の質問まで送る。
+            .onChange(of: questions.last) { _, exchange in
+                guard let exchange else { return }
+                withAnimation { proxy.scrollTo(ItemID.question(exchange.id), anchor: .bottom) }
             }
         }
     }
 }
 
-/// 記録が 1 件も無いときの案内。入力の例を見せて、何を書けばよいかを伝える。
+/// 記録が 1 件も無いときの案内。入力の例を見せて、何を書けばよいかを伝える。質問も同じ入力欄からできることを添える。
 private struct EmptyTimelineView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -289,22 +350,32 @@ private struct EmptyTimelineView: View {
                 .font(.title2.bold())
             Text("下の入力欄に、こんなふうに送るだけで記録できます。")
                 .foregroundStyle(Theme.inkSecondary)
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(Self.examples, id: \.self) { example in
-                    Text(verbatim: example)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Theme.surface, in: .rect(cornerRadius: 12))
-                }
-            }
+            examples(Self.recordExamples)
+            Text("同じ入力欄で、家計について聞くこともできます。")
+                .foregroundStyle(Theme.inkSecondary)
+                .padding(.top, 4)
+            examples(Self.questionExamples)
         }
         .foregroundStyle(Theme.ink)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 24)
     }
 
+    private func examples(_ texts: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(texts, id: \.self) { example in
+                Text(verbatim: example)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Theme.surface, in: .rect(cornerRadius: 12))
+            }
+        }
+    }
+
     /// 入力の例は日本語のまま見せる（解析が日本語の入力を前提にしているため、訳さない）。
-    private static let examples = ["ランチ 850", "昨日 焼肉12000 4人で割り勘", "給料 25万"]
+    private static let recordExamples = ["ランチ 850", "昨日 焼肉12000 4人で割り勘", "給料 25万"]
+    /// 質問の例（ようこその 3 つ目の例と同じ）。
+    private static let questionExamples = ["今月カフェいくら?"]
 }
 
 #Preview {

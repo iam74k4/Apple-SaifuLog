@@ -78,6 +78,26 @@ struct MonthlyReportModelTests {
         #expect(model.monthTitle.contains("2026"))
     }
 
+    @Test("質問の回答カードから開くときは、渡した月を開く（今月より先の月は今月にする）")
+    func opensGivenMonth() throws {
+        let fixture = try Fixture()
+        try fixture.insert(TestSupport.entry(amount: 700, spentAt: TestSupport.date(2026, 8, 10)))
+
+        let lastMonth = MonthlyReportModel(
+            store: EntryStore(context: fixture.context), calendar: TestSupport.calendar,
+            month: TestSupport.date(2026, 8, 1), now: { TestSupport.now }, announce: { _ in }
+        )
+        #expect(lastMonth.month == Self.month(2026, 8))
+        #expect(lastMonth.report?.expense == 700)
+        #expect(lastMonth.canShowNextMonth)
+
+        let future = MonthlyReportModel(
+            store: EntryStore(context: fixture.context), calendar: TestSupport.calendar,
+            month: TestSupport.date(2026, 11, 1), now: { TestSupport.now }, announce: { _ in }
+        )
+        #expect(future.month == Self.month(2026, 9))
+    }
+
     @Test("今月の数字は、その月の記録から出す（前の月との差も）")
     func reportOfCurrentMonth() throws {
         let fixture = try Fixture()

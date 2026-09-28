@@ -66,7 +66,7 @@ struct WelcomeView: View {
             Text("ひとことで家計簿")
                 .font(.largeTitle.bold())
                 .accessibilityAddTraits(.isHeader)
-            Text("サイフログは、「ランチ 850」のように一行送るだけで記録できる家計簿です。分類と計算はアプリが引き受けます。")
+            Text("サイフログは、「ランチ 850」のように一行送るだけで記録できる家計簿です。分類と計算はアプリが引き受け、同じ入力欄で家計について聞くこともできます。")
                 .foregroundStyle(Theme.inkSecondary)
         }
     }
@@ -173,7 +173,7 @@ extension OnDeviceAIStatus {
         case .available:
             "Apple Intelligence が、この iPhone の中で品目やカテゴリを読み取ります。読み違えたときは、記録の直後に取り消すか、記録をタップして直せます。"
         case .deviceNotEligible:
-            "この iPhone は Apple Intelligence に対応していないため、端末内の辞書で金額やカテゴリを読み取ります。上の例のような書き方なら、AI がなくても記録できます。"
+            "この iPhone は Apple Intelligence に対応していないため、端末内の辞書で金額やカテゴリを読み取ります。上の例のような書き方なら、AI がなくても記録や質問ができます。"
         case .appleIntelligenceNotEnabled:
             "Apple Intelligence がオフのため、端末内の辞書で読み取ります。記録はそのままできます。設定で Apple Intelligence をオンにすると、AI が読むようになります。"
         case .modelNotReady:

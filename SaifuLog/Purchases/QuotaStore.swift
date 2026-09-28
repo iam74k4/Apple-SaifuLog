@@ -6,8 +6,8 @@ import SaifuLogCore
 ///
 /// 数え方（暦の月ごと・月が替わると 0・プレミアムと体験中は数えない）はコアの `UsageQuota` が決め、ここは読み書きだけ。
 /// 回数は家計の中身ではないので、設定の置き場所（`AppSettings`。UserDefaults.standard）に置く。
-/// 使う機能（レシート・質問）は後で足す。使うときは、読み取りや回答が終わってから `recordUse` を呼ぶ（失敗やキャンセルで
-/// 回数を減らさないため）。
+/// 家計への質問で使う（`HomeModel`。答えを出せたときだけ `recordUse` を呼ぶ）。レシートの読み取りは後で足す。どちらも、読み取りや
+/// 回答が終わってから `recordUse` を呼ぶ（失敗やキャンセルで回数を減らさないため）。
 @MainActor
 @Observable
 final class QuotaStore {
