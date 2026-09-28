@@ -1,6 +1,7 @@
 Copyright (c) 2026 iam74k4. All Rights Reserved.
 
-This software and its source code are proprietary and confidential.
+This software and its source code are proprietary. The source code is
+made publicly readable for reference and transparency.
 
 The official build of this software is (or will be) distributed through
 the App Store. Its use is governed by Apple's Licensed Application End
@@ -8,15 +9,33 @@ User License Agreement:
 
   https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
 
-All other rights are reserved. No license, express or implied, is granted
-to copy, modify, merge, publish, distribute, sublicense, create derivative
-works from, or sell this software or its source code, in whole or in part,
-by any means.
+Limited permission for personal trial
 
-The source code may be publicly readable for reference and transparency.
-Such availability does not grant any of the rights listed above.
+Any individual may download (clone) the source code and build it, solely
+to try the software on devices that the individual owns or controls, for
+the individual's own personal, non-commercial use. This includes making
+only the changes needed to build and run it on those devices (such as the
+code signing team and the bundle identifier).
 
-Permission for any use beyond viewing must be obtained in writing from the
+This permission does not allow any of the following:
+
+  - redistributing the source code, a modified version of it, or any
+    build made from it, to anyone else;
+  - publishing or distributing the software or any work derived from it,
+    in any form or through any channel (including the App Store,
+    TestFlight, other app stores, and websites);
+  - using the software, its source code, or any part of it for any
+    commercial purpose.
+
+All other rights are reserved. Except as expressly permitted above, no
+license, express or implied, is granted to copy, modify, merge, publish,
+distribute, sublicense, create derivative works from, or sell this
+software or its source code, in whole or in part, by any means. Nothing in
+this license limits what the GitHub Terms of Service allow for public
+repositories on GitHub (such as viewing and forking this repository on
+GitHub).
+
+Permission for any other use must be obtained in writing from the
 copyright holder.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -31,15 +50,29 @@ SOFTWARE.
 
 日本語による要約（正文は上記の英文）
 
-著作権者: iam74k4 — 全ての権利を留保します。
+著作権者: iam74k4 — 全ての権利を留保します。ソースコードは、参照と透明性のために
+公開しています。
 
 公式ビルドは App Store で配布します。その利用には Apple の
 「ライセンス供与されたアプリケーションのエンドユーザ使用許諾契約」が適用されます。
 
-それ以外の権利は留保します。ソースコードの複製・改変・再配布・派生物の作成・販売
-などは、その全部か一部かを問わず許諾していません。
+個人が、自分の持っている（管理している）端末で試すために、ソースコードを
+ダウンロード（clone）してビルドすることは許可します。自分の端末でビルドして動かすのに
+必要な変更（署名のチームや Bundle ID など）もこれに含みます。営利を目的としない、
+本人の利用に限ります。
 
-ソースコードが公開されている場合でも、それによって上記の権利が
-許諾されるものではありません。利用をご希望の場合は著作権者へご連絡ください。
+次のことは許可していません。
+
+- ソースコード、それを改変したもの、それからビルドしたものを、他の人に配ること
+- 本ソフトウェアやその派生物を、形や経路を問わず公開・配布すること（App Store、
+  TestFlight、ほかのアプリストア、Web サイトを含みます）
+- 本ソフトウェア、ソースコード、その一部を、商用の目的で使うこと
+
+上で明示した以外の権利は留保します。ソースコードの複製・改変・再配布・派生物の作成・
+販売などは、その全部か一部かを問わず許諾していません。ただし、GitHub の利用規約が
+公開リポジトリについて認めていること（GitHub 上での閲覧やフォークなど）を制限する
+ものではありません。
+
+それ以外の利用をご希望の場合は、著作権者へご連絡ください。
 
 本ソフトウェアは現状有姿で提供され、いかなる保証も伴いません。
