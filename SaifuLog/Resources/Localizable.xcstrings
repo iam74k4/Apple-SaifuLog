@@ -101,6 +101,29 @@
         }
       }
     },
+    "%lld 日" : {
+      "comment" : "先週のふりかえりの内訳。記録のある日の数。%lld は日数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld days"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "14日間、プレミアムの機能をすべて無料で使えます。体験は無料で、終わっても自動で課金されることはありません（続けて使うときだけ、プレミアムを購入してください）。体験が終わると、プレミアムの機能は使えなくなります（記録や決めた予算は消えません）。体験は1つの Apple アカウントにつき1回です。始めるときに App Store の確認が出ます（0円）。" : {
       "comment" : "プレミアムのシート（⑨）。無料体験の説明（審査ガイドライン 3.1.1: 期間・終わった後に使えなくなるもの・料金がかからないこと）",
       "localizations" : {
@@ -409,6 +432,28 @@
         }
       }
     },
+    "いちばん使った日" : {
+      "comment" : "先週のふりかえりの内訳の行の見出し。先週のうち支出がいちばん多かった日（値は月日・曜日と、その日の支出）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biggest spending day"
+          }
+        }
+      }
+    },
+    "いまの予算 %@" : {
+      "comment" : "先週のふりかえりのカード。%@ はいまの月の予算",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current budget: %@"
+          }
+        }
+      }
+    },
     "いまの予算を決める前の月なので、予算の残りは分かりません（月ごとの予算は残していません）。" : {
       "comment" : "家計への質問の回答カード。先月の予算の残りを聞かれたが、いまの予算を先月より後に決めていて答えられないとき",
       "localizations" : {
@@ -629,6 +674,50 @@
         }
       }
     },
+    "この週の支出の記録はありません" : {
+      "comment" : "先週のふりかえりの内訳のカテゴリ別の支出の欄。先週に収入の記録しかないとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No spending recorded last week"
+          }
+        }
+      }
+    },
+    "この週の記録の一覧を開きます" : {
+      "comment" : "先週のふりかえりの内訳の行の VoiceOver の説明（ヒント）。先週のそのカテゴリの記録の一覧へ進む",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows last week’s entries in this category."
+          }
+        }
+      }
+    },
+    "この週の記録はありません" : {
+      "comment" : "先週のふりかえりの内訳から開いたカテゴリの記録の一覧で、記録が 1 件も無いときの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No entries last week"
+          }
+        }
+      }
+    },
+    "これまでの支出から見た、月の予算の目安: %@" : {
+      "comment" : "先週のふりかえりのカード。%@ は直近の月の支出の中央値を 1,000 円単位に丸めた額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggested monthly budget from your spending: %@"
+          }
+        }
+      }
+    },
     "こんなふうに書けます" : {
       "comment" : "ようこその画面。入力の例の見出し",
       "localizations" : {
@@ -729,6 +818,17 @@
         }
       }
     },
+    "ひとことを書いています…" : {
+      "comment" : "先週のふりかえりのカードと月のまとめ。端末内 AI が一言を書いている間の表示",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Writing a short note…"
+          }
+        }
+      }
+    },
     "ひとこと入力と AI の文章の読み取り、CSV 書き出しは、無料のまま回数の制限なく使えます。広告はありません。「近日」の機能は、これからのアップデートで加えます。" : {
       "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の下の注記",
       "localizations" : {
@@ -736,6 +836,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "One-line entry, AI reading of your text, and CSV export stay free with no limits. No ads. Features marked Coming Soon will arrive in future updates."
+          }
+        }
+      }
+    },
+    "ふりかえりの AI の一言" : {
+      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の行（先週のふりかえりと月のまとめに添える AI の一言）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Notes in Reviews"
           }
         }
       }
@@ -1811,6 +1922,138 @@
         }
       }
     },
+    "先週のふりかえり" : {
+      "comment" : "先週のふりかえりのカードの見出しと、カードから開く内訳の画面の題",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last Week in Review"
+          }
+        }
+      }
+    },
+    "先週のふりかえりと月のまとめに、端末内の AI が一言を添えます（Apple Intelligence に対応した iPhone のみ。数字はどちらもアプリが計算します）。" : {
+      "comment" : "プレミアムのシート（⑨）。ふりかえりの AI の一言の行の補足",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On-device AI adds a short note to Last Week in Review and the monthly summary (only on iPhone models that support Apple Intelligence; the app always calculates the numbers)."
+          }
+        }
+      }
+    },
+    "先週のふりかえりを閉じました" : {
+      "comment" : "先週のふりかえりのカードを閉じたときの VoiceOver の読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Closed Last Week in Review"
+          }
+        }
+      }
+    },
+    "先週のふりかえりを閉じる" : {
+      "comment" : "先週のふりかえりのカードの右上の、カードを閉じるボタンの VoiceOver のラベル",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close Last Week in Review"
+          }
+        }
+      }
+    },
+    "先週の内訳を開きます" : {
+      "comment" : "先週のふりかえりのカードの VoiceOver の説明（ヒント）。押すと先週の内訳へ進む",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens last week’s details."
+          }
+        }
+      }
+    },
+    "先週の支出" : {
+      "comment" : "先週のふりかえりの内訳の週の目安の欄の行の見出し。先週の支出の合計",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last week’s spending"
+          }
+        }
+      }
+    },
+    "先週の支出は %@ でした。" : {
+      "comment" : "先週のふりかえり。前の週に支出の記録が無いとき。%@ は先週の支出の合計",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You spent %@ last week."
+          }
+        }
+      }
+    },
+    "先週の支出は %@。前の週と同じでした。" : {
+      "comment" : "先週のふりかえり。前の週と同じ額のとき。%@ は先週の支出の合計",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You spent %@ last week, the same as the week before."
+          }
+        }
+      }
+    },
+    "先週の支出は %@。前の週より %@ 多めでした。" : {
+      "comment" : "先週のふりかえり。前の週より多く使ったとき。1 つ目の %@ は先週の支出の合計、2 つ目は前の週との差額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You spent %@ last week, %@ more than the week before."
+          }
+        }
+      }
+    },
+    "先週の支出は %@。前の週より %@ 少なめでした。" : {
+      "comment" : "先週のふりかえり。前の週より少なく使ったとき。1 つ目の %@ は先週の支出の合計、2 つ目は前の週との差額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You spent %@ last week, %@ less than the week before."
+          }
+        }
+      }
+    },
+    "先週の記録はありません" : {
+      "comment" : "先週のふりかえりの内訳で、先週に記録が 1 件も無いときの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No entries last week"
+          }
+        }
+      }
+    },
+    "先週は記録がありませんでした。" : {
+      "comment" : "先週のふりかえり。先週に記録が 1 件も無かったときの定型文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You didn’t record anything last week."
+          }
+        }
+      }
+    },
     "光熱・通信" : {
       "comment" : "カテゴリ",
       "localizations" : {
@@ -1917,6 +2160,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Show earlier records"
+          }
+        }
+      }
+    },
+    "前の週と同じ" : {
+      "comment" : "先週のふりかえりの内訳。先週の支出が前の週と同じとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Same as the week before"
+          }
+        }
+      }
+    },
+    "前の週より %@ 多い" : {
+      "comment" : "先週のふりかえりの内訳。先週の支出が前の週より多いとき。%@ は「¥2,100」のような差額。矢印のアイコンを添える",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ more than the week before"
+          }
+        }
+      }
+    },
+    "前の週より %@ 少ない" : {
+      "comment" : "先週のふりかえりの内訳。先週の支出が前の週より少ないとき。%@ は「¥2,100」のような差額。矢印のアイコンを添える",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ less than the week before"
           }
         }
       }
@@ -2042,6 +2318,17 @@
         }
       }
     },
+    "同じ週には、もう出しません" : {
+      "comment" : "先週のふりかえりのカードの「閉じる」の VoiceOver の説明（ヒント）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It won’t appear again this week."
+          }
+        }
+      }
+    },
     "品目" : {
       "comment" : "直すシートの品目（メモ）の欄の見出しと入力欄のラベル",
       "localizations" : {
@@ -2082,6 +2369,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No Purchases to Restore"
+          }
+        }
+      }
+    },
+    "思い出した支出は、「%@」のように日付を付けて記録できます。" : {
+      "comment" : "先週のふりかえり。記録が無かった週の案内。%@ は日付を付けた入力の例（日本語のまま）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can still add past spending with a date, like “%@”."
           }
         }
       }
@@ -2317,6 +2615,17 @@
         }
       }
     },
+    "月の予算を、先週の日ごとにその月の日数で割って足した額です（月をまたぐ週は、それぞれの月で割ります）。" : {
+      "comment" : "先週のふりかえりの内訳の週の目安の欄の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your monthly budget divided by the number of days in the month, added up for each day of last week (a week spanning two months uses each month’s length)."
+          }
+        }
+      }
+    },
     "月の予算を決める" : {
       "comment" : "予算を決める画面の見出し",
       "localizations" : {
@@ -2335,6 +2644,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Set a monthly budget to get answers about what’s left and how much you can spend per day."
+          }
+        }
+      }
+    },
+    "月の予算を決めると、週の目安と比べられます。" : {
+      "comment" : "先週のふりかえりのカード。予算が無く、予算の目安も出せないときの案内",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set a monthly budget to compare each week with a weekly guide."
           }
         }
       }
@@ -2621,6 +2941,29 @@
         }
       }
     },
+    "直近 %lld か月の支出の中央値を、1,000 円単位に丸めた額です。" : {
+      "comment" : "先週のふりかえりのカード。予算の目安の出し方。%lld は元にした月の数（1〜3。記録の無い月は数えない）",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Your spending in the one recent month with entries, rounded to the nearest ¥1,000."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The median of your spending over the last %lld months with entries, rounded to the nearest ¥1,000."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "直近 %lld 日" : {
       "comment" : "家計への質問の回答カードの期間の名前。今日を含む直近の日数。%lld は日数",
       "localizations" : {
@@ -2783,6 +3126,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t record"
+          }
+        }
+      }
+    },
+    "記録のある日" : {
+      "comment" : "先週のふりかえりの内訳の行の見出し。先週のうち記録（支出か収入）のある日の数",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Days with entries"
           }
         }
       }
@@ -3173,17 +3527,6 @@
         }
       }
     },
-    "週のふりかえりの AI の一言" : {
-      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の行（近日の機能）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AI Note in the Weekly Review"
-          }
-        }
-      }
-    },
     "週の始まり" : {
       "comment" : "設定の行。カレンダーの週を何曜日から始めるか（端末の設定・日曜日・月曜日）",
       "localizations" : {
@@ -3191,6 +3534,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Week Starts On"
+          }
+        }
+      }
+    },
+    "週の目安" : {
+      "comment" : "先週のふりかえりの内訳の欄の見出しと行の見出し。月の予算を先週の日数で日割りした額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weekly guide"
+          }
+        }
+      }
+    },
+    "週の目安 %@ どおり" : {
+      "comment" : "先週のふりかえり。先週の支出が週の目安と同じとき。%@ は月の予算を日割りした週の目安",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weekly guide %@: right on track"
+          }
+        }
+      }
+    },
+    "週の目安 %@ より %@ 多い" : {
+      "comment" : "先週のふりかえり。1 つ目の %@ は月の予算を日割りした週の目安、2 つ目は差額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weekly guide %@: %@ over"
+          }
+        }
+      }
+    },
+    "週の目安 %@ より %@ 少ない" : {
+      "comment" : "先週のふりかえり。1 つ目の %@ は月の予算を日割りした週の目安、2 つ目は差額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weekly guide %@: %@ under"
           }
         }
       }

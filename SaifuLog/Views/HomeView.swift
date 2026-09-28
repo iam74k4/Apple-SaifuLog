@@ -8,7 +8,10 @@ import UIKit
 /// 記録も質問も同じ入力欄から行う。入口を分けると「どこに書けばいいか」を利用者に考えさせることになるため。
 /// 質問とその返事は、記録の吹き出しと同じタイムラインに送った順で出す（保存はしない）。
 ///
-/// 状態と操作（送信・質問・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ）は `HomeModel` が持つ。ここは表示と、
+/// 週が替わって最初に開いたときは、先週のふりかえりのカードも同じタイムラインに出す（アプリからの返事として、出した時点の位置に）。
+///
+/// 状態と操作（送信・質問・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ・先週のふりかえり）は
+/// `HomeModel` が持つ。ここは表示と、
 /// 環境（文字の大きさ・支援技術・前面かどうか）に合わせた出し方だけを受け持つ。
 struct HomeView: View {
     @Environment(\.calendar) private var calendar
@@ -70,6 +73,10 @@ struct HomeView: View {
                 .navigationDestination(item: $model.settings) { settings in
                     SettingsView(model: settings)
                 }
+                // 先週のふりかえりの内訳も横に進む（まとめと同じ出し方）。
+                .navigationDestination(item: $model.weeklyRecapDetail) { recap in
+                    WeeklyRecapView(model: recap)
+                }
                 // 無料体験が終わった後の最初の起動に、一度だけプレミアム（⑨）を出す（`HomeModel.presentPremiumIfTrialEnded`）。
                 .sheet(item: $model.premiumSheet) { premium in
                     PremiumSheet(model: premium)
@@ -79,6 +86,22 @@ struct HomeView: View {
                 // 入力の途中でも遮るため。そのときは次に前面に戻ったときに出す（「体験が終わった後の最初の起動」）。
                 .task(id: model.purchases.hasLoadedPurchases) {
                     model.presentPremiumIfTrialEnded()
+                }
+                // 体験を始めた・買った・返金されたら、ふりかえりの AI の一言を決め直す（体験を始めてホームに戻ったら一言が付くように）。
+                .onChange(of: model.purchases.status.unlocksPremium) {
+                    model.premiumStatusDidChange()
+                }
+                // 週が替わって最初に開いたときだけ、先週のふりかえりのカードを出す（前面に戻ったとき・日付が変わったときは下）。
+                .onAppear {
+                    model.showWeeklyRecapIfDue(calendar: calendar)
+                }
+                // 週の始まりの設定を変えると画面の暦が変わるので、変えた後の週で決め直す。
+                .onChange(of: calendar) { _, calendar in
+                    model.showWeeklyRecapIfDue(calendar: calendar)
+                }
+                // 保存先に書き込まれたら、ふりかえりのカード（と内訳）の数字を読み直す（先週の日付で記録したり、直したりしたとき）。
+                .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { _ in
+                    model.weeklyRecap?.reload()
                 }
                 #if DEBUG || INTERNAL_DIAGNOSTICS
                 .sheet(isPresented: $showsDiagnostics) {
@@ -110,11 +133,13 @@ struct HomeView: View {
                         model.refreshToday()
                         // 状態が変わらなくても、前面に戻ったときには確かめる（ほかの画面を閉じた後で出せるように）。
                         model.presentPremiumIfTrialEnded()
+                        model.showWeeklyRecapIfDue(calendar: calendar)
                     }
                 }
                 // 日付が変わったとき（0 時・時間帯の変更など）。前面に置いたまま月をまたいでも合計を切り替える。
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
                     model.refreshToday()
+                    model.showWeeklyRecapIfDue(calendar: calendar)
                 }
         }
     }
@@ -124,12 +149,15 @@ struct HomeView: View {
             limit: model.timelineLimit,
             today: model.today,
             questions: model.questions,
+            weeklyRecap: model.weeklyRecap,
             showMore: { model.showMoreTimeline() },
             edit: { model.presentEdit($0, calendar: calendar) },
             requestDelete: { model.requestDelete($0) },
             openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
             setBudget: { model.presentBudgetSetup() },
-            openPremium: { model.presentPremium() }
+            openPremium: { model.presentPremium() },
+            openWeeklyRecap: { model.presentWeeklyRecapDetail() },
+            dismissWeeklyRecap: { model.dismissWeeklyRecap() }
         )
         .background(Theme.background)
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -227,7 +255,8 @@ private extension HomeModel.StoreFailure {
 }
 
 /// 記録のタイムライン。記録した日時の新しいものから `limit` 件を読み、古い順（新しいものが下）に並べる。
-/// この起動の間に送った質問とその返事も、送った順に同じ流れへ差し込む。
+/// この起動の間に送った質問とその返事も、送った順に同じ流れへ差し込む。先週のふりかえりのカードは、出した日時の位置に差し込む
+/// （出したときはいちばん下で、開いたときに見える。その後に記録すると、その上に流れていく）。
 ///
 /// 全期間を読むと、記録が増えるほど開くのも描き直すのも遅くなる。読み込む件数は `limit` で区切り、
 /// さかのぼりたいときは上の「前の記録を表示」で増やす。
@@ -235,12 +264,15 @@ private struct EntryTimeline: View {
     let limit: Int
     let today: Date
     let questions: [QuestionExchange]
+    let weeklyRecap: WeeklyRecapModel?
     let showMore: () -> Void
     let edit: (Entry) -> Void
     let requestDelete: (Entry) -> Void
     let openReport: (Date) -> Void
     let setBudget: () -> Void
     let openPremium: () -> Void
+    let openWeeklyRecap: () -> Void
+    let dismissWeeklyRecap: () -> Void
 
     @Query private var recentEntries: [Entry]
 
@@ -248,42 +280,51 @@ private struct EntryTimeline: View {
         limit: Int,
         today: Date,
         questions: [QuestionExchange],
+        weeklyRecap: WeeklyRecapModel?,
         showMore: @escaping () -> Void,
         edit: @escaping (Entry) -> Void,
         requestDelete: @escaping (Entry) -> Void,
         openReport: @escaping (Date) -> Void,
         setBudget: @escaping () -> Void,
-        openPremium: @escaping () -> Void
+        openPremium: @escaping () -> Void,
+        openWeeklyRecap: @escaping () -> Void,
+        dismissWeeklyRecap: @escaping () -> Void
     ) {
         self.limit = limit
         self.today = today
         self.questions = questions
+        self.weeklyRecap = weeklyRecap
         self.showMore = showMore
         self.edit = edit
         self.requestDelete = requestDelete
         self.openReport = openReport
         self.setBudget = setBudget
         self.openPremium = openPremium
+        self.openWeeklyRecap = openWeeklyRecap
+        self.dismissWeeklyRecap = dismissWeeklyRecap
         _recentEntries = Query(Entry.timelineDescriptor(limit: limit))
     }
 
-    /// タイムラインの 1 つ（記録か、質問とその返事）。
+    /// タイムラインの 1 つ（記録か、質問とその返事か、先週のふりかえり）。
     private enum Item: Identifiable {
         case entry(Entry)
         case question(QuestionExchange)
+        case weeklyRecap(WeeklyRecapModel)
 
         var id: ItemID {
             switch self {
             case .entry(let entry): .entry(entry.persistentModelID)
             case .question(let exchange): .question(exchange.id)
+            case .weeklyRecap(let recap): .weeklyRecap(recap.id)
             }
         }
 
-        /// 並べる日時。記録は記録した日時（送った順）、質問は送った日時。
+        /// 並べる日時。記録は記録した日時（送った順）、質問は送った日時、ふりかえりは出した日時。
         var date: Date {
             switch self {
             case .entry(let entry): entry.createdAt
             case .question(let exchange): exchange.askedAt
+            case .weeklyRecap(let recap): recap.shownAt
             }
         }
     }
@@ -291,18 +332,20 @@ private struct EntryTimeline: View {
     private enum ItemID: Hashable {
         case entry(PersistentIdentifier)
         case question(UUID)
+        case weeklyRecap(UUID)
     }
 
-    /// 記録と質問を、送った順（古いものが上）に並べる。
+    /// 記録と質問とふりかえりを、送った順（古いものが上）に並べる。
     private var items: [Item] {
-        (recentEntries.map(Item.entry) + questions.map(Item.question)).sorted { $0.date < $1.date }
+        (recentEntries.map(Item.entry) + questions.map(Item.question) + (weeklyRecap.map { [Item.weeklyRecap($0)] } ?? []))
+            .sorted { $0.date < $1.date }
     }
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    if recentEntries.isEmpty && questions.isEmpty {
+                    if recentEntries.isEmpty && questions.isEmpty && weeklyRecap == nil {
                         EmptyTimelineView()
                     }
                     // 読み込んだ件数が上限に届いていれば、まだ前の記録があるかもしれない。
@@ -321,6 +364,10 @@ private struct EntryTimeline: View {
                                 exchange: exchange, openReport: openReport, setBudget: setBudget, openPremium: openPremium
                             )
                             .id(item.id)
+                        case .weeklyRecap(let recap):
+                            WeeklyRecapCard(model: recap, open: openWeeklyRecap, dismiss: dismissWeeklyRecap, setBudget: setBudget)
+                                .id(item.id)
+                                .transition(.opacity)
                         }
                     }
                 }
@@ -338,6 +385,12 @@ private struct EntryTimeline: View {
                 guard let exchange else { return }
                 withAnimation { proxy.scrollTo(ItemID.question(exchange.id), anchor: .bottom) }
             }
+            // 開いたまま週が替わってふりかえりのカードが出たら、そこまで送る（開いたときは下端から開くので、そのまま見える）。
+            .onChange(of: weeklyRecap?.id) { _, id in
+                guard let id else { return }
+                withAnimation { proxy.scrollTo(ItemID.weeklyRecap(id), anchor: .bottom) }
+            }
+            .animation(.default, value: weeklyRecap?.id)
         }
     }
 }

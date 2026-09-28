@@ -4,7 +4,8 @@ import SaifuLogCore
 import SwiftData
 import SwiftUI
 
-/// ホームの状態と操作（送信・家計への質問・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ）。
+/// ホームの状態と操作（送信・家計への質問・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ・
+/// 先週のふりかえりのカード）。
 ///
 /// 画面（`HomeView`）から切り離し、解析器・時計・読み上げを差し替えて SaifuLogTests で確かめられるようにしている。
 /// 画面は、ここの値を表示し、操作をここへ渡すだけにする。
@@ -33,6 +34,10 @@ final class HomeModel {
     var settings: SettingsModel?
     /// 無料体験が終わった後の最初の起動に出す「プレミアム」のシート。出していなければ nil（閉じると画面が nil に戻す）。
     var premiumSheet: PremiumSheetModel?
+    /// 先週のふりかえりのカード（タイムラインの中）。出していなければ nil（「閉じる」で nil にする）。
+    private(set) var weeklyRecap: WeeklyRecapModel?
+    /// 先週のふりかえりの内訳（カードから横に進む画面）。中身はカードと同じもの。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
+    var weeklyRecapDetail: WeeklyRecapModel?
     /// プレミアムの購入と状態（アプリで 1 つ）。カテゴリ別の予算を出すかの判定と、設定・プレミアムのシートに渡す。
     let purchases: PurchaseManager
     /// 今日。「今月」の範囲と、日付に年を添えるかの基準にする。
@@ -56,6 +61,7 @@ final class HomeModel {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let makeParser: (Date, Calendar) -> any EntryParsing
     @ObservationIgnored private let makeAnswerer: () -> any QuestionAnswering
+    @ObservationIgnored private let makeRemarkWriter: () -> (any RecapRemarkWriting)?
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
 
@@ -70,6 +76,7 @@ final class HomeModel {
     ///   - makeParser: 送信のたびに解析器を選ぶ（AI の使える・使えないは途中から変わるため）。送った瞬間の日時と暦を渡し、
     ///     「昨日」「9/26」をその日時を基準に読ませる。テストで差し替える。
     ///   - makeAnswerer: 質問のたびに答え方（AI かキーワード辞書）を選ぶ。テストで差し替える。
+    ///   - makeRemarkWriter: ふりかえり（先週のふりかえり・月のまとめ）の AI の一言を書くもの。AI が使えなければ nil。テストで差し替える。
     ///   - now: 記録の日時と「今日」の基準。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     init(
@@ -81,6 +88,7 @@ final class HomeModel {
         quotaStore: QuotaStore? = nil,
         makeParser: @escaping (Date, Calendar) -> any EntryParsing = { EntryParserFactory.makeParser(now: $0, calendar: $1) },
         makeAnswerer: @escaping () -> any QuestionAnswering = { QuestionAnswererFactory.makeAnswerer() },
+        makeRemarkWriter: @escaping () -> (any RecapRemarkWriting)? = { RecapRemarkWriterFactory.makeWriter() },
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
     ) {
@@ -92,6 +100,7 @@ final class HomeModel {
         self.quotaStore = quotaStore ?? QuotaStore(defaults: defaults, now: now)
         self.makeParser = makeParser
         self.makeAnswerer = makeAnswerer
+        self.makeRemarkWriter = makeRemarkWriter
         self.now = now
         self.announce = announce
         self.today = now()
@@ -389,6 +398,7 @@ final class HomeModel {
             store: store,
             calendar: calendar,
             month: month,
+            remark: RecapRemarkModel(purchases: purchases, makeWriter: makeRemarkWriter),
             now: now,
             announce: announce,
             didSave: { [weak self] entry in self?.finishEditing(entry) },
@@ -422,9 +432,58 @@ final class HomeModel {
     func presentPremiumIfTrialEnded() {
         guard purchases.hasLoadedPurchases, case .trialEnded = purchases.status else { return }
         guard !defaults.bool(for: AppSettings.hasShownTrialEndedPremium) else { return }
-        guard budgetSetup == nil, editing == nil, monthlyReport == nil, settings == nil, premiumSheet == nil else { return }
+        guard budgetSetup == nil, editing == nil, monthlyReport == nil, settings == nil, premiumSheet == nil,
+              weeklyRecapDetail == nil
+        else { return }
         premiumSheet = PremiumSheetModel(purchases: purchases, announce: announce)
         defaults.set(true, for: AppSettings.hasShownTrialEndedPremium)
+    }
+
+    // MARK: - 先週のふりかえり
+
+    /// 週が替わって最初に開いたときだけ、先週のふりかえりのカードを出す（`WeeklyRecap.isDue`）。出したら、出した日時を設定に
+    /// 書く（同じ週にはもう出さない。閉じなくても、次に開き直したときには出さない）。
+    ///
+    /// ホームが出たとき・前面に戻ったとき・日付が変わったとき・画面の暦（週の始まりの設定）が変わったときに呼ぶ。出している
+    /// カードは、暦が変わったら変えた後の週で数え直し、開いたまま週が替わったら新しい週のカードに替える。
+    /// 保存先は読むだけで書き込まないので、`pendingWrites` には数えない。
+    /// - Parameter calendar: 週の区切りの暦（ホームの画面の暦。週の始まりは設定のとおり）。
+    func showWeeklyRecapIfDue(calendar: Calendar) {
+        let now = now()
+        weeklyRecap?.update(calendar: calendar)
+        let earliest = try? store.context.fetch(Entry.earliestDescriptor).first?.spentAt
+        guard WeeklyRecap.isDue(
+            lastShownAt: defaults.date(for: AppSettings.weeklyRecapShownAt), earliestRecordAt: earliest, now: now, calendar: calendar
+        ) else { return }
+        defaults.set(now, for: AppSettings.weeklyRecapShownAt)
+        weeklyRecap = WeeklyRecapModel(
+            store: store,
+            calendar: calendar,
+            shownAt: now,
+            remark: RecapRemarkModel(purchases: purchases, makeWriter: makeRemarkWriter),
+            now: self.now,
+            announce: announce,
+            didSave: { [weak self] entry in self?.finishEditing(entry) },
+            didDelete: { [weak self] id in self?.justRecorded.removeAll { $0.persistentModelID == id } }
+        )
+    }
+
+    /// 先週のふりかえりのカードを閉じる（「閉じる」の操作）。同じ週にはもう出さない（出した日時は出したときに書いてある）。
+    func dismissWeeklyRecap() {
+        guard weeklyRecap != nil else { return }
+        weeklyRecap = nil
+        // カードが消えると VoiceOver のフォーカスの行き先が無くなるので、閉じたことを読み上げる。
+        announce(String(localized: "先週のふりかえりを閉じました"))
+    }
+
+    /// 先週のふりかえりの内訳へ進む（カードを押したとき）。
+    func presentWeeklyRecapDetail() {
+        weeklyRecapDetail = weeklyRecap
+    }
+
+    /// プレミアムの状態が変わったとき（体験を始めた・買った・返金された）に、ふりかえりの AI の一言を決め直す。
+    func premiumStatusDidChange() {
+        weeklyRecap?.remark.refresh()
     }
 
     // MARK: - 日付とタイムライン

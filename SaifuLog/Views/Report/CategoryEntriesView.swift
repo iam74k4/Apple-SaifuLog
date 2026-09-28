@@ -1,12 +1,34 @@
 import SaifuLogCore
 import SwiftUI
 
-/// 月のまとめ（⑦）の内訳の行から進む、その月のそのカテゴリの支出の記録の一覧。
+/// カテゴリの記録の一覧に出すもの（期間の見出し・記録・内訳の行・直すシート）。月のまとめ（⑦）と先週のふりかえりの内訳が
+/// 同じ一覧を使うための境目。
+@MainActor
+protocol CategoryEntriesSource: AnyObject, Observable {
+    /// 期間の見出し（「2026年9月」「9月21日～27日」）。
+    var periodTitle: String { get }
+    /// 記録の無いときの案内（「この月の記録はありません」など）。
+    var emptyEntriesText: LocalizedStringResource { get }
+    /// 今日。日付に年を添えるかの基準。
+    var today: Date { get }
+    /// 期間の区切りと日付の書き方の暦。
+    var calendar: Calendar { get }
+    /// 「直す」のシートで直している記録。シートを閉じると画面が nil に戻す。
+    var editing: EditEntryModel? { get set }
+    /// その期間の、そのカテゴリの支出の記録（使った日時の新しい順）。
+    func entries(in category: EntryCategory) -> [Entry]
+    /// そのカテゴリの内訳の行（合計と割合）。支出が無ければ nil。
+    func breakdownItem(for category: EntryCategory) -> CategoryBreakdown.Item?
+    /// 一覧の記録から「直す」のシートを出す。
+    func presentEdit(_ entry: Entry)
+}
+
+/// 月のまとめ（⑦）と先週のふりかえりの内訳の行から進む、その期間のそのカテゴリの支出の記録の一覧。
 ///
 /// 読むための一覧で、ここでは並べ替えも削除もしない。記録を押すと「直す」（⑥）のシートを開き、そこで直したり
-/// 消したりできる（直してカテゴリや月が変わった記録は、一覧から外れる）。並びは使った日時の新しい順。
-struct CategoryEntriesView: View {
-    @Bindable var model: MonthlyReportModel
+/// 消したりできる（直してカテゴリや期間が変わった記録は、一覧から外れる）。並びは使った日時の新しい順。
+struct CategoryEntriesView<Model: CategoryEntriesSource>: View {
+    @Bindable var model: Model
     let category: EntryCategory
 
     var body: some View {
@@ -15,7 +37,7 @@ struct CategoryEntriesView: View {
             VStack(alignment: .leading, spacing: 16) {
                 header(count: entries.count)
                 if entries.isEmpty {
-                    Text("この月の記録はありません")
+                    Text(model.emptyEntriesText)
                         .foregroundStyle(Theme.inkSecondary)
                         .padding(.vertical, 24)
                 } else {
@@ -46,11 +68,11 @@ struct CategoryEntriesView: View {
         }
     }
 
-    /// 月・そのカテゴリの合計と割合・件数。合計と割合は内訳の行と同じ値（`MonthlyReport` の内訳）を出す。
+    /// 期間・そのカテゴリの合計と割合・件数。合計と割合は内訳の行と同じ値（`MonthlyReport`・`WeeklyRecap` の内訳）を出す。
     private func header(count: Int) -> some View {
-        let item = model.report?.breakdown.item(for: category)
+        let item = model.breakdownItem(for: category)
         return VStack(alignment: .leading, spacing: 4) {
-            Text(verbatim: model.monthTitle)
+            Text(verbatim: model.periodTitle)
                 .font(.subheadline)
                 .foregroundStyle(Theme.inkSecondary)
             Text(verbatim: YenFormatter.string(from: item?.amount ?? 0))

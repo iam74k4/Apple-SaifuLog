@@ -6,8 +6,9 @@ import UIKit
 
 /// ⑦ 月のまとめ。何にいくら使ったかを一目で分かるようにする月の報告。ホームの帯（今月の合計）から横に進む。
 ///
-/// 上に月送り（前の月・次の月）、その下に月の支出・収入・収支・1 日あたりの平均・前の月との差、予算の進み（予算を
-/// 当てはめる月だけ）、カテゴリ別の内訳（横棒グラフと行）を並べる。行を押すと、その月のそのカテゴリの記録の一覧へ進む。
+/// 上に月送り（前の月・次の月）、その下に AI の一言（プレミアムと体験中で、AI が使える端末だけ）、月の支出・収入・収支・
+/// 1 日あたりの平均・前の月との差、予算の進み（予算を当てはめる月だけ）、カテゴリ別の内訳（横棒グラフと行）を並べる。
+/// 行を押すと、その月のそのカテゴリの記録の一覧へ進む。
 ///
 /// 状態と操作は `MonthlyReportModel` が持ち、数字の計算はコア（`MonthlyReport`）が受け持つ。ここは表示と、文字の大きさに
 /// 合わせた出し方だけ。アクセシビリティサイズの文字では、グラフを出さずに行（表）だけにする（棒の横に名前と金額を
@@ -57,6 +58,11 @@ struct MonthlyReportView: View {
             if report.recordCount == 0 {
                 EmptyMonthView(isCurrentMonth: report.timing == .current)
             } else {
+                // 一言は数字（コードが計算したもの）の前に添える。数字は下のカードにいつも出ている。
+                if model.remark.state != .none {
+                    RecapRemarkView(state: model.remark.state)
+                        .reportCard()
+                }
                 SummaryCard(report: report)
                 if let budget = report.budget {
                     BudgetCard(report: report, budget: budget)
@@ -237,7 +243,8 @@ private struct BudgetCard: View {
 
 /// 多い・少ないの矢印と文。アクセシビリティサイズの文字では矢印を省き、文に幅を使わせる（多い・少ないは文で分かる。
 /// 矢印を残すと、文が数文字ずつに折り返されて読みにくくなる）。矢印は VoiceOver では読ませない（文と同じ内容のため）。
-private struct TrendLabelStyle: LabelStyle {
+/// 先週のふりかえりのカードと内訳でも使う。
+struct TrendLabelStyle: LabelStyle {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     func makeBody(configuration: Configuration) -> some View {
@@ -252,8 +259,8 @@ private struct TrendLabelStyle: LabelStyle {
 }
 
 /// 見出しと金額の 1 行。アクセシビリティサイズの文字で 1 行に収まらなければ縦に積み、金額に全幅を使わせる。
-/// VoiceOver では 1 行を 1 つの要素として読ませる。
-private struct ReportRow: View {
+/// VoiceOver では 1 行を 1 つの要素として読ませる。先週のふりかえりの内訳でも使う。
+struct ReportRow: View {
     let label: Text
     let value: String
     var valueColor: Color = Theme.ink
@@ -290,9 +297,14 @@ private struct ReportRow: View {
 
 // MARK: - カテゴリ別の内訳
 
-/// カテゴリ別の支出。横棒グラフ（アクセシビリティサイズの文字では出さない）と、押すとその月の記録の一覧へ進む行。
-private struct BreakdownCard: View {
+/// カテゴリ別の支出。横棒グラフ（アクセシビリティサイズの文字では出さない）と、押すとその期間の記録の一覧へ進む行。
+/// 先週のふりかえりの内訳でも使う（期間の言葉だけ差し替える）。
+struct BreakdownCard: View {
     let breakdown: CategoryBreakdown
+    /// 支出が無いときの案内。
+    var emptyText: LocalizedStringResource = "この月の支出の記録はありません"
+    /// 行を押したときに開くものの説明（VoiceOver）。
+    var rowHint: LocalizedStringResource = "この月の記録の一覧を開きます"
     let select: (EntryCategory) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -303,7 +315,7 @@ private struct BreakdownCard: View {
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
             if breakdown.isEmpty {
-                Text("この月の支出の記録はありません")
+                Text(emptyText)
                     .foregroundStyle(Theme.inkSecondary)
             } else {
                 if !dynamicTypeSize.isAccessibilitySize {
@@ -314,7 +326,7 @@ private struct BreakdownCard: View {
                         if item.category != breakdown.items.first?.category {
                             Divider()
                         }
-                        BreakdownRow(item: item, action: { select(item.category) })
+                        BreakdownRow(item: item, hint: rowHint, action: { select(item.category) })
                     }
                 }
             }
@@ -361,9 +373,10 @@ private struct BreakdownChart: View {
     }
 }
 
-/// 内訳の 1 行。カテゴリの色と記号の丸・名前・金額・割合。押すとその月のそのカテゴリの記録の一覧へ進む。
+/// 内訳の 1 行。カテゴリの色と記号の丸・名前・金額・割合。押すとその期間のそのカテゴリの記録の一覧へ進む。
 private struct BreakdownRow: View {
     let item: CategoryBreakdown.Item
+    let hint: LocalizedStringResource
     let action: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -400,7 +413,7 @@ private struct BreakdownRow: View {
         .buttonStyle(.plain)
         .accessibilityLabel(Text(item.category.label))
         .accessibilityValue(Text(verbatim: item.spokenValue))
-        .accessibilityHint("この月の記録の一覧を開きます")
+        .accessibilityHint(Text(hint))
     }
 
     private var name: some View {
@@ -476,8 +489,8 @@ private struct EmptyMonthView: View {
     }
 }
 
-/// 保存先を読めなかったときの案内と、もう一度読むボタン。
-private struct LoadFailedView: View {
+/// 保存先を読めなかったときの案内と、もう一度読むボタン。先週のふりかえりの内訳でも使う。
+struct LoadFailedView: View {
     let retry: () -> Void
 
     var body: some View {
@@ -496,8 +509,8 @@ private struct LoadFailedView: View {
     }
 }
 
-private extension View {
-    /// まとめの 1 まとまり（面の色の角丸の板）。
+extension View {
+    /// まとめの 1 まとまり（面の色の角丸の板）。先週のふりかえりの内訳でも使う。
     func reportCard() -> some View {
         padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
