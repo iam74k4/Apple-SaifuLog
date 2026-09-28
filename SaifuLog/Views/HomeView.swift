@@ -8,7 +8,7 @@ import UIKit
 /// 記録も（将来は）質問も同じ入力欄から行う。入口を分けると「どこに書けばいいか」を
 /// 利用者に考えさせることになるため。
 ///
-/// 状態と操作（送信・取り消し・直す・削除・予算を決める画面と月のまとめと設定の出し入れ）は `HomeModel` が持つ。ここは表示と、
+/// 状態と操作（送信・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ）は `HomeModel` が持つ。ここは表示と、
 /// 環境（文字の大きさ・支援技術・前面かどうか）に合わせた出し方だけを受け持つ。
 struct HomeView: View {
     @Environment(\.calendar) private var calendar
@@ -70,6 +70,16 @@ struct HomeView: View {
                 .navigationDestination(item: $model.settings) { settings in
                     SettingsView(model: settings)
                 }
+                // 無料体験が終わった後の最初の起動に、一度だけプレミアム（⑨）を出す（`HomeModel.presentPremiumIfTrialEnded`）。
+                .sheet(item: $model.premiumSheet) { premium in
+                    PremiumSheet(model: premium)
+                }
+                // ホームが出たときと、購入の事実を読み終えたときに確かめる（前面に戻ったときは下の scenePhase）。
+                // 状態の変化では出さない。アプリを開いたまま体験が終わる瞬間（`PurchaseManager` が描き直させる）に出すと、
+                // 入力の途中でも遮るため。そのときは次に前面に戻ったときに出す（「体験が終わった後の最初の起動」）。
+                .task(id: model.purchases.hasLoadedPurchases) {
+                    model.presentPremiumIfTrialEnded()
+                }
                 #if DEBUG || INTERNAL_DIAGNOSTICS
                 .sheet(isPresented: $showsDiagnostics) {
                     DiagnosticsView(model: DiagnosticsModel(context: modelContext))
@@ -96,7 +106,11 @@ struct HomeView: View {
                     if !Task.isCancelled { model.dismissUndo() }
                 }
                 .onChange(of: scenePhase) { _, phase in
-                    if phase == .active { model.refreshToday() }
+                    if phase == .active {
+                        model.refreshToday()
+                        // 状態が変わらなくても、前面に戻ったときには確かめる（ほかの画面を閉じた後で出せるように）。
+                        model.presentPremiumIfTrialEnded()
+                    }
                 }
                 // 日付が変わったとき（0 時・時間帯の変更など）。前面に置いたまま月をまたいでも合計を切り替える。
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
@@ -296,7 +310,7 @@ private struct EmptyTimelineView: View {
 #Preview {
     // プレビューも、アプリとテストと同じ作り方の保存先（iCloud を切った、メモリの上だけのもの）を使う。
     if let container = try? ModelContainerFactory.makeInMemoryContainer() {
-        HomeView(model: HomeModel(context: container.mainContext))
+        HomeView(model: HomeModel(context: container.mainContext, purchases: PurchaseManager(loadPurchases: { [] })))
             .modelContainer(container)
     }
 }

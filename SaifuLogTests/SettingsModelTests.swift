@@ -376,6 +376,62 @@ struct SettingsModelTests {
         #expect(model.totalBudget == 150_000)
     }
 
+    /// カテゴリ別の予算は、無料では出さない（プレミアムと体験中だけ）。
+    @Test func budgetSetupHidesCategoryBudgetsWhenFree() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.makeModel()
+
+        model.presentBudgetSetup()
+
+        #expect(model.budgetSetup?.showsCategoryBudgets == false)
+    }
+
+    // MARK: - プレミアム
+
+    @Test func premiumRowOpensPremiumSheet() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let purchases = await TestSupport.purchases([TestSupport.trial(startedDaysAgo: 2)])
+        let model = SettingsModel(context: fixture.context, purchases: purchases, defaults: fixture.defaults, announce: { _ in })
+        #expect(model.premiumSheet == nil)
+
+        model.presentPremium()
+
+        let sheet = try #require(model.premiumSheet)
+        #expect(sheet.purchases === purchases)
+        #expect(sheet.status == .trial(daysRemaining: 12, endsAt: TestSupport.now.addingTimeInterval(12 * TrialPeriod.secondsPerDay)))
+    }
+
+    @Test func restoreShowsAlert() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        var records: [VerifiedPurchase] = []
+        let purchases = PurchaseManager(
+            now: { TestSupport.now },
+            loadPurchases: { records },
+            loadProducts: { _ in [] },
+            sync: { records = [VerifiedPurchase(transactionID: 1, purchase: PremiumPurchase(product: .premium, purchaseDate: TestSupport.now))] }
+        )
+        let model = SettingsModel(context: fixture.context, purchases: purchases, defaults: fixture.defaults, announce: { _ in })
+
+        await model.restorePurchases()?.value
+
+        #expect(model.purchaseAlert == .restored)
+        #expect(purchases.status == .premium(.purchased))
+    }
+
+    @Test func restoreFailureShowsAlert() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let purchases = await TestSupport.purchases(sync: { throw URLError(.notConnectedToInternet) })
+        let model = SettingsModel(context: fixture.context, purchases: purchases, defaults: fixture.defaults, announce: { _ in })
+
+        await model.restorePurchases()?.value
+
+        #expect(model.purchaseAlert == .restoreFailed(.network))
+    }
+
     // MARK: - このアプリについて
 
     @Test func versionTextShowsVersionAndBuild() throws {

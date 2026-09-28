@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "ja",
   "strings" : {
+    "%@ で購入する" : {
+      "comment" : "プレミアムのシート（⑨）。買い切りの購入のボタン。%@ は App Store の価格の表示（「¥1,800」）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buy for %@"
+          }
+        }
+      }
+    },
     "%@ の保護クラス" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。保存先のファイルのデータ保護のクラスの項目名。%@ は default.store などのファイル名",
       "localizations" : {
@@ -68,6 +79,61 @@
         }
       }
     },
+    "14日間、プレミアムの機能をすべて無料で使えます。体験は無料で、終わっても自動で課金されることはありません（続けて使うときだけ、プレミアムを購入してください）。体験が終わると、プレミアムの機能は使えなくなります（記録や決めた予算は消えません）。体験は1つの Apple アカウントにつき1回です。始めるときに App Store の確認が出ます（0円）。" : {
+      "comment" : "プレミアムのシート（⑨）。無料体験の説明（審査ガイドライン 3.1.1: 期間・終わった後に使えなくなるもの・料金がかからないこと）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use every Premium feature free for 14 days. The trial is free, and you won't be charged when it ends (buy Premium only if you want to keep using it). When the trial ends, Premium features are no longer available (your records and budgets stay). The trial is available once per Apple Account. App Store will ask you to confirm when you start (free)."
+          }
+        }
+      }
+    },
+    "14日間の無料体験" : {
+      "comment" : "プレミアムのシート（⑨）。無料体験の節の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "14-Day Free Trial"
+          }
+        }
+      }
+    },
+    "14日間の無料体験は終わりました。記録と決めた予算は、そのまま残っています。" : {
+      "comment" : "プレミアムのシート（⑨）。見出しの下の状態の文（体験が終わったとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your 14-day free trial has ended. Your records and budgets are still here."
+          }
+        }
+      }
+    },
+    "14日間の無料体験を始めました" : {
+      "comment" : "プレミアムのシート（⑨）。体験を始めたときに VoiceOver に読み上げる文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started your 14-day free trial"
+          }
+        }
+      }
+    },
+    "14日間の無料体験を始める" : {
+      "comment" : "プレミアムのシート（⑨）。無料体験を始めるボタン（価格 0 の体験の商品を買う）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start 14-Day Free Trial"
+          }
+        }
+      }
+    },
     "1か月に使うお金の上限を決めると、ホームに今月あといくら使えるかと、1日あたりに使える額が出ます。" : {
       "comment" : "予算を決める画面の説明",
       "localizations" : {
@@ -130,6 +196,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Recorded as two separate entries"
+          }
+        }
+      }
+    },
+    "App Store に接続できませんでした" : {
+      "comment" : "購入・復元に失敗したときのアラートの見出し（通信の失敗）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Connect to the App Store"
+          }
+        }
+      }
+    },
+    "App Store の購入の確認が出ます" : {
+      "comment" : "プレミアムのシート（⑨）。購入のボタンの VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The App Store will ask you to confirm the purchase."
+          }
+        }
+      }
+    },
+    "App Store の購入の記録を確かめられなかったため、プレミアムを有効にしていません。「購入の復元」をお試しください。" : {
+      "comment" : "購入を検証できなかったときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The App Store purchase record couldn't be verified, so Premium wasn't turned on. Try Restore Purchases."
           }
         }
       }
@@ -266,6 +365,17 @@
         }
       }
     },
+    "あり" : {
+      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表で、その機能があること",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Included"
+          }
+        }
+      }
+    },
     "いまは Apple Intelligence を使えないため、端末内の辞書で読み取ります。記録はそのままできます。" : {
       "comment" : "ようこその画面。そのほかの理由で AI を使えないときの説明",
       "localizations" : {
@@ -284,6 +394,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Entries are read with a keyword dictionary for now"
+          }
+        }
+      }
+    },
+    "いまは購入できません" : {
+      "comment" : "購入に失敗したときのアラートの見出し（この地域で買えない・商品を読めていない）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can't Purchase Right Now"
+          }
+        }
+      }
+    },
+    "お支払いと購入の記録は Apple の App Store が扱います。購入の情報を、アプリから開発者やほかの誰かへ送ることはありません。" : {
+      "comment" : "プレミアムのシート（⑨）。リンクの下の注記（購入の情報の扱い）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment and purchase records are handled by Apple's App Store. The app never sends your purchase information to the developer or anyone else."
+          }
+        }
+      }
+    },
+    "この Apple アカウントで購入したプレミアムは見つかりませんでした。購入したときの Apple アカウントでサインインしているか、お確かめください。" : {
+      "comment" : "購入の復元で、プレミアムの購入が無かったときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Premium purchase was found for this Apple Account. Make sure you're signed in with the Apple Account you used to buy it."
+          }
+        }
+      }
+    },
+    "この Apple アカウントで購入したプレミアムを読み込みます" : {
+      "comment" : "「購入の復元」のボタンの VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loads the Premium purchase made with this Apple Account."
           }
         }
       }
@@ -310,6 +464,17 @@
         }
       }
     },
+    "この iPhone では購入が制限されています" : {
+      "comment" : "購入に失敗したときのアラートの見出し（スクリーンタイムなどの制限）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purchases Are Restricted on This iPhone"
+          }
+        }
+      }
+    },
     "この iPhone は Apple Intelligence に対応していないため、端末内の辞書で金額やカテゴリを読み取ります。上の例のような書き方なら、AI がなくても記録できます。" : {
       "comment" : "ようこその画面。Apple Intelligence に対応していない機種での説明",
       "localizations" : {
@@ -328,6 +493,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "About"
+          }
+        }
+      }
+    },
+    "この国や地域の App Store では、いま購入できません。時間をおいて、もう一度お試しください。" : {
+      "comment" : "購入に失敗したときのアラートの本文（この地域で買えない）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This item can't be purchased from the App Store in your country or region right now. Please try again later."
           }
         }
       }
@@ -420,6 +596,17 @@
         }
       }
     },
+    "なし" : {
+      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表で、その機能が無いこと",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        }
+      }
+    },
     "のこり %lld 日" : {
       "comment" : "ホームの上の帯。月末までの日数（今日を含む）。%lld は日数",
       "localizations" : {
@@ -472,6 +659,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Record in one line"
+          }
+        }
+      }
+    },
+    "ひとこと入力と AI の文章の読み取り、CSV 書き出しは、無料のまま回数の制限なく使えます。広告はありません。「近日」の機能は、これからのアップデートで加えます。" : {
+      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の下の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One-line entry, AI reading of your text, and CSV export stay free with no limits. No ads. Features marked Coming Soon will arrive in future updates."
           }
         }
       }
@@ -531,6 +729,17 @@
         }
       }
     },
+    "もう一度読み込む" : {
+      "comment" : "プレミアムのシート（⑨）。価格を読み込めなかったときに、もう一度読み込むボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try Again"
+          }
+        }
+      }
+    },
     "アカウントの状態" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。iCloud のアカウントの状態の項目名",
       "localizations" : {
@@ -553,6 +762,17 @@
         }
       }
     },
+    "インターネットの接続を確かめて、もう一度お試しください。" : {
+      "comment" : "購入・復元に失敗したときのアラートの本文（通信の失敗）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check your internet connection and try again."
+          }
+        }
+      }
+    },
     "カテゴリ" : {
       "comment" : "直すシートのカテゴリの欄の見出し",
       "localizations" : {
@@ -564,13 +784,13 @@
         }
       }
     },
-    "カテゴリごとにも上限を決められます。空欄のカテゴリは予算なしになります。" : {
+    "カテゴリごとにも上限を決められます。空欄のカテゴリは予算なしになります。使った額との比べの表示は近日対応です。" : {
       "comment" : "予算を決める画面のカテゴリ別の予算の説明（プレミアムの機能）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You can also set a limit for each category. Categories left blank have no budget."
+            "value" : "You can also set a limit for each category. Categories left blank have no budget. Comparing them with your spending is coming soon."
           }
         }
       }
@@ -582,6 +802,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Budgets by category"
+          }
+        }
+      }
+    },
+    "カテゴリ別の予算（プレミアムの表）" : {
+      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の行",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category Budgets"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カテゴリ別の予算"
           }
         }
       }
@@ -652,6 +889,17 @@
         }
       }
     },
+    "サイフログ プレミアム" : {
+      "comment" : "プレミアムのシート（⑨）。シートの見出し（課金アイテムの表示名と同じ）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SaifuLog Premium"
+          }
+        }
+      }
+    },
     "サイフログは、「ランチ 850」のように一行送るだけで記録できる家計簿です。分類と計算はアプリが引き受けます。" : {
       "comment" : "ようこその画面の説明。例の「ランチ 850」は訳さない（解析が日本語の入力を前提にしているため）",
       "localizations" : {
@@ -659,6 +907,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SaifuLog is a budget app where you record spending by sending a single line, like “ランチ 850”. The app takes care of the categories and the math."
+          }
+        }
+      }
+    },
+    "スクリーンタイムの「App 内課金」などの制限をお確かめください。" : {
+      "comment" : "購入に失敗したときのアラートの本文（購入の制限）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check restrictions such as In-App Purchases in Screen Time."
           }
         }
       }
@@ -696,6 +955,28 @@
         }
       }
     },
+    "ファミリー共有" : {
+      "comment" : "設定の「プレミアム」の行の値。家族がファミリー共有で分けてくれたプレミアムを使っているとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Family Sharing"
+          }
+        }
+      }
+    },
+    "ファミリー共有で、プレミアムを使えます。" : {
+      "comment" : "プレミアムのシート（⑨）。見出しの下の状態の文（ファミリー共有）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have Premium through Family Sharing."
+          }
+        }
+      }
+    },
     "プライバシーポリシー" : {
       "comment" : "設定の「このアプリについて」の行。押すと Safari でプライバシーポリシー（GitHub）を開く",
       "localizations" : {
@@ -703,6 +984,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Privacy Policy"
+          }
+        }
+      }
+    },
+    "プレミアム" : {
+      "comment" : "設定の「プレミアム」の節の見出しと行の名前、無料とプレミアムの違いの表の列の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium"
+          }
+        }
+      }
+    },
+    "プレミアムを使えます。" : {
+      "comment" : "購入を復元できたときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium is available."
+          }
+        }
+      }
+    },
+    "プレミアムを購入しました" : {
+      "comment" : "プレミアムのシート（⑨）。購入できたときに VoiceOver に読み上げる文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purchased Premium"
+          }
+        }
+      }
+    },
+    "プレミアムを購入済みです。ありがとうございます。" : {
+      "comment" : "プレミアムのシート（⑨）。見出しの下の状態の文（自分で購入済み）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You've purchased Premium. Thank you!"
           }
         }
       }
@@ -751,6 +1076,17 @@
         }
       }
     },
+    "レシート・スクショの読み取り" : {
+      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の行（近日の機能）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading Receipts and Screenshots"
+          }
+        }
+      }
+    },
     "・" : {
       "comment" : "ホームの上の帯。「1日あたり ¥…」（予算を超えたら「予算 ¥…」）と「のこり N 日」の間の区切り。前後には少し空きが入るので、空白は付けない",
       "localizations" : {
@@ -758,6 +1094,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "·"
+          }
+        }
+      }
+    },
+    "一度の購入でずっと使えます（サブスクではありません）。ファミリー共有に対応しているので、家族も追加の購入なしで使えます。" : {
+      "comment" : "プレミアムのシート（⑨）。価格の下の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buy once and keep it (not a subscription). Family Sharing is supported, so your family can use it at no extra cost."
           }
         }
       }
@@ -1092,6 +1439,40 @@
         }
       }
     },
+    "体験を始めています…" : {
+      "comment" : "プレミアムのシート（⑨）。体験を始めるボタン（手続き中）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starting Trial…"
+          }
+        }
+      }
+    },
+    "体験中 あと %lld 日" : {
+      "comment" : "設定の「プレミアム」の行の値（無料体験中）。%lld は残りの日数（切り上げ）",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Trial: %lld day left"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Trial: %lld days left"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "使えるか" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。端末内 AI や音声の書き起こしが使えるか（使えなければ理由）の項目名",
       "localizations" : {
@@ -1121,6 +1502,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Spent %@"
+          }
+        }
+      }
+    },
+    "価格を読み込めませんでした。インターネットの接続を確かめて、もう一度お試しください。" : {
+      "comment" : "プレミアムのシート（⑨）。価格を読み込めなかったとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't load the price. Check your internet connection and try again."
+          }
+        }
+      }
+    },
+    "価格を読み込んでいます…" : {
+      "comment" : "プレミアムのシート（⑨）。価格を読み込んでいる間",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading price…"
           }
         }
       }
@@ -1231,6 +1634,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reload"
+          }
+        }
+      }
+    },
+    "利用規約（Apple の標準 EULA）" : {
+      "comment" : "プレミアムのシート（⑨）。Apple の標準の利用規約へのリンク（Safari で開く）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terms of Use (Apple's Standard EULA)"
           }
         }
       }
@@ -1411,6 +1825,39 @@
         }
       }
     },
+    "家計への質問" : {
+      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の行（近日の機能）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questions About Your Spending"
+          }
+        }
+      }
+    },
+    "復元できる購入はありませんでした" : {
+      "comment" : "購入の復元で、プレミアムの購入が無かったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Purchases to Restore"
+          }
+        }
+      }
+    },
+    "承認されると、自動でプレミアムが使えるようになります。" : {
+      "comment" : "購入が承認待ち（Ask to Buy など）のときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Once it's approved, Premium will turn on automatically."
+          }
+        }
+      }
+    },
     "支出" : {
       "comment" : "直すシートの種類の選択肢（支出の記録）",
       "localizations" : {
@@ -1418,6 +1865,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Expense"
+          }
+        }
+      }
+    },
+    "料金はかかりません。App Store の確認が出ます" : {
+      "comment" : "プレミアムのシート（⑨）。体験を始めるボタンの VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free of charge. The App Store will ask you to confirm."
           }
         }
       }
@@ -1488,6 +1946,17 @@
         }
       }
     },
+    "時間をおいて、もう一度お試しください。" : {
+      "comment" : "購入・復元に失敗したときのアラートの本文（そのほかの失敗）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please try again later."
+          }
+        }
+      }
+    },
     "書き出しています…" : {
       "comment" : "設定の書き出しのボタン。書き出している間に出す（進行中の印を添える）",
       "localizations" : {
@@ -1517,6 +1986,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t Export"
+          }
+        }
+      }
+    },
+    "月%lld回" : {
+      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の、無料で使える回数。%lld は回数",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld per month"
           }
         }
       }
@@ -1637,6 +2117,17 @@
         }
       }
     },
+    "機種を変えたときなどに、この Apple アカウントで購入したプレミアムを読み込みます。" : {
+      "comment" : "プレミアムのシート（⑨）。「購入の復元」のボタンの下の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use this after switching iPhones, for example, to load the Premium purchase made with this Apple Account."
+          }
+        }
+      }
+    },
     "次の月" : {
       "comment" : "月のまとめの月送りのボタン（VoiceOver のラベル）。今月より先には進めない",
       "localizations" : {
@@ -1655,6 +2146,73 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Left"
+          }
+        }
+      }
+    },
+    "無制限" : {
+      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の、プレミアムで回数の上限が無いこと",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlimited"
+          }
+        }
+      }
+    },
+    "無料" : {
+      "comment" : "設定の「プレミアム」の行の値（無料・体験が終わった後）と、無料とプレミアムの違いの表の列の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free"
+          }
+        }
+      }
+    },
+    "無料との違いと購入の画面を開きます" : {
+      "comment" : "設定の「プレミアム」の行の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the screen comparing Free and Premium, where you can buy Premium."
+          }
+        }
+      }
+    },
+    "無料とプレミアムの違い" : {
+      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free vs. Premium"
+          }
+        }
+      }
+    },
+    "無料体験中です。あと %lld 日（%@ まで）使えます。" : {
+      "comment" : "プレミアムのシート（⑨）。見出しの下の状態の文（体験中）。%lld は残りの日数（切り上げ）、%@ は体験の終わる日時",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You're on the free trial: %lld day left (until %@)."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You're on the free trial: %lld days left (until %@)."
+                }
+              }
+            }
           }
         }
       }
@@ -2033,6 +2591,149 @@
         }
       }
     },
+    "買い切りで、プレミアムの機能をすべて使えます。" : {
+      "comment" : "プレミアムのシート（⑨）。見出しの下の状態の文（無料で、まだ体験していないとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get every Premium feature with a one-time purchase."
+          }
+        }
+      }
+    },
+    "買い切り・ファミリー共有対応" : {
+      "comment" : "プレミアムのシート（⑨）。価格の下の短い説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One-time purchase · Family Sharing"
+          }
+        }
+      }
+    },
+    "購入する" : {
+      "comment" : "プレミアムのシート（⑨）。購入のボタン（価格を読めていないとき。押せない）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buy"
+          }
+        }
+      }
+    },
+    "購入の復元" : {
+      "comment" : "設定とプレミアムのシートの「購入の復元」のボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Purchases"
+          }
+        }
+      }
+    },
+    "購入の手続き中…" : {
+      "comment" : "プレミアムのシート（⑨）。購入のボタン（手続き中）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purchasing…"
+          }
+        }
+      }
+    },
+    "購入の承認を待っています" : {
+      "comment" : "購入が承認待ち（Ask to Buy など）のときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for Approval"
+          }
+        }
+      }
+    },
+    "購入は Apple アカウントに記録されます。機種を変えたときなどにプレミアムが使えなければ、「購入の復元」をお試しください。" : {
+      "comment" : "設定の「プレミアム」の節の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purchases are recorded in your Apple Account. If Premium isn't available after switching iPhones, for example, try Restore Purchases."
+          }
+        }
+      }
+    },
+    "購入を完了できませんでした" : {
+      "comment" : "購入に失敗したときのアラートの見出し（そのほかの失敗）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Complete the Purchase"
+          }
+        }
+      }
+    },
+    "購入を復元しました" : {
+      "comment" : "購入を復元できたときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purchases Restored"
+          }
+        }
+      }
+    },
+    "購入を復元できませんでした" : {
+      "comment" : "購入の復元に失敗したときのアラートの見出し（そのほかの失敗）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Restore Purchases"
+          }
+        }
+      }
+    },
+    "購入を確かめられませんでした" : {
+      "comment" : "購入を検証できなかったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Verify the Purchase"
+          }
+        }
+      }
+    },
+    "購入済み" : {
+      "comment" : "設定の「プレミアム」の行の値（自分で購入済み）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purchased"
+          }
+        }
+      }
+    },
+    "近日" : {
+      "comment" : "プレミアムのシート（⑨）。まだ出していない機能に添える印",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coming Soon"
+          }
+        }
+      }
+    },
     "送った文" : {
       "comment" : "直すシートの上に出す、ひとこと入力で送った元の文の見出し",
       "localizations" : {
@@ -2051,6 +2752,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send"
+          }
+        }
+      }
+    },
+    "週のふりかえりの AI の一言" : {
+      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の行（近日の機能）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Note in the Weekly Review"
           }
         }
       }
@@ -2143,6 +2855,23 @@
         }
       }
     },
+    "閉じる（プレミアムのシート）" : {
+      "comment" : "プレミアムのシート（⑨）の左上の、シートを閉じるボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閉じる"
+          }
+        }
+      }
+    },
     "音声の書き起こし（SpeechTranscriber）" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。区切りの見出し",
       "localizations" : {
@@ -2161,6 +2890,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Food"
+          }
+        }
+      }
+    },
+    "食費・交通など、カテゴリごとにも月の予算を決められます。使った額との比べの表示は近日対応です。" : {
+      "comment" : "プレミアムのシート（⑨）。カテゴリ別の予算の行の補足",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set monthly budgets for each category too, such as Food and Transport. Comparing them with your spending is coming soon."
           }
         }
       }

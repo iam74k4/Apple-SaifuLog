@@ -4,26 +4,35 @@
 端末内の AI（Apple の Foundation Models）で行い、家計のデータを端末の外に出さない。
 
 ## 現在の到達点
-- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・月の予算・月のまとめ・設定と CSV 書き出し・初回の案内の試作**まで。
+- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・月の予算・月のまとめ・設定と CSV 書き出し・初回の案内・プレミアム（StoreKit）の試作**まで。
   - 試作済み: 一行の読み取り（端末内 AI、使えない端末ではキーワード辞書）、タイムライン、記録直後の
     「直す」「取り消す」、長押しでの記録の削除（確認つき）、今月の支出と収入の合計。画面は縦向きのみ。
     ⑥ 直す（吹き出しを押す・長押しのメニュー・記録直後のバナー・VoiceOver の操作・⑦ の記録の一覧から開くシート。金額・品目・支出か収入か・
     カテゴリ・日付を直し、そこから削除もできる。`EditEntryModel` と `EntryStore.update`。割り勘の人数は記録に持たないので直せない）。
-    月の全体の予算（② 予算を決める、ホームの帯の「今月あと ¥…／1日あたり ¥…」。カテゴリ別の予算の欄は作ったが、
-    購入の仕組みができるまで出さない）。⑦ 月のまとめ（ホームの帯の見出しと数字から横に進む。月送り・支出と収入と収支・1 日あたりの
+    月の全体の予算（② 予算を決める、ホームの帯の「今月あと ¥…／1日あたり ¥…」。カテゴリ別の予算の欄は、ホームと ⑧ から開いたときに
+    プレミアムと体験中だけ出す。進み（使った額との比べ）はまだどこにも出さない）。⑦ 月のまとめ（ホームの帯の見出しと数字から横に進む。月送り・支出と収入と収支・1 日あたりの
     平均・前の月との差・予算の進み（いまの予算に決めた月から後だけ）・カテゴリ別の横棒グラフと行・行からその月の記録の一覧と ⑥。
     `MonthlyReportView` と `MonthlyReportModel`、数字はコアの `MonthlyReport` と `CategoryBreakdown`）。
     初回の案内（① ようこそ → ② → ホーム。記録がある端末には出さない。`AppRootView` と `OnboardingModel`）。
     ⑧ 設定（ホームの帯の右上の歯車から横に進む。月の予算（② のシート）・週の始まり（`AppSettings.weekStart`。`AppRootView` が画面の
     暦に当てはめる）・記録の CSV 書き出し（今月・先月・今年・すべて。中身はコアの `LedgerCSVWriter`、ファイルは `LedgerExporter` が
     メインスレッドの外で作り、共有の画面を閉じたら消す）・プライバシーポリシー・ライセンス・版。`SettingsView` と `SettingsModel`。
-    購入の復元と iCloud 同期の行はまだ出さない）。配色は墨 × 山吹。
+    いちばん上に「プレミアム」（状態）と「購入の復元」の行。iCloud 同期の行はまだ出さない）。
+    ⑨ プレミアム（StoreKit 2。⑧ の「プレミアム」と、体験が終わった後の最初の起動に一度だけ出すシート。買い切り
+    `com.iam74k4.SaifuLog.premium`（ファミリー共有）と、価格 0 の非消耗型の 14 日間の体験 `com.iam74k4.SaifuLog.trial14`（購入日時から
+    経過時間で 14 日）。価格は App Store の表示のまま。まだ出していない機能は「近日」。`PremiumSheet` と `PremiumSheetModel`、購入・復元・
+    Transaction.updates の購読は `SaifuLog/Purchases/PurchaseManager`（`SaifuLogApp` で 1 つ作り、起動したらすぐ購読）、状態はコアの
+    `PremiumStatus`・`TrialPeriod`。無料の回数の数え方はコアの `UsageQuota` と `QuotaStore`（レシートと質問を作るときに使う。いまは使っていない）。
+    Xcode の Run では `Config/SaifuLog.storekit` で購入を試せる。購入のテストは SKTestSession で、iOS 26.3・26.4 のシミュレータでは
+    Apple の不具合で動かないので、`make test-app` から除き、`make test-storekit` が iOS 26.2 のシミュレータで動かす（飛ばされたら失敗。
+    CI のランナーで iOS 26.2 のランタイムを入れて通るかはまだ走らせていない）。実機（Sandbox）での購入・復元・返金・ファミリー共有の
+    確認はまだ。カテゴリ別の予算の進みを出すまで App 内課金は審査に出さない）。配色は墨 × 山吹。
     保存先を開けないときは落とさず、ロック中なら解除を待って開き直し、それ以外は再試行の画面を出す（`StoreHost`）。
     保存先のデータ保護は NSFileProtectionComplete（ロック中は読めないようにする。実機での確認はまだ。
     release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
     main で `mode=export` の照合が通るかの確認はまだ。`docs/design.md` §5-4）。
-  - **未実装:** カテゴリ別の予算（を出すこと）・レシート・質問・週のふりかえりと月の AI レポート・プレミアム（StoreKit。設定の
-    購入の復元を含む）・iCloud 同期（設定の切り替えを含む）・家族との共有・声で記録・修正の記憶・CSV の読み込み。
+  - **未実装:** カテゴリ別の予算の進みの表示・レシート・質問・週のふりかえりと月の AI レポート・iCloud 同期（設定の切り替えを含む）・
+    家族との共有・声で記録・修正の記憶・CSV の読み込み。
   - 実機での確認の手段: release.yml の手動実行 `mode=testflight` で、develop のビルドを診断画面入りで TestFlight の
     社内テスト専用に送れるようにした（審査には出ない）。Environment `release` の配備ブランチへの develop の追加
     （所有者の作業）と、実際に TestFlight で入れての確認はまだ（`docs/release-flow.md` の「TestFlight で実機に入れる（社内テスト）」）。
@@ -84,13 +93,15 @@ docs: add privacy policy
   ビルドする（汎用のシミュレータ向け、署名なし）。`make build` はスキームの build アクション（SaifuLog だけ）
   なので、テストのターゲットが壊れても `make build` だけでは気づけない
 - `make test-app` — アプリ側のテストをシミュレータで動かす（`build-tests` の後に `test-without-building`、
-  `-only-testing:SaifuLogTests`）。SwiftData の保存・読み込みの条件や保存の失敗の扱い、保存先の開き方、
+  `-only-testing:SaifuLogTests`。購入のテスト `StoreKitPurchaseTests` は除く）。SwiftData の保存・読み込みの条件や保存の失敗の扱い、保存先の開き方、
   画面のモデル（`HomeModel`）の操作など、コアに置けない部分。
   機種は `scripts/pick-simulator.sh` が、いちばん新しい iOS の iPhone を選ぶ（`TEST_DESTINATION=…` で上書きできる）
+- `make test-storekit` — 購入のテスト（SKTestSession）を、それが動く版（`STOREKIT_TEST_OS`、いまは iOS 26.2）のシミュレータで
+  動かし、1 つでも飛ばされたら失敗にする（`scripts/test-storekit.sh`。シミュレータが無ければ `scripts/prepare-storekit-simulator.sh`）
 - `make check-strings` — `make build` が書き出した Debug の .stringsdata と `Localizable.xcstrings` を突き合わせ、
   足りないキー・使われていないキー・en の無いキー・ja と en の書式指定子の不一致があれば止まる（`scripts/check-strings.py`）
-- `make ci` — 必須チェック `build`（build.yml）と同じ 7 つ（`make build`・`make check-strings`・`make test`・`make build-tests`・
-  `make test-app`・`make check-version`・`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を順に通す。
+- `make ci` — 必須チェック `build`（build.yml）と同じ 8 つ（`make build`・`make check-strings`・`make test`・`make build-tests`・
+  `make test-app`・`make test-storekit`・`make check-version`・`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を順に通す。
   **`make build` が通るだけでは CI が通るとは限らない。** PR の前はこれを通す
 - `make clean` / `make open` — 生成物の削除 / Xcode で開く
 - `release.mk`（Makefile の末尾で読み込む）:

@@ -13,6 +13,8 @@ struct AppRootView: View {
     let container: ModelContainer
     /// あとで保存先に書き込む処理を数える先（`StoreHost.pendingWrites`）。ホームのモデルに渡す。
     let pendingWrites: PendingStoreWrites
+    /// プレミアムの購入と状態（アプリで 1 つ）。ホームのモデルに渡す。
+    let purchases: PurchaseManager
 
     /// 初回の案内。出さないと決めたら nil のまま。終えても持ち続ける（終えたかどうかでホームへの切り替えを描くため）。
     @State private var onboarding: OnboardingModel?
@@ -29,7 +31,7 @@ struct AppRootView: View {
                 OnboardingView(model: onboarding)
                     .transition(.opacity)
             } else if hasDecided {
-                HomeView(model: HomeModel(context: container.mainContext, pendingWrites: pendingWrites))
+                HomeView(model: HomeModel(context: container.mainContext, pendingWrites: pendingWrites, purchases: purchases))
                     .transition(.opacity)
             } else {
                 Theme.background

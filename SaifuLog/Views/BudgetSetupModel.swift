@@ -18,7 +18,8 @@ final class BudgetSetupModel: Identifiable {
     var categoryTexts: [EntryCategory: String]
     /// 保存に失敗した（アラートを出す）。
     var showsSaveFailure = false
-    /// カテゴリ別の予算の欄を出すか。プレミアムの機能で、購入の仕組み（StoreKit）を作るまでは出さない。
+    /// カテゴリ別の予算の欄を出すか。プレミアムの機能で、プレミアムと体験中だけ出す（開く側が `PremiumStatus` で決める）。
+    /// 出さないときは、決めてあったカテゴリ別の額に触れない（体験が終わっても額は残り、買えばまた出る）。
     let showsCategoryBudgets: Bool
     /// 開いた時点で全体の予算が決まっていたか。決まっていれば「予算をなくす」を出す。
     let hadTotalBudget: Bool
