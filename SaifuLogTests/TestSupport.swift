@@ -19,12 +19,13 @@ enum TestSupport {
     }
 
     /// テストごとに新しい保存先を作る。前のテストの記録が残らないよう、ファイルには書かない。
+    ///
+    /// アプリと同じ `ModelContainerFactory` で作る（モデルの一覧と iCloud を切る設定をアプリと食い違わせないため）。
+    /// SwiftData の `ModelConfiguration(isStoredInMemoryOnly:)` を直接使うと iCloud が既定の `.automatic` になり、
+    /// iCloud の entitlement を足した時点で、テストが iCloud と同期しようとする。
     @MainActor
     static func makeContext() throws -> ModelContext {
-        let container = try ModelContainer(
-            for: Entry.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-        )
+        let container = try ModelContainerFactory.makeInMemoryContainer()
         // mainContext はコンテナが生きている間しか使えないので、コンテナごと保持させる。
         let context = container.mainContext
         retained.append(container)
@@ -45,3 +46,16 @@ enum TestSupport {
 }
 
 struct TestError: Error {}
+
+/// 読み方を差し替えられる解析器（FallbackEntryParser に AI の代わりとして渡す、HomeModel に渡す）。
+struct StubParser: EntryParsing {
+    let body: @Sendable (String) async throws -> [ParsedEntry]
+
+    init(_ body: @escaping @Sendable (String) async throws -> [ParsedEntry]) {
+        self.body = body
+    }
+
+    func parse(_ text: String) async throws -> [ParsedEntry] {
+        try await body(text)
+    }
+}
