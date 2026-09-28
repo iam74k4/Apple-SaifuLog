@@ -9,4 +9,13 @@ enum VoiceOver {
         message.accessibilitySpeechAnnouncementPriority = .high
         AccessibilityNotification.Announcement(message).post()
     }
+
+    /// 画面がまるごと替わったことを知らせる。VoiceOver は新しい画面の最初の要素にフォーカスを移して読む。
+    ///
+    /// 横に進む・シートを出すときは SwiftUI が知らせるが、根元の画面の切り替え（初回の案内からホームへ）は知らせない
+    /// ため、そのときに呼ぶ。VoiceOver が動いていなければ何も起きない。
+    @MainActor
+    static func screenChanged() {
+        AccessibilityNotification.ScreenChanged().post()
+    }
 }

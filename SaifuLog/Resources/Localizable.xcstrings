@@ -45,6 +45,50 @@
         }
       }
     },
+    "2件に分けて記録" : {
+      "comment" : "ようこその画面。入力の例「スーパー2480とドラッグ1200」がどう記録されるか",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded as two separate entries"
+          }
+        }
+      }
+    },
+    "Apple Intelligence が、この iPhone の中で品目やカテゴリを読み取ります。読み違えたときは、記録の直後に取り消せます。" : {
+      "comment" : "ようこその画面。端末内の AI が使えるときの説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence reads the item and category right on this iPhone. If it gets something wrong, you can undo it right after recording."
+          }
+        }
+      }
+    },
+    "Apple Intelligence がオフのため、端末内の辞書で読み取ります。記録はそのままできます。設定で Apple Intelligence をオンにすると、AI が読むようになります。" : {
+      "comment" : "ようこその画面。Apple Intelligence がオフのときの説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence is turned off, so entries are read with an on-device dictionary. You can still record as usual. Turn on Apple Intelligence in Settings to have AI read them."
+          }
+        }
+      }
+    },
+    "Apple Intelligence の準備（モデルのダウンロードなど）が済むまでは、端末内の辞書で読み取ります。記録はそのままできます。準備が済むと、AI が読むようになります。" : {
+      "comment" : "ようこその画面。Apple Intelligence のモデルの準備が済んでいないときの説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Until Apple Intelligence is ready (for example, while its model downloads), entries are read with an on-device dictionary. You can still record as usual. Once it’s ready, AI will read them."
+          }
+        }
+      }
+    },
     "OK" : {
       "comment" : "アラートを閉じるボタン",
       "localizations" : {
@@ -67,6 +111,72 @@
         }
       }
     },
+    "あとで" : {
+      "comment" : "初回の案内の予算を決める画面。予算を決めずにホームへ進むボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Now"
+          }
+        }
+      }
+    },
+    "いまは Apple Intelligence を使えないため、端末内の辞書で読み取ります。記録はそのままできます。" : {
+      "comment" : "ようこその画面。そのほかの理由で AI を使えないときの説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence isn’t available right now, so entries are read with an on-device dictionary. You can still record as usual."
+          }
+        }
+      }
+    },
+    "いまはキーワード辞書で読みます" : {
+      "comment" : "ようこその画面。Apple Intelligence がオフ・準備中などで、いまは AI を使えないときの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entries are read with a keyword dictionary for now"
+          }
+        }
+      }
+    },
+    "この iPhone では AI が文を読みます" : {
+      "comment" : "ようこその画面。端末内の AI が使えるときの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On-device AI reads what you write"
+          }
+        }
+      }
+    },
+    "この iPhone ではキーワード辞書で読みます" : {
+      "comment" : "ようこその画面。Apple Intelligence に対応していない機種での見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This iPhone reads entries with a keyword dictionary"
+          }
+        }
+      }
+    },
+    "この iPhone は Apple Intelligence に対応していないため、端末内の辞書で金額やカテゴリを読み取ります。上の例のような書き方なら、AI がなくても記録できます。" : {
+      "comment" : "ようこその画面。Apple Intelligence に対応していない機種での説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This iPhone doesn’t support Apple Intelligence, so amounts and categories are read with an on-device dictionary. Entries written like the examples above are recorded without AI."
+          }
+        }
+      }
+    },
     "この記録を削除しますか？" : {
       "comment" : "記録の削除の確認の見出し",
       "localizations" : {
@@ -74,6 +184,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Delete this record?"
+          }
+        }
+      }
+    },
+    "こんなふうに書けます" : {
+      "comment" : "ようこその画面。入力の例の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Write it like this"
           }
         }
       }
@@ -108,6 +229,28 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "はじめる" : {
+      "comment" : "ようこその画面の主ボタン。月の予算を決める画面へ進む",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get Started"
+          }
+        }
+      }
+    },
+    "ひとことで家計簿" : {
+      "comment" : "ようこその画面の見出し（アプリを一言で表す）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Budget in one line"
           }
         }
       }
@@ -196,6 +339,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "サイフログは、「ランチ 850」のように一行送るだけで記録できる家計簿です。分類と計算はアプリが引き受けます。" : {
+      "comment" : "ようこその画面の説明。例の「ランチ 850」は訳さない（解析が日本語の入力を前提にしているため）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SaifuLog is a budget app where you record spending by sending a single line, like “ランチ 850”. The app takes care of the categories and the math."
           }
         }
       }
@@ -321,6 +475,17 @@
         }
       }
     },
+    "予算を決めずにホームへ進みます。予算はホームからいつでも決められます。" : {
+      "comment" : "初回の案内の「あとで」の説明（VoiceOver）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continues to Home without a budget. You can set one from Home anytime."
+          }
+        }
+      }
+    },
     "予算を決める" : {
       "comment" : "ホームの上の帯のボタン。予算を決めていないときに出し、押すと予算を決める画面を開く",
       "localizations" : {
@@ -339,6 +504,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Transport"
+          }
+        }
+      }
+    },
+    "今日の日付で ¥850 を記録" : {
+      "comment" : "ようこその画面。入力の例「ランチ 850」がどう記録されるか。カテゴリは書かない（AI とキーワード辞書で変わりうるため）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded for today, ¥850"
           }
         }
       }
@@ -449,6 +625,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Utilities & phone"
+          }
+        }
+      }
+    },
+    "入力例: %@" : {
+      "comment" : "ようこその画面の入力の例（VoiceOver）。%@ は日本語の入力の例（訳さない）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Example: %@"
           }
         }
       }
@@ -574,6 +761,17 @@
         }
       }
     },
+    "昨日の日付で、1人分の ¥3,000 を記録" : {
+      "comment" : "ようこその画面。入力の例「昨日 焼肉12000 4人で割り勘」がどう記録されるか",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded for yesterday as your share, ¥3,000"
+          }
+        }
+      }
+    },
     "月の予算" : {
       "comment" : "予算を決める画面の入力欄の見出し",
       "localizations" : {
@@ -592,6 +790,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Set a Monthly Budget"
+          }
+        }
+      }
+    },
+    "月の予算を決める画面に進みます" : {
+      "comment" : "ようこその画面の「はじめる」の説明（VoiceOver）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continues to setting your monthly budget."
           }
         }
       }
@@ -669,6 +878,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SaifuLog couldn’t open the storage for your records. Make sure your iPhone has free space, then try again."
+          }
+        }
+      }
+    },
+    "記録はこの iPhone の中に" : {
+      "comment" : "ようこその画面。記録の保存先の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your records are kept on this iPhone"
+          }
+        }
+      }
+    },
+    "記録はこの iPhone の中に保存し、文の読み取りもこの iPhone の中で行います。開発者のサーバーはなく、記録や入力した文を開発者や第三者に送ることはありません。" : {
+      "comment" : "ようこその画面。記録の保存先とプライバシーの説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your records are saved on this iPhone, and what you write is read on this iPhone too. There’s no developer server, and your records and what you type are never sent to the developer or any third party."
           }
         }
       }
