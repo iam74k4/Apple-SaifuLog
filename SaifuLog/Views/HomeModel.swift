@@ -4,7 +4,7 @@ import SaifuLogCore
 import SwiftData
 import SwiftUI
 
-/// ホームの状態と操作（送信・取り消し・削除・予算を決める画面の出し入れ）。
+/// ホームの状態と操作（送信・取り消し・直す・削除・予算を決める画面の出し入れ）。
 ///
 /// 画面（`HomeView`）から切り離し、解析器・時計・読み上げを差し替えて SaifuLogTests で確かめられるようにしている。
 /// 画面は、ここの値を表示し、操作をここへ渡すだけにする。
@@ -25,6 +25,8 @@ final class HomeModel {
     var pendingDeletion: PendingDeletion?
     /// 「予算を決める」のシートの状態と操作。シートを出していなければ nil（シートを閉じると画面が nil に戻す）。
     var budgetSetup: BudgetSetupModel?
+    /// 「直す」のシートで直している記録の状態と操作。シートを出していなければ nil（シートを閉じると画面が nil に戻す）。
+    var editing: EditEntryModel?
     /// 今日。「今月」の範囲と、日付に年を添えるかの基準にする。
     ///
     /// 描画のたびに `.now` を読むだけだと、アプリを開いたまま（または裏に置いたまま）月をまたいだとき、
@@ -72,6 +74,15 @@ final class HomeModel {
     /// 直前の記録を取り消せるか（「取り消す」のバナーと入力欄の VoiceOver の操作を出すか）。
     var canUndo: Bool {
         !justRecorded.isEmpty
+    }
+
+    /// 「取り消す」のバナーを時間で引っ込めてよいか（画面の 8 秒のタイマーを動かすか）。
+    ///
+    /// 「直す」のシートを出している間は数えない。シートの下でもホームは表示されたままなので、数え続けると、
+    /// 直すのに 8 秒以上かけてやめたときには「取り消す」が消えていて、直すのをやめても取り消せる、という約束を破るため。
+    /// シートを閉じたら数え直す（閉じた直後にも押せるように）。
+    var autoHidesUndo: Bool {
+        canUndo && editing == nil
     }
 
     // MARK: - 送信
@@ -186,6 +197,35 @@ final class HomeModel {
         // 直前に記録したものを消したら、「取り消す」の対象からも外す（消えた記録を取り消そうとしないように）。
         justRecorded.removeAll { $0.persistentModelID == id }
         announce(String(localized: "削除しました: \(pending.summary)"))
+    }
+
+    // MARK: - 直す
+
+    /// 「直す」のシートを出す（吹き出しのタップ・長押しのメニュー・「取り消す」のバナー・VoiceOver の操作から）。
+    ///
+    /// 直した内容の保存は同期的に書き込む（送信のように、あとで書き込む処理ではない）ので、`pendingWrites` には数えない。
+    /// - Parameter calendar: 日付の区切りの基準（画面の暦）。今日より先かの判定と、日付を直したかの判定に使う。
+    func presentEdit(_ entry: Entry, calendar: Calendar) {
+        editing = EditEntryModel(
+            entry: entry,
+            store: store,
+            calendar: calendar,
+            now: now,
+            announce: announce,
+            didSave: { [weak self] entry in self?.finishEditing(entry) },
+            didDelete: { [weak self] id in self?.justRecorded.removeAll { $0.persistentModelID == id } }
+        )
+    }
+
+    /// 直前に記録したものを直したら、「取り消す」を引っ込める。
+    ///
+    /// 取り消すと、直す前の送った文を入力欄に戻すことになり、直した内容と食い違うため（送り直すと、直す前の読み方で
+    /// 記録し直すことになる）。直した後も消したければ、長押しの「削除」か、直すシートの「この記録を削除」から消せる。
+    private func finishEditing(_ entry: Entry) {
+        let id = entry.persistentModelID
+        if justRecorded.contains(where: { $0.persistentModelID == id }) {
+            justRecorded = []
+        }
     }
 
     // MARK: - 予算

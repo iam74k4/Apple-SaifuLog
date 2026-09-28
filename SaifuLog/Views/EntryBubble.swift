@@ -2,10 +2,14 @@ import SaifuLogCore
 import SwiftUI
 
 /// タイムラインの 1 件。自分が送ったメッセージのように右寄せの吹き出しで出す。
+///
+/// 吹き出しを押すと「直す」のシートを開く。長押しのメニューには「直す」と「削除」を出す。
 struct EntryBubble: View {
     let entry: Entry
     /// 今日。日付に年を添えるかの基準にする。
     let today: Date
+    /// 「直す」のシートを出す。
+    let edit: () -> Void
     /// 削除を求める（確認は呼び出し側で出す）。
     let requestDelete: () -> Void
 
@@ -23,14 +27,29 @@ struct EntryBubble: View {
         HStack(alignment: .top, spacing: 10) {
             // 縦に積むときは左の余白と右のアイコンをやめ、吹き出しに画面の幅を使わせる。
             Spacer(minLength: stacksVertically ? 0 : 40)
-            bubble
+            // 押せるのは吹き出しだけにする（左の余白や右の丸を押して、思わず開かないように）。
+            Button(action: edit) {
+                bubble
+            }
+            // 文字の色は吹き出しの中で決めているので、tint に染めない形にする（押している間は薄くなる）。
+            .buttonStyle(.plain)
+            .contentShape(.contextMenuPreview, .rect(cornerRadius: 18))
+            .contextMenu {
+                Button("直す", systemImage: "pencil", action: edit)
+                Button("削除", systemImage: "trash", role: .destructive, action: requestDelete)
+            }
             if !stacksVertically {
                 icon
             }
         }
         // VoiceOver では 1 件を 1 つの要素として、品目・金額・カテゴリ・日付の順に読ませる。
         .accessibilityElement(children: .combine)
-        // 長押しのメニューは VoiceOver から見つけにくいので、削除を操作の一覧にも出す。
+        // ダブルタップ（既定の操作）で吹き出しを押したときと同じく「直す」を開く。
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint("記録を直す画面を開きます")
+        .accessibilityAction(.default, edit)
+        // 長押しのメニューは VoiceOver から見つけにくいので、直す・削除を操作の一覧にも出す。
+        .accessibilityAction(named: "直す", edit)
         .accessibilityAction(named: "削除", requestDelete)
     }
 
@@ -65,10 +84,7 @@ struct EntryBubble: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(Theme.surface, in: .rect(cornerRadius: 18))
-        .contentShape(.contextMenuPreview, .rect(cornerRadius: 18))
-        .contextMenu {
-            Button("削除", systemImage: "trash", role: .destructive, action: requestDelete)
-        }
+        .contentShape(.rect(cornerRadius: 18))
     }
 
     private var icon: some View {
@@ -148,7 +164,7 @@ extension Entry {
         isIncome ? String(localized: "収入") : String(localized: category.label)
     }
 
-    /// 削除の確認に出す「ランチ ¥850」。品目が無ければ種別の名前にする（吹き出しの見出しと同じ）。
+    /// 削除の確認や直す対象の選択に出す「ランチ ¥850」。品目が無ければ種別の名前にする（吹き出しの見出しと同じ）。
     var summaryText: String {
         "\(memo.isEmpty ? kindText : memo) \(YenFormatter.string(from: amount))"
     }

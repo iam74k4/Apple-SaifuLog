@@ -171,7 +171,7 @@ extension OnDeviceAIStatus {
     var message: LocalizedStringResource {
         switch self {
         case .available:
-            "Apple Intelligence が、この iPhone の中で品目やカテゴリを読み取ります。読み違えたときは、記録の直後に取り消せます。"
+            "Apple Intelligence が、この iPhone の中で品目やカテゴリを読み取ります。読み違えたときは、記録の直後に取り消すか、記録をタップして直せます。"
         case .deviceNotEligible:
             "この iPhone は Apple Intelligence に対応していないため、端末内の辞書で金額やカテゴリを読み取ります。上の例のような書き方なら、AI がなくても記録できます。"
         case .appleIntelligenceNotEnabled:

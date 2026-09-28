@@ -4,7 +4,7 @@ import SwiftData
 import Testing
 @testable import SaifuLog
 
-/// ホームの送信・取り消し・削除・予算を決める画面（HomeModel）。メモリの上の保存先と、差し替えた解析器で確かめる。
+/// ホームの送信・取り消し・直す・削除・予算を決める画面（HomeModel）。メモリの上の保存先と、差し替えた解析器で確かめる。
 @MainActor
 struct HomeModelTests {
     /// HomeModel と、その保存先・解析器・読み上げの代わり。
@@ -304,6 +304,167 @@ struct HomeModelTests {
         #expect(!fixture.context.hasChanges)
         #expect(fixture.model.storeFailure == .delete)
         #expect(fixture.model.canUndo)
+    }
+
+    // MARK: - 直す
+
+    /// 吹き出し・長押しのメニュー・バナー・VoiceOver の操作から、その記録の「直す」のシートを開く。
+    @Test func presentEditOpensSheetForEntry() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+        let entry = try #require(try fixture.entries().first)
+        #expect(fixture.model.editing == nil)
+
+        fixture.model.presentEdit(entry, calendar: TestSupport.calendar)
+
+        let editing = try #require(fixture.model.editing)
+        #expect(editing.amountText == "850")
+        #expect(editing.memo == "ランチ")
+        #expect(editing.category == .food)
+        #expect(editing.originalText == "ランチ 850")
+        // 開いただけでは何も変えない。
+        #expect(!editing.canSave)
+        #expect(fixture.model.canUndo)
+    }
+
+    /// 直した内容は、同じ保存先に書き込まれる。送信の書き込みとしては数えない（同期的に書き込むので、開き直しを待たせない）。
+    @Test func editSavesToStore() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ドラッグ1200")
+        let entry = try #require(try fixture.entries().first)
+        fixture.model.presentEdit(entry, calendar: TestSupport.calendar)
+        let editing = try #require(fixture.model.editing)
+
+        // キーワード辞書は「ドラッグ」を日用品と読む。薬を買ったので医療に直す。
+        #expect(editing.category == .daily)
+        editing.category = .medical
+        #expect(editing.save())
+
+        #expect(try fixture.entries().map(\.category) == [.medical])
+        #expect(fixture.pendingWrites.count == 0)
+        #expect(fixture.announcements.last?.contains(String(localized: EntryCategory.medical.label)) == true)
+    }
+
+    /// 直前に記録したものを直したら「取り消す」を引っ込める（取り消すと直す前の文が入力欄に戻り、直した内容と食い違うため）。
+    @Test func editingJustRecordedDismissesUndo() async throws {
+        let fixture = try Fixture()
+        await fixture.send("スーパー2480、ドラッグ1200")
+        let drug = try #require(try fixture.entries().last)
+        fixture.model.presentEdit(drug, calendar: TestSupport.calendar)
+        let editing = try #require(fixture.model.editing)
+        editing.category = .medical
+
+        #expect(editing.save())
+
+        #expect(!fixture.model.canUndo)
+        // 記録はどちらも残る。
+        #expect(try fixture.entries().map(\.amount) == [2_480, 1_200])
+    }
+
+    /// 前の記録を直しても、直前の記録の「取り消す」は残る。
+    @Test func editingOlderRecordKeepsUndo() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+        fixture.model.dismissUndo()
+        await fixture.send("コーヒー 400")
+        let lunch = try #require(try fixture.entries().first { $0.amount == 850 })
+        fixture.model.presentEdit(lunch, calendar: TestSupport.calendar)
+        let editing = try #require(fixture.model.editing)
+        editing.amountText = "900"
+
+        #expect(editing.save())
+
+        #expect(fixture.model.justRecorded.map(\.amount) == [400])
+    }
+
+    /// 直すのをやめても（保存せずに閉じる）、「取り消す」はそのまま残る。
+    ///
+    /// 時間で引っ込めるタイマーは画面にあるので、ここでは「シートを出している間は数えない」（`autoHidesUndo`）までを確かめる。
+    /// 数え続けると、直すのに 8 秒以上かけてやめたときには、画面の上では「取り消す」が消えているため。
+    @Test func cancellingEditKeepsUndo() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+        #expect(fixture.model.autoHidesUndo)
+        let entry = try #require(try fixture.entries().first)
+        fixture.model.presentEdit(entry, calendar: TestSupport.calendar)
+        fixture.model.editing?.amountText = "900"
+
+        // シートを出している間は、「取り消す」を時間で引っ込めない。
+        #expect(fixture.model.canUndo)
+        #expect(!fixture.model.autoHidesUndo)
+
+        // シートを閉じると、画面が nil に戻す。閉じたら数え直す（閉じた直後にも取り消せる）。
+        fixture.model.editing = nil
+
+        #expect(fixture.model.canUndo)
+        #expect(fixture.model.autoHidesUndo)
+        #expect(try fixture.entries().map(\.amount) == [850])
+    }
+
+    /// 直前の記録を直して保存したら「取り消す」は引っ込むので、シートを閉じても数え直さない。
+    @Test func savingEditOfJustRecordedStopsUndoCountdown() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+        let entry = try #require(try fixture.entries().first)
+        fixture.model.presentEdit(entry, calendar: TestSupport.calendar)
+        let editing = try #require(fixture.model.editing)
+        editing.amountText = "900"
+
+        #expect(editing.save())
+        fixture.model.editing = nil
+
+        #expect(!fixture.model.canUndo)
+        #expect(!fixture.model.autoHidesUndo)
+    }
+
+    /// 取り消せるものが無ければ、数えるものも無い（直すシートを閉じた後も）。
+    @Test func autoHidesUndoNeedsSomethingToUndo() async throws {
+        let fixture = try Fixture()
+        #expect(!fixture.model.autoHidesUndo)
+
+        await fixture.send("ランチ 850")
+        fixture.model.dismissUndo()
+        let entry = try #require(try fixture.entries().first)
+        fixture.model.presentEdit(entry, calendar: TestSupport.calendar)
+        fixture.model.editing = nil
+
+        #expect(!fixture.model.autoHidesUndo)
+    }
+
+    /// 直すシートから消した記録は、「取り消す」の対象からも外す（消えた記録を取り消そうとしないように）。
+    @Test func deletingFromEditSheetRemovesUndoTarget() async throws {
+        let fixture = try Fixture()
+        await fixture.send("スーパー2480、ドラッグ1200")
+        let supermarket = try #require(try fixture.entries().first)
+        fixture.model.presentEdit(supermarket, calendar: TestSupport.calendar)
+        let editing = try #require(fixture.model.editing)
+
+        #expect(editing.delete())
+
+        #expect(try fixture.entries().map(\.amount) == [1_200])
+        #expect(fixture.model.justRecorded.map(\.amount) == [1_200])
+        // 残った記録は、まだ取り消せる。
+        fixture.model.undoLastRecord()
+        #expect(try fixture.entries().isEmpty)
+    }
+
+    /// 直すシートで保存に失敗したら、シートは開いたまま（ホームの失敗のアラートは出さない）、「取り消す」も残す。
+    @Test func editSaveFailureKeepsUndo() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+        let entry = try #require(try fixture.entries().first)
+        fixture.model.presentEdit(entry, calendar: TestSupport.calendar)
+        let editing = try #require(fixture.model.editing)
+        editing.amountText = "900"
+        fixture.failsSave = true
+
+        #expect(!editing.save())
+
+        #expect(editing.failure == .save)
+        #expect(fixture.model.storeFailure == nil)
+        #expect(fixture.model.editing != nil)
+        #expect(fixture.model.canUndo)
+        #expect(try fixture.entries().map(\.amount) == [850])
     }
 
     // MARK: - 予算

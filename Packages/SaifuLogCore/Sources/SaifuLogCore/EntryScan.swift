@@ -962,8 +962,10 @@ struct EntryScan {
 
     /// 12 桁（1 兆円未満）を超える数字は金額とみなさない。家計簿の 1 件としてありえず、
     /// 電話番号やカード番号の貼り付けを金額にしてしまうのを防ぐため。
-    private static let maximumDigits = 12
-    private static let maximumValue = 999_999_999_999
+    /// 上限の額は、記録を直すシートで保存できる上限（`EntryAmountInput.maximumAmount`）と同じものを使う
+    /// （ひとことで記録できた額を、直すときに保存できないことがないように）。
+    private static let maximumDigits = String(EntryAmountInput.maximumAmount).count
+    private static let maximumValue = EntryAmountInput.maximumAmount
 
     private static let smallUnits: [Character: Decimal] = ["十": 10, "百": 100, "千": 1_000]
     private static let bigUnits: [Character: Decimal] = ["万": 10_000, "億": 100_000_000]

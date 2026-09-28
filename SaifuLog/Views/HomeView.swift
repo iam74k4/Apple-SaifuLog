@@ -8,7 +8,7 @@ import UIKit
 /// 記録も（将来は）質問も同じ入力欄から行う。入口を分けると「どこに書けばいいか」を
 /// 利用者に考えさせることになるため。
 ///
-/// 状態と操作（送信・取り消し・削除・予算を決める画面の出し入れ）は `HomeModel` が持つ。ここは表示と、
+/// 状態と操作（送信・取り消し・直す・削除・予算を決める画面の出し入れ）は `HomeModel` が持つ。ここは表示と、
 /// 環境（文字の大きさ・支援技術・前面かどうか）に合わせた出し方だけを受け持つ。
 struct HomeView: View {
     @Environment(\.calendar) private var calendar
@@ -57,6 +57,10 @@ struct HomeView: View {
                 .sheet(item: $model.budgetSetup) { budgetSetup in
                     BudgetSetupSheet(model: budgetSetup)
                 }
+                // 「直す」も item で出す（上と同じ理由）。閉じると editing は nil に戻る。
+                .sheet(item: $model.editing) { editing in
+                    EditEntrySheet(model: editing)
+                }
                 #if DEBUG || INTERNAL_DIAGNOSTICS
                 .sheet(isPresented: $showsDiagnostics) {
                     DiagnosticsView(model: DiagnosticsModel(context: modelContext))
@@ -76,8 +80,9 @@ struct HomeView: View {
                 }
                 // 「取り消す」は記録の直後だけのもの。しばらくしたら引っ込め、タイムラインを広く使う。
                 // 支援技術を使い始めたときにも数え直す（id に含める）と、途中で引っ込むことがない。
+                // 「直す」のシートを出している間は止め、閉じたら 8 秒を数え直す（`HomeModel.autoHidesUndo`）。
                 .task(id: undoBannerSchedule) {
-                    guard model.canUndo, !keepsUndoBanner else { return }
+                    guard model.autoHidesUndo, !keepsUndoBanner else { return }
                     try? await Task.sleep(for: .seconds(8))
                     if !Task.isCancelled { model.dismissUndo() }
                 }
@@ -96,6 +101,7 @@ struct HomeView: View {
             limit: model.timelineLimit,
             today: model.today,
             showMore: { model.showMoreTimeline() },
+            edit: { model.presentEdit($0, calendar: calendar) },
             requestDelete: { model.requestDelete($0) }
         )
         .background(Theme.background)
@@ -113,10 +119,22 @@ struct HomeView: View {
     private var bottomBar: some View {
         VStack(spacing: 8) {
             if model.canUndo {
-                UndoBanner(undo: { model.undoLastRecord() }, dismiss: { model.dismissUndo() })
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                UndoBanner(
+                    recorded: model.justRecorded,
+                    edit: { model.presentEdit($0, calendar: calendar) },
+                    undo: { model.undoLastRecord() },
+                    dismiss: { model.dismissUndo() }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            InputBar(text: $model.draft, isSending: model.isParsing, send: { model.send(calendar: calendar) }, undo: undoAction)
+            InputBar(
+                text: $model.draft,
+                isSending: model.isParsing,
+                send: { model.send(calendar: calendar) },
+                undo: undoAction,
+                recorded: model.justRecorded,
+                edit: { model.presentEdit($0, calendar: calendar) }
+            )
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
@@ -138,7 +156,11 @@ struct HomeView: View {
     }
 
     private var undoBannerSchedule: UndoBannerSchedule {
-        UndoBannerSchedule(ids: model.justRecorded.map(\.persistentModelID), keepsOpen: keepsUndoBanner)
+        UndoBannerSchedule(
+            ids: model.justRecorded.map(\.persistentModelID),
+            keepsOpen: keepsUndoBanner,
+            isEditing: model.editing != nil
+        )
     }
 }
 
@@ -146,6 +168,8 @@ struct HomeView: View {
 private struct UndoBannerSchedule: Hashable {
     var ids: [PersistentIdentifier]
     var keepsOpen: Bool
+    /// 「直す」のシートを出しているか。出したときにタイマーを止め、閉じたときに数え直すため。
+    var isEditing: Bool
 }
 
 /// 保存先への書き込みの失敗を利用者に知らせる文。
@@ -174,14 +198,22 @@ private struct EntryTimeline: View {
     let limit: Int
     let today: Date
     let showMore: () -> Void
+    let edit: (Entry) -> Void
     let requestDelete: (Entry) -> Void
 
     @Query private var recentEntries: [Entry]
 
-    init(limit: Int, today: Date, showMore: @escaping () -> Void, requestDelete: @escaping (Entry) -> Void) {
+    init(
+        limit: Int,
+        today: Date,
+        showMore: @escaping () -> Void,
+        edit: @escaping (Entry) -> Void,
+        requestDelete: @escaping (Entry) -> Void
+    ) {
         self.limit = limit
         self.today = today
         self.showMore = showMore
+        self.edit = edit
         self.requestDelete = requestDelete
         _recentEntries = Query(Entry.timelineDescriptor(limit: limit))
     }
@@ -200,7 +232,7 @@ private struct EntryTimeline: View {
                             .frame(minHeight: 44)
                     }
                     ForEach(recentEntries.reversed()) { entry in
-                        EntryBubble(entry: entry, today: today) { requestDelete(entry) }
+                        EntryBubble(entry: entry, today: today, edit: { edit(entry) }, requestDelete: { requestDelete(entry) })
                             .id(entry.persistentModelID)
                     }
                 }
