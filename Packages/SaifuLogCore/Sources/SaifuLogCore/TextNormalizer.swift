@@ -5,7 +5,8 @@ import Foundation
 /// 日本語の入力では、IME の設定しだいで数字や記号が全角になる（「１２００円」「￥８５０」）。
 /// 解析の前にここで半角へそろえ、以降の処理は半角だけを相手にすればよいようにする。
 enum TextNormalizer {
-    /// 全角の英数字・記号を半角に、全角スペースを半角スペースにし、桁区切りのカンマを取り除く。
+    /// 全角の英数字・記号を半角に、全角スペースを半角スペースに、マイナス記号（−）を「-」にし、
+    /// 桁区切りのカンマを取り除く。
     ///
     /// `applyingTransform(.fullwidthToHalfwidth)` は使わない。カタカナまで半角（ｶﾀｶﾅ）に
     /// してしまい、キーワード辞書と照合できなくなるため。
@@ -18,6 +19,9 @@ enum TextNormalizer {
                 scalars.append(Unicode.Scalar(scalar.value - 0xFEE0)!)
             case 0xFFE5:
                 scalars.append("¥")
+            case 0x2212:
+                // 数学のマイナス記号（「−500」）。IME や他のアプリからの貼り付けで入る。
+                scalars.append("-")
             case 0x3000:
                 scalars.append(" ")
             default:

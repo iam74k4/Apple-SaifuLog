@@ -13,7 +13,7 @@ public struct ParsedEntry: Sendable, Hashable {
     public var isIncome: Bool
     /// 何に使ったか。割り勘のときは総額と立替額の説明も入る。
     public var memo: String
-    /// 何日前のことか（0 = 今日、1 = 昨日）。
+    /// 何日前のことか（0 = 今日、1 = 昨日、-1 = 明日）。少し先の日付で書いた記録（払う予定の家賃）は負の数になる。
     public var daysAgo: Int
     /// 割った人数。割り勘でなければ 1。
     public var splitCount: Int
@@ -43,15 +43,26 @@ public struct ParsedEntry: Sendable, Hashable {
     ///   - total: 入力に書かれていた金額（割り勘なら割る前の総額）。
     ///   - item: 何に使ったか（金額や日付を除いた部分）。
     ///   - splitCount: 割り勘の人数。割り勘でなければ 1。
+    ///   - isPerPerson: `total` が「1人あたり3000」のように 1 人分として書かれた額か。割らずにそのまま記録し、
+    ///     メモに「（4人で割り勘・1人分）」（割り勘の語が無ければ「（1人分）」）と書き足す。
     public static func assemble(
         total: Int,
         category: EntryCategory,
         isIncome: Bool,
         item: String,
         daysAgo: Int,
-        splitCount: Int
+        splitCount: Int,
+        isPerPerson: Bool = false
     ) -> ParsedEntry {
         let item = item.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 1 人分の額はもう割ったあとの額なので、割らない。総額や人数をメモから除いたぶん、1 人分であることを書き足す。
+        if !isIncome, isPerPerson {
+            let note = splitCount >= 2 ? "\(splitCount)人で割り勘・1人分" : "1人分"
+            return ParsedEntry(
+                amount: total, category: category, isIncome: false,
+                memo: item.isEmpty ? note : "\(item)（\(note)）", daysAgo: daysAgo, splitCount: 1
+            )
+        }
         // 収入を割り勘することはないので、人数が読めても無視する。
         if !isIncome, let split = BillSplit(total: total, count: splitCount) {
             let memo = item.isEmpty ? split.note : "\(item)（\(split.note)）"
@@ -66,9 +77,37 @@ public struct ParsedEntry: Sendable, Hashable {
         )
     }
 
-    /// 使った日時。今日なら `now` そのもの、過去の日なら同じ時刻のその日。
+    /// 使った日時。今日なら `now` そのもの、ほかの日なら同じ時刻のその日。
     public func date(relativeTo now: Date, calendar: Calendar) -> Date {
         DateExpression.date(daysAgo: daysAgo, now: now, calendar: calendar)
+    }
+
+    /// 1 回の送信で読んだ記録に、保存する日時（記録した日時と使った日時）を振る。
+    ///
+    /// 複数件に分けたときは、書いた順に並ぶよう記録した日時を 1 ミリ秒ずつずらす。同じ日時だと並べ替えの
+    /// 順が定まらず、「スーパー」と「ドラッグ」が入れ替わることがあるため。使った日時も、ずらした日時から
+    /// 決める（同じ日の記録が書いた順に並ぶように）。
+    public static func timestamps(for entries: [ParsedEntry], now: Date, calendar: Calendar) -> [EntryTimestamps] {
+        entries.enumerated().map { index, entry in
+            let createdAt = now.addingTimeInterval(Double(index) * orderingStep)
+            return EntryTimestamps(createdAt: createdAt, spentAt: entry.date(relativeTo: createdAt, calendar: calendar))
+        }
+    }
+
+    /// 1 回の送信で読んだ複数件の、記録した日時の間隔（秒）。
+    static let orderingStep: TimeInterval = 0.001
+}
+
+/// 保存する 1 件の日時。
+public struct EntryTimestamps: Sendable, Hashable {
+    /// 記録した日時。タイムラインはこの順に並べる。
+    public var createdAt: Date
+    /// 使った日時（収入なら受け取った日時）。
+    public var spentAt: Date
+
+    public init(createdAt: Date, spentAt: Date) {
+        self.createdAt = createdAt
+        self.spentAt = spentAt
     }
 }
 

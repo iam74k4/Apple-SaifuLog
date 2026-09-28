@@ -1,6 +1,8 @@
 import Testing
 @testable import SaifuLogCore
 
+// AI が抜き出した金額が入力に書かれているかの突き合わせは ExtractedEntryTests で確かめる
+// （本番で突き合わせを行うのは ExtractedEntry.resolved なので、そちらに向けてテストする）。
 @Suite("金額の読み取り")
 struct AmountParserTests {
     @Test("表記を円の整数にする", arguments: [
@@ -24,6 +26,38 @@ struct AmountParserTests {
         #expect(AmountParser.yen(from: text) == expected)
     }
 
+    @Test("万のまとまりの中の千・百を足し、万・億で繰り上げる", arguments: [
+        ("1万2千500円", 12_500),
+        ("3万2千100円", 32_100),
+        ("1千万", 10_000_000),
+        ("1千万円", 10_000_000),
+        ("5百円", 500),
+        ("1万2千3百", 12_300),
+        ("1万2千5", 12_500),
+        ("1億", 100_000_000),
+        ("1億2000万", 120_000_000),
+        ("2億5千万円", 250_000_000),
+    ])
+    func readsPositionalUnits(text: String, expected: Int) {
+        #expect(AmountParser.yen(from: text) == expected)
+    }
+
+    @Test("単価と個数の掛け算は掛けた額にする", arguments: [
+        ("500×3", 1_500),
+        ("400 ×2", 800),
+        ("3x500円", 1_500),
+        ("¥500*2", 1_000),
+    ])
+    func multipliesQuantity(text: String, expected: Int) {
+        #expect(AmountParser.yen(from: text) == expected)
+    }
+
+    @Test("マイナスを付けた額は、マイナスを外した額にする")
+    func dropsMinusSign() {
+        #expect(AmountParser.yen(from: "-500") == 500)
+        #expect(AmountParser.yen(from: "−500") == 500)
+    }
+
     @Test("数字が無い・0・桁が多すぎるものは読まない", arguments: [
         "", "ランチ", "0", "0円", "1234567890123",
     ])
@@ -31,24 +65,10 @@ struct AmountParserTests {
         #expect(AmountParser.yen(from: text) == nil)
     }
 
-    @Test("AI が抜き出した金額が入力に書かれていれば採る", arguments: [
-        ("12000", "昨日 焼肉12000 4人で割り勘"),
-        ("12,000円", "昨日 焼肉12000 4人で割り勘"),
-        ("25万", "給料 25万"),
-        ("250000", "給料 25万"),
-        ("2480", "スーパー2480とドラッグ1200"),
+    @Test("時刻・日付・位の無い小数・電話番号は金額にしない", arguments: [
+        "12:30", "9/26", "9.26", "9-26", "3.14", "09012345678", "090-1234-5678", "26日",
     ])
-    func acceptsGroundedAmount(amountText: String, input: String) {
-        #expect(AmountParser.isGrounded(amountText, in: input))
-    }
-
-    @Test("入力に無い金額（計算した値・人数・作った数字）は採らない", arguments: [
-        ("3000", "昨日 焼肉12000 4人で割り勘"),
-        ("4", "昨日 焼肉12000 4人で割り勘"),
-        ("3680", "スーパー2480とドラッグ1200"),
-        ("なし", "ランチ 850"),
-    ])
-    func rejectsUngroundedAmount(amountText: String, input: String) {
-        #expect(!AmountParser.isGrounded(amountText, in: input))
+    func rejectsNonAmountNumbers(text: String) {
+        #expect(AmountParser.yen(from: text) == nil)
     }
 }
