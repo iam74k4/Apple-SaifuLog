@@ -31,14 +31,15 @@
 
 ### 入力した家計の記録
 
-金額、日付、カテゴリ、メモ、入力した文章といった記録は、iOS の標準的な仕組み
-（SwiftData）を用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存されます。
+金額、日付、カテゴリ、メモ、入力した文章といった記録と、利用者が決めた予算の金額は、iOS の
+標準的な仕組み（SwiftData）を用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存されます。
 
 iPhone のバックアップ（iCloud バックアップや、Mac・PC へのバックアップ）を有効にしている
 場合、記録はバックアップの一部として保存されることがあります。これは Apple が提供する
 iOS の機能で、開発者はその内容を見られません。
 
-記録は 1 件ずつ、アプリの中で削除できます（タイムラインの記録を長押しして「削除」）。
+記録は 1 件ずつ、アプリの中で削除できます（タイムラインの記録を長押しして「削除」）。予算は、
+予算を決める画面の「予算をなくす」で設定なしに戻せます。
 
 ### 端末内 AI の取り扱い
 
@@ -94,9 +95,9 @@ iCloud へのバックアップや同期を提供する場合の取り扱いで�
 
 ### 保存される設定（予定の機能）
 
-予算の金額、無料で使える回数の数え方に必要な情報などの設定を提供する場合は、iOS の標準的な
-仕組み（UserDefaults）を用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存します。
-これらを外部に送信することはありません。
+無料で使える回数の数え方に必要な情報などの設定を提供する場合は、iOS の標準的な仕組み
+（UserDefaults）を用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存します。
+これらを外部に送信することはありません。予算の金額は設定ではなく、上の家計の記録と同じ場所に保存します。
 
 ### アプリの削除
 
@@ -143,16 +144,16 @@ done by Apple's own system, not by the app itself.
 
 ### Your Records
 
-Your records, such as amounts, dates, categories, notes, and the text you entered, are
-stored only on your own iPhone, in an area reserved for this app, using the standard iOS
-mechanism (SwiftData).
+Your records, such as amounts, dates, categories, notes, and the text you entered, and the
+budget amount you set are stored only on your own iPhone, in an area reserved for this app,
+using the standard iOS mechanism (SwiftData).
 
 If you back up your iPhone (for example with iCloud Backup, or to a Mac or PC), your
 records may be included in that backup. This is an iOS feature provided by Apple, and the
 developer cannot see its contents.
 
 You can delete your records one by one in the app (long-press a record in the timeline and
-choose Delete).
+choose Delete). You can clear your budget with Remove Budget on the budget screen.
 
 ### How On-Device AI Is Used
 
@@ -213,9 +214,10 @@ checked on your device through Apple's system.
 
 ### Settings We Store (Planned Feature)
 
-If settings such as your budget amount and the information needed to count free-tier usage
-are offered, they will be stored only on your own iPhone, in an area reserved for this app,
-using the standard iOS mechanism (UserDefaults). They are never transmitted anywhere.
+If settings such as the information needed to count free-tier usage are offered, they will
+be stored only on your own iPhone, in an area reserved for this app, using the standard iOS
+mechanism (UserDefaults). They are never transmitted anywhere. Your budget amount is not a
+setting; it is stored in the same place as your records, described above.
 
 ### Deleting the App
 

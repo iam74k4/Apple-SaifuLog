@@ -100,6 +100,7 @@ struct ThemeContrastTests {
             ("accentFill", Theme.accentFill, Palette.accentFill),
             ("onAccent", Theme.onAccent, Palette.onAccent),
             ("danger", Theme.danger, Palette.danger),
+            ("track", Theme.track, Palette.track),
             ("income", Theme.income, Palette.income),
             ("onCategory", Theme.onCategory, Palette.onCategory),
         ] + EntryCategory.allCases.map { ("\($0)", Theme.color(for: $0), Palette.category($0)) }

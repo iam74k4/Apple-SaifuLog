@@ -4,7 +4,7 @@ import SwiftData
 import Testing
 @testable import SaifuLog
 
-/// ホームの送信・取り消し・削除（HomeModel）。メモリの上の保存先と、差し替えた解析器で確かめる。
+/// ホームの送信・取り消し・削除・予算を決める画面（HomeModel）。メモリの上の保存先と、差し替えた解析器で確かめる。
 @MainActor
 struct HomeModelTests {
     /// HomeModel と、その保存先・解析器・読み上げの代わり。
@@ -304,6 +304,53 @@ struct HomeModelTests {
         #expect(!fixture.context.hasChanges)
         #expect(fixture.model.storeFailure == .delete)
         #expect(fixture.model.canUndo)
+    }
+
+    // MARK: - 予算
+
+    /// 帯のボタンで「予算を決める」を開く。予算を決めていなければ空欄で開く。
+    @Test func presentBudgetSetupOpensEmptyForm() throws {
+        let fixture = try Fixture()
+        #expect(fixture.model.budgetSetup == nil)
+
+        fixture.model.presentBudgetSetup()
+
+        let setup = try #require(fixture.model.budgetSetup)
+        #expect(setup.totalText.isEmpty)
+        #expect(!setup.hadTotalBudget)
+        // カテゴリ別の予算（プレミアム）は、購入の仕組みを作るまで出さない。
+        #expect(!setup.showsCategoryBudgets)
+    }
+
+    /// 保存した予算は、次に開いたときの入力欄に入っている（「予算を変更」でも同じ画面を使う）。
+    @Test func savedBudgetIsShownNextTime() throws {
+        let fixture = try Fixture()
+        fixture.model.presentBudgetSetup()
+        let setup = try #require(fixture.model.budgetSetup)
+        setup.selectQuickAmount(150_000)
+
+        #expect(setup.save())
+        // シートを閉じると、画面が nil に戻す。
+        fixture.model.budgetSetup = nil
+
+        #expect(try BudgetStore(context: fixture.context).plan().total == 150_000)
+        #expect(fixture.announcements.last?.contains("¥150,000") == true)
+        fixture.model.presentBudgetSetup()
+        #expect(fixture.model.budgetSetup?.totalText == "150,000")
+        #expect(fixture.model.budgetSetup?.hadTotalBudget == true)
+    }
+
+    /// 予算の保存は記録と同じ保存先に書く。送信の書き込みとして数えない（同期的に書き込むので、開き直しを待たせない）。
+    @Test func budgetSaveDoesNotCountAsPendingWrite() throws {
+        let fixture = try Fixture()
+        fixture.model.presentBudgetSetup()
+        let setup = try #require(fixture.model.budgetSetup)
+        setup.totalText = "120,000"
+
+        #expect(setup.save())
+
+        #expect(fixture.pendingWrites.count == 0)
+        #expect(try fixture.context.fetchCount(FetchDescriptor<Budget>()) == 1)
     }
 
     // MARK: - 日付とタイムライン
