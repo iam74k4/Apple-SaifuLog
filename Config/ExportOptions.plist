@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  xcodebuild -exportArchive の設定（release.mk の make upload / make export-ipa が使う）。
+  キーの意味は `xcodebuild -help` の「Available keys for -exportOptionsPlist」にある。
+  秘密は入っていない（Team ID はビルド設定にも載る公開情報）。
+-->
+<plist version="1.0">
+<dict>
+	<!-- App Store Connect 向け。旧名の app-store は非推奨になっている（xcodebuild -help）。 -->
+	<key>method</key>
+	<string>app-store-connect</string>
+
+	<!--
+	  書き出したものをそのまま App Store Connect へ送る（既定は export = 手元に .ipa を作るだけ）。
+	  送信せずに確かめたいときは make export-ipa を使う。この値を export に替えた写しを使う。
+	-->
+	<key>destination</key>
+	<string>upload</string>
+
+	<key>teamID</key>
+	<string>NL9ZXK2SGR</string>
+
+	<!--
+	  自動署名。CI は署名なしでアーカイブする（release.mk の ARCHIVE_SIGNING）ので、
+	  ここで Xcode にプロファイルとクラウド管理の配布証明書を用意させる。証明書の .p12 を
+	  Secrets に置かずに済む代わりに、API キーのロールは Admin が要る（docs/release-flow.md）。
+	-->
+	<key>signingStyle</key>
+	<string>automatic</string>
+
+	<!--
+	  ビルド番号を Xcode に書き換えさせない（既定は YES）。書き換えられると、release.yml が
+	  アーカイブから読んで scripts/asc.py wait-build に渡した番号と、App Store Connect に
+	  届いた番号が食い違い、処理待ちがビルドを見つけられずに時間切れになる。
+	-->
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+
+	<!-- クラッシュレポートを App Store Connect / Xcode Organizer で読めるようにする。 -->
+	<key>uploadSymbols</key>
+	<true/>
+
+	<!-- 審査に出すビルドなので、社内テスト専用にはしない（YES だと App Store に出せない）。 -->
+	<key>testFlightInternalTestingOnly</key>
+	<false/>
+</dict>
+</plist>

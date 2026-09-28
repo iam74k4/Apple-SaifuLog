@@ -1,0 +1,38 @@
+# XcodeGen 生成物（project.yml から再生成する）
+SaifuLog.xcodeproj/
+
+# Xcode
+build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.xcarchive
+*.dSYM.zip
+*.dSYM
+
+# SwiftPM
+.build/
+.swiftpm/
+Packages/**/.build/
+
+# 手元だけの設定（署名チームの差し替えや秘密の値）。絶対にコミットしない
+Config/Secrets.xcconfig
+
+# App Store Connect API キーと証明書・プロビジョニングプロファイル。公開リポジトリなので絶対にコミットしない
+*.p8
+*.p12
+*.cer
+*.mobileprovision
+*.provisionprofile
+
+# Python（scripts/asc.py のバイトコード）
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store

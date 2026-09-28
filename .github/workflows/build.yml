@@ -1,0 +1,115 @@
+name: build
+
+# ビルドとテストが通ることと、提出用のアーカイブが作れることを見る CI。
+# これが無いと、コンパイルすら確認されていない変更が develop に入りうる。
+#
+# ジョブ名 build がそのまま status check の名前になり、main / develop の保護ルールで
+# 必須チェックに指定している（docs/release-flow.md）。名前を変えると、保護ルールが
+# 来ないチェックを待ち続けて、どの PR もマージできなくなる。
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# PR は最新の push だけ見れば足りるので打ち切る。
+# main / develop は各コミットの結果を残したいので打ち切らない。
+# 一括で cancel-in-progress: true にすると、続けてマージしたときに
+# 先のマージコミットの build が後続に殺され、統合ブランチに
+# 「ビルドが通るか確認されていないコミット」が残る。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  # Xcode はパスで固定する（sudo xcode-select より簡単で、ステップごとの食い違いも起きない）。
+  # ランナーの既定の Xcode はイメージの更新で動くため、上がった日に新しい警告や
+  # 並行性チェックの厳格化で突然赤くなる。上げるときは意図的な PR で、
+  # release.yml の同じ値と一緒に上げる（CI で通ったものと提出物を同じ Xcode で作るため）。
+  DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
+  # XcodeGen はランナーに入っていないので、版を固定した公式の zip を取ってくる。
+  # brew install は版を固定できず、上がった日に生成されるプロジェクトが変わりうる。
+  # SHA-256 は GitHub の Release に載っている値（asset の digest）。
+  # Dependabot はここを見ないので、上げるときは手で、release.yml と一緒に上げる。
+  XCODEGEN_VERSION: "2.46.0"
+  XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+
+jobs:
+  build:
+    # iOS 27 SDK が要る（iOS 27 の API を #available で使うため）。iOS 27 SDK 入りの
+    # Xcode 27 が載っているのは、いまは xcode-27 イメージだけ（パブリックプレビュー）。
+    # macos-latest（= macos-26）の Xcode は 26.x 止まりで、iOS 27 の API を使った時点で
+    # CI だけが落ちる。xcode-27 が GA でラベルを変えたら、release.yml と一緒に直す。
+    runs-on: xcode-27
+    # 固まったときに macOS ランナーを 6 時間（既定の上限）使い切らないようにする。
+    # シミュレータ向けのビルドと、Release の実機向けアーカイブの 2 回分を見込んだ値。
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # 失敗したときに、どのツールチェーンで起きたのかを追えるようにする。
+      # DEVELOPER_DIR が無いときは、イメージ側で Xcode が入れ替わっている。
+      # 入っている Xcode を並べておくと、どの値に直せばよいかがログだけで分かる。
+      - name: ツールチェーンを表示
+        run: |
+          if [ ! -d "$DEVELOPER_DIR" ]; then
+            echo "::error::$DEVELOPER_DIR がありません。ランナーのイメージが変わった可能性があります。"
+            ls -d /Applications/Xcode*.app || true
+            exit 1
+          fi
+          xcodebuild -version
+          swift --version
+          echo "iOS SDK: $(xcrun --sdk iphoneos --show-sdk-version)"
+          echo "iOS Simulator SDK: $(xcrun --sdk iphonesimulator --show-sdk-version)"
+
+      # SaifuLog.xcodeproj は生成物で .gitignore している。先に XcodeGen を入れないと
+      # make build（の中の make generate）が動かない。
+      # bin/xcodegen は同じ zip の share/xcodegen/SettingPresets を相対パスで読むので、
+      # bin だけを抜き出さず、展開した形のまま PATH に通す。
+      - name: XcodeGen を入れる
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN_VERSION/xcodegen.zip"
+          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/xcodegen/bin/xcodegen" --version
+
+      # xcodebuild を直に呼ばず make build を通す。開発者が手元で叩くのと同じ経路になり、
+      # 「手元では通るのに CI では落ちる」の原因を引数の違いに求めずに済む。
+      - name: ビルド
+        run: make build
+
+      # 以降のステップは、前のステップが落ちても走らせる（!cancelled()）。
+      # ビルドの失敗とテストの失敗、版の食い違いを 1 回の実行でまとめて見られるようにする。
+      # テストはアプリ本体ではなく Packages/SaifuLogCore（純粋なロジック）なので、
+      # アプリのビルドが落ちていても結果に意味がある。
+      - name: コアのテスト
+        if: ${{ !cancelled() }}
+        run: make test
+
+      # Config/Base.xcconfig と CHANGELOG.md が食い違ったまま main へ進むと、
+      # App Store のリリースノートが別バージョンのものになる。
+      # リリースノートは CHANGELOG の節をそのまま使うため、ここでずれを止める。
+      - name: バージョンの整合を確認
+        if: ${{ !cancelled() }}
+        run: make check-version
+
+      # 提出物の組み立て経路をマージ前に一度通す。上の make build はシミュレータ向けの Debug で、
+      # 提出物（Release・実機向け）を作る make archive と、その中のアーカイブの検査（アプリが
+      # 入っているか＝SKIP_INSTALL、バージョンとビルド番号が Info.plist に反映されるか、
+      # アイコンが入っているか）は、
+      # ここが無いと main へのマージ後の release.yml で初めて走る。そこで落ちると、main に
+      # リリースされていないコミットが残り、直すのにもう一度 develop → main を回すことになる。
+      #
+      # 署名なし（ARCHIVE_SIGNING=NO）で、ASC_* も渡さないので Secrets は要らない
+      # （release.mk の release-auth は 3 つとも無い状態を受け付ける）。BUILD_NUMBER を渡すのは、
+      # ビルド番号の上書きが Info.plist に届くかの検査まで通すため。値は検査用で、何も送らない。
+      - name: 提出用のアーカイブまで通す
+        if: ${{ !cancelled() }}
+        run: make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=1

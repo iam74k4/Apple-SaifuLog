@@ -1,0 +1,22 @@
+version: 2
+
+# GitHub Actions のバージョン更新だけを見る。Packages/SaifuLogCore に外部の依存は
+# 今のところ無い（できたら package-ecosystem: "swift" を足す）。
+#
+# actions/checkout などは Node の実行環境が非推奨になるたびにメジャー版が上がり、
+# 放っておくと警告のあと突然動かなくなる。気づいた人が手で上げるより、PR で知らせてもらう。
+#
+# ワークフローの env で固定している Xcode（DEVELOPER_DIR）と XcodeGen（XCODEGEN_VERSION）、
+# pip で入れる PyJWT はここでは追えない。上げるときは手で、build.yml と release.yml を一緒に直す。
+#
+# PR の宛先は develop。既定のままだと main へ直接 PR が立ち、develop を経由する
+# ブランチ運用と食い違う（main へのマージは App Store への提出の合図になる）。
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "develop"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore"

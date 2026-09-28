@@ -1,0 +1,63 @@
+# XcodeGen 定義。`make generate`（xcodegen generate）で SaifuLog.xcodeproj を生成する。
+# xcodeproj は生成物なのでコミットしない。設定はここと Config/Base.xcconfig に書く。
+name: SaifuLog
+options:
+  bundleIdPrefix: com.iam74k4
+  deploymentTarget:
+    iOS: "26.0"
+  # 開発言語は日本語。英語はローカライズとして足す（String Catalog の sourceLanguage も ja）。
+  developmentLanguage: ja
+  xcodeVersion: "27.0"
+  generateEmptyDirectories: true
+
+configFiles:
+  Debug: Config/Base.xcconfig
+  Release: Config/Base.xcconfig
+
+packages:
+  # 画面にも端末にも依存しない純粋なロジック。swift test だけでテストできる。
+  SaifuLogCore:
+    path: Packages/SaifuLogCore
+
+targets:
+  # iPhone アプリ（SwiftUI + SwiftData + Foundation Models）
+  SaifuLog:
+    type: application
+    platform: iOS
+    sources:
+      - path: SaifuLog
+    dependencies:
+      - package: SaifuLogCore
+    # FoundationModels / SwiftData は import するだけで自動でリンクされるので、sdk: の指定は要らない。
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
+        PRODUCT_NAME: SaifuLog
+        GENERATE_INFOPLIST_FILE: YES
+        # 表示名の既定値。言語ごとの表示名は SaifuLog/Resources/InfoPlist.xcstrings が上書きする
+        # （ja「サイフログ」/ en「SaifuLog」）。
+        INFOPLIST_KEY_CFBundleDisplayName: サイフログ
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.finance
+        # 独自の暗号化は使っていない（使うとしても OS 標準のものだけ）。宣言しておくと、
+        # 提出のたびに App Store Connect で輸出規制の質問に答えずに済む。
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+        ENABLE_PREVIEWS: YES
+
+schemes:
+  SaifuLog:
+    build:
+      targets:
+        SaifuLog: all
+    run:
+      config: Debug
+    test:
+      targets:
+        - package: SaifuLogCore/SaifuLogCoreTests
+    archive:
+      config: Release
