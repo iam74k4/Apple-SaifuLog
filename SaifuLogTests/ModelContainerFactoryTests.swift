@@ -44,7 +44,35 @@ struct ModelContainerFactoryTests {
     @Test func schemaListsModelTypes() throws {
         let container = try ModelContainerFactory.makeInMemoryContainer()
 
-        #expect(container.schema.entities.map(\.name) == ["Entry"])
+        #expect(Set(container.schema.entities.map(\.name)) == ["Entry", "Budget"])
+    }
+
+    /// 予算のモデルを足す前の保存先（記録のモデルだけ）を開いても、記録はそのまま読め、予算を書き込める。
+    /// SwiftData の自動の移行（テーブルを足すだけの軽い移行）が効くことを確かめる。効かないと、アップデートした
+    /// 利用者の保存先が開けなくなる（再試行の画面から先へ進めない）。
+    @Test func opensStoreCreatedBeforeBudgetWasAdded() throws {
+        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appending(path: "default.store", directoryHint: .notDirectory)
+
+        do {
+            let previousSchema = Schema([Entry.self])
+            let previous = try ModelContainer(
+                for: previousSchema,
+                configurations: [ModelConfiguration(schema: previousSchema, url: url, cloudKitDatabase: .none)]
+            )
+            #expect(previous.schema.entities.map(\.name) == ["Entry"])
+            previous.mainContext.insert(TestSupport.entry(amount: 850))
+            try previous.mainContext.save()
+        }
+
+        let upgraded = try ModelContainerFactory.makeContainer(url: url, cloudKitDatabase: .none)
+        let context = upgraded.mainContext
+
+        #expect(try context.fetch(FetchDescriptor<Entry>()).map(\.amount) == [850])
+        try BudgetStore(context: context).setAmount(150_000, for: .total)
+        #expect(try BudgetStore(context: context).plan().total == 150_000)
     }
 
     /// ファイルの保存先に書いた記録は、開き直しても残る。

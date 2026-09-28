@@ -24,9 +24,13 @@ enum ModelContainerFactory {
         }
     }
 
-    /// 保存するモデル。予算などのモデルを足すときはここに並べる（アプリ・テスト・プレビューが同じ一覧を使う）。
+    /// 保存するモデル。モデルを足すときはここに並べる（アプリ・テスト・プレビューが同じ一覧を使う）。
+    ///
+    /// 足したモデルは、それまでの保存先を開いたときに SwiftData が自動で移行する（テーブルを足すだけで、
+    /// 記録はそのまま読める。テストで確かめている）。既存のモデルの項目を変えるときは、自動の移行で済むかを
+    /// 先に確かめる（iCloud 同期を入れた後は、CloudKit の制約で項目の削除や型の変更ができない）。
     static var modelTypes: [any PersistentModel.Type] {
-        [Entry.self]
+        [Entry.self, Budget.self]
     }
 
     static var schema: Schema {
