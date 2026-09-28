@@ -93,11 +93,12 @@ iCloud へのバックアップや同期を提供する場合の取り扱いで�
 プレミアムの購入と復元は、Apple の App Store が扱う予定です。支払いの情報を開発者が受け取る
 ことはありません。購入済みかどうかの確認は、Apple の仕組みを通じて端末上で行います。
 
-### 保存される設定（予定の機能）
+### 保存される設定
 
-無料で使える回数の数え方に必要な情報などの設定を提供する場合は、iOS の標準的な仕組み
-（UserDefaults）を用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存します。
-これらを外部に送信することはありません。予算の金額は設定ではなく、上の家計の記録と同じ場所に保存します。
+初回の案内を終えたかどうかといったアプリの設定は、iOS の標準的な仕組み（UserDefaults）を用いて、
+お使いの iPhone の中の本アプリ専用の領域にのみ保存します。無料で使える回数の数え方に必要な情報などの
+設定を今後提供する場合も、同じ場所に保存します。これらを外部に送信することはありません。
+予算の金額は設定ではなく、上の家計の記録と同じ場所に保存します。
 
 ### アプリの削除
 
@@ -212,12 +213,13 @@ Purchases and restores of Premium are planned to be handled by Apple's App Store
 developer never receives your payment information. Whether you have purchased Premium is
 checked on your device through Apple's system.
 
-### Settings We Store (Planned Feature)
+### Settings We Store
 
-If settings such as the information needed to count free-tier usage are offered, they will
-be stored only on your own iPhone, in an area reserved for this app, using the standard iOS
-mechanism (UserDefaults). They are never transmitted anywhere. Your budget amount is not a
-setting; it is stored in the same place as your records, described above.
+App settings, such as whether you have finished the first-launch introduction, are stored only
+on your own iPhone, in an area reserved for this app, using the standard iOS mechanism
+(UserDefaults). Settings offered in the future, such as the information needed to count
+free-tier usage, will be stored in the same place. They are never transmitted anywhere. Your
+budget amount is not a setting; it is stored in the same place as your records, described above.
 
 ### Deleting the App
 
