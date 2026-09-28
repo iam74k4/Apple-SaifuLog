@@ -85,7 +85,17 @@ jobs:
       # xcodebuild を直に呼ばず make build を通す。開発者が手元で叩くのと同じ経路になり、
       # 「手元では通るのに CI では落ちる」の原因を引数の違いに求めずに済む。
       - name: ビルド
+        id: build
         run: make build
+
+      # String Catalog（Localizable.xcstrings）とコードの文字列の食い違い（足りないキー・使われていないキー・en の無いキー・
+      # ja と en の書式指定子の不一致）を止める。Xcode は足りないキーをカタログを開いたときにしか足さないので、
+      # ビルドが通っても訳し漏れが develop に入りうる。上の make build が書き出した Debug の .stringsdata を使うので、
+      # ビルドが通ったときだけ走らせる（途中で落ちたビルドの .stringsdata は欠けていて、使っている文字列を
+      # 使っていないと誤って報告するため）。Makefile の make ci も同じ順（build の直後）。
+      - name: String Catalog の整合を確認
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: make check-strings
 
       # 以降のステップは、前のステップが落ちても走らせる（!cancelled()）。
       # ビルドの失敗とテストの失敗、版の食い違いを 1 回の実行でまとめて見られるようにする。

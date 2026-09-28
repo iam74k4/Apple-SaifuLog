@@ -8,7 +8,9 @@
 #     make test                 SaifuLogCore のテスト（swift test）
 #     make build-tests          アプリのテスト（SaifuLogTests）をビルドする（動かさない。CI と同じ経路）
 #     make test-app             アプリのテストをシミュレータで動かす（TEST_DESTINATION で宛先を変えられる）
-#     make ci                   CI（build.yml）と同じ 6 つ（build / test / build-tests / test-app / check-version / 署名なしの archive）
+#     make check-strings        String Catalog とコードの文字列の整合を確かめる（make build の後に）
+#     make ci                   CI（build.yml）と同じ 7 つ（build / check-strings / test / build-tests / test-app /
+#                               check-version / 署名なしの archive）
 #     make open                 生成して Xcode で開く
 #     make clean                生成物とビルドの残りを消す
 #
@@ -45,7 +47,7 @@ XCODEBUILD_FLAGS ?=
 # 例: make test-app TEST_DESTINATION='platform=iOS Simulator,name=iPhone 17 Pro'
 TEST_DESTINATION ?= $(shell ./scripts/pick-simulator.sh)
 
-.PHONY: all generate build build-tests test test-app ci open clean check-xcodegen
+.PHONY: all generate build build-tests test test-app check-strings ci open clean check-xcodegen
 
 all: build
 
@@ -107,6 +109,16 @@ test-app: build-tests
 		-only-testing:SaifuLogTests \
 		$(XCODEBUILD_FLAGS)
 
+# String Catalog（Localizable.xcstrings）とコードの文字列が食い違っていないかを確かめる（scripts/check-strings.py）。
+# 足りないキー・使われていないキー・en の無いキー・ja と en の書式指定子の不一致があれば失敗する。
+# ビルドの中では確かめられない（Xcode は足りないキーを、カタログを開いたときにしか足さない）ので、make build が
+# 書き出した Debug の .stringsdata（コードの中の訳す文字列の一覧）を使う。make build の後に走らせる（build.yml も同じ順）。
+# Debug を使うのは、診断画面（DEBUG と社内テスト用のビルドだけ）の文字列も数えるため。
+check-strings:
+	python3 scripts/check-strings.py \
+		--catalog SaifuLog/Resources/Localizable.xcstrings \
+		--stringsdata-dir $(DERIVED_DATA)/Build/Intermediates.noindex/SaifuLog.build/Debug-iphonesimulator/SaifuLog.build/Objects-normal
+
 # 必須チェック build（.github/workflows/build.yml）と同じ確認を手元で通す。make build が
 # 通っても、CI はテスト（コアとアプリ）・版の検査・提出用のアーカイブまで見るので、それだけでは足りない。
 # 引数は build.yml と同じにする（片方を変えたらもう片方も）。BUILD_NUMBER が xcconfig の
@@ -114,6 +126,7 @@ test-app: build-tests
 # CI は失敗しても残りのステップを続けるが、こちらは最初の失敗で止まる。
 ci:
 	$(MAKE) build
+	$(MAKE) check-strings
 	$(MAKE) test
 	$(MAKE) build-tests
 	$(MAKE) test-app
