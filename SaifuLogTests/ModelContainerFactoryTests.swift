@@ -1,5 +1,6 @@
 import CoreData
 import Foundation
+import SaifuLogCore
 import SwiftData
 import Testing
 @testable import SaifuLog
@@ -185,6 +186,158 @@ struct ModelContainerFactoryTests {
         }
     }
 
+    // MARK: - iCloud の暗号化フィールド
+
+    /// iCloud と同期する記録と予算の項目は、すべて CloudKit の暗号化フィールドになっている（docs/design.md §5-3）。
+    ///
+    /// Core Data の CloudKit の連携が使う形（SwiftData のモデルから作った NSManagedObjectModel の `allowsCloudEncryption`）と、
+    /// SwiftData の Schema の側の両方で確かめる。CloudKit は、スキーマに載った項目を後から暗号化フィールドに変えられないので、
+    /// 項目を足すときに付け忘れると、その項目だけ高度なデータ保護でもエンドツーエンドにならないまま戻せなくなる。
+    @Test func syncedAttributesAreCloudEncrypted() throws {
+        let model = try #require(NSManagedObjectModel.makeManagedObjectModel(for: ModelContainerFactory.modelTypes))
+
+        #expect(Set(model.entities.compactMap(\.name)) == ["Entry", "Budget"])
+        #expect(Self.unencryptedAttributes(in: model).isEmpty, "\(Self.unencryptedAttributes(in: model))")
+        #expect(Self.unencryptedAttributes(in: ModelContainerFactory.schema).isEmpty, "\(Self.unencryptedAttributes(in: ModelContainerFactory.schema))")
+        // 内容にあたる項目を名指しでも確かめる（検査の数え方を誤って、項目を見ずに空を返していないか）。
+        let entry = try #require(model.entitiesByName["Entry"])
+        let budget = try #require(model.entitiesByName["Budget"])
+        for name in ["amount", "isIncome", "categoryRawValue", "memo", "spentAt", "createdAt", "sourceRawValue", "originalText"] {
+            #expect(entry.attributesByName[name]?.allowsCloudEncryption == true, "Entry.\(name) が暗号化フィールドになっていません")
+        }
+        for name in ["scopeRawValue", "amount", "updatedAt"] {
+            #expect(budget.attributesByName[name]?.allowsCloudEncryption == true, "Budget.\(name) が暗号化フィールドになっていません")
+        }
+    }
+
+    /// 上の検査が、暗号化の指定を外した項目を見逃さないこと（いつも空を返す検査になっていないか）。
+    @Test func cloudEncryptionCheckFindsUnencryptedAttributes() throws {
+        let model = try #require(NSManagedObjectModel.makeManagedObjectModel(for: [CloudEncryptionMissingSample.self]))
+
+        #expect(Self.unencryptedAttributes(in: model) == ["CloudEncryptionMissingSample.memo"])
+        #expect(Self.unencryptedAttributes(in: Schema([CloudEncryptionMissingSample.self])) == ["CloudEncryptionMissingSample.memo"])
+        // 暗号化の指定を付ける前のモデル（下の移行のテストで使う）も、すべての項目を見逃さない。
+        let before = try #require(NSManagedObjectModel.makeManagedObjectModel(for: StoreBeforeCloudEncryption.modelTypes))
+        #expect(Self.unencryptedAttributes(in: before).count == 11)
+    }
+
+    /// 暗号化の指定を付ける前のモデルで作った保存先（iCloud 同期を出す前の版の端末の default.store）を、いまのモデルで開いても、
+    /// 記録と予算がそのまま読め、書き込める。
+    ///
+    /// 暗号化の指定は CloudKit のレコードの作り方だけに効き、Core Data のモデルの版（バージョンハッシュ）に入らないので、保存先は
+    /// 移行なしで開ける（スキーマの版を足さなくてよい）。開けないと、アップデートした利用者の保存先が開けなくなる（再試行の画面から
+    /// 先へ進めない）。
+    ///
+    /// 版の比べは、いまのモデルと、その暗号化の指定だけを外した写しとで行う。凍結した `StoreBeforeCloudEncryption` と比べると、
+    /// アプリのモデルに項目を足しただけ（docs/design.md §5-2 で想定しているふつうの変更。SwiftData の自動の移行で開ける）で版が
+    /// ずれて失敗し、暗号化の指定のせいだと誤って読めてしまうため。この比べが失敗したら、暗号化の指定が版に入るようになった
+    /// （OS の変更）ということなので、付ける前の保存先が開けて記録が残ること（下の読み直し）を見て、§5-2 の説明を直す。
+    /// 付ける前の保存先が開けないときは、項目を足したときの移行の問題か、暗号化の指定の問題かを、この比べで切り分ける。
+    @Test func opensStoreCreatedBeforeCloudEncryption() throws {
+        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appending(path: "default.store", directoryHint: .notDirectory)
+        let spentAt = TestSupport.date(2026, 9, 27, hour: 12, minute: 30)
+        let updatedAt = TestSupport.date(2026, 9, 1, hour: 9)
+
+        do {
+            let previousSchema = Schema(StoreBeforeCloudEncryption.modelTypes)
+            let previous = try ModelContainer(
+                for: previousSchema,
+                configurations: [ModelConfiguration(schema: previousSchema, url: url, cloudKitDatabase: .none)]
+            )
+            #expect(Set(previous.schema.entities.map(\.name)) == ["Entry", "Budget"])
+            let entry = StoreBeforeCloudEncryption.Entry()
+            entry.amount = 3_000
+            entry.isIncome = true
+            entry.categoryRawValue = EntryCategory.food.rawValue
+            entry.memo = "焼肉"
+            entry.spentAt = spentAt
+            entry.createdAt = TestSupport.now
+            entry.sourceRawValue = EntrySource.voice.rawValue
+            entry.originalText = "昨日 焼肉12000 4人で割り勘"
+            previous.mainContext.insert(entry)
+            let budget = StoreBeforeCloudEncryption.Budget()
+            budget.scopeRawValue = BudgetScope.total.rawValue
+            budget.amount = 150_000
+            budget.updatedAt = updatedAt
+            previous.mainContext.insert(budget)
+            try previous.mainContext.save()
+        }
+
+        let upgraded = try ModelContainerFactory.makeContainer(url: url, cloudKitDatabase: .none)
+        let context = upgraded.mainContext
+
+        let entries = try context.fetch(FetchDescriptor<Entry>())
+        #expect(entries.count == 1)
+        let entry = try #require(entries.first)
+        #expect(entry.amount == 3_000)
+        #expect(entry.isIncome)
+        #expect(entry.category == .food)
+        #expect(entry.memo == "焼肉")
+        #expect(entry.spentAt == spentAt)
+        #expect(entry.createdAt == TestSupport.now)
+        #expect(entry.source == .voice)
+        #expect(entry.originalText == "昨日 焼肉12000 4人で割り勘")
+        let budgets = try context.fetch(FetchDescriptor<Budget>())
+        #expect(budgets.map(\.scopeRawValue) == [BudgetScope.total.rawValue])
+        #expect(budgets.map(\.amount) == [150_000])
+        #expect(budgets.map(\.updatedAt) == [updatedAt])
+        #expect(try BudgetStore(context: context).plan().total == 150_000)
+
+        // 開いた保存先に書き込める（読むだけの状態になっていない）。
+        context.insert(TestSupport.entry(amount: 400))
+        try context.save()
+        #expect(try context.fetch(FetchDescriptor<Entry>()).map(\.amount).sorted() == [400, 3_000])
+
+        // 移行なしで開けた理由: 暗号化の指定の有無だけでは、Core Data のモデルの版は変わらない。
+        let current = try #require(NSManagedObjectModel.makeManagedObjectModel(for: ModelContainerFactory.modelTypes))
+        let withoutEncryption = try #require(current.copy() as? NSManagedObjectModel)
+        for attribute in withoutEncryption.entities.flatMap({ $0.attributesByName.values }) {
+            attribute.allowsCloudEncryption = false
+        }
+        // 写しの指定だけが外れていること（写しが元と同じ項目を指していて、同じものどうしを比べている、になっていないか）。
+        #expect(Self.unencryptedAttributes(in: withoutEncryption) == Self.persistentAttributes(in: current))
+        #expect(Self.unencryptedAttributes(in: current) != Self.unencryptedAttributes(in: withoutEncryption))
+        #expect(current.entityVersionHashesByName == withoutEncryption.entityVersionHashesByName)
+        // 比べ方が版の違いを見分けられること（写しの版が写す前のまま残っていて、いつも一致する比べ方になっていないか）。
+        let changed = try #require(current.copy() as? NSManagedObjectModel)
+        let memo = try #require(changed.entitiesByName["Entry"]?.attributesByName["memo"])
+        memo.versionHashModifier = "changed"
+        #expect(current.entityVersionHashesByName != changed.entityVersionHashesByName)
+    }
+
+    /// 保存する項目（一時的なものを除く）を「型.項目」で並べる。
+    static func persistentAttributes(in model: NSManagedObjectModel) -> [String] {
+        model.entities.flatMap { entity in
+            entity.attributesByName.values
+                .filter { !$0.isTransient }
+                .map { "\(entity.name ?? "?").\($0.name)" }
+        }
+        .sorted()
+    }
+
+    /// 暗号化フィールドになっていない項目を「型.項目」で並べる（空ならすべて暗号化フィールド）。
+    static func unencryptedAttributes(in model: NSManagedObjectModel) -> [String] {
+        model.entities.flatMap { entity in
+            entity.attributesByName.values
+                .filter { !$0.isTransient && !$0.allowsCloudEncryption }
+                .map { "\(entity.name ?? "?").\($0.name)" }
+        }
+        .sorted()
+    }
+
+    /// SwiftData の Schema の側で、`.allowsCloudEncryption` の付いていない項目を「型.項目」で並べる。
+    static func unencryptedAttributes(in schema: Schema) -> [String] {
+        schema.entities.flatMap { entity in
+            entity.attributes
+                .filter { !$0.isTransient && !$0.options.contains(.allowsCloudEncryption) }
+                .map { "\(entity.name).\($0.name)" }
+        }
+        .sorted()
+    }
+
     /// 端末の中だけの保存先でも、変更の履歴（Core Data の persistent history）を残している。
     ///
     /// iCloud 同期（NSPersistentCloudKitContainer の仕組み）は履歴を使うので、オンにした保存先は履歴つきで開かれる。
@@ -265,5 +418,47 @@ final class CloudKitIncompatibleSample {
 
     init(code: String) {
         self.code = code
+    }
+}
+
+/// 項目の一部だけが暗号化フィールドのモデル（暗号化の検査が見逃さないことを確かめるためだけのもの。保存先には入れない）。
+@Model
+final class CloudEncryptionMissingSample {
+    @Attribute(.allowsCloudEncryption) var amount: Int = 0
+    var memo: String = ""
+
+    init() {}
+}
+
+/// 暗号化フィールドの指定を付ける前の記録と予算のモデル（iCloud 同期を出す前の版の端末の保存先を作るためだけのもの）。
+///
+/// 型の名前（SwiftData の型の名前 Entry・Budget）と項目の名前・型・既定値はアプリのモデルと同じにし、`.allowsCloudEncryption` だけを
+/// 外している。アプリのモデルに項目を足したときも、ここは足さない（足す前の版の保存先を開けることを確かめるため）。
+enum StoreBeforeCloudEncryption {
+    static var modelTypes: [any PersistentModel.Type] {
+        [Entry.self, Budget.self]
+    }
+
+    @Model
+    final class Entry {
+        var amount: Int = 0
+        var isIncome: Bool = false
+        var categoryRawValue: String = EntryCategory.other.rawValue
+        var memo: String = ""
+        var spentAt: Date = Date.now
+        var createdAt: Date = Date.now
+        var sourceRawValue: String = EntrySource.text.rawValue
+        var originalText: String = ""
+
+        init() {}
+    }
+
+    @Model
+    final class Budget {
+        var scopeRawValue: String = BudgetScope.totalRawValue
+        var amount: Int = 0
+        var updatedAt: Date = Date.now
+
+        init() {}
     }
 }

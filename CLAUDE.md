@@ -72,9 +72,13 @@
     （`NSPersistentStoreRemoteChange`）で、月のまとめ・ふりかえり・設定の予算を読み直す。エンタイトルメントに iCloud（CloudKit・
     コンテナ）と `aps-environment`、`SaifuLog/Info.plist` に `UIBackgroundModes` の remote-notification を足し、`make export-ipa` が値
     （`aps-environment` が production など。`release.mk` の `RELEASE_ENTITLEMENT_VALUES`）も照合する。モデルが CloudKit の制約を
-    満たすことは `ModelContainerFactoryTests` で確かめている（モデルは変えずに済んだ）。診断画面にアカウントの状態・いまの保存先の同期・
-    設定の値。CloudKit のスキーマを Production に出すこと（所有者の作業。その前に暗号化フィールドにするかを決める）と、実機 2 台での
-    同期の確認はまだ（`docs/design.md` §5-3・§15、`docs/release-flow.md` の「Capability（iCloud など）を足すとき」）。
+    満たすことは `ModelContainerFactoryTests` で確かめている（制約のためにモデルを変えることは無かった）。記録と予算の項目はすべて CloudKit の
+    暗号化フィールド（`@Attribute(.allowsCloudEncryption)`。高度なデータ保護をオンにした利用者ではエンドツーエンド）で、すべての項目に付いて
+    いること（外したモデルを見逃さないことも）と、付ける前のモデルで作った保存先が移行なしで開けて記録と予算が残ることも
+    `ModelContainerFactoryTests` で確かめている。項目を足すときも最初から付ける（CloudKit は後から暗号化フィールドに変えられない）。
+    診断画面にアカウントの状態・いまの保存先の同期・設定の値。CloudKit のスキーマを Production に出すこと（所有者の作業。その前に
+    CloudKit Console で項目の型が Encrypted になっているかを確かめる）と、実機 2 台での同期の確認はまだ（`docs/design.md` §5-3・§15、
+    `docs/release-flow.md` の「Capability（iCloud など）を足すとき」の「CloudKit のスキーマ」）。
     家族・パートナーとの家計の共有（**機能フラグで隠している**。`HouseholdSharing.isEnabled` は DEBUG と社内テスト用のビルド（INTERNAL_DIAGNOSTICS）
     でだけ true で、App Store へ出すビルドでは画面・同期・招待の受け入れを出さない。`make archive` が、INTERNAL_BUILD=NO のアーカイブに印の文字列
     `SaifuLog-HouseholdSharing-v1` と Info.plist の `CKSharingSupported` が無いこと（と remote-notification があること）を確かめる。Info.plist は

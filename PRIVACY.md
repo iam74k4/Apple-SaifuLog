@@ -2,7 +2,7 @@
 
 **SaifuLog（サイフログ）**
 
-最終更新日 / Last updated: 2026-09-29
+最終更新日 / Last updated: 2026-09-30
 
 施行日 / Effective date: 初回リリース時に確定します / To be set at the first release
 
@@ -130,9 +130,12 @@ iOS の共有の画面に渡され、**利用者が選んだ共有先（アプ�
 - **開発者は、利用者の iCloud に保存された内容を見られません。** 記録は開発者のサーバーを経由せず、Apple の iCloud と
   利用者の端末のあいだでだけやり取りされます。iCloud での保存には、Apple のプライバシーポリシーと iCloud の利用規約が
   適用されます。
-- **暗号化について。** iCloud に保存した記録は、通信中と Apple のサーバー上で暗号化されますが、エンドツーエンドでは暗号化
-  されません（暗号の鍵は Apple が管理します）。本アプリは CloudKit の暗号化フィールドを使っていないため、Apple の
-  「高度なデータ保護」をオンにしていても同じです。
+- **暗号化について。** 記録と予算の中身（本アプリが保存する項目のすべて。金額・収入か支出か・日付・カテゴリ・メモ・入力した
+  文章・入力の方法（文字・レシート・声）・記録した日時と、予算の対象・金額・決めた日時）は、CloudKit の暗号化フィールドとして、
+  お使いの端末の中で暗号化してから iCloud に保存します。Apple の「高度なデータ保護」をオンにしている場合は、エンドツーエンドで
+  暗号化され、暗号の鍵は利用者の信頼できるデバイスだけが持ちます。オフの場合（標準のデータ保護）は、通信中と Apple のサーバー上で
+  暗号化され、暗号の鍵は Apple が管理します。記録の件数や、iCloud に保存・変更した日時などの管理用の情報は、暗号化フィールドに
+  入らず、高度なデータ保護をオンにしていても標準のデータ保護で扱われます（通信中と Apple のサーバー上では暗号化されます）。
 - 同期のために、iOS の仕組み（Core Data と CloudKit）が、同期の状態（どこまで同期したか、どの iCloud のアカウントと
   同期しているかを見分けるための情報など）をお使いの端末の中に保存します。これらも開発者へは送信しません。
 - **オフにすると**、以後はお使いの端末の中にだけ保存します。端末の中の記録は残ります。すでに iCloud に保存した記録は iCloud に
@@ -365,9 +368,14 @@ already on your device when you turn it on are saved to iCloud as well. This is 
 - **The developer cannot see what is saved in your iCloud.** Your records never pass through a server of the developer; they
   are exchanged only between Apple's iCloud and your devices. Saving in iCloud is covered by Apple's privacy policy and the
   iCloud terms.
-- **About encryption.** Records saved in iCloud are encrypted in transit and on Apple's servers, but they are not end-to-end
-  encrypted (Apple manages the keys). The app does not use CloudKit encrypted fields, so this is the same even if Apple's
-  Advanced Data Protection is turned on.
+- **About encryption.** The contents of your records and budgets (every item the app saves: amounts, whether each is income or an
+  expense, dates, categories, notes, the text you entered, how it was entered (text, receipt, or voice), when it was recorded,
+  and each budget's target, amount, and when it was set) are saved to iCloud as CloudKit encrypted fields, encrypted on your
+  device first. If Apple's Advanced Data Protection is on, they are end-to-end encrypted, and only your trusted devices have the
+  keys. If it is off (standard data protection), they are encrypted in transit and on Apple's servers, and Apple manages the keys.
+  Management information, such as the number of records and when they were saved to or changed in iCloud, is not stored in
+  encrypted fields and stays under standard data protection even if Advanced Data Protection is on (it is still encrypted in
+  transit and on Apple's servers).
 - To sync, the iOS system (Core Data and CloudKit) stores the sync state on your device (such as how far it has synced and
   information to tell which iCloud account it syncs with). This is not sent to the developer either.
 - **When you turn it off**, records are saved only on your device from then on, and the records on the device stay. Records
