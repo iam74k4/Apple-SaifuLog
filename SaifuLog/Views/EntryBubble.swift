@@ -22,8 +22,9 @@ struct EntryBubble<Record: LedgerEntryDisplaying>: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var iconSize = 28
 
-    /// アクセシビリティサイズの文字では、横に並べると品目も金額も数文字の幅に押し込まれ、
-    /// 「¥8 / 50」「ラン / チ」のように桁や語の途中で折り返される。そのときは 1 行に収まらない行を縦に積む。
+    /// アクセシビリティサイズの文字では、横に並べると種別・記録した人・日付が数文字の幅に押し込まれ、
+    /// 語の途中で折り返される。そのときは左の余白と右のアイコンをやめ、1 行に収まらない行を縦に積む
+    /// （品目と金額の行は、文字の大きさによらず `EntryTitleAmountRow` が収まるかどうかで選ぶ）。
     private var stacksVertically: Bool {
         dynamicTypeSize.isAccessibilitySize
     }
@@ -60,9 +61,9 @@ struct EntryBubble<Record: LedgerEntryDisplaying>: View {
 
     private var bubble: some View {
         VStack(alignment: .trailing, spacing: 6) {
-            AdaptiveRow(stacksWhenNeeded: stacksVertically, horizontal: HStackLayout(alignment: .firstTextBaseline, spacing: 8)) {
+            EntryTitleAmountRow {
                 title
-                    .multilineTextAlignment(.trailing)
+            } amount: {
                 Text(verbatim: amountText)
                     .font(.headline)
                     .monospacedDigit()
@@ -70,8 +71,6 @@ struct EntryBubble<Record: LedgerEntryDisplaying>: View {
                     // 金額は桁の途中で改行させない。収まらなければ縮めて 1 行に収める。
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
-                    // 横に並べるときは金額に先に幅を取らせ、品目の側を折り返させる。
-                    .layoutPriority(1)
             }
             AdaptiveRow(stacksWhenNeeded: stacksVertically, horizontal: HStackLayout(spacing: 6)) {
                 // メモが空のときは見出しがカテゴリ名なので、ここでは繰り返さない
@@ -153,6 +152,43 @@ struct EntryBubble<Record: LedgerEntryDisplaying>: View {
 
     private var tint: Color {
         entry.isIncome ? Theme.income : Theme.color(for: entry.category)
+    }
+}
+
+/// 品目と金額の行。品目と金額が 1 行に収まるときだけ横に並べ、収まらなければ金額を品目の下の行に置く（右寄せのまま）。
+///
+/// 横に並べたまま品目を折り返させると、金額が品目の 1 行目の右端に並び、「焼肉（4人で割り勘・総額 ¥3,000 / ¥12,000・
+/// 立替 ¥9,000）」のように品目の文と金額が続けて読めてしまうため。文字の大きさによらず（アクセシビリティサイズでも）、
+/// 収まるかどうかで選ぶ。
+///
+/// どちらの並べ方でも品目・金額の順に置く（VoiceOver が 1 件をまとめて読む順を、並べ方で変えないため）。
+struct EntryTitleAmountRow<Title: View, Amount: View>: View {
+    /// 横に並べるときの品目と金額の間。
+    static var horizontalSpacing: CGFloat { 8 }
+    /// 縦に積むときの品目と金額の間。
+    static var stackedSpacing: CGFloat { 2 }
+
+    @ViewBuilder let title: Title
+    @ViewBuilder let amount: Amount
+
+    var body: some View {
+        // ViewThatFits は、理想の幅（文字を折り返さない幅）が収まる最初の候補を選ぶ。横に並べる候補の理想の幅は品目と
+        // 金額を 1 行に並べた幅なので、品目が折り返すほど長ければ縦に積む候補に落ちる。
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: Self.horizontalSpacing) {
+                // 横に並べる候補では品目を 1 行に限る。並べた後に品目だけが折り返して、金額が品目の 1 行目に並ぶ形に
+                // ならないようにするため（収まらなければ縦に積む候補が選ばれる）。
+                title
+                    .lineLimit(1)
+                amount
+            }
+            VStack(alignment: .trailing, spacing: Self.stackedSpacing) {
+                title
+                amount
+            }
+        }
+        // 品目が折り返すときも各行を吹き出しの右端に揃える（自分が送ったメッセージのように右寄せで出しているため）。
+        .multilineTextAlignment(.trailing)
     }
 }
 
