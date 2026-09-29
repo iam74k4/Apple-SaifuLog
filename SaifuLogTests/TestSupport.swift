@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import SaifuLogCore
 import SwiftData
@@ -143,5 +144,99 @@ final class Gate: Sendable {
             return waiters
         }
         for waiter in waiters { waiter.resume() }
+    }
+}
+
+/// レシートの読み取りの代わり。OCR が読んだことにする文字と、品名を整える AI を決めて渡す（シミュレータにはカメラも
+/// Apple Intelligence も無いため）。
+final class ReceiptStub: Sendable {
+    private struct State {
+        var lines: [ReceiptTextLine] = []
+        var refiner: (any ReceiptItemRefining)?
+        var recognizeCalls = 0
+    }
+
+    private let state = Mutex(State())
+
+    /// OCR が読んだことにする行。
+    var lines: [ReceiptTextLine] {
+        get { state.withLock { $0.lines } }
+        set { state.withLock { $0.lines = newValue } }
+    }
+
+    /// 品名を整える AI（nil なら AI の使えない端末）。
+    var refiner: (any ReceiptItemRefining)? {
+        get { state.withLock { $0.refiner } }
+        set { state.withLock { $0.refiner = newValue } }
+    }
+
+    /// 文字認識を呼んだ回数。
+    var recognizeCalls: Int {
+        state.withLock { $0.recognizeCalls }
+    }
+
+    /// 決めた行を OCR として使う読み取り。
+    var reader: ReceiptReader {
+        ReceiptReader(
+            recognize: { [self] _ in
+                state.withLock { state in
+                    state.recognizeCalls += 1
+                    return state.lines
+                }
+            },
+            makeRefiner: { [self] in refiner }
+        )
+    }
+
+    /// 文字の行（位置なし）を決める。
+    func setText(_ text: String) {
+        lines = text.split(separator: "\n").map { ReceiptTextLine(String($0)) }
+    }
+}
+
+/// 品名とカテゴリを整える AI の代わり。呼ばれた回数と、渡された画像を残す。
+struct StubReceiptRefiner: ReceiptItemRefining {
+    let usesImage: Bool
+    let calls = CallCounter()
+    /// 呼ばれるたびに渡された画像（渡されなければ nil）。iOS 27 の画像の経路で、画像を渡しているかを確かめる。
+    let images = ReceivedReceiptImages()
+    let body: @Sendable ([ReceiptItem]) throws -> [ReceiptItemSuggestion]
+
+    init(usesImage: Bool = false, _ body: @escaping @Sendable ([ReceiptItem]) throws -> [ReceiptItemSuggestion]) {
+        self.usesImage = usesImage
+        self.body = body
+    }
+
+    func suggestions(for items: [ReceiptItem], storeName: String?, image: ReceiptImage?) async throws -> [ReceiptItemSuggestion] {
+        calls.increment()
+        images.append(image)
+        return try body(items)
+    }
+}
+
+/// 品名を整える AI の代わりに渡された画像の記録。
+final class ReceivedReceiptImages: Sendable {
+    private let value = Mutex<[ReceiptImage?]>([])
+
+    func append(_ image: ReceiptImage?) {
+        value.withLock { $0.append(image) }
+    }
+
+    var all: [ReceiptImage?] {
+        value.withLock { $0 }
+    }
+}
+
+extension TestSupport {
+    /// 読み取りに渡す画像（中身は読まない。読み取りの代わりが決めた文字を返す）。幅と高さは 8。
+    static let blankReceiptImage = blankImage(size: 8)
+
+    /// 中身の無い正方形の画像（幅で見分ける）。
+    static func blankImage(size: Int) -> ReceiptImage {
+        let context = CGContext(
+            data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        return ReceiptImage(cgImage: context.makeImage()!)
     }
 }

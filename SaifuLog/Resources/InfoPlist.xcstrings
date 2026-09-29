@@ -18,6 +18,24 @@
           }
         }
       }
+    },
+    "NSCameraUsageDescription" : {
+      "comment" : "カメラの利用の許可を求める画面の説明。レシートを撮る書類カメラ（④）で使う",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SaifuLog uses the camera to photograph receipts and record them. Photos are read on your iPhone and are never saved or sent."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "レシートを撮って記録するためにカメラを使います。写真は端末の中で読み取り、保存も送信もしません。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

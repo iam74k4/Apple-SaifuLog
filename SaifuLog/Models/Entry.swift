@@ -78,6 +78,28 @@ extension Entry {
     }
 }
 
+extension Entry {
+    /// レシートの読み取り結果（⑤）から、保存する記録を行の順に作る。
+    ///
+    /// 記録した日時は、ひとこと入力の複数件と同じく書いた順に並ぶよう 1 ミリ秒ずつずらす（`ParsedEntry.timestamps`）。
+    /// 使った日時はどの記録もレシートの日時（`spentAt`）にする。元の文は OCR の全文ではなく、店名と合計の要約。
+    static func records(fromReceipt submission: ReceiptResultModel.Submission, now: Date, calendar: Calendar) -> [Entry] {
+        let parsed = submission.records.map { ParsedEntry(amount: $0.amount, category: $0.category, memo: $0.memo) }
+        return zip(submission.records, ParsedEntry.timestamps(for: parsed, now: now, calendar: calendar)).map { record, timestamps in
+            Entry(
+                amount: record.amount,
+                isIncome: false,
+                category: record.category,
+                memo: record.memo,
+                spentAt: submission.spentAt,
+                createdAt: timestamps.createdAt,
+                source: .receipt,
+                originalText: submission.originalText
+            )
+        }
+    }
+}
+
 // MARK: - 読み込みの条件
 
 extension Entry {

@@ -124,6 +124,17 @@
         }
       }
     },
+    "%lldページ目からは読み取っていません。合計や品目が足りないときは、%lldページまでで撮り直してください。" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。書類カメラで上限より多く撮ったときの注意（画面のいちばん上と VoiceOver の読み上げ）。1 つ目の %lld は読み取らなかった最初のページ、2 つ目は読み取るページの上限",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pages from page %1$lld on were not read. If the total or some items are missing, retake the receipt in %2$lld pages or fewer."
+          }
+        }
+      }
+    },
     "14日間、プレミアムの機能をすべて無料で使えます。体験は無料で、終わっても自動で課金されることはありません（続けて使うときだけ、プレミアムを購入してください）。体験が終わると、プレミアムの機能は使えなくなります（記録や決めた予算は消えません）。体験は1つの Apple アカウントにつき1回です。始めるときに App Store の確認が出ます（0円）。" : {
       "comment" : "プレミアムのシート（⑨）。無料体験の説明（審査ガイドライン 3.1.1: 期間・終わった後に使えなくなるもの・料金がかからないこと）",
       "localizations" : {
@@ -729,6 +740,17 @@
         }
       }
     },
+    "しわや折り目を伸ばし、影が入らないようにしてください。" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。読み取れなかったときの撮り方のこつ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smooth out wrinkles and folds, and avoid shadows."
+          }
+        }
+      }
+    },
     "すべて" : {
       "comment" : "設定の書き出す期間の選択肢。すべての記録",
       "localizations" : {
@@ -829,13 +851,13 @@
         }
       }
     },
-    "ひとこと入力と AI の文章の読み取り、CSV 書き出しは、無料のまま回数の制限なく使えます。広告はありません。「近日」の機能は、これからのアップデートで加えます。" : {
+    "ひとこと入力と AI の文章の読み取り、CSV 書き出しは、無料のまま回数の制限なく使えます。広告はありません。" : {
       "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の下の注記",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "One-line entry, AI reading of your text, and CSV export stay free with no limits. No ads. Features marked Coming Soon will arrive in future updates."
+            "value" : "One-line entry, AI reading of your text, and CSV export stay free with no limits. No ads."
           }
         }
       }
@@ -847,6 +869,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "AI Notes in Reviews"
+          }
+        }
+      }
+    },
+    "まとめて1件で記録" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。レシートの合計を 1 件の記録にする選択肢",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record as One Entry"
           }
         }
       }
@@ -1116,6 +1149,28 @@
         }
       }
     },
+    "ダブルタップで記録から外します" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。品目の行の印の VoiceOver の説明（記録する行のとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double-tap to leave this item out."
+          }
+        }
+      }
+    },
+    "ダブルタップで記録に戻します" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。品目の行の印の VoiceOver の説明（外した行のとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double-tap to include this item again."
+          }
+        }
+      }
+    },
     "バージョン" : {
       "comment" : "設定の「このアプリについて」の行。アプリの版とビルド番号（0.1.0 (12) の形）を右に出す",
       "localizations" : {
@@ -1288,6 +1343,94 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "e.g. “ランチ 850”"
+          }
+        }
+      }
+    },
+    "レシート: %@ 合計 %@" : {
+      "comment" : "レシートから記録した記録の「元の文」（直す画面と CSV に出る）。最初の %@ は店名、次の %@ は「¥1,280」のような合計。OCR の全文は入れない",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Receipt: %@ total %@"
+          }
+        }
+      }
+    },
+    "レシート: 合計 %@" : {
+      "comment" : "レシートから記録した記録の「元の文」（店名が無いとき）。%@ は「¥1,280」のような合計",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Receipt: total %@"
+          }
+        }
+      }
+    },
+    "レシートの合計" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。照合の欄の、レシートに印字された合計の行の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Receipt Total"
+          }
+        }
+      }
+    },
+    "レシートの合計は %@、品目の合計は %@ です。品目の合計で記録しますか？" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。合計が合わないまま記録するかの確認の文。最初の %@ はレシートの合計、次の %@ は品目の合計（どちらも「¥1,280」の形）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The receipt total is %@ and the items add up to %@. Record the items’ total?"
+          }
+        }
+      }
+    },
+    "レシートの読み取り" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。シートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Receipt"
+          }
+        }
+      }
+    },
+    "レシートを読み取っています…" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。文字を読み取っている間の文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading the receipt…"
+          }
+        }
+      }
+    },
+    "レシートを読み取る" : {
+      "comment" : "ホームの入力欄の左のカメラのボタンの VoiceOver の名前と、「撮る」「写真から選ぶ」を選ぶ確認の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan Receipt"
+          }
+        }
+      }
+    },
+    "レシートを読み取れませんでした" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。文字や金額が見つからなかったときの見出し。VoiceOver にも読み上げる",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t read the receipt"
           }
         }
       }
@@ -1688,6 +1831,17 @@
         }
       }
     },
+    "今月の無料のレシートの読み取りを使い切りました" : {
+      "comment" : "ホームのカメラのボタンを押したとき、今月の無料のレシートの読み取り（月 5 回）を使い切っていたときに VoiceOver で読み上げる文。続けてプレミアムのシートを出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You’ve used this month’s free receipt scans"
+          }
+        }
+      }
+    },
     "今月の無料の質問 あと %lld 回" : {
       "comment" : "家計への質問の回答カードの下に小さく出す、今月の無料の質問の残りの回数（3 回以下のときだけ）。%lld は回数",
       "localizations" : {
@@ -1873,6 +2027,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Protected data available"
+          }
+        }
+      }
+    },
+    "値引 %@" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。品目の行の注記。%@ は「¥20」のような、その品目から引いた値引きの額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discount %@"
           }
         }
       }
@@ -2098,6 +2263,50 @@
         }
       }
     },
+    "写真から選ぶ" : {
+      "comment" : "「撮る」「写真から選ぶ」を選ぶ確認の、写真（スクリーンショットを含む）からレシートを選ぶボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose from Photos"
+          }
+        }
+      }
+    },
+    "写真が iCloud にだけあるときは、インターネットにつながった状態で選び直してください。" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。写真を読み込めなかったときのこつ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If the photo is stored only in iCloud, choose it again while connected to the internet."
+          }
+        }
+      }
+    },
+    "写真を読み込めませんでした。" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。選んだ写真のデータを読めなかった（iCloud から取り出せなかったなど）ときの理由",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The photo couldn't be loaded."
+          }
+        }
+      }
+    },
+    "写真を選び直す" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。読み取れなかったときの、写真を選び直すボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Another Photo"
+          }
+        }
+      }
+    },
     "利用規約（Apple の標準 EULA）" : {
       "comment" : "プレミアムのシート（⑨）。Apple の標準の利用規約へのリンク（Safari で開く）",
       "localizations" : {
@@ -2307,6 +2516,72 @@
         }
       }
     },
+    "合計 %@ と合っています" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。読み取れたときに VoiceOver で読み上げる照合の結果。%@ は「¥1,280」のような合計",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Matches the total of %@."
+          }
+        }
+      }
+    },
+    "合計が合いません" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。合計が合わないまま記録するかの確認の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Totals Don’t Match"
+          }
+        }
+      }
+    },
+    "合計が合いません（差 %@）" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。照合の結果（品目の合計がレシートの合計と違う）。%@ は「¥120」のような差の額。注意の色とアイコンを添える",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Totals don’t match (off by %@)"
+          }
+        }
+      }
+    },
+    "合計と合っています" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。照合の結果（品目の合計がレシートの合計と同じ）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Matches the receipt total"
+          }
+        }
+      }
+    },
+    "合計を読み取れませんでした" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。読み取れたときに VoiceOver で読み上げる照合の結果（レシートの合計が読めなかった）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t read the total."
+          }
+        }
+      }
+    },
+    "合計を読み取れませんでした。品目の合計で記録します。" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。照合の結果（レシートの合計が読めなかったとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t read the total. The items’ total will be recorded."
+          }
+        }
+      }
+    },
     "同じ入力欄で、家計について聞くこともできます。" : {
       "comment" : "ホームの記録が無いときの案内。質問の例の上に出す",
       "localizations" : {
@@ -2329,6 +2604,17 @@
         }
       }
     },
+    "品名" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。品目の行の品名の入力欄の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Item"
+          }
+        }
+      }
+    },
     "品目" : {
       "comment" : "直すシートの品目（メモ）の欄の見出しと入力欄のラベル",
       "localizations" : {
@@ -2336,6 +2622,94 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Item"
+          }
+        }
+      }
+    },
+    "品目ごとに記録" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。品目ごとに 1 件ずつ記録する選択肢",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record Each Item"
+          }
+        }
+      }
+    },
+    "品目の合計" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。照合の欄の、記録する品目の合計の行の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Items Total"
+          }
+        }
+      }
+    },
+    "品目の合計 %@ で記録しますか？" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。合計が合わないまま記録するかの確認の文（レシートの合計が無いとき）。%@ は品目の合計",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record the items’ total of %@?"
+          }
+        }
+      }
+    },
+    "品目の合計で記録する" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。合計が合わないまま、品目の合計で記録するボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record Items’ Total"
+          }
+        }
+      }
+    },
+    "品目を%lld件読み取りました。%@" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。読み取れたときに VoiceOver で読み上げる文。%lld は品目の数、%@ は照合の結果の文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Items read: %lld. %@"
+          }
+        }
+      }
+    },
+    "外した" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。品目の行の、記録から外したことの注記と VoiceOver の値",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Left out"
+          }
+        }
+      }
+    },
+    "外しました: %@" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。品目の行を外したときに VoiceOver で読み上げる文。%@ は品名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Left out: %@"
+          }
+        }
+      }
+    },
+    "外す" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。品目の行の VoiceOver の操作。記録から外す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave Out"
           }
         }
       }
@@ -2362,6 +2736,50 @@
         }
       }
     },
+    "差額 %@ を「税・その他」として足す" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。合計が足りないとき、差額を 1 行として足すボタン。%@ は「¥120」のような差額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add %@ as Tax & Other"
+          }
+        }
+      }
+    },
+    "差額 %@ を足しました" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。差額の行を足したときに VoiceOver で読み上げる文。%@ は差額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added %@"
+          }
+        }
+      }
+    },
+    "店名" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。店名の欄の見出しと入力欄の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Store"
+          }
+        }
+      }
+    },
+    "店名（空欄でもかまいません）" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。店名の入力欄の例の文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Store (optional)"
+          }
+        }
+      }
+    },
     "復元できる購入はありませんでした" : {
       "comment" : "購入の復元で、プレミアムの購入が無かったときのアラートの見出し",
       "localizations" : {
@@ -2384,6 +2802,28 @@
         }
       }
     },
+    "戻しました: %@" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。外した行を戻したときに VoiceOver で読み上げる文。%@ は品名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Included again: %@"
+          }
+        }
+      }
+    },
+    "戻す" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。外した品目の行の VoiceOver の操作。記録に戻す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Include"
+          }
+        }
+      }
+    },
     "承認されると、自動でプレミアムが使えるようになります。" : {
       "comment" : "購入が承認待ち（Ask to Buy など）のときのアラートの本文",
       "localizations" : {
@@ -2391,6 +2831,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Once it's approved, Premium will turn on automatically."
+          }
+        }
+      }
+    },
+    "撮った画像を読み込めませんでした。" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。書類カメラで撮った画像を取り出せなかったときの理由",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The captured image couldn't be loaded."
+          }
+        }
+      }
+    },
+    "撮り直す" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。読み取れなかったときの、書類カメラで撮り直すボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retake"
+          }
+        }
+      }
+    },
+    "撮る" : {
+      "comment" : "「撮る」「写真から選ぶ」を選ぶ確認の、書類カメラでレシートを撮るボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take Photo"
+          }
+        }
+      }
+    },
+    "撮るか写真から選ぶと、品目ごとに仕分けて記録できます。数えるのは記録したときだけです。" : {
+      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の、レシート・スクショの読み取りの行の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take a photo or choose one to record each item by category. Only scans you record are counted."
           }
         }
       }
@@ -2424,6 +2908,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The app calculated these numbers from your records."
+          }
+        }
+      }
+    },
+    "文字が見つかりませんでした。" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。読み取れなかった理由（文字が無い）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No text was found."
           }
         }
       }
@@ -2490,6 +2985,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Daily goods"
+          }
+        }
+      }
+    },
+    "明るい場所で、レシート全体が枠に入るように撮ってください。" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。読み取れなかったときの撮り方のこつ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take the photo in a bright place with the whole receipt in the frame."
           }
         }
       }
@@ -2864,6 +3370,28 @@
         }
       }
     },
+    "画像はこの iPhone の中で読み取り、保存も送信もしません。" : {
+      "comment" : "「撮る」「写真から選ぶ」を選ぶ確認と、読み取り中の画面の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The image is read on this iPhone and is never saved or sent."
+          }
+        }
+      }
+    },
+    "画像はこの iPhone の中で読み取り、保存も送信もしません。レシートの文字の全体も保存せず、記録には記録する品目（品名・金額・カテゴリ）と日付、店名と合計の要約だけを残します。" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。画面の下の注記（PRIVACY.md と同じ中身）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The image is read on this iPhone and is never saved or sent. The full text of the receipt isn't saved either; only the items you record (name, amount, and category), the date, and a short summary with the store name and total are kept."
+          }
+        }
+      }
+    },
     "直した内容を保存できませんでした" : {
       "comment" : "直すシートで保存できなかったときのアラートの見出し（シートは閉じない）",
       "localizations" : {
@@ -2876,7 +3404,7 @@
       }
     },
     "直した内容を破棄しますか？" : {
-      "comment" : "直すシートを、直した内容を保存せずに閉じようとしたとき（キャンセル・下へのスワイプ）の確認の見出し",
+      "comment" : "直すシート（⑥）とレシートの読み取り結果のシート（⑤）を、直した内容を保存・記録せずに閉じようとしたとき（キャンセル・閉じる・下へのスワイプ）の確認の見出し",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2920,7 +3448,7 @@
       }
     },
     "直すのを続ける" : {
-      "comment" : "直すシートの破棄の確認のボタン。シートに戻る",
+      "comment" : "直すシート（⑥）の破棄の確認と、レシートの読み取り結果のシート（⑤）の合計が合わないときと破棄の確認のボタン。シートに戻る",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2988,7 +3516,7 @@
       }
     },
     "破棄して閉じる" : {
-      "comment" : "直すシートの破棄の確認のボタン。直した内容を保存せずにシートを閉じる",
+      "comment" : "直すシート（⑥）とレシートの読み取り結果のシート（⑤）の破棄の確認のボタン。直した内容を捨ててシートを閉じる",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3005,6 +3533,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This screen is only in internal test and development builds. The copied text doesn’t include the contents of your records, such as amounts or notes."
+          }
+        }
+      }
+    },
+    "税・その他" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。外税など、品目に足す額の行の名前（記録のメモにもなる）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tax & Other"
           }
         }
       }
@@ -3119,6 +3658,28 @@
         }
       }
     },
+    "記録する" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。読み取った品目を記録するボタン（山吹の塗り）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record"
+          }
+        }
+      }
+    },
+    "記録する件数: %lld件（%@）" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。記録するボタンの上の注記。%lld は記録する件数、%@ は「¥1,280」のような合計",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entries to record: %lld (%@)"
+          }
+        }
+      }
+    },
     "記録できませんでした" : {
       "comment" : "記録を保存できなかったときのアラートの見出し",
       "localizations" : {
@@ -3137,6 +3698,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Days with entries"
+          }
+        }
+      }
+    },
+    "記録のしかた" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。品目ごとか、まとめて 1 件かを選ぶ欄の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How to Record"
           }
         }
       }
@@ -3318,6 +3890,17 @@
         }
       }
     },
+    "読み取ったレシート" : {
+      "comment" : "直すシート（⑥）。レシートから記録した記録の、元の文（店名と合計の要約）の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scanned Receipt"
+          }
+        }
+      }
+    },
     "読み取り中" : {
       "comment" : "送信後、解析中の送信ボタンの VoiceOver ラベル",
       "localizations" : {
@@ -3325,6 +3908,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reading"
+          }
+        }
+      }
+    },
+    "読み取れなかったときは、無料の回数を使いません。" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。読み取れなかったときの注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scans that can’t be read don’t count toward your free scans."
+          }
+        }
+      }
+    },
+    "読み取れませんでした" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。照合の欄の、レシートの合計が読めなかったときの値",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t read"
           }
         }
       }
@@ -3483,6 +4088,17 @@
         }
       }
     },
+    "軽減税率" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。品目の行の注記（軽減税率の印があった品目）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reduced tax rate"
+          }
+        }
+      }
+    },
     "近日" : {
       "comment" : "プレミアムのシート（⑨）。まだ出していない機能に添える印",
       "localizations" : {
@@ -3615,6 +4231,17 @@
         }
       }
     },
+    "金額が入っていない行があります。金額を入れるか、行を外してください。" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。金額を保存できない行があるときの、記録するボタンの上の注意",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some items have no amount. Enter an amount or leave the item out."
+          }
+        }
+      }
+    },
     "金額が見つかりませんでした" : {
       "comment" : "入力に金額が無かったときのアラートの見出し",
       "localizations" : {
@@ -3633,6 +4260,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your message had an amount along with words like “残り”, “予算”, or “合計”, so it wasn’t recorded. To record, send just the item and amount. To ask a question, add “?”."
+          }
+        }
+      }
+    },
+    "金額の書かれたレシートの画像を選んでください。" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。読み取れなかったときのこつ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose an image of a receipt that shows amounts."
+          }
+        }
+      }
+    },
+    "金額の書かれた行が見つかりませんでした。" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）。読み取れなかった理由（金額の行が無い）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No lines with amounts were found."
           }
         }
       }
@@ -3672,6 +4321,23 @@
     },
     "閉じる（プレミアムのシート）" : {
       "comment" : "プレミアムのシート（⑨）の左上の、シートを閉じるボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閉じる"
+          }
+        }
+      }
+    },
+    "閉じる（レシートの読み取り）" : {
+      "comment" : "レシートの読み取り結果のシート（⑤）の、記録せずにシートを閉じるボタン",
       "localizations" : {
         "en" : {
           "stringUnit" : {

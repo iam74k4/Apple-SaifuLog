@@ -97,9 +97,10 @@ struct EditEntrySheet: View {
     }
 
     /// 送った文。読み取りと見比べて、どこを直せばよいかを分かりやすくする。例の文と同じく訳さない（利用者が打った文）。
+    /// レシートから記録したものは、打った文ではないので見出しを替える。
     private var sentText: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("送った文")
+            Text(model.source == .receipt ? "読み取ったレシート" : "送った文")
                 .font(.footnote)
                 .foregroundStyle(Theme.inkSecondary)
             Text(verbatim: model.originalText)

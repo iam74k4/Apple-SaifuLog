@@ -96,4 +96,37 @@ struct QuotaStoreTests {
         #expect(fixture.makeStore().allowance(for: .receiptScan, status: .free, calendar: TestSupport.calendar)
             == .limited(remaining: 5, limit: 5))
     }
+    /// レシートは記録したときに数え、記録の直後に取り消したら戻す。数えたことも戻したことも設定に残る。
+    @Test func useAndRefundArePersisted() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let store = fixture.makeStore()
+
+        let use = store.use(.receiptScan, status: .free, calendar: TestSupport.calendar)
+
+        let month = QuotaMonth(containing: TestSupport.now, calendar: TestSupport.calendar)
+        #expect(use == .counted(month))
+        #expect(fixture.makeStore().allowance(for: .receiptScan, status: .free, calendar: TestSupport.calendar)
+            == .limited(remaining: 4, limit: 5))
+
+        store.refundUse(of: .receiptScan, month: month)
+
+        #expect(store.allowance(for: .receiptScan, status: .free, calendar: TestSupport.calendar) == .limited(remaining: 5, limit: 5))
+        #expect(fixture.makeStore().allowance(for: .receiptScan, status: .free, calendar: TestSupport.calendar)
+            == .limited(remaining: 5, limit: 5))
+    }
+
+    /// プレミアムと体験中は数えず（設定にも書かず）、使い切っていたら数えない。
+    @Test func useReportsUnlimitedAndLimit() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let store = fixture.makeStore()
+
+        #expect(store.use(.receiptScan, status: .premium(.purchased), calendar: TestSupport.calendar) == .unlimited)
+        #expect(fixture.defaults.data(forKey: "quota.receiptScan") == nil)
+        for _ in 0..<5 {
+            store.use(.receiptScan, status: .free, calendar: TestSupport.calendar)
+        }
+        #expect(store.use(.receiptScan, status: .free, calendar: TestSupport.calendar) == .limitReached)
+    }
 }

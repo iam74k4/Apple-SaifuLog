@@ -6,8 +6,9 @@ import SaifuLogCore
 ///
 /// 数え方（暦の月ごと・月が替わると 0・プレミアムと体験中は数えない）はコアの `UsageQuota` が決め、ここは読み書きだけ。
 /// 回数は家計の中身ではないので、設定の置き場所（`AppSettings`。UserDefaults.standard）に置く。
-/// 家計への質問で使う（`HomeModel`。答えを出せたときだけ `recordUse` を呼ぶ）。レシートの読み取りは後で足す。どちらも、読み取りや
-/// 回答が終わってから `recordUse` を呼ぶ（失敗やキャンセルで回数を減らさないため）。
+/// 家計への質問（`HomeModel`。答えを出せたときだけ `recordUse` を呼ぶ）とレシートの読み取り（記録したときだけ `use` を呼び、
+/// 記録の直後に取り消したら `refundUse` で戻す）で使う。どちらも、回答や記録が終わってから数える（失敗やキャンセルで回数を
+/// 減らさないため）。
 @MainActor
 @Observable
 final class QuotaStore {
@@ -45,6 +46,28 @@ final class QuotaStore {
             defaults.setEncoded(quota, for: AppSettings.quota(for: feature))
         }
         return true
+    }
+
+    /// 1 回使ったことを数えて残し、数えたかどうかと数えた月を返す（取り消したときに `refundUse` で戻すため）。
+    @discardableResult
+    func use(_ feature: QuotaFeature, status: PremiumStatus, calendar: Calendar) -> QuotaUse {
+        var quota = quota(for: feature)
+        let use = quota.use(feature, status: status, now: now(), calendar: calendar)
+        if case .counted = use { store(quota, for: feature) }
+        return use
+    }
+
+    /// `use` で数えた 1 回を戻して残す（数えた月がいまも数えている月のときだけ。`UsageQuota.refund`）。
+    func refundUse(of feature: QuotaFeature, month: QuotaMonth) {
+        var quota = quota(for: feature)
+        let before = quota
+        quota.refund(month)
+        if quota != before { store(quota, for: feature) }
+    }
+
+    private func store(_ quota: UsageQuota, for feature: QuotaFeature) {
+        quotas[feature] = quota
+        defaults.setEncoded(quota, for: AppSettings.quota(for: feature))
     }
 
     private func quota(for feature: QuotaFeature) -> UsageQuota {

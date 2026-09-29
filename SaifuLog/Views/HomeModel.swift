@@ -4,8 +4,8 @@ import SaifuLogCore
 import SwiftData
 import SwiftUI
 
-/// ホームの状態と操作（送信・家計への質問・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ・
-/// 先週のふりかえりのカード）。
+/// ホームの状態と操作（送信・家計への質問・レシートの読み取り・取り消し・直す・削除・予算を決める画面と月のまとめと設定と
+/// プレミアムの出し入れ・先週のふりかえりのカード）。
 ///
 /// 画面（`HomeView`）から切り離し、解析器・時計・読み上げを差し替えて SaifuLogTests で確かめられるようにしている。
 /// 画面は、ここの値を表示し、操作をここへ渡すだけにする。
@@ -52,8 +52,16 @@ final class HomeModel {
     ///
     /// 質問は記録ではないので保存しない（アプリを開き直すと消える。docs/design.md §9 の質問の決め事）。
     private(set) var questions: [QuestionExchange] = []
-    /// 無料で使える回数（家計への質問は月 10 回。プレミアムと体験中は無制限）。
+    /// 無料で使える回数（家計への質問は月 10 回、レシートの読み取りは月 5 回。プレミアムと体験中は無制限）。
     let quotaStore: QuotaStore
+    /// 「撮る」「写真から選ぶ」を選ばせる確認（カメラのボタンを押したとき）。
+    var showsReceiptSourceChoice = false
+    /// 出しているレシートの取り込み口（書類カメラか写真の選択）。出していなければ nil（閉じると画面が nil に戻す）。
+    var receiptCapture: ReceiptCaptureSource?
+    /// ⑤ 読み取り結果のシート。出していなければ nil（閉じると画面が nil に戻す）。
+    var receiptResult: ReceiptResultModel?
+    /// この端末で書類カメラを使えるか（使えなければ「撮る」を出さない）。
+    let canUseDocumentCamera: Bool
 
     @ObservationIgnored private let store: EntryStore
     @ObservationIgnored private let budgetStore: BudgetStore
@@ -64,6 +72,16 @@ final class HomeModel {
     @ObservationIgnored private let makeRemarkWriter: () -> (any RecapRemarkWriting)?
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
+    @ObservationIgnored private let receiptReader: ReceiptReader
+    /// 書類カメラで撮った画像と、上限を超えて読み取らなかったページの数。カメラの画面が閉じきってから読み取りのシートを出すため、
+    /// 閉じるまで持っておく。
+    @ObservationIgnored private var capturedReceiptImages: (images: [ReceiptImage], skippedPageCount: Int)?
+    /// ⑤ のシートを閉じた後に開く取り込み口（撮り直し）。
+    @ObservationIgnored private var pendingReceiptRetake: ReceiptCaptureSource?
+    /// ⑤ のシートを閉じた後にプレミアムの案内を出すか（記録しようとしたら無料の回数を使い切っていた）。
+    @ObservationIgnored private var presentsPremiumAfterReceipt = false
+    /// 直前にレシートから記録したときに数えた無料の 1 回（数えた月と、記録した記録）。取り消したら戻す。
+    @ObservationIgnored private var receiptQuotaCharge: (month: QuotaMonth, ids: [PersistentIdentifier])?
 
     /// - Parameters:
     ///   - budgetStore: 予算の読み書き。渡さなければ記録と同じ保存先（`store` の ModelContext）を使う。
@@ -77,6 +95,8 @@ final class HomeModel {
     ///     「昨日」「9/26」をその日時を基準に読ませる。テストで差し替える。
     ///   - makeAnswerer: 質問のたびに答え方（AI かキーワード辞書）を選ぶ。テストで差し替える。
     ///   - makeRemarkWriter: ふりかえり（先週のふりかえり・月のまとめ）の AI の一言を書くもの。AI が使えなければ nil。テストで差し替える。
+    ///   - receiptReader: レシートの画像の読み取り（文字認識と AI）。テストで決めた文字や偽物の AI に差し替える。
+    ///   - canUseDocumentCamera: 書類カメラを使えるか。テストで決める。
     ///   - now: 記録の日時と「今日」の基準。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     init(
@@ -89,6 +109,8 @@ final class HomeModel {
         makeParser: @escaping (Date, Calendar) -> any EntryParsing = { EntryParserFactory.makeParser(now: $0, calendar: $1) },
         makeAnswerer: @escaping () -> any QuestionAnswering = { QuestionAnswererFactory.makeAnswerer() },
         makeRemarkWriter: @escaping () -> (any RecapRemarkWriting)? = { RecapRemarkWriterFactory.makeWriter() },
+        receiptReader: ReceiptReader = ReceiptReader(),
+        canUseDocumentCamera: Bool = DocumentCameraView.isSupported,
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
     ) {
@@ -101,6 +123,8 @@ final class HomeModel {
         self.makeParser = makeParser
         self.makeAnswerer = makeAnswerer
         self.makeRemarkWriter = makeRemarkWriter
+        self.receiptReader = receiptReader
+        self.canUseDocumentCamera = canUseDocumentCamera
         self.now = now
         self.announce = announce
         self.today = now()
@@ -295,15 +319,172 @@ final class HomeModel {
         announce(String(localized: "記録しました: \(items.formatted(.list(type: .and)))"))
     }
 
+    // MARK: - レシート
+
+    /// カメラのボタン（入力欄の左）。無料の回数が残っていれば「撮る」「写真から選ぶ」を選ばせ、使い切っていればプレミアム（⑨）の
+    /// 案内を出す（プレミアムと体験中は無制限）。選ばせるまでを待つ Task を返す（テストで使う）。
+    ///
+    /// 購入の事実を読み終える前は、プレミアムでも無料に見えるので、読み終えるのを待ってから決める（家計への質問と同じ）。
+    @discardableResult
+    func requestReceiptScan(calendar: Calendar) -> Task<Void, Never> {
+        Task {
+            if !purchases.hasLoadedPurchases {
+                await purchases.refreshPurchases()
+            }
+            guard quotaStore.allowance(for: .receiptScan, status: purchases.status, calendar: calendar).canUse else {
+                announce(String(localized: "今月の無料のレシートの読み取りを使い切りました"))
+                presentPremium()
+                return
+            }
+            showsReceiptSourceChoice = true
+        }
+    }
+
+    /// 選んだ取り込み口（書類カメラか写真の選択）を開く。
+    func startReceiptCapture(_ source: ReceiptCaptureSource) {
+        guard source != .camera || canUseDocumentCamera else { return }
+        receiptCapture = source
+    }
+
+    /// 書類カメラで撮り終えた。画像を持っておき、カメラの画面を閉じる（閉じきったら `receiptCaptureDidDismiss` で読み取る）。
+    ///
+    /// - Parameter skippedPageCount: 上限（`DocumentCameraView.maximumPages`）を超えて読み取らなかったページの数。⑤ に知らせる。
+    func finishDocumentCamera(_ images: [ReceiptImage], skippedPageCount: Int = 0) {
+        capturedReceiptImages = (images, skippedPageCount)
+        receiptCapture = nil
+    }
+
+    /// 取り込み口の画面が閉じきった（書類カメラ）。撮った画像があれば読み取りのシートを出す。
+    ///
+    /// カメラの画面が閉じる途中でシートを出すと、画面の出し入れが重なって出ないことがあるため、閉じきってから出す。
+    /// 読み取りを待つ Task を返す（テストで使う）。撮った画像が無ければ nil。
+    @discardableResult
+    func receiptCaptureDidDismiss(calendar: Calendar) -> Task<Void, Never>? {
+        guard let captured = capturedReceiptImages else { return nil }
+        capturedReceiptImages = nil
+        return readReceipt(captured.images, source: .camera, skippedPageCount: captured.skippedPageCount, calendar: calendar)
+    }
+
+    /// 画像を読み取る。⑤ のシートを読み取り中で出し、読み終えたら結果を入れる。読み終えるまでを待つ Task を返す（テストで使う）。
+    ///
+    /// 読み取りでは無料の回数を数えない（数えるのは記録したときだけ。`recordReceipt`）。保存先には書き込まない（記録は利用者が
+    /// 「記録する」を押したときにその場で書き込む）ので、`pendingWrites` には数えない。
+    ///
+    /// - Parameter skippedPageCount: 書類カメラで上限を超えて読み取らなかったページの数。
+    @discardableResult
+    func readReceipt(
+        _ images: [ReceiptImage], source: ReceiptCaptureSource, skippedPageCount: Int = 0, calendar: Calendar
+    ) -> Task<Void, Never> {
+        startReceiptReading(source: source, skippedPageCount: skippedPageCount, calendar: calendar) { images }
+    }
+
+    /// 選んだ写真を読み取る。⑤ を読み取り中で先に出してから、写真を読み込む（`loadImage`）。読み込めなければ（写真のデータを
+    /// 読めない・iCloud から取り出せない）、「写真を読み込めませんでした」を出す。読み終えるまでを待つ Task を返す（テストで使う）。
+    ///
+    /// 先に出すのは、iCloud にだけある写真は取り出すのに時間がかかり、その間に何も出ないと、選んだことが伝わらないため。
+    @discardableResult
+    func readReceiptPhoto(
+        calendar: Calendar, loadImage: @escaping @Sendable () async -> ReceiptImage?
+    ) -> Task<Void, Never> {
+        startReceiptReading(source: .photos, skippedPageCount: 0, calendar: calendar) {
+            await loadImage().map { [$0] } ?? []
+        }
+    }
+
+    private func startReceiptReading(
+        source: ReceiptCaptureSource,
+        skippedPageCount: Int,
+        calendar: Calendar,
+        images loadImages: @escaping @Sendable () async -> [ReceiptImage]
+    ) -> Task<Void, Never> {
+        receiptCapture = nil
+        let readAt = now()
+        let result = ReceiptResultModel(
+            source: source,
+            readAt: readAt,
+            calendar: calendar,
+            firstSkippedPage: skippedPageCount > 0 ? DocumentCameraView.maximumPages + 1 : nil,
+            announce: announce,
+            record: { [weak self] submission in self?.recordReceipt(submission, calendar: calendar) ?? .failed },
+            retake: { [weak self] in self?.retakeReceipt(source) }
+        )
+        receiptResult = result
+        let reader = receiptReader
+        return Task { [weak self] in
+            let images = await loadImages()
+            // 画像を読み込む間にシートを閉じていたら、文字を読まない。
+            guard self?.receiptResult === result else { return }
+            let reading = await reader.read(images, now: readAt, calendar: calendar)
+            // 読み取りの間にシートを閉じていたら（撮り直しを含む）、結果を入れない（閉じたシートの読み上げが割り込まないように）。
+            guard let self, receiptResult === result else { return }
+            result.load(reading)
+        }
+    }
+
+    /// ⑤ から記録する。記録したら ⑤ を閉じ、記録の吹き出しと「取り消す」を出し、無料の 1 回を数える。
+    ///
+    /// 数えるのは記録したときだけ（読み取っただけ・読めなかった・閉じたは数えない）。記録の直後に「取り消す」を押したら戻す。
+    /// 記録しようとした時点で使い切っていれば（読み取りの間に月が替わった・時計を動かしたなど）、記録せずにプレミアムの案内を出す。
+    func recordReceipt(_ submission: ReceiptResultModel.Submission, calendar: Calendar) -> ReceiptResultModel.RecordOutcome {
+        let status = purchases.status
+        guard quotaStore.allowance(for: .receiptScan, status: status, calendar: calendar).canUse else {
+            presentsPremiumAfterReceipt = true
+            receiptResult = nil
+            return .limitReached
+        }
+        let recordedAt = now()
+        let recorded = Entry.records(fromReceipt: submission, now: recordedAt, calendar: calendar)
+        guard !recorded.isEmpty else { return .failed }
+        do {
+            try store.insert(recorded)
+        } catch {
+            return .failed
+        }
+        if case .counted(let month) = quotaStore.use(.receiptScan, status: status, calendar: calendar) {
+            receiptQuotaCharge = (month, recorded.map(\.persistentModelID))
+        } else {
+            receiptQuotaCharge = nil
+        }
+        justRecorded = recorded
+        receiptResult = nil
+        announceRecorded(recorded, today: recordedAt, calendar: calendar)
+        return .recorded
+    }
+
+    /// 撮り直す。⑤ を閉じ、閉じきったら同じ取り込み口をもう一度開く（`receiptResultDidDismiss`）。
+    func retakeReceipt(_ source: ReceiptCaptureSource) {
+        pendingReceiptRetake = source
+        receiptResult = nil
+    }
+
+    /// ⑤ のシートが閉じきった。撮り直しなら取り込み口を開き、使い切っていたならプレミアムの案内を出す。
+    func receiptResultDidDismiss() {
+        if presentsPremiumAfterReceipt {
+            presentsPremiumAfterReceipt = false
+            pendingReceiptRetake = nil
+            presentPremium()
+            return
+        }
+        if let source = pendingReceiptRetake {
+            pendingReceiptRetake = nil
+            startReceiptCapture(source)
+        }
+    }
+
     // MARK: - 取り消し
 
     /// 直前の記録を取り消す。元の文を入力欄に戻し、その場で直して送り直せるようにする。
+    ///
+    /// レシートから記録したものは、入力欄に何も戻さない（元の文は「レシート: 店名 合計 ¥…」の要約で、送り直すと合計の 1 件を
+    /// ひとこと入力として記録してしまうため）。その回に数えた無料の 1 回は戻す（取り消した記録は数えない決め事。docs/design.md §6）。
     func undoLastRecord() {
         let targets = justRecorded
         guard !targets.isEmpty else { return }
         // 消した記録の値は、保存した後には読めない。読み上げと入力欄に戻す文は先に取っておく。
         let items = targets.map { "\($0.kindText) \(YenFormatter.string(from: $0.amount))" }
         let originalText = targets.first?.originalText ?? ""
+        let isReceipt = targets.allSatisfy { $0.source == .receipt }
+        let ids = targets.map(\.persistentModelID)
         do {
             try store.delete(targets)
         } catch {
@@ -312,7 +493,11 @@ final class HomeModel {
             return
         }
         justRecorded = []
-        restoreDraft(originalText)
+        if let charge = receiptQuotaCharge, charge.ids == ids {
+            quotaStore.refundUse(of: .receiptScan, month: charge.month)
+        }
+        receiptQuotaCharge = nil
+        if !isReceipt { restoreDraft(originalText) }
         announce(String(localized: "取り消しました: \(items.formatted(.list(type: .and)))"))
     }
 
@@ -419,7 +604,7 @@ final class HomeModel {
 
     // MARK: - プレミアム
 
-    /// 「プレミアム」のシートを出す（無料の質問を使い切ったときの案内から）。
+    /// 「プレミアム」のシートを出す（無料の質問やレシートの読み取りを使い切ったときの案内から）。
     func presentPremium() {
         premiumSheet = PremiumSheetModel(purchases: purchases, announce: announce)
     }
@@ -433,7 +618,7 @@ final class HomeModel {
         guard purchases.hasLoadedPurchases, case .trialEnded = purchases.status else { return }
         guard !defaults.bool(for: AppSettings.hasShownTrialEndedPremium) else { return }
         guard budgetSetup == nil, editing == nil, monthlyReport == nil, settings == nil, premiumSheet == nil,
-              weeklyRecapDetail == nil
+              weeklyRecapDetail == nil, receiptResult == nil, receiptCapture == nil, !showsReceiptSourceChoice
         else { return }
         premiumSheet = PremiumSheetModel(purchases: purchases, announce: announce)
         defaults.set(true, for: AppSettings.hasShownTrialEndedPremium)

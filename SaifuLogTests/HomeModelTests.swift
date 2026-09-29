@@ -30,11 +30,15 @@ struct HomeModelTests {
         let suiteName = "HomeModelTests.Fixture.\(UUID().uuidString)"
         let defaults: UserDefaults
         let purchases: PurchaseManager
+        /// レシートの読み取りの代わり（OCR が読んだ文字と、品名を整える AI）。既定は文字なし・AI なし。
+        let receipt = ReceiptStub()
         private(set) var announcements: [String] = []
         private(set) var model: HomeModel!
 
-        /// - Parameter purchases: プレミアムの状態。渡さなければ購入の無い状態（無料）。
-        init(purchases: PurchaseManager? = nil) throws {
+        /// - Parameters:
+        ///   - purchases: プレミアムの状態。渡さなければ購入の無い状態（無料）。
+        ///   - canUseDocumentCamera: 書類カメラを使えるか（シミュレータには無いので、決めて渡す）。
+        init(purchases: PurchaseManager? = nil, canUseDocumentCamera: Bool = true) throws {
             context = try TestSupport.makeContext()
             defaults = try #require(UserDefaults(suiteName: suiteName))
             self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
@@ -54,6 +58,8 @@ struct HomeModelTests {
                     return answerer
                 },
                 makeRemarkWriter: { [unowned self] in remarkWriter },
+                receiptReader: receipt.reader,
+                canUseDocumentCamera: canUseDocumentCamera,
                 now: { [unowned self] in now },
                 announce: { [unowned self] in announcements.append($0) }
             )

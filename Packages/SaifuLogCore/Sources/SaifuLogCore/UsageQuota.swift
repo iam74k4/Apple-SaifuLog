@@ -93,12 +93,36 @@ public struct UsageQuota: Hashable, Codable, Sendable {
     /// 読み取りや質問が終わってから呼ぶ（失敗やキャンセルで回数を減らさないため）。
     @discardableResult
     public mutating func recordUse(of feature: QuotaFeature, status: PremiumStatus, now: Date, calendar: Calendar) -> Bool {
-        guard !status.unlocksPremium else { return true }
+        use(feature, status: status, now: now, calendar: calendar) != .limitReached
+    }
+
+    /// 1 回使ったことを数え、数えたかどうかと、数えた月を返す（取り消したときに戻すため。`refund(_:)`）。
+    public mutating func use(_ feature: QuotaFeature, status: PremiumStatus, now: Date, calendar: Calendar) -> QuotaUse {
+        guard !status.unlocksPremium else { return .unlimited }
         let current = QuotaMonth(containing: now, calendar: calendar)
         let used = count(at: now, calendar: calendar)
-        guard used < feature.freeMonthlyLimit else { return false }
+        guard used < feature.freeMonthlyLimit else { return .limitReached }
         month = current
         count = used + 1
-        return true
+        return .counted(current)
     }
+
+    /// `use` で数えた 1 回を戻す（レシートから記録した直後に「取り消す」を押したとき）。
+    ///
+    /// 数えた月がいまも数えている月で、1 回以上数えているときだけ減らす。月が替わった後は、もう 0 から数えているので戻さない
+    /// （戻すと、新しい月の回数を減らしてしまうため）。
+    public mutating func refund(_ counted: QuotaMonth) {
+        guard month == counted, count > 0 else { return }
+        count -= 1
+    }
+}
+
+/// 1 回使ったことを数えた結果。
+public enum QuotaUse: Hashable, Sendable {
+    /// 上限なし（プレミアムか体験中）で、数えなかった。
+    case unlimited
+    /// その月の 1 回として数えた。
+    case counted(QuotaMonth)
+    /// 上限まで使っていたので、数えなかった（使えない）。
+    case limitReached
 }

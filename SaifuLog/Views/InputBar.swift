@@ -1,13 +1,21 @@
 import SwiftUI
 
 /// ホームの下の入力欄。記録も家計への質問も、ここに打つ（見分けは `HomeModel` がコアに任せる）。
+/// 左のカメラのボタンから、レシートを読み取って記録できる。
 ///
-/// カメラ（レシート）とマイク（声で記録）のボタンは、機能ができてから足す。
-/// 押しても何も起きないボタンは置かない。
+/// マイク（声で記録）のボタンは、機能ができてから足す。押しても何も起きないボタンは置かない。
 struct InputBar: View {
     @Binding var text: String
     let isSending: Bool
     let send: () -> Void
+    /// レシートを読み取る（カメラのボタン）。渡さなければボタンを出さない。
+    var scanReceipt: (() -> Void)?
+    /// 「撮る」「写真から選ぶ」の確認を出しているか。カメラのボタンに付けて、ボタンのそばに出す。
+    var showsReceiptChoice: Binding<Bool> = .constant(false)
+    /// 「撮る」を出すか（書類カメラを使える端末だけ）。
+    var canUseDocumentCamera = false
+    /// 「撮る」「写真から選ぶ」を選んだ。
+    var chooseReceiptSource: (ReceiptCaptureSource) -> Void = { _ in }
     /// 直前の記録を取り消す。記録の直後（「取り消す」のバナーが出ている間）だけ渡す。
     var undo: (() -> Void)?
     /// 直前に記録したもの（VoiceOver の操作の「直す」の対象）。バナーが出ていなければ空。
@@ -33,6 +41,9 @@ struct InputBar: View {
 
     var body: some View {
         HStack(spacing: 8) {
+            if let scanReceipt {
+                receiptButton(scanReceipt)
+            }
             // 1 行の入力欄にする。複数行にすると Return が改行になり、チャットのように送れないため。
             TextField(text: $text, prompt: prompt) {
                 Text("記録や質問")
@@ -84,6 +95,31 @@ struct InputBar: View {
             .tint(Theme.accentFill)
             .disabled(!canSend)
             .accessibilityLabel(isSending ? "読み取り中" : "送信")
+        }
+    }
+
+    /// レシートを読み取るボタン。山吹は送信の塗りにだけ使うので、ガラスの地に墨の記号にする。
+    private func receiptButton(_ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: "camera")
+                .font(.body.weight(.semibold))
+                // 記号は幅が広く、アクセシビリティサイズの文字では 44pt の丸からはみ出すので、大きさに上限を設ける。
+                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                .frame(width: 44, height: 44)
+                .foregroundStyle(Theme.ink)
+        }
+        .buttonStyle(.glass)
+        .buttonBorderShape(.circle)
+        .accessibilityLabel("レシートを読み取る")
+        // iOS 26 では、付けたボタンを指す吹き出しの形で出る。
+        .confirmationDialog("レシートを読み取る", isPresented: showsReceiptChoice, titleVisibility: .visible) {
+            if canUseDocumentCamera {
+                Button("撮る") { chooseReceiptSource(.camera) }
+            }
+            Button("写真から選ぶ") { chooseReceiptSource(.photos) }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("画像はこの iPhone の中で読み取り、保存も送信もしません。")
         }
     }
 

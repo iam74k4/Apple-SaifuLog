@@ -1,3 +1,4 @@
+import PhotosUI
 import SaifuLogCore
 import SwiftData
 import SwiftUI
@@ -10,8 +11,10 @@ import UIKit
 ///
 /// 週が替わって最初に開いたときは、先週のふりかえりのカードも同じタイムラインに出す（アプリからの返事として、出した時点の位置に）。
 ///
-/// 状態と操作（送信・質問・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ・先週のふりかえり）は
-/// `HomeModel` が持つ。ここは表示と、
+/// 入力欄の左のカメラのボタンから、レシートを撮るか写真から選んで読み取り（④）、読み取り結果（⑤）のシートで確かめて記録する。
+///
+/// 状態と操作（送信・質問・レシート・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ・
+/// 先週のふりかえり）は `HomeModel` が持つ。ここは表示と、
 /// 環境（文字の大きさ・支援技術・前面かどうか）に合わせた出し方だけを受け持つ。
 struct HomeView: View {
     @Environment(\.calendar) private var calendar
@@ -20,6 +23,8 @@ struct HomeView: View {
     @Environment(\.accessibilitySwitchControlEnabled) private var switchControlEnabled
 
     @State private var model: HomeModel
+    /// 写真の選択で選んだもの。読み取りに渡したら nil に戻す（写真はメモリの上で読み、保存しない）。
+    @State private var photoItem: PhotosPickerItem?
     #if DEBUG || INTERNAL_DIAGNOSTICS
     /// 診断画面を出しているか。社内テスト用のビルドと DEBUG だけの画面なので、App Store へ出すビルドにも入る
     /// `HomeModel` には持たせず、ここに置く。
@@ -80,6 +85,25 @@ struct HomeView: View {
                 // 無料体験が終わった後の最初の起動に、一度だけプレミアム（⑨）を出す（`HomeModel.presentPremiumIfTrialEnded`）。
                 .sheet(item: $model.premiumSheet) { premium in
                     PremiumSheet(model: premium)
+                }
+                // ④ 撮影（書類カメラ）。閉じきってから読み取りのシートを出す（出し入れが重なると出ないことがあるため）。
+                .fullScreenCover(isPresented: showsDocumentCamera, onDismiss: { model.receiptCaptureDidDismiss(calendar: calendar) }) {
+                    DocumentCameraView(
+                        finish: { model.finishDocumentCamera($0, skippedPageCount: $1) },
+                        cancel: { model.receiptCapture = nil }
+                    )
+                    .ignoresSafeArea()
+                }
+                // 写真から選ぶ。PhotosPicker はアプリの外で動くので、写真のライブラリへのアクセスの許可は要らない。
+                .photosPicker(isPresented: showsPhotoPicker, selection: $photoItem, matching: .images)
+                .onChange(of: photoItem) { _, item in
+                    guard let item else { return }
+                    photoItem = nil
+                    readPhoto(item)
+                }
+                // ⑤ 読み取り結果。item で出す（閉じる間も中身を保つ）。閉じきったら、撮り直しやプレミアムの案内を続ける。
+                .sheet(item: $model.receiptResult, onDismiss: { model.receiptResultDidDismiss() }) { result in
+                    ReceiptResultSheet(model: result)
                 }
                 // ホームが出たときと、購入の事実を読み終えたときに確かめる（前面に戻ったときは下の scenePhase）。
                 // 状態の変化では出さない。アプリを開いたまま体験が終わる瞬間（`PurchaseManager` が描き直させる）に出すと、
@@ -192,6 +216,10 @@ struct HomeView: View {
                 text: $model.draft,
                 isSending: model.isParsing,
                 send: { model.send(calendar: calendar) },
+                scanReceipt: { model.requestReceiptScan(calendar: calendar) },
+                showsReceiptChoice: $model.showsReceiptSourceChoice,
+                canUseDocumentCamera: model.canUseDocumentCamera,
+                chooseReceiptSource: { model.startReceiptCapture($0) },
                 undo: undoAction,
                 recorded: model.justRecorded,
                 edit: { model.presentEdit($0, calendar: calendar) }
@@ -206,6 +234,25 @@ struct HomeView: View {
     private var undoAction: (() -> Void)? {
         guard model.canUndo else { return nil }
         return { model.undoLastRecord() }
+    }
+
+    private var showsDocumentCamera: Binding<Bool> {
+        Binding(get: { model.receiptCapture == .camera }, set: { if !$0, model.receiptCapture == .camera { model.receiptCapture = nil } })
+    }
+
+    private var showsPhotoPicker: Binding<Bool> {
+        Binding(get: { model.receiptCapture == .photos }, set: { if !$0, model.receiptCapture == .photos { model.receiptCapture = nil } })
+    }
+
+    /// 選んだ写真をメモリの上で読み、読み取りに渡す（ファイルにもアルバムにも保存しない）。⑤ は読み取り中で先に出し、
+    /// 写真を読み込めなければ「写真を読み込めませんでした」を出す（`HomeModel.readReceiptPhoto`）。
+    ///
+    /// 読み込みと画像の縮小は、メインスレッドの外（@Sendable の閉包）で行う。
+    private func readPhoto(_ item: PhotosPickerItem) {
+        model.readReceiptPhoto(calendar: calendar) {
+            guard let data = try? await item.loadTransferable(type: Data.self) else { return nil }
+            return ReceiptImage(data: data)
+        }
     }
 
     private var showsStoreFailure: Binding<Bool> {
