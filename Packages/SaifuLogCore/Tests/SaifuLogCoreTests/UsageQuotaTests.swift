@@ -186,4 +186,43 @@ struct UsageQuotaTests {
         #expect(broken.allowance(for: .receiptScan, status: .free, now: Fixture.now, calendar: Fixture.calendar)
             == .limited(remaining: 5, limit: 5))
     }
+    // MARK: - 数えた 1 回を戻す
+
+    /// レシートから記録した直後に「取り消す」を押したら、数えた 1 回を戻す（取り消した記録は数えない決め事。docs/design.md §6）。
+    @Test("数えた月を返し、取り消したらその 1 回を戻す")
+    func useAndRefund() throws {
+        var quota = Self.quota(used: 2)
+
+        let use = quota.use(.receiptScan, status: .free, now: Fixture.now, calendar: Fixture.calendar)
+        let month = QuotaMonth(containing: Fixture.now, calendar: Fixture.calendar)
+        #expect(use == .counted(month))
+        #expect(quota.count(at: Fixture.now, calendar: Fixture.calendar) == 3)
+
+        quota.refund(month)
+        #expect(quota.count(at: Fixture.now, calendar: Fixture.calendar) == 2)
+    }
+
+    @Test("プレミアムと体験中は数えず、使い切っていたら数えない")
+    func useReportsUnlimitedAndLimit() {
+        var quota = Self.quota(used: 5)
+
+        #expect(quota.use(.receiptScan, status: .premium(.purchased), now: Fixture.now, calendar: Fixture.calendar) == .unlimited)
+        #expect(quota.use(.receiptScan, status: .free, now: Fixture.now, calendar: Fixture.calendar) == .limitReached)
+        #expect(quota.count(at: Fixture.now, calendar: Fixture.calendar) == 5)
+    }
+
+    /// 月が替わった後は 0 から数えているので、前の月に数えた 1 回を戻して新しい月の回数を減らさない。
+    @Test("数えた月と違う月には戻さず、0 回より少なくしない")
+    func refundOnlyInCountedMonth() {
+        let september = QuotaMonth(containing: Fixture.date(2026, 9, 30, hour: 23), calendar: Fixture.calendar)
+        var quota = Self.quota(used: 1, at: Fixture.date(2026, 10, 1, hour: 9))
+
+        quota.refund(september)
+        #expect(quota.count(at: Fixture.date(2026, 10, 1, hour: 10), calendar: Fixture.calendar) == 1)
+
+        var empty = UsageQuota()
+        empty.refund(september)
+        #expect(empty.count == 0)
+    }
 }
+
