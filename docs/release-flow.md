@@ -45,7 +45,7 @@ PR: develop → main ─ マージ ─▶ release.yml
 
 | 誰が | 何を |
 |---|---|
-| 自動（build.yml） | PR と push のたびに `make build`・`make check-strings`（String Catalog とコードの文字列の整合）・`make test`（コアのテスト）・`make build-tests` と `make test-app`（アプリのテストのビルドと、シミュレータでの実行）・`make test-storekit`（購入のテストを、SKTestSession が動く iOS 26.2 のシミュレータで。1 つでも飛ばされたら失敗）・`make check-version` と、署名なしの `make archive`（提出物と同じ Release・実機向けの組み立てを、マージ前に一度通す。バージョン・ビルド番号・アイコンがアプリの Info.plist に入っているかと、社内テスト用の診断画面が入っていないかも見る） |
+| 自動（build.yml） | PR と push のたびに `make build`・`make check-strings`（String Catalog とコードの文字列の整合）・`make test`（コアのテスト）・`make build-tests` と `make test-app`（アプリのテストのビルドと、シミュレータでの実行）・`make test-storekit`（購入のテストを、SKTestSession が動く iOS 26.2 のシミュレータで。1 つでも飛ばされたら失敗）・`make check-version` と、署名なしの `make archive`（提出物と同じ Release・実機向けの組み立てを、マージ前に一度通す。バージョン・ビルド番号・アイコンがアプリの Info.plist に入っているかと、社内テスト用の診断画面と家族との家計の共有が入っていないかも見る） |
 | 自動（release.yml / upload） | 承認済みの版ならスキップ、アーカイブ（開発用の証明書で署名）、エンタイトルメントの照合（送らずに書き出す。いまは抜けていても警告だけ）、クラウド署名、App Store Connect へのアップロード |
 | 自動（release.yml / submit） | 処理待ち、バージョンの用意、リリースノート、**審査への提出** |
 | 自動（tag-release.yml） | 配信を検知し、配信されたビルドを作ったコミットにタグと GitHub Release を作成 |
@@ -98,6 +98,9 @@ PR: develop → main ─ マージ ─▶ release.yml
 - 診断画面（社内テスト用）は `INTERNAL_BUILD=YES` のアーカイブ（`mode=testflight`）にだけ入る。main への push と
   `mode=submit` / `upload` / `export` は `INTERNAL_BUILD=NO` で作り、release.mk ができたアプリの中身を見て、
   診断画面が入っていれば止める（アーカイブの直後と、書き出し・アップロードの前）。
+- 家族・パートナーとの家計の共有（実機で確かめる前の機能。`docs/design.md` §5-5）も同じく、`INTERNAL_BUILD=YES` のアーカイブでだけ
+  有効になる。release.mk は、`INTERNAL_BUILD=NO` のアーカイブで有効になっていれば（印の文字列 `RELEASE_HOUSEHOLD_MARKER` があるか、
+  Info.plist に `CKSharingSupported` があれば）止める。
 
 ---
 
@@ -434,6 +437,9 @@ App ID の In-App Purchase の Capability は、明示的な App ID なら最初
 | `v<version> は配信済み（タグあり）で、Apple はこの版の新しいビルドを TestFlight にも受け付けません`（承認済みのときも同じ） | 承認された版は閉じ、TestFlight 用のビルドも送れない。作業ブランチで `MARKETING_VERSION` と CHANGELOG の先頭の見出しを次の版に上げて develop へ入れてから、`mode=testflight` を走らせ直す |
 | `このアーカイブのアプリには診断画面（社内テスト用）が入っています` | `INTERNAL_BUILD=NO`（App Store へ出すビルド）のアーカイブに診断画面が入った。`INTERNAL_DIAGNOSTICS` を `project.yml` や `Config/*.xcconfig` で足していないか、診断画面のコードが `#if DEBUG \|\| INTERNAL_DIAGNOSTICS` の外に出ていないかを確かめる |
 | `INTERNAL_BUILD=YES ですが、アーカイブのアプリに診断画面の印（…）が見つかりません` | `mode=testflight` のアーカイブに診断画面が入らなかった。`project.yml` の `SAIFULOG_INTERNAL_BUILD` から `SWIFT_ACTIVE_COMPILATION_CONDITIONS` への組み立てと、`SaifuLog/Diagnostics/DiagnosticsReport.swift` の `buildMarker` が `release.mk` の `RELEASE_INTERNAL_MARKER` と同じ値かを確かめる |
+| `このアーカイブのアプリでは家計の共有（実機で確かめる前の機能）が有効になっています` / `App Store へ出すビルドのアプリの Info.plist に CKSharingSupported があります` | `INTERNAL_BUILD=NO` のアーカイブで家族との家計の共有が有効になった。`SaifuLog/Household/HouseholdSharing.swift` の `enabledMarker` が `#if DEBUG \|\| INTERNAL_DIAGNOSTICS` の外で値を持っていないか、`project.yml` の `SAIFULOG_HOUSEHOLD_SHARING` と `INFOPLIST_FILE` の選び方が変わっていないかを確かめる |
+| `INTERNAL_BUILD=YES ですが、アーカイブのアプリに家計の共有の印（…）が見つかりません` / `CKSharingSupported が true ではありません` | `mode=testflight` のアーカイブで家計の共有が有効にならなかった。`enabledMarker` が `release.mk` の `RELEASE_HOUSEHOLD_MARKER` と同じ値か、`HouseholdHost.start` が印をログに書いているか、`SAIFULOG_HOUSEHOLD_SHARING` が `SAIFULOG_INTERNAL_BUILD` を引いているかを確かめる |
+| `UIBackgroundModes に remote-notification がありません` | Info.plist を 2 つ（`SaifuLog/Info.plist`・`SaifuLog/Info-HouseholdSharing.plist`）に分けたうちの片方から消えた。両方に同じ中身（`CKSharingSupported` のほか）を保つ |
 | 「依存を入れる」などの `pip install` が `--require-hashes` や `--only-binary` のエラーで止まる | `scripts/requirements.txt` のハッシュと合わない、またはランナーの Python の版に合う wheel が無い。手で書き換えず、`scripts/requirements.in` の先頭にある手順（`pip-compile --generate-hashes --strip-extras`）で作り直す。Python の版（`setup-python` の `3.12`）を変えたときも作り直す |
 | export で `Cloud signing permission error` | API キーのロールが Admin でない |
 | export でプロファイルが作れない（アプリ ID が無い） | Bundle ID `com.iam74k4.SaifuLog` が未登録。「一度だけの準備」の 1 |
@@ -506,8 +512,9 @@ main へマージする前の develop のビルドを、TestFlight で自分の 
 - TestFlight のビルドは 90 日で期限が切れる
 - TestFlight のビルドの iCloud 同期は、CloudKit の Production の環境を使う。スキーマを Production に出す前は同期できない
   （「[CloudKit のスキーマ](#cloudkit-のスキーマ所有者の作業)」）
-- 診断画面は、社内テスト用のビルドと DEBUG のビルド（手元の Xcode から入れたもの）にだけある。App Store へ出すビルドには
-  入らず、入っていれば release.mk が止める（「[`release.mk`](#releasemk)」）。どちらのビルドでもホームの帯に診断のボタンが
+- 診断画面と家族・パートナーとの家計の共有は、社内テスト用のビルドと DEBUG のビルド（手元の Xcode から入れたもの）にだけある。
+  App Store へ出すビルドには入らず（家計の共有はコードは入るが無効）、入っていれば release.mk が止める（「[`release.mk`](#releasemk)」）。
+  家計の共有を試すときは `docs/design.md` §15 の 15 の手順で、先に家計の記録の型を CloudKit のスキーマに出す。どちらのビルドでもホームの帯に診断のボタンが
   出るので、App Store 用のスクリーンショットは Release の構成で起動して撮る（「一度だけの準備」の 5）
 - アーカイブは main のリリースと同じく開発用の証明書で署名する（エンタイトルメントが載る）。エンタイトルメントの照合はまだ
   警告だけ（「[照合を止める扱いに戻す](#照合を止める扱いに戻す所有者が確かめてから)」）なので、警告が出たビルドでは保護クラスが
@@ -525,7 +532,7 @@ main へマージする前の develop のビルドを、TestFlight で自分の 
 |---|---|
 | `make version` | いまの `MARKETING_VERSION` を表示する |
 | `make check-version` | `MARKETING_VERSION` と CHANGELOG 先頭の見出しの一致を確かめる |
-| `make archive` | Release の `.xcarchive` を `build/` に作る。`BUILD_NUMBER=…` でビルド番号を上書き。既定は署名ありで、`ARCHIVE_SIGNING=NO` で署名なし（build.yml と `make ci`）。`ARCHIVE_KEYCHAIN=…` で署名に使うキーチェーンを指定できる（release.yml が一時キーチェーンを渡す）。`INTERNAL_BUILD=YES` で社内テスト用（診断画面入り。release.yml の `mode=testflight` だけが渡す。既定は `NO`）。できたアプリの Info.plist にバージョン・ビルド番号・アイコンが入っているかと、診断画面が `INTERNAL_BUILD` のとおりに入っているか（入っていないか）を確かめる。`BUILD_NUMBER` が `CURRENT_PROJECT_VERSION`（1）と同じ値だと、上書きが届いたかを確かめられないので警告を出す |
+| `make archive` | Release の `.xcarchive` を `build/` に作る。`BUILD_NUMBER=…` でビルド番号を上書き。既定は署名ありで、`ARCHIVE_SIGNING=NO` で署名なし（build.yml と `make ci`）。`ARCHIVE_KEYCHAIN=…` で署名に使うキーチェーンを指定できる（release.yml が一時キーチェーンを渡す）。`INTERNAL_BUILD=YES` で社内テスト用（診断画面入り。release.yml の `mode=testflight` だけが渡す。既定は `NO`）。できたアプリの Info.plist にバージョン・ビルド番号・アイコンが入っているかと、診断画面と家族との家計の共有が `INTERNAL_BUILD` のとおりに入っているか（入っていないか）を確かめる。`BUILD_NUMBER` が `CURRENT_PROJECT_VERSION`（1）と同じ値だと、上書きが届いたかを確かめられないので警告を出す |
 | `make export-ipa` | アーカイブから `.ipa` を書き出すだけ。**送信しない。** 署名とエンタイトルメントを表示し、エンタイトルメントのファイル（`RELEASE_ENTITLEMENTS`。いまは自動で見つかる `SaifuLog/SaifuLog.entitlements`）のキーがすべて載っているかと、`RELEASE_ENTITLEMENT_VALUES` の値（データ保護が `NSFileProtectionComplete`、`aps-environment` が `production`、iCloud のサービスが `CloudKit`、コンテナが `iCloud.<Bundle ID>`）になっているかを照合する。抜けや食い違いがあれば止まる（`RELEASE_ENTITLEMENTS_CHECK=warn` なら警告だけ出して続ける）。release.yml はアップロードの前に必ずこれを通す（いまは `warn`）。アーカイブの診断画面の有無が `INTERNAL_BUILD` と合わなければ止まる |
 | `make upload` | `Config/ExportOptions.plist` で書き出し、そのまま App Store Connect へ送る。手元の端末では確認を挟む。ビルド番号はアーカイブに焼かれた値で、`BUILD_NUMBER` を渡しても変わらない（アーカイブと違う値なら止まる）。社内テスト用のアーカイブは `INTERNAL_BUILD=YES` で送り、`testFlightInternalTestingOnly` を true にした写し（`build/ExportOptions.upload.plist`）で TestFlight の社内テスト専用になる。アーカイブの診断画面の有無が `INTERNAL_BUILD` と合わなければ、送る前に止まる |
 
@@ -544,6 +551,11 @@ main へマージする前の develop のビルドを、TestFlight で自分の 
 `#if DEBUG || INTERNAL_DIAGNOSTICS` の外に出たときに気づけないため。社内テスト用のアーカイブで印が見つからないときも止める
 （印を変えて release.mk を直し忘れたときに、「入っていない」の確かめが空振りしないように）。build.yml と `make ci` のアーカイブ
 （`INTERNAL_BUILD=NO`）でも、診断画面が入っていないことを毎回確かめている。
+
+家族・パートナーとの家計の共有も同じ仕組みで確かめる（`RELEASE_HOUSEHOLD_CHECK`）。アプリの中に `RELEASE_HOUSEHOLD_MARKER`
+（`SaifuLog/Household/HouseholdSharing.swift` の `enabledMarker` と同じ文字列。有効なときに同期を始める処理がログに書くので、最適化で
+消えない）があるか、アプリの Info.plist に `CKSharingSupported` があるかを `INTERNAL_BUILD` と照らし合わせ、合わなければ止める。
+Info.plist を家計の共有の有無で 2 つに分けたので、どちらのビルドでも `UIBackgroundModes` に remote-notification があるかも見る。
 
 build.yml（と `make ci`）はアーカイブを**署名なし**（`ARCHIVE_SIGNING=NO`）で作る。PR ごとに走り、
 Environment `release` の Secrets（証明書）を読めないため。組み立ての経路とアーカイブの検査を通すだけなら
@@ -859,6 +871,11 @@ Development）。
    （`mode=testflight`）で同期を試すのも、これを済ませてから
 4. モデルに項目を足したら（既定値つき。`docs/design.md` §5-2）、1 と 3 をやり直す。Production のスキーマは足すことしかできないので、
    項目の名前や型の変更・削除はしない（アプリのテスト `ModelContainerFactoryTests` で今の項目が残っていることを確かめている）
+5. **家族との共有の家計の記録の型（`HouseholdEntry`）**も同じく出す（家計の共有は実機で確かめるまで機能フラグで隠しているので、
+   出すのは提供を決めてからでよい。`docs/design.md` §5-5）。家計の共有が有効なビルド（Debug）で、iCloud にサインインした実機から
+   設定の「家族と共有」で家計を作り、「家族」で記録を 1 件入れると、持ち主の私用データベースの `household-…` のゾーンに `HouseholdEntry` の
+   レコードができ、型と項目（`amount`・`memo` など 8 つ）が作られる。項目はすべて暗号化フィールド（Console で Encrypted と出る）で作る
+   （アプリが `encryptedValues` に書く。後から暗号化フィールドに変えることはできない）。共有の画面を一度開くと、共有のレコード（`cloudkit.share`）も使われる
 
 ### exportArchive の upload が失敗したら
 

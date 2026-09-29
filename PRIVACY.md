@@ -141,8 +141,34 @@ iOS の共有の画面に渡され、**利用者が選んだ共有先（アプ�
 - 同期をオンのまま iCloud からサインアウトすると、同期した記録がその端末から見えなくなることがあります（iCloud には残ります）。
   サインアウトする前に、本アプリの設定で同期をオフにしてください。
 
-家族やパートナーとの記録の共有は、現在は提供していません。提供する場合は、利用者が招待した相手とだけ、Apple の iCloud の
-仕組みを通じて行い、このポリシーを更新します。
+### 家族・パートナーとの家計の共有（提供前の機能）
+
+家族やパートナーと家計を共有する機能は、**App Store で配信する版では提供していません**（開発者が実機で確かめるための、社内テスト用の
+版にだけ入っています）。提供するときは、次のように取り扱う予定です。提供を始めるときに、このポリシーを見直します。
+
+- 共有は、利用者が「家計」を作り、招待した相手とだけ行います。招待は Apple の iCloud の共有の仕組み（CloudKit の共有）で送り、
+  相手は自分の Apple アカウントで受け入れます。開発者のサーバーは通りません。
+- 共有するのは、家計に記録したもの（金額・収入か支出か・カテゴリ・メモ・使った日時・記録した人の名前・記録した日時と直した日時）と、
+  家計の名前だけです。**自分の記録（「自分」に記録したもの）は共有しません。**
+- 記録した人の名前は、家計の参加者に見える表示名です。家計を作った人は、作るときに自分で決めます。招待を受け入れた人は、はじめは
+  その人の Apple アカウントの名前が入り（分からなければ空欄）、設定の「家族と共有」でいつでも確かめて変えられます。変える前に記録した
+  ものは、そのときの名前のままです。
+- 家計の名前（作った人が決めるもの。空欄なら「家族の家計」）は、招待の画面と招待を開いた人に表示するため、Apple の iCloud の共有の
+  情報（CloudKit の共有の題名）として保存します。家計の記録と違って暗号化フィールドには入りません（通信中と Apple のサーバー上では
+  暗号化されます）。家計の名前に、知られたくない内容を入れないでください。招待を受け入れた人の端末では、受け入れたときの家計の名前を
+  その端末の中に写し、その人が変えても家族には見えません。
+- 共有の画面（iOS の標準の画面）では、Apple の共有の仕組みにより、家計に参加している人の名前などが参加者に表示されます。
+- 家計の記録は、家計を作った人の iCloud の領域（CloudKit の非公開データベースの家計ごとのゾーン）に保存され、参加者の端末とのあいだで
+  Apple の iCloud を通じてそろえます。家計の参加者は全員、家計の記録を見て、足し、直し、削除できます。
+- **開発者は、家計の記録と家計の名前を見られません。** 家計の記録の項目は、CloudKit の暗号化フィールドとして、端末の中で暗号化してから iCloud に
+  保存します。通信中と Apple のサーバー上で暗号化されます。Apple の「高度なデータ保護」をオンにしている場合は、エンドツーエンドで
+  暗号化され、鍵は家計の持ち主と参加者だけが持ちます（オフのときは、鍵は Apple が管理します）。
+- 家計の記録は、お使いの iPhone の中でも、自分の記録とは別の本アプリ専用の保存先に置き、同期の状態（どこまで同期したか）も
+  そこに保存します。開発者へは送りません。
+- 家計を作った人が共有をやめるか家計を削除すると、参加者の端末から家計の記録が消えます。参加者が家計から抜けると、その参加者の端末から
+  家計の記録が消えます（ほかの人の家計の記録は残ります）。iCloud からサインアウトしたり、アカウントを替えたりしたときも、その端末から
+  家計の記録を消します。同じ Apple アカウントでサインインし直したときや、同じ Apple アカウントでサインインしているほかの端末（本アプリの
+  家計の共有を使える版で、家計に入っていない端末）では、そのアカウントの iCloud にある家計と記録を取り込んで表示します。
 
 ### 購入の取り扱い
 
@@ -350,8 +376,45 @@ already on your device when you turn it on are saved to iCloud as well. This is 
 - If you sign out of iCloud while sync is on, synced records may disappear from that device (they stay in iCloud). Turn off
   sync in the app's Settings before you sign out.
 
-Sharing records with family members or a partner is not currently offered. If it is offered, it will take place only with
-the people you invite, through Apple's iCloud, and this policy will be updated.
+### Sharing a Household with Family or a Partner (Not Yet Offered)
+
+Sharing a household with family members or a partner is **not offered in the version distributed on the App Store** (it is
+included only in internal test builds the developer uses to verify it on devices). When it is offered, it is planned to work
+as follows, and this policy will be reviewed when it starts.
+
+- Sharing happens only after you create a "household" and only with the people you invite. Invitations are sent with Apple's
+  iCloud sharing (CloudKit sharing), and the people you invite accept them with their own Apple Account. Nothing passes through
+  a server of the developer.
+- Only what you record to the household (amount, income or expense, category, memo, date spent, the name of who recorded it,
+  and when it was recorded and edited) and the household name are shared. **Your own records (recorded to "Me") are not
+  shared.**
+- The name of who recorded an entry is a display name that the members of the household can see. The person who creates the
+  household chooses it when creating the household. For a person who accepts an invitation, it starts as the name on their
+  Apple Account (blank if it isn't available), and they can check and change it at any time in Settings under "Share with
+  Family." Entries recorded before a change keep the name used at the time.
+- The household name (chosen by the person who creates the household; "Family Household" if left blank) is saved as part of
+  Apple's iCloud sharing information (the title of the CloudKit share) so that it can be shown on the invitation screen and to
+  people who open the invitation. Unlike household entries, it is not stored in encrypted fields (it is still encrypted in
+  transit and on Apple's servers). Please don't put anything in the household name that you want to keep private. On the
+  device of a person who accepts an invitation, the household name at the time of accepting is copied onto that device, and
+  changes they make there aren't visible to the family.
+- On the sharing screen (the standard iOS screen), Apple's sharing system shows the names and similar details of the people
+  in the household to its members.
+- Household entries are saved in the iCloud space of the person who created the household (a zone per household in the
+  CloudKit private database) and kept in sync with the members' devices through Apple's iCloud. Every member of the household
+  can see, add, edit, and delete household entries.
+- **The developer cannot see household entries or the household name.** The fields of household entries are saved to iCloud
+  as CloudKit encrypted fields, encrypted on the device first. They are encrypted in transit and on Apple's servers. If Advanced Data Protection is
+  on, they are end-to-end encrypted, and only the owner and the members of the household have the keys (when it is off, Apple
+  manages the keys).
+- On your iPhone, household entries are kept in a storage area of the app that is separate from your own records, together
+  with the sync state (how far it has synced). This is not sent to the developer.
+- If the person who created the household stops sharing or deletes the household, the household entries disappear from the
+  members' devices. If a member leaves the household, the household entries disappear from that member's devices (the other
+  members' household entries stay). Household entries are also removed from a device when you sign out of iCloud or switch
+  accounts on it. When you sign back in with the same Apple Account, and on your other devices signed in with the same Apple
+  Account (with a version of the app that includes household sharing, on a device that isn't in a household), the household
+  and its entries in that account's iCloud are brought in and shown.
 
 ### Purchases
 

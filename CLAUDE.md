@@ -75,11 +75,27 @@
     満たすことは `ModelContainerFactoryTests` で確かめている（モデルは変えずに済んだ）。診断画面にアカウントの状態・いまの保存先の同期・
     設定の値。CloudKit のスキーマを Production に出すこと（所有者の作業。その前に暗号化フィールドにするかを決める）と、実機 2 台での
     同期の確認はまだ（`docs/design.md` §5-3・§15、`docs/release-flow.md` の「Capability（iCloud など）を足すとき」）。
+    家族・パートナーとの家計の共有（**機能フラグで隠している**。`HouseholdSharing.isEnabled` は DEBUG と社内テスト用のビルド（INTERNAL_DIAGNOSTICS）
+    でだけ true で、App Store へ出すビルドでは画面・同期・招待の受け入れを出さない。`make archive` が、INTERNAL_BUILD=NO のアーカイブに印の文字列
+    `SaifuLog-HouseholdSharing-v1` と Info.plist の `CKSharingSupported` が無いこと（と remote-notification があること）を確かめる。Info.plist は
+    `SaifuLog/Info.plist` と `SaifuLog/Info-HouseholdSharing.plist` の 2 つで、`project.yml` の `SAIFULOG_HOUSEHOLD_SHARING` で選ぶ）。家計は自分の記録とは別の
+    保存先（household.store。`ModelContainerFactory.makeHouseholdContainer`、`cloudKitDatabase` は `.none`）に置き、`SaifuLog/Household/` の `HouseholdSync` が
+    CKSyncEngine を 2 つ（私用・共有のデータベース。状態は household.store に保存して次の起動で渡す。家計の無い端末でも作り、サーバーにある家計（同じ
+    Apple アカウントのほかの端末・サインアウトの前）を取り込む。サインアウトしたら作り直し、前の CKSyncEngine から遅れて届いた出来事は捨てる）持って
+    家計ごとのゾーン（`household-<UUID>`）と同期し、ゾーンごと CKShare で共有する。署名の無いビルド（`make build`・`make test-app`）は iCloud の entitlement が
+    無く CKContainer で止まるので、家計の共有を始めない（`HouseholdSharing.canUseCloudKit`）。記録の中身はすべて暗号化フィールド（`HouseholdRecord`）。衝突は直した日時の新しいほう、削除が勝つ、ゾーンが消えたら
+    端末の家計を消して知らせる（決め事はコアの `HouseholdConflict`・`HouseholdZoneRemoval`）。全体は `HouseholdHost`（`SaifuLogApp` で 1 つ、`AppRootView` が
+    自分の記録の保存先を開けた後に `start()`）、共有の作成・削除・受け入れは `HouseholdCloudService`、招待は `HouseholdAppDelegate`・`HouseholdSceneDelegate`
+    （DEBUG と社内テスト用のビルドだけ）から `HouseholdInvitationInbox` へ。設定の「家族と共有」の節（`Views/Household/`。家計を作る・UICloudSharingController で
+    招待・共有をやめる・抜ける・削除）、ホームの帯の「自分／家族」（`HomeModel.ledgerScope`。「家族」では家計に記録し、家計の記録（記録した人の名前つき）と
+    家族の今月の合計を出す。予算・まとめ・質問・ふりかえり・レシート・声は「自分」だけ）、⑥ は `EditEntryModel.Target` で家計の記録も直す。v1 は家計を 1 つ
+    だけ。購入の状態で入口を絞っていない。CKSyncEngine と共有は差し替えてテストし、実機 2 台・2 アカウントでの確かめはまだ（`docs/design.md` §5-5・§15 の 15）。
+    CHANGELOG の利用者向けの「追加」には、隠している間は書かない）。
     保存先を開けないときは落とさず、ロック中なら解除を待って開き直し、それ以外は再試行の画面を出す（`StoreHost`）。
     保存先のデータ保護は NSFileProtectionComplete（ロック中は読めないようにする。実機での確認はまだ。
     release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
     main で `mode=export` の照合が通るかの確認はまだ。`docs/design.md` §5-4）。
-  - **未実装:** カテゴリ別の予算の進みの表示・週のふりかえりの通知・家族との共有・修正の記憶・CSV の読み込み。
+  - **未実装:** カテゴリ別の予算の進みの表示・週のふりかえりの通知・家族との共有の提供（試作は機能フラグで隠している）・修正の記憶・CSV の読み込み。
   - 実機での確認の手段: release.yml の手動実行 `mode=testflight` で、develop のビルドを診断画面入りで TestFlight の
     社内テスト専用に送れるようにした（審査には出ない）。Environment `release` の配備ブランチへの develop の追加
     （所有者の作業）と、実際に TestFlight で入れての確認はまだ（`docs/release-flow.md` の「TestFlight で実機に入れる（社内テスト）」）。
