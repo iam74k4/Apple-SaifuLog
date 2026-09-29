@@ -75,6 +75,8 @@ final class HomeModel {
     @ObservationIgnored private let store: EntryStore
     @ObservationIgnored private let budgetStore: BudgetStore
     @ObservationIgnored private let pendingWrites: PendingStoreWrites
+    /// 保存先を開いたもの。設定の「iCloud で同期」の切り替え先として設定に渡す。無ければ設定に iCloud の節を出さない（テスト用）。
+    @ObservationIgnored private let storeHost: StoreHost?
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let makeParser: (Date, Calendar) -> any EntryParsing
     @ObservationIgnored private let makeAnswerer: () -> any QuestionAnswering
@@ -97,6 +99,7 @@ final class HomeModel {
     ///   - pendingWrites: 解析を待ってから記録する処理を数える先（`StoreHost.pendingWrites`）。保存先を開き直すとき、
     ///     記録し終えるのを待ってもらうため。
     ///   - purchases: プレミアムの購入と状態。アプリは `SaifuLogApp` の 1 つを渡す。渡さなければ購入の無い状態（テスト用）。
+    ///   - storeHost: 保存先を開いたもの（設定の「iCloud で同期」の切り替え先）。アプリは `SaifuLogApp` の 1 つを渡す。
     ///   - defaults: 設定の置き場所（体験の終わりの案内を出したか、無料で質問した回数）。アプリは `UserDefaults.standard`、
     ///     テストは使い捨ての領域。
     ///   - quotaStore: 無料で使った回数の読み書き。渡さなければ `defaults` と `now` で作る。
@@ -114,6 +117,7 @@ final class HomeModel {
         budgetStore: BudgetStore? = nil,
         pendingWrites: PendingStoreWrites = PendingStoreWrites(),
         purchases: PurchaseManager? = nil,
+        storeHost: StoreHost? = nil,
         defaults: UserDefaults = .standard,
         quotaStore: QuotaStore? = nil,
         makeParser: @escaping (Date, Calendar) -> any EntryParsing = { EntryParserFactory.makeParser(now: $0, calendar: $1) },
@@ -128,6 +132,7 @@ final class HomeModel {
         self.store = store
         self.budgetStore = budgetStore ?? BudgetStore(context: store.context)
         self.pendingWrites = pendingWrites
+        self.storeHost = storeHost
         self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
         self.defaults = defaults
         self.quotaStore = quotaStore ?? QuotaStore(defaults: defaults, now: now)
@@ -144,8 +149,11 @@ final class HomeModel {
         self.voice.isCoveredByOtherScreen = { [weak self] in self?.isPresentingOtherScreen ?? false }
     }
 
-    convenience init(context: ModelContext, pendingWrites: PendingStoreWrites = PendingStoreWrites(), purchases: PurchaseManager) {
-        self.init(store: EntryStore(context: context), pendingWrites: pendingWrites, purchases: purchases)
+    convenience init(
+        context: ModelContext, pendingWrites: PendingStoreWrites = PendingStoreWrites(), purchases: PurchaseManager,
+        storeHost: StoreHost? = nil
+    ) {
+        self.init(store: EntryStore(context: context), pendingWrites: pendingWrites, purchases: purchases, storeHost: storeHost)
     }
 
     /// ホームの上にほかの画面・シート・確認を出しているか。出している間は、体験の終わりの案内を重ねず、声の入力を止める
@@ -638,11 +646,24 @@ final class HomeModel {
 
     /// 「設定」へ進む（帯の右上の歯車を押したとき）。
     ///
-    /// 設定から開く「予算を決める」も、ホームの帯から開くときと同じ保存先と読み上げを使う。
+    /// 設定から開く「予算を決める」も、ホームの帯から開くときと同じ保存先と読み上げを使う。保存先を開いたもの
+    /// （`storeHost`）も渡す。渡さないと、設定の「iCloud で同期」の節が黙って消える（テストで確かめている）。
     func presentSettings() {
         settings = SettingsModel(
-            context: store.context, budgetStore: budgetStore, purchases: purchases, defaults: defaults, now: now, announce: announce
+            context: store.context, budgetStore: budgetStore, purchases: purchases, storeHost: storeHost, defaults: defaults,
+            now: now, announce: announce
         )
+    }
+
+    /// iCloud 同期を切り替えて保存先を開き直した直後なら、設定の画面を開いた状態にする（`AppRootView` がホームのモデルを
+    /// 作ったときに呼ぶ）。
+    ///
+    /// 切り替えは設定の画面から始まるが、開き直すと画面のツリーを畳むのでホームに戻ってしまう。どうなったか（オンかオフか、
+    /// 戻したならその理由）を切り替えた画面で見せるため。画面の側ではなくここに置くのは、テストで確かめられるようにするため。
+    func restoreSettingsAfterStoreSwitch() {
+        if storeHost?.consumeSettingsRestoration() == true {
+            presentSettings()
+        }
     }
 
     // MARK: - プレミアム

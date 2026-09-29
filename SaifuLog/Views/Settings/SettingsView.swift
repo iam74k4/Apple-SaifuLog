@@ -3,8 +3,8 @@ import SwiftUI
 
 /// ⑧ 設定。必要なときだけ開く画面。ホームの帯の右上の歯車から横に進む。
 ///
-/// プレミアム（⑨ のシートを開く・購入の復元）、月の予算（② のシートを開く）、週の始まり、記録の CSV 書き出し、
-/// このアプリについて（プライバシーポリシー・ライセンス・版）を並べる。iCloud 同期の行は、その仕組みを作るまで出さない。
+/// プレミアム（⑨ のシートを開く・購入の復元）、月の予算（② のシートを開く）、週の始まり、iCloud で同期（既定はオフ）、
+/// 記録の CSV 書き出し、このアプリについて（プライバシーポリシー・ライセンス・版）を並べる。
 ///
 /// 状態と操作は `SettingsModel` が持つ。ここは表示と、共有のシート・アラートの出し入れだけ。
 /// 押せる行の名前は墨にし、操作のボタン（「CSV ファイルを書き出す」）だけ、ほかの画面のボタンと同じ tint（AccentColor。
@@ -20,6 +20,9 @@ struct SettingsView: View {
             premiumSection
             budgetSection
             calendarSection
+            if model.showsICloudSync {
+                iCloudSection
+            }
             exportSection
             aboutSection
         }
@@ -56,6 +59,39 @@ struct SettingsView: View {
         } message: { alert in
             alert.message
         }
+        // iCloud 同期を切り替える前の説明。切り替えると記録を開き直す（この画面も作り直される）ので、何が起きるかを先に伝える。
+        .alert(
+            iCloudConfirmationTitle,
+            isPresented: showsICloudConfirmation,
+            presenting: model.iCloudSyncConfirmation
+        ) { change in
+            Button(role: change == .disable ? .destructive : nil) {
+                model.confirmICloudSync(change)
+            } label: {
+                switch change {
+                case .enable: Text("オンにする")
+                case .disable: Text("オフにする")
+                }
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: { change in
+            switch change {
+            case .enable:
+                Text("記録と予算を、あなたの iCloud（Apple）に保存し、同じ Apple アカウントでサインインしている端末どうしでそろえます。いまこの iPhone にある記録も iCloud に上がります。開発者は中身を見られません。\n\niCloud に保存した記録は、通信中と Apple のサーバー上で暗号化されますが、エンドツーエンドでは暗号化されません（暗号の鍵は Apple が管理します。高度なデータ保護をオンにしていても同じです）。\n\n切り替えると記録を開き直します。オフに戻しても、この iPhone の記録は残ります。")
+            case .disable:
+                Text("この iPhone の記録は残り、これからはこの iPhone の中だけに保存します。iCloud に保存した記録は iCloud に残り、ほかの端末とはそろわなくなります。\n\n切り替えると記録を開き直します。")
+            }
+        }
+        // オンにしようとしたら iCloud を使えなかった。何をすればよいかを案内する（同期はオフのまま）。
+        .alert(
+            "iCloud を使えません",
+            isPresented: showsICloudAccountAlert,
+            presenting: model.iCloudAccountAlert
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { status in
+            Text(verbatim: status.guidanceText ?? "")
+        }
         // 書き出したファイルを共有のシートで渡し、閉じたらファイルを消す。
         .background(
             ShareSheetPresenter(
@@ -64,7 +100,14 @@ struct SettingsView: View {
             )
                 .accessibilityHidden(true)
         )
-        .onDisappear { model.cancelExport() }
+        .onDisappear {
+            model.cancelExport()
+            model.cancelICloudAccountCheck()
+        }
+        // 同期がオンのとき、iCloud をいまも使えるかを確かめる（使えなければ節の中に案内を出す）。
+        .task { await model.refreshICloudAccountStatus() }
+        // iCloud で届いたほかの端末の変更（予算を変えたなど）で、月の予算の行を読み直す。
+        .onReceive(StoreChanges.remote) { _ in model.reloadBudget() }
     }
 
     // MARK: - プレミアム
@@ -185,6 +228,74 @@ struct SettingsView: View {
         case .sunday, .monday:
             Text(verbatim: SettingsModel.weekdayName(option.firstWeekday ?? 1))
         }
+    }
+
+    // MARK: - iCloud 同期
+
+    private var iCloudSection: some View {
+        Section {
+            Toggle(isOn: iCloudSyncBinding) {
+                HStack(spacing: 12) {
+                    Text("iCloud で同期")
+                        .foregroundStyle(Theme.ink)
+                    if model.isCheckingICloudAccount {
+                        // iCloud のアカウントを確かめている間の印（たいていは一瞬）。
+                        ProgressView()
+                            .accessibilityHidden(true)
+                    }
+                }
+            }
+            .disabled(model.isCheckingICloudAccount)
+            .frame(minHeight: 44)
+            .accessibilityHint("記録と予算を、あなたの iCloud で同じ Apple アカウントの端末とそろえます")
+            .listRowBackground(Theme.surface)
+            // オンなのに iCloud を使えない（サインアウトしたなど）。保存はできるが同期は止まっているので、それを伝える。
+            if model.isICloudSyncEnabled, let paused = model.iCloudAccountStatus?.pausedText {
+                Label {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("いまは同期していません")
+                            .foregroundStyle(Theme.ink)
+                        Text(verbatim: paused)
+                            .font(.footnote)
+                            .foregroundStyle(Theme.inkSecondary)
+                    }
+                } icon: {
+                    Image(systemName: "exclamationmark.icloud")
+                        .foregroundStyle(Theme.inkSecondary)
+                }
+                .accessibilityElement(children: .combine)
+                .listRowBackground(Theme.surface)
+            }
+        } header: {
+            sectionHeader("同期")
+        } footer: {
+            if model.isICloudSyncEnabled {
+                sectionFooter("記録と予算を、あなたの iCloud に保存し、同じ Apple アカウントの端末どうしでそろえています。開発者は中身を見られません。同期されないときは、iCloud にサインインしているかと、iCloud の空き容量を確かめてください。iCloud からサインアウトする前に、ここでオフにしてください（オンのままサインアウトすると、同期した記録がこの iPhone から消えることがあります。iCloud には残ります）。オフにしても、この iPhone の記録は残ります。")
+            } else {
+                sectionFooter("オンにすると、記録と予算をあなたの iCloud に保存し、同じ Apple アカウントの端末どうしでそろえます。オフのあいだは、この iPhone の中だけに保存します。")
+            }
+        }
+    }
+
+    /// トグルの値は、いま開いている保存先のまま。押されたら確かめと説明に進み、説明で「オンにする」「オフにする」を
+    /// 押したときだけ切り替える（押しただけでトグルが動くと、やめたのに切り替わったように見えるため）。
+    private var iCloudSyncBinding: Binding<Bool> {
+        Binding(get: { model.isICloudSyncEnabled }, set: { model.requestICloudSync($0) })
+    }
+
+    private var iCloudConfirmationTitle: Text {
+        switch model.iCloudSyncConfirmation {
+        case .disable: Text("iCloud での同期をオフにしますか？")
+        case .enable, nil: Text("iCloud で同期しますか？")
+        }
+    }
+
+    private var showsICloudConfirmation: Binding<Bool> {
+        Binding(get: { model.iCloudSyncConfirmation != nil }, set: { if !$0 { model.iCloudSyncConfirmation = nil } })
+    }
+
+    private var showsICloudAccountAlert: Binding<Bool> {
+        Binding(get: { model.iCloudAccountAlert != nil }, set: { if !$0 { model.iCloudAccountAlert = nil } })
     }
 
     // MARK: - 書き出し

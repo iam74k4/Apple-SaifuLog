@@ -127,6 +127,16 @@ extension DiagnosticsReport {
         var budgetRows: Int?
     }
 
+    /// iCloud 同期の状態。
+    struct ICloudStatus: Equatable, Sendable {
+        /// iCloud のアカウントの状態（`ICloudAccountStatus.diagnosticName`）。問い合わせが返るまでは nil（checking）。
+        var account: String?
+        /// いま開いている保存先の iCloud の扱い（none / private(コンテナ)）。
+        var database: String
+        /// 設定の「iCloud で同期」。開けずに端末の中だけへ戻したときは false になっている。
+        var isSyncSettingOn: Bool
+    }
+
     init(
         app: AppInfo,
         device: DeviceInfo,
@@ -134,7 +144,8 @@ extension DiagnosticsReport {
         speech: SpeechStatus?,
         storeFiles: [StoreFile],
         isProtectedDataAvailable: Bool,
-        counts: RecordCounts
+        counts: RecordCounts,
+        iCloud: ICloudStatus
     ) {
         sections = [
             Section(id: "app", title: "アプリ", rows: [
@@ -185,10 +196,12 @@ extension DiagnosticsReport {
                 Row(key: "records.entries", label: "記録の件数", value: counts.entries.map(String.init) ?? "error"),
                 Row(key: "records.budgetRows", label: "予算の行数", value: counts.budgetRows.map(String.init) ?? "error"),
             ]),
-            // iCloud の同期を作るまでは項目だけ置く（CKContainer.accountStatus は、iCloud の entitlement を足してから
-            // でないと調べられない）。
+            // 同期がオンなのにそろわないときに、アカウント・開いた保存先・設定のどこが食い違っているかを見比べる。
+            // コンテナの ID はアプリのもので、利用者の情報ではない。
             Section(id: "icloud", title: "iCloud", rows: [
-                Row(key: "icloud.account", label: "アカウントの状態", value: "not implemented"),
+                Row(key: "icloud.account", label: "アカウントの状態", value: iCloud.account ?? Self.checking),
+                Row(key: "icloud.database", label: "いまの保存先の同期", value: iCloud.database),
+                Row(key: "icloud.syncSetting", label: "設定の「iCloud で同期」", value: String(iCloud.isSyncSettingOn)),
             ]),
         ]
     }

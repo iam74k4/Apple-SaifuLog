@@ -58,14 +58,20 @@ struct DiagnosticsTests {
         return folder
     }
 
+    /// 設定の「iCloud で同期」を読む領域（テストでは何も書かないので、既定値のオフが読める）。
+    static let isolatedDefaults = UserDefaults(suiteName: "DiagnosticsTests.\(UUID().uuidString)")!
+
     static func makeModel(
-        context: ModelContext, storeURL: URL, protectedDataAvailable: Bool = true, sink: Sink = Sink()
+        context: ModelContext, storeURL: URL, protectedDataAvailable: Bool = true, sink: Sink = Sink(),
+        defaults: UserDefaults = isolatedDefaults
     ) -> DiagnosticsModel {
         DiagnosticsModel(
             context: context,
             storeURL: storeURL,
             isProtectedDataAvailable: { protectedDataAvailable },
             speech: { speech },
+            iCloudAccount: { .noAccount },
+            defaults: defaults,
             copy: { sink.copy($0) },
             announce: { sink.announce($0) }
         )
@@ -163,6 +169,8 @@ struct DiagnosticsTests {
             storeURL: folder.appending(path: "default.store", directoryHint: .notDirectory),
             isProtectedDataAvailable: { true },
             speech: { await gate.wait() },
+            iCloudAccount: { .available },
+            defaults: Self.isolatedDefaults,
             copy: { _ in },
             announce: { _ in }
         )
@@ -180,6 +188,9 @@ struct DiagnosticsTests {
         #expect(pending.value(for: "store.protectedDataAvailable") == "true")
         #expect(pending.value(for: "fm.availability") != nil)
         #expect(pending.value(for: "records.entries") == "0")
+        // iCloud のアカウントの問い合わせも待たずに出す（返るまでは checking）。いまの保存先の同期は待たずに読める。
+        #expect(pending.value(for: "icloud.account") == DiagnosticsReport.checking)
+        #expect(pending.value(for: "icloud.database") == "none")
 
         await gate.answer(0, with: Self.speech)
         await loading.value
@@ -190,6 +201,47 @@ struct DiagnosticsTests {
         #expect(answered.value(for: "speech.japaneseInstalled") == "false")
         #expect(answered.value(for: "speech.route") == "speechTranscriber")
         #expect(answered.value(for: "speech.model") == "needsDownload")
+        #expect(answered.value(for: "icloud.account") == "available")
+    }
+
+    @Test("iCloud の行に、アカウントの状態・いまの保存先の同期・設定の値を出す")
+    func iCloudRows() async throws {
+        let context = try TestSupport.makeContext()
+        let folder = try Self.makeFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let suiteName = "DiagnosticsTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        // 設定はオンなのに、開いた保存先は端末の中だけ（開けずに戻したときの食い違いを見分けられる）。
+        defaults.set(true, for: AppSettings.iCloudSyncEnabled)
+        let model = DiagnosticsModel(
+            context: context,
+            storeURL: folder.appending(path: "default.store", directoryHint: .notDirectory),
+            isProtectedDataAvailable: { true },
+            speech: { Self.speech },
+            iCloudAccount: { .failed(domain: "CKErrorDomain", code: 4) },
+            defaults: defaults,
+            copy: { _ in },
+            announce: { _ in }
+        )
+
+        await model.load()
+        let report = try #require(model.report)
+
+        #expect(report.value(for: "icloud.account") == "error(CKErrorDomain 4)")
+        #expect(report.value(for: "icloud.database") == "none")
+        #expect(report.value(for: "icloud.syncSetting") == "true")
+    }
+
+    @Test("iCloud と同期する保存先の設定なら、コンテナの ID を添えて private と出す")
+    func iCloudDatabaseNameForPrivateConfiguration() throws {
+        // CloudKit にはつながないよう、保存先は開かずに設定だけを作って読み方を確かめる。
+        let configuration = ModelContainerFactory.configuration(
+            url: URL.temporaryDirectory.appending(path: "unused.store"), cloudKitDatabase: .private
+        )
+
+        #expect(DiagnosticsProbe.cloudKitDatabaseName(configurations: [configuration]) == "private(\(ModelContainerFactory.iCloudContainerIdentifier))")
+        #expect(DiagnosticsProbe.cloudKitDatabaseName(configurations: []) == "unknown")
     }
 
     @Test("読み直しの後に前の問い合わせの答えが返っても、新しい答えを上書きしない")
@@ -203,6 +255,8 @@ struct DiagnosticsTests {
             storeURL: folder.appending(path: "default.store", directoryHint: .notDirectory),
             isProtectedDataAvailable: { true },
             speech: { await gate.wait() },
+            iCloudAccount: { .available },
+            defaults: Self.isolatedDefaults,
             copy: { _ in },
             announce: { _ in }
         )
@@ -279,7 +333,10 @@ struct DiagnosticsTests {
         #expect(report.value(for: "store.protectedDataAvailable") == "false")
         #expect(report.value(for: "speech.japaneseLocale") == "ja_JP")
         #expect(report.value(for: "speech.japaneseInstalled") == "false")
-        #expect(report.value(for: "icloud.account") == "not implemented")
+        #expect(report.value(for: "icloud.account") == "noAccount")
+        // テストの保存先はメモリの上で、iCloud と同期しない。
+        #expect(report.value(for: "icloud.database") == "none")
+        #expect(report.value(for: "icloud.syncSetting") == "false")
         #expect(report.value(for: "app.buildKind") == DiagnosticsProbe.buildKind)
     }
 

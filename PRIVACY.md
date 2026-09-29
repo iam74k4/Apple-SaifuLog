@@ -20,7 +20,8 @@
 **SaifuLog の開発者は、利用者の個人情報や家計の記録を収集しません。**
 
 本アプリは、開発者が運営するサーバーを使いません。入力した記録を開発者や第三者へ
-送信することはありません。
+送信することはありません（利用者が設定で「iCloud で同期」をオンにしたときは、記録を利用者自身の iCloud（Apple）に
+保存します。開発者はその内容を見られません。下の「iCloud での同期」）。
 
 本アプリには、解析ツール、広告ネットワーク、クラッシュレポートの送信機能、トラッキング、
 その他のサードパーティ製 SDK が含まれていません。広告は表示しません。
@@ -32,7 +33,8 @@
 ### 入力した家計の記録
 
 金額、日付、カテゴリ、メモ、入力した文章といった記録と、利用者が決めた予算の金額は、iOS の
-標準的な仕組み（SwiftData）を用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存されます。
+標準的な仕組み（SwiftData）を用いて、お使いの iPhone の中の本アプリ専用の領域に保存されます。設定の「iCloud で同期」が
+オフ（既定）のあいだは、この iPhone の中にのみ保存されます。オンにした場合の取り扱いは、下の「iCloud での同期」のとおりです。
 
 iPhone のバックアップ（iCloud バックアップや、Mac・PC へのバックアップ）を有効にしている
 場合、記録はバックアップの一部として保存されることがあります。これは Apple が提供する
@@ -118,16 +120,29 @@ iOS の共有の画面に渡され、**利用者が選んだ共有先（アプ�
 渡す先はご注意ください。書き出しのためにアプリの中に一時的に作ったファイルは、共有の画面を閉じると削除します
 （共有の途中でアプリが終了したときは、次に設定の画面を開いたときに削除します）。
 
-### アプリの iCloud バックアップ・同期と家族との共有（将来の任意の機能）
+### iCloud での同期（任意）
 
-現在は提供していません。上に書いた iPhone 自体のバックアップとは別に、アプリの機能として
-iCloud へのバックアップや同期を提供する場合の取り扱いです。
+設定の「iCloud で同期」は、既定ではオフです。利用者がオンにしたときだけ、記録（金額・日付・カテゴリ・メモ・入力した文章など、
+上の「入力した家計の記録」と同じもの）と予算の金額を、Apple の iCloud の利用者自身の領域（CloudKit の非公開データベース）に
+保存し、同じ Apple アカウントでサインインしている端末どうしでそろえます。オンにした時点でお使いの端末にある記録も、iCloud に
+保存されます。上に書いた iPhone 自体のバックアップとは別の機能です。
 
-提供する場合は、利用者が有効にしたときだけ、記録は利用者自身の iCloud（Apple）の領域に
-保存されます。家族やパートナーとの共有も、利用者が招待した相手とだけ、Apple の iCloud の
-仕組みを通じて行います。いずれも開発者は内容を見られません。
+- **開発者は、利用者の iCloud に保存された内容を見られません。** 記録は開発者のサーバーを経由せず、Apple の iCloud と
+  利用者の端末のあいだでだけやり取りされます。iCloud での保存には、Apple のプライバシーポリシーと iCloud の利用規約が
+  適用されます。
+- **暗号化について。** iCloud に保存した記録は、通信中と Apple のサーバー上で暗号化されますが、エンドツーエンドでは暗号化
+  されません（暗号の鍵は Apple が管理します）。本アプリは CloudKit の暗号化フィールドを使っていないため、Apple の
+  「高度なデータ保護」をオンにしていても同じです。
+- 同期のために、iOS の仕組み（Core Data と CloudKit）が、同期の状態（どこまで同期したか、どの iCloud のアカウントと
+  同期しているかを見分けるための情報など）をお使いの端末の中に保存します。これらも開発者へは送信しません。
+- **オフにすると**、以後はお使いの端末の中にだけ保存します。端末の中の記録は残ります。すでに iCloud に保存した記録は iCloud に
+  残り、その端末とはそろわなくなります。iCloud の記録を消すには、オンのまま本アプリで記録を削除してください（削除は iCloud と、
+  同期しているほかの端末にも反映されます）。
+- 同期をオンのまま iCloud からサインアウトすると、同期した記録がその端末から見えなくなることがあります（iCloud には残ります）。
+  サインアウトする前に、本アプリの設定で同期をオフにしてください。
 
-導入する際には、このポリシーを更新します。
+家族やパートナーとの記録の共有は、現在は提供していません。提供する場合は、利用者が招待した相手とだけ、Apple の iCloud の
+仕組みを通じて行い、このポリシーを更新します。
 
 ### 購入の取り扱い
 
@@ -146,7 +161,7 @@ iCloud へのバックアップや同期を提供する場合の取り扱いで�
 
 ### 保存される設定
 
-初回の案内を終えたかどうか、週の始まり（日曜か月曜か）、無料体験が終わったときの案内を出したかどうか、家計への質問を
+初回の案内を終えたかどうか、週の始まり（日曜か月曜か）、iCloud で同期するかどうか、無料体験が終わったときの案内を出したかどうか、家計への質問を
 無料で使った回数（月ごとの回数。質問の文や答えは含みません）、先週のふりかえりを最後に表示した日時（ふりかえりの中身は
 含みません）、レシートの読み取りを無料で使った回数（月ごとの回数。画像や読み取った内容は含みません）といったアプリの設定は、
 iOS の標準的な仕組み（UserDefaults）を用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存します。
@@ -163,7 +178,8 @@ iOS の標準的な仕組み（UserDefaults）を用いて、お使いの iPhone
 ### アプリの削除
 
 SaifuLog を削除すると、端末内の記録と設定も併せて削除されます。ただし、削除より前に
-作られた iPhone のバックアップには残ることがあります。
+作られた iPhone のバックアップには残ることがあります。「iCloud で同期」をオンにしていた場合、iCloud に保存した記録は、
+アプリを削除しても iCloud に残ります（同じ Apple アカウントの端末でアプリを入れ直して同期をオンにすると、また使えます）。
 
 ### ポリシーの変更
 
@@ -194,7 +210,8 @@ https://github.com/iam74k4/SaifuLog-Apple/security/advisories/new
 finance records.**
 
 The app does not use any server operated by the developer. Your records are never sent to
-the developer or to any third party.
+the developer or to any third party (if you turn on Sync with iCloud in Settings, your records are
+saved in your own iCloud (Apple) space, which the developer cannot see; see Sync with iCloud below).
 
 The app contains no analytics tools, no advertising networks, no crash reporting, no
 tracking, and no third-party SDKs of any kind. It shows no advertisements.
@@ -206,8 +223,9 @@ done by Apple's own system, not by the app itself.
 ### Your Records
 
 Your records, such as amounts, dates, categories, notes, and the text you entered, and the
-budget amount you set are stored only on your own iPhone, in an area reserved for this app,
-using the standard iOS mechanism (SwiftData).
+budget amount you set are stored on your own iPhone, in an area reserved for this app, using the
+standard iOS mechanism (SwiftData). While Sync with iCloud in Settings is off (the default), they are
+stored only on this iPhone. When it is on, they are handled as described in Sync with iCloud below.
 
 If you back up your iPhone (for example with iCloud Backup, or to a Mac or PC), your
 records may be included in that backup. This is an iOS feature provided by Apple, and the
@@ -311,17 +329,29 @@ file contains your financial records, so please choose the destination with care
 temporary file the app creates for the export is deleted when the share sheet closes (if the app
 quits while the share sheet is open, it is deleted the next time you open Settings).
 
-### In-App iCloud Backup, Sync, and Sharing with Family (Future, Optional)
+### Sync with iCloud (Optional)
 
-These features are not currently offered. This section covers iCloud backup or sync offered
-as a feature of the app itself, which is separate from the iPhone backup described above.
+Sync with iCloud in Settings is off by default. Only when you turn it on, your records (the same items as in Your Records
+above, such as amounts, dates, categories, notes, and the text you entered) and budget amounts are saved in your own space in
+Apple's iCloud (the CloudKit private database) and kept in sync across devices signed in to the same Apple Account. Records
+already on your device when you turn it on are saved to iCloud as well. This is separate from the iPhone backup described above.
 
-If they are offered, your records will be stored in your own iCloud (Apple) space only when
-you turn the feature on. Sharing with family members or a partner will take place only with
-the people you invite, through Apple's iCloud. In either case, the developer cannot see the
-contents.
+- **The developer cannot see what is saved in your iCloud.** Your records never pass through a server of the developer; they
+  are exchanged only between Apple's iCloud and your devices. Saving in iCloud is covered by Apple's privacy policy and the
+  iCloud terms.
+- **About encryption.** Records saved in iCloud are encrypted in transit and on Apple's servers, but they are not end-to-end
+  encrypted (Apple manages the keys). The app does not use CloudKit encrypted fields, so this is the same even if Apple's
+  Advanced Data Protection is turned on.
+- To sync, the iOS system (Core Data and CloudKit) stores the sync state on your device (such as how far it has synced and
+  information to tell which iCloud account it syncs with). This is not sent to the developer either.
+- **When you turn it off**, records are saved only on your device from then on, and the records on the device stay. Records
+  already saved in iCloud stay in iCloud and no longer stay in sync with that device. To remove records from iCloud, delete
+  them in the app while sync is on (deletions also reach iCloud and your other synced devices).
+- If you sign out of iCloud while sync is on, synced records may disappear from that device (they stay in iCloud). Turn off
+  sync in the app's Settings before you sign out.
 
-This policy will be updated when these features are introduced.
+Sharing records with family members or a partner is not currently offered. If it is offered, it will take place only with
+the people you invite, through Apple's iCloud, and this policy will be updated.
 
 ### Purchases
 
@@ -344,7 +374,7 @@ which do not include buyers' names, contact details, or payment information.
 ### Settings We Store
 
 App settings, such as whether you have finished the first-launch introduction, which day your
-week starts on, whether the notice at the end of the free trial has been shown, and the number of free
+week starts on, whether to sync with iCloud, whether the notice at the end of the free trial has been shown, and the number of free
 questions about your spending you have used (counted per month; your questions and answers are not
 included), the date and time Last Week in Review was last shown (not its contents), and the number of free receipt scans you have used
 (counted per month; no images or scanned contents), are stored only on your own iPhone, in an area reserved for this app, using the
@@ -362,7 +392,9 @@ Apple's privacy policy. The app does not send your records or settings to those 
 ### Deleting the App
 
 Removing SaifuLog also removes the records and settings stored on your device. However, they
-may remain in iPhone backups made before the app was removed.
+may remain in iPhone backups made before the app was removed. If Sync with iCloud was on, records
+saved in iCloud stay in iCloud after you remove the app (you can use them again by reinstalling the
+app on a device with the same Apple Account and turning sync on).
 
 ### Changes to This Policy
 

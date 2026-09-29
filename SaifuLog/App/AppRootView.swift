@@ -9,17 +9,24 @@ import SwiftUI
 /// （タイムラインの @Query や入力欄）を作らずに済む。
 ///
 /// 保存先を開き直すと（`StoreHost.reopen`）、ここから作り直されて、出すかどうかも決め直す（そのときは案内を終えている）。
+/// iCloud 同期を切り替えて開き直したときは、切り替えた設定の画面を開いた状態のホームから始める。
 struct AppRootView: View {
     let container: ModelContainer
-    /// あとで保存先に書き込む処理を数える先（`StoreHost.pendingWrites`）。ホームのモデルに渡す。
-    let pendingWrites: PendingStoreWrites
+    /// 保存先を開いたもの。あとで保存先に書き込む処理を数える先（`pendingWrites`）と、設定の「iCloud で同期」の
+    /// 切り替え先として、ホームのモデルに渡す。
+    let storeHost: StoreHost
     /// プレミアムの購入と状態（アプリで 1 つ）。ホームのモデルに渡す。
     let purchases: PurchaseManager
 
     /// 初回の案内。出さないと決めたら nil のまま。終えても持ち続ける（終えたかどうかでホームへの切り替えを描くため）。
     @State private var onboarding: OnboardingModel?
-    /// 案内を出すかどうかを決めたか。決めるまでは地の色だけを出す（ホームを一瞬出してから案内に替えないように）。
-    @State private var hasDecided = false
+    /// ホームの状態と操作。案内を出すかどうかを決めたときに 1 回だけ作る（決めるまでは nil で、地の色だけを出す。
+    /// ホームを一瞬出してから案内に替えないように）。
+    ///
+    /// ホームの画面（HomeView）に作らせずにここで持つのは、描き直しのたびに捨てるモデルを作らないため。設定の画面を
+    /// 開いた状態から始めるとき（iCloud 同期の切り替えの後）に、捨てるモデルが「設定に戻す」の知らせを先に読んでしまうと、
+    /// 実際に使うモデルでは設定が開かないため。
+    @State private var home: HomeModel?
     /// 設定の「週の始まり」。画面の暦に当てはめて、ここから下の画面に渡す。
     @AppStorage(AppSettings.weekStart) private var weekStart: WeekStart
     /// 端末の暦（地域と iOS の設定のもの）。
@@ -30,8 +37,8 @@ struct AppRootView: View {
             if let onboarding, !onboarding.isCompleted {
                 OnboardingView(model: onboarding)
                     .transition(.opacity)
-            } else if hasDecided {
-                HomeView(model: HomeModel(context: container.mainContext, pendingWrites: pendingWrites, purchases: purchases))
+            } else if let home {
+                HomeView(model: home)
                     .transition(.opacity)
             } else {
                 Theme.background
@@ -51,10 +58,15 @@ struct AppRootView: View {
     ///
     /// init ではなくここで決めるのは、View の init は描き直しのたびに呼ばれ、そのたびに保存先を読むことになるため。
     private func decide() {
-        guard !hasDecided else { return }
-        hasDecided = true
+        guard home == nil else { return }
         if OnboardingModel.needsOnboarding(context: container.mainContext) {
             onboarding = OnboardingModel(budgetStore: BudgetStore(context: container.mainContext))
         }
+        let home = HomeModel(
+            context: container.mainContext, pendingWrites: storeHost.pendingWrites, purchases: purchases, storeHost: storeHost
+        )
+        // iCloud 同期を切り替えて開き直したときは、切り替えた設定の画面を開いた状態から始める（どうなったかをその画面で見せる）。
+        home.restoreSettingsAfterStoreSwitch()
+        self.home = home
     }
 }

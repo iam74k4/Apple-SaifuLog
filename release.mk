@@ -85,6 +85,25 @@ RELEASE_ENTITLEMENTS ?= $(firstword $(wildcard SaifuLog/*.entitlements SaifuLog/
 # （docs/release-flow.md の「署名ありのアーカイブ」）。
 RELEASE_ENTITLEMENTS_CHECK ?= error
 
+# 提出物に載っているべきエンタイトルメントの値（キー=値）。make export-ipa が、上の RELEASE_ENTITLEMENTS のキーが
+# 載っているかに加えて、ここの値になっているかを照合する（食い違いの扱いは RELEASE_ENTITLEMENTS_CHECK と同じ）。
+# キーが載っているかだけでは、書き出しで替わる値やビルドの設定から入る値の食い違いに気づけないため。
+# 値が配列のキーは、その値を含んでいれば通る。@BUNDLE_ID@ は、書き出したアプリの CFBundleIdentifier に置き換える。
+#
+# - default-data-protection: 保存先を NSFileProtectionComplete にする（docs/design.md §5-4）
+# - aps-environment: iCloud 同期がほかの端末の変更を受け取る知らせ。エンタイトルメントのファイルは development のままで、
+#   App Store 向けの書き出しで production に替わる。development のまま出すと、配信したアプリに知らせが届かない
+# - icloud-services / icloud-container-identifiers: iCloud 同期（CloudKit）とそのコンテナ。コンテナは Config/Base.xcconfig の
+#   ICLOUD_CONTAINER_ID（iCloud.$(APP_BUNDLE_ID)）と同じ決まり。決まりを変えるときはここも直す
+#
+# Capability を足したら、キーはエンタイトルメントのファイルから自動で照合されるが、値を確かめたいものはここにも足す
+# （docs/release-flow.md の「Capability（iCloud など）を足すとき」）。
+RELEASE_ENTITLEMENT_VALUES ?= \
+	com.apple.developer.default-data-protection=NSFileProtectionComplete \
+	aps-environment=production \
+	com.apple.developer.icloud-services=CloudKit \
+	com.apple.developer.icloud-container-identifiers=iCloud.@BUNDLE_ID@
+
 # 社内テスト用のビルドにするか（YES / NO）。YES にすると、アプリのターゲットに Swift の条件 INTERNAL_DIAGNOSTICS が付き
 # （project.yml の SAIFULOG_INTERNAL_BUILD）、実機での確認に使う診断画面（SaifuLog/Diagnostics）が入る。
 # make upload は YES のアーカイブを TestFlight の社内テスト専用（testFlightInternalTestingOnly）で送る。社内テスト専用の
@@ -254,7 +273,8 @@ archive: release-args check-version release-auth generate
 # 足りているかを、App Store Connect に何も残さずに確かめられる。
 # 書き出した .app の署名とエンタイトルメントも表示する。エンタイトルメントを足したときに、
 # 署名なしのアーカイブ（ARCHIVE_SIGNING=NO）から抜け落ちていないかをここで見る。
-# RELEASE_ENTITLEMENTS があれば、そのキーがすべて載っているかを照合し、抜けていれば止まる
+# RELEASE_ENTITLEMENTS があれば、そのキーがすべて載っているかを照合し、RELEASE_ENTITLEMENT_VALUES の値
+# （aps-environment が production になっているか、iCloud のコンテナなど）も照合して、食い違えば止まる
 # （目で見るだけだと、ログに流れて見落とす）。RELEASE_ENTITLEMENTS_CHECK=warn なら警告だけ出して続ける。
 export-ipa: release-auth
 	@case "$(RELEASE_ENTITLEMENTS_CHECK)" in \
@@ -285,16 +305,16 @@ export-ipa: release-auth
 	echo "--- エンタイトルメント"; \
 	codesign -d --entitlements - "$$app" 2>/dev/null; \
 	status=0; \
+	codesign -d --entitlements - --xml "$$app" > "$$tmp/entitlements.plist" 2>/dev/null || true; \
+	hint="署名なし（ARCHIVE_SIGNING=NO）のアーカイブにはエンタイトルメントが焼かれません。アーカイブを署名ありで作ったかを確かめてください（docs/release-flow.md の「署名ありのアーカイブ」）。"; \
 	if [ -n "$(RELEASE_ENTITLEMENTS)" ]; then \
 		echo "--- 照合: $(RELEASE_ENTITLEMENTS)"; \
-		codesign -d --entitlements - --xml "$$app" > "$$tmp/entitlements.plist" 2>/dev/null || true; \
 		missing=""; \
 		for key in $$(plutil -p "$(RELEASE_ENTITLEMENTS)" | sed -n 's/^  "\([^"]*\)" => .*/\1/p'); do \
 			/usr/libexec/PlistBuddy -c "Print :$$key" "$$tmp/entitlements.plist" >/dev/null 2>&1 || missing="$$missing $$key"; \
 		done; \
 		if [ -n "$$missing" ]; then \
 			msg="書き出したアプリに、$(RELEASE_ENTITLEMENTS) のエンタイトルメントが載っていません:$${missing}"; \
-			hint="署名なし（ARCHIVE_SIGNING=NO）のアーカイブにはエンタイトルメントが焼かれません。アーカイブを署名ありで作ったかを確かめてください（docs/release-flow.md の「署名ありのアーカイブ」）。"; \
 			if [ "$(RELEASE_ENTITLEMENTS_CHECK)" = warn ]; then \
 				if [ "$$GITHUB_ACTIONS" = true ]; then echo "::warning title=エンタイトルメントの照合::$${msg} $${hint}"; fi; \
 				echo "warning: $${msg}"; \
@@ -307,6 +327,32 @@ export-ipa: release-auth
 			fi; \
 		else \
 			echo "OK: $(RELEASE_ENTITLEMENTS) のキーはすべて載っています。"; \
+		fi; \
+	fi; \
+	if [ -n "$(strip $(RELEASE_ENTITLEMENT_VALUES))" ]; then \
+		echo "--- 照合: 値（RELEASE_ENTITLEMENT_VALUES）"; \
+		bundle_id=$$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$$app/Info.plist" 2>/dev/null); \
+		wrong=""; \
+		for pair in $(RELEASE_ENTITLEMENT_VALUES); do \
+			key=$${pair%%=*}; \
+			expected=$$(printf '%s' "$${pair#*=}" | sed "s/@BUNDLE_ID@/$$bundle_id/"); \
+			actual=$$(/usr/libexec/PlistBuddy -c "Print :$$key" "$$tmp/entitlements.plist" 2>/dev/null | sed 's/^ *//'); \
+			printf '%s\n' "$$actual" | grep -Fqx -- "$$expected" || wrong="$$wrong $$key=$$expected"; \
+		done; \
+		if [ -n "$$wrong" ]; then \
+			msg="書き出したアプリのエンタイトルメントが、次の値になっていません:$${wrong}"; \
+			if [ "$(RELEASE_ENTITLEMENTS_CHECK)" = warn ]; then \
+				if [ "$$GITHUB_ACTIONS" = true ]; then echo "::warning title=エンタイトルメントの照合::$${msg} $${hint}"; fi; \
+				echo "warning: $${msg}"; \
+				echo "         $${hint}"; \
+				echo "         RELEASE_ENTITLEMENTS_CHECK=warn なので止めずに続けます。"; \
+			else \
+				echo "error: $${msg}"; \
+				echo "       $${hint}"; \
+				status=1; \
+			fi; \
+		else \
+			echo "OK: エンタイトルメントの値はすべて期待どおりです。"; \
 		fi; \
 	fi; \
 	rm -rf "$$tmp"; \

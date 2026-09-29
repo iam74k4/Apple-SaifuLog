@@ -113,7 +113,7 @@ App Store 向けの署名は export の段階で Xcode が用意する（自動�
 | もの | どこで | 補足 |
 |---|---|---|
 | Apple Developer Program | developer.apple.com | チーム ID は `NL9ZXK2SGR` |
-| **Bundle ID の登録** | Certificates, Identifiers & Profiles → Identifiers → **+** → App IDs | `com.iam74k4.SaifuLog`（Explicit）。Capability の **Data Protection** をオンにして **Complete Protection** を選ぶ（エンタイトルメント `default-data-protection` と揃える） |
+| **Bundle ID の登録** | Certificates, Identifiers & Profiles → Identifiers → **+** → App IDs | `com.iam74k4.SaifuLog`（Explicit）。Capability の **Data Protection** をオンにして **Complete Protection** を選ぶ（エンタイトルメント `default-data-protection` と揃える）。**iCloud**（CloudKit。コンテナ `iCloud.com.iam74k4.SaifuLog` を割り当てる）と **Push Notifications** もオンにする（iCloud 同期。下の「[Capability（iCloud など）を足すとき](#capabilityicloud-などを足すとき)」）。済み |
 | **アプリレコード** | App Store Connect → アプリ → **+** → 新規 App | プラットフォーム iOS、プライマリ言語は日本語、Bundle ID は上のもの、SKU は任意（例 `saifulog-ios`） |
 | **端末の登録（1 台以上）** | Certificates, Identifiers & Profiles → Devices | アーカイブは開発用のプロファイルで署名するので、チームに登録した端末が 1 台も無いとプロファイルを作れない。手元の Xcode でその iPhone に一度ビルドすれば自動で登録される |
 | **開発用の証明書（.p12）** | Xcode → 設定 → Accounts → Manage Certificates… | アーカイブの署名に使う Apple Development の証明書。書き出し方と年に一度の更新は「[署名ありのアーカイブ](#署名ありのアーカイブ)」 |
@@ -123,7 +123,8 @@ Bundle ID を先に登録するのは、CI の export が**自動署名でもア
 （`xcodebuild -help` の `signingStyle` の説明）。手元の Xcode で一度実機にビルドすれば
 自動で登録されるが、CI だけで回すなら先に作っておく。Data Protection も同じ理由で、export は
 アプリ ID の Capability を変えないので、先にオンにしておく（アプリは
-`project.yml` のエンタイトルメントで保存先を NSFileProtectionComplete にしている。`docs/design.md` §5-4）。
+`project.yml` のエンタイトルメントで保存先を NSFileProtectionComplete にしている。`docs/design.md` §5-4）。iCloud と
+Push Notifications も同じ理由で先にオンにしておく（エンタイトルメントに iCloud のコンテナと `aps-environment` がある）。
 
 ### 2. App Store Connect API キーを作る
 
@@ -355,8 +356,10 @@ App ID の In-App Purchase の Capability は、明示的な App ID なら最初
      （下の「[アプリアイコン](#アプリアイコンappiconappiconset)」）
 2. develop → main をマージする。release.yml の upload が走り、ビルドが App Store Connect に届く
    - アップロードの前の「送る前に書き出して確かめる（送信しない）」で、書き出したアプリに
-     エンタイトルメント（データ保護の `default-data-protection`）が載っているかを照合する。
-     アーカイブは開発用の証明書で署名してあるので、載っていれば `OK: … のキーはすべて載っています` と出る。
+     エンタイトルメント（データ保護の `default-data-protection`、iCloud のサービスとコンテナ、`aps-environment`）が
+     載っているかと、値（`aps-environment` が `production` に替わっているかなど）を照合する。
+     アーカイブは開発用の証明書で署名してあるので、合っていれば `OK: … のキーはすべて載っています` と
+     `OK: エンタイトルメントの値はすべて期待どおりです。` が出る。
      ただしこの経路はまだ一度も通していないので、照合は警告（run の Annotations）を出すだけで、
      抜けていてもアップロードは続ける。警告が出たビルドは、保存先のデータ保護が既定のクラス
      （初回のロック解除後は常に復号）のままになる
@@ -372,11 +375,14 @@ App ID の In-App Purchase の Capability は、明示的な App ID なら最初
    審査に出すポリシーの URL が「Draft」と書かれたページのままにならないようにするため
 5. 「一度だけの準備」の 5（Web の設定）と 8（App 内課金の審査用のスクリーンショットと審査メモ）を済ませる。
    プライバシーポリシーの URL には、4 で確定させた main の `PRIVACY.md` を入れる
+   - **CloudKit のスキーマを Production に出す**（「[Capability（iCloud など）を足すとき](#capabilityicloud-などを足すとき)」の
+     「CloudKit のスキーマ」）。出さないと、配信したアプリで iCloud 同期が働かない。出す前に、記録を CloudKit の暗号化フィールドに
+     するかを決める（`docs/design.md` §13。出した後は変えられない）
 6. **審査に出す前に、エンタイトルメントの照合が通ることを確かめる。** アップロード前の照合はまだ警告だけで、
    データ保護が抜けていても送ってしまう。抜けたビルドを審査に出さないための関門なので、ここが済むまで 7 に進まない
    - main で Actions → release → Run workflow → `mode=export` を走らせ、「書き出すだけ（送信しない）」が緑で
-     `OK: SaifuLog/SaifuLog.entitlements のキーはすべて載っています` と出ることを確かめる（こちらの照合は、
-     抜けていれば止まる）
+     `OK: SaifuLog/SaifuLog.entitlements のキーはすべて載っています` と `OK: エンタイトルメントの値はすべて期待どおりです。` が
+     出ることを確かめる（こちらの照合は、抜けていれば止まる）
    - 通ったら、「[照合を止める扱いに戻す](#照合を止める扱いに戻す所有者が確かめてから)」の 3 の PR
      （`RELEASE_ENTITLEMENTS_CHECK=warn` を外す）を develop → main とマージする（`ASC_AUTO_SUBMIT` が `false`
      なので、アップロードだけが走る）。7 の `mode=submit` はアーカイブからやり直すので、こうしておけば、その実行で
@@ -486,7 +492,8 @@ main へマージする前の develop のビルドを、TestFlight で自分の 
 | 端末内 AI（Foundation Models） | `available` か、使えない理由（`deviceNotEligible`・`appleIntelligenceNotEnabled`・`modelNotReady`）。日本語に対応しているか。iOS 27 なら画像を入力できるか |
 | 音声の書き起こし（SpeechTranscriber） | 使えるか、日本語のモデルが入っているか、声の入力が使っている経路（`speechTranscriber` / `dictationTranscriber` / `none`）とそのモデルの状態（`installed` / `needsReservation` / `needsDownload` / `downloading`）。`checking` は端末への問い合わせがまだ返っていないところ（ほかの行はそれを待たずに出る）。再読み込みしても `checking` のままなら、問い合わせが返らない端末として報告に添える |
 | 版・ビルド番号・OS・機種 | 不具合を報告するときに添える |
-| 記録の件数・予算の行数 | 中身ではなく数だけ。iCloud のアカウントの状態は、iCloud 同期を作るまで `not implemented` |
+| 記録の件数・予算の行数 | 中身ではなく数だけ |
+| iCloud | アカウントの状態（`available` / `noAccount` / `restricted` / `temporarilyUnavailable` / `couldNotDetermine`。`checking` は問い合わせがまだ返っていないところ）、いま開いている保存先の同期（`none` か `private(iCloud.com.iam74k4.SaifuLog)`）、設定の「iCloud で同期」（`true` / `false`）。設定が `true` なのに `none` なら、iCloud と同期する保存先を開けずに端末の中だけへ戻したところ（そのときは理由のアラートが出ている）。同期を試すときの手順は `docs/design.md` §15 |
 
 ### 知っておくこと
 
@@ -497,6 +504,8 @@ main へマージする前の develop のビルドを、TestFlight で自分の 
   CHANGELOG の先頭の見出しを次の版に上げて develop へ入れてから走らせる
 - 社内テスト専用のビルドは、あとから審査や外部テストに回せない。審査に出すビルドは、これまでどおり main へのマージで作る
 - TestFlight のビルドは 90 日で期限が切れる
+- TestFlight のビルドの iCloud 同期は、CloudKit の Production の環境を使う。スキーマを Production に出す前は同期できない
+  （「[CloudKit のスキーマ](#cloudkit-のスキーマ所有者の作業)」）
 - 診断画面は、社内テスト用のビルドと DEBUG のビルド（手元の Xcode から入れたもの）にだけある。App Store へ出すビルドには
   入らず、入っていれば release.mk が止める（「[`release.mk`](#releasemk)」）。どちらのビルドでもホームの帯に診断のボタンが
   出るので、App Store 用のスクリーンショットは Release の構成で起動して撮る（「一度だけの準備」の 5）
@@ -517,7 +526,7 @@ main へマージする前の develop のビルドを、TestFlight で自分の 
 | `make version` | いまの `MARKETING_VERSION` を表示する |
 | `make check-version` | `MARKETING_VERSION` と CHANGELOG 先頭の見出しの一致を確かめる |
 | `make archive` | Release の `.xcarchive` を `build/` に作る。`BUILD_NUMBER=…` でビルド番号を上書き。既定は署名ありで、`ARCHIVE_SIGNING=NO` で署名なし（build.yml と `make ci`）。`ARCHIVE_KEYCHAIN=…` で署名に使うキーチェーンを指定できる（release.yml が一時キーチェーンを渡す）。`INTERNAL_BUILD=YES` で社内テスト用（診断画面入り。release.yml の `mode=testflight` だけが渡す。既定は `NO`）。できたアプリの Info.plist にバージョン・ビルド番号・アイコンが入っているかと、診断画面が `INTERNAL_BUILD` のとおりに入っているか（入っていないか）を確かめる。`BUILD_NUMBER` が `CURRENT_PROJECT_VERSION`（1）と同じ値だと、上書きが届いたかを確かめられないので警告を出す |
-| `make export-ipa` | アーカイブから `.ipa` を書き出すだけ。**送信しない。** 署名とエンタイトルメントを表示し、エンタイトルメントのファイル（`RELEASE_ENTITLEMENTS`。いまは自動で見つかる `SaifuLog/SaifuLog.entitlements`）のキーがすべて載っているかを照合する。抜けていれば止まる（`RELEASE_ENTITLEMENTS_CHECK=warn` なら警告だけ出して続ける）。release.yml はアップロードの前に必ずこれを通す（いまは `warn`）。アーカイブの診断画面の有無が `INTERNAL_BUILD` と合わなければ止まる |
+| `make export-ipa` | アーカイブから `.ipa` を書き出すだけ。**送信しない。** 署名とエンタイトルメントを表示し、エンタイトルメントのファイル（`RELEASE_ENTITLEMENTS`。いまは自動で見つかる `SaifuLog/SaifuLog.entitlements`）のキーがすべて載っているかと、`RELEASE_ENTITLEMENT_VALUES` の値（データ保護が `NSFileProtectionComplete`、`aps-environment` が `production`、iCloud のサービスが `CloudKit`、コンテナが `iCloud.<Bundle ID>`）になっているかを照合する。抜けや食い違いがあれば止まる（`RELEASE_ENTITLEMENTS_CHECK=warn` なら警告だけ出して続ける）。release.yml はアップロードの前に必ずこれを通す（いまは `warn`）。アーカイブの診断画面の有無が `INTERNAL_BUILD` と合わなければ止まる |
 | `make upload` | `Config/ExportOptions.plist` で書き出し、そのまま App Store Connect へ送る。手元の端末では確認を挟む。ビルド番号はアーカイブに焼かれた値で、`BUILD_NUMBER` を渡しても変わらない（アーカイブと違う値なら止まる）。社内テスト用のアーカイブは `INTERNAL_BUILD=YES` で送り、`testFlightInternalTestingOnly` を true にした写し（`build/ExportOptions.upload.plist`）で TestFlight の社内テスト専用になる。アーカイブの診断画面の有無が `INTERNAL_BUILD` と合わなければ、送る前に止まる |
 
 開発用の `make ci`（Makefile）は、build.yml と同じ 8 つ（`make build`・`make check-strings`・`make test`・
@@ -801,21 +810,55 @@ cron の時刻は UTC。
 ### Capability（iCloud など）を足すとき
 
 release.yml はアーカイブを開発用の証明書で署名して作る（上の「[署名ありのアーカイブ](#署名ありのアーカイブ)」）ので、
-エンタイトルメントはアーカイブに焼かれ、App Store 向けの掛け直しでも引き継がれる。いまのアプリは
-データ保護（`com.apple.developer.default-data-protection = NSFileProtectionComplete`）をエンタイトルメントに
-持っている（`project.yml` の `entitlements.properties` から `make generate` が `SaifuLog/SaifuLog.entitlements` を
-書き出す）。
+エンタイトルメントはアーカイブに焼かれ、App Store 向けの掛け直しでも引き継がれる。いまのアプリのエンタイトルメント
+（`project.yml` の `entitlements.properties` から `make generate` が `SaifuLog/SaifuLog.entitlements` を書き出す）は次のとおり。
+
+| キー | 値 | 何のため |
+|---|---|---|
+| `com.apple.developer.default-data-protection` | `NSFileProtectionComplete` | 保存先のデータ保護（`docs/design.md` §5-4） |
+| `com.apple.developer.icloud-services` | `CloudKit` | iCloud 同期（`docs/design.md` §5-3） |
+| `com.apple.developer.icloud-container-identifiers` | `$(ICLOUD_CONTAINER_ID)`（`Config/Base.xcconfig`。`iCloud.com.iam74k4.SaifuLog`） | 同期に使う CloudKit のコンテナ。署名のときに Xcode が値に置き換える |
+| `aps-environment` | `development` | ほかの端末の変更の知らせ（CloudKit のサイレントプッシュ）。App Store 向けの書き出しで、配布用のプロファイルの `production` に替わる |
+
+あわせて Info.plist の `UIBackgroundModes` に `remote-notification`（`SaifuLog/Info.plist`。ビルドの設定で書けないキーだけを置く
+ファイル）を入れている。アプリが裏にいる間も、知らせを受けて取り込むため。
 
 iCloud（CloudKit）、App Groups、プッシュ通知などを足すときは、次の順で進める。
 
-1. `project.yml` の `entitlements.properties` に足し、`make generate` で `SaifuLog/SaifuLog.entitlements` を書き出す
+1. `project.yml` の `entitlements.properties` に足し、`make generate` で `SaifuLog/SaifuLog.entitlements` を書き出す。
+   値も確かめたいもの（書き出しで替わるもの、ビルドの設定から入るもの）は、`release.mk` の `RELEASE_ENTITLEMENT_VALUES` にも足す
 2. Bundle ID の設定（Identifiers）でその Capability を有効にする。export はアプリ ID の設定を変えないため
-3. main へ入れたら `mode=export` で走らせ、照合が通る（`OK: …`）ことを確かめる。main へ入れる前に、手元で
+   （iCloud と Push Notifications は所有者がオンにし、コンテナ `iCloud.com.iam74k4.SaifuLog` を割り当て済み）
+3. main へ入れたら `mode=export` で走らせ、照合が通る（`OK: …` の 2 行）ことを確かめる。main へ入れる前に、手元で
    `make archive` と `make export-ipa`（Xcode のアカウントで署名する）を通して確かめてもよい
+
+署名なしのビルド（`make build`・`make build-tests`・build.yml と `make ci` の `make archive ARCHIVE_SIGNING=NO`）は、
+エンタイトルメントを焼かないので、iCloud や Push のプロファイルが無くても通る。アプリのテストも署名なしで動かすので、
+テストのプロセスには iCloud の entitlement が無い（`CKContainer` を作ると落ちるので、テストでは CloudKit に問い合わせない）。
 
 release.yml はアップロードの前に `make export-ipa` で書き出したアプリをエンタイトルメントのファイルと照合する。
 いまは `RELEASE_ENTITLEMENTS_CHECK=warn` で警告だけ（上の「[照合を止める扱いに戻す](#照合を止める扱いに戻す所有者が確かめてから)」）。
 `mode=export` の照合は、抜けていれば止まる。
+
+#### CloudKit のスキーマ（所有者の作業）
+
+iCloud 同期は、SwiftData が記録と予算を CloudKit のレコード（`CD_Entry`・`CD_Budget`）として置く。レコードの型と項目（スキーマ）は、
+開発用の環境（Development）では、アプリが初めて書き込んだときに自動で作られる。Production の環境では自動では作られないので、
+所有者が CloudKit Console で出す。TestFlight と App Store のビルドは Production の環境を使う（Xcode から入れた Debug のビルドは
+Development）。
+
+1. **開発用の環境にスキーマを作る。** 手元の Xcode から、iCloud にサインインした実機（登録済みの端末）へ Debug のビルドを入れ、
+   設定の「iCloud で同期」をオンにして、記録を 1 件と月の予算を 1 つ入れる（どの項目にも既定値があるので、1 件で全部の項目が作られる）。
+   数分待ってから [CloudKit Console](https://icloud.developer.apple.com/) → `iCloud.com.iam74k4.SaifuLog` → Development →
+   Schema → Record Types に `CD_Entry` と `CD_Budget` があり、`CD_amount`・`CD_memo` などの項目が並んでいるかを確かめる
+   - 項目の名前と型を間違えて作ったときは、Development の環境をリセットしてから（Console の Reset Environment。開発用の記録も消える）
+     作り直す。Production に出した後はリセットできない
+2. **暗号化フィールドにするかを決める**（`docs/design.md` §13）。決めたら、その形で 1 を済ませる（Production に出した後は変えられない）
+3. **Production に出す。** CloudKit Console → Deploy Schema Changes で、Development のスキーマを Production に反映する。
+   初回リリースの審査の前に済ませる（「[初回リリース（0.1.0）の進め方](#初回リリース010の進め方)」の 5）。TestFlight
+   （`mode=testflight`）で同期を試すのも、これを済ませてから
+4. モデルに項目を足したら（既定値つき。`docs/design.md` §5-2）、1 と 3 をやり直す。Production のスキーマは足すことしかできないので、
+   項目の名前や型の変更・削除はしない（アプリのテスト `ModelContainerFactoryTests` で今の項目が残っていることを確かめている）
 
 ### exportArchive の upload が失敗したら
 
@@ -843,7 +886,8 @@ release.yml はアップロードの前に `make export-ipa` で書き出した�
 - `scripts/test-storekit.sh` — 購入のテストを動かし、飛ばされたものがあれば失敗にする（`make test-storekit`）
 - `scripts/prepare-storekit-simulator.sh` — 購入のテストに使う版のシミュレータを用意する（ランタイムが無ければ入れる。build.yml）
 - `release.mk` — `make version` / `check-version` / `archive` / `export-ipa` / `upload`
-- `project.yml` — エンタイトルメント（データ保護）の正。`SaifuLog/SaifuLog.entitlements` はここから生成する
+- `project.yml` — エンタイトルメント（データ保護・iCloud・aps-environment）の正。`SaifuLog/SaifuLog.entitlements` はここから生成する。
+  ビルドの設定で書けない Info.plist のキー（`UIBackgroundModes`）は `SaifuLog/Info.plist`
 - `Config/ExportOptions.plist` — 書き出しと送信の設定（`mode=testflight` のときは、release.mk が社内テスト専用にした写しを使う）
 - `SaifuLog/Diagnostics/` — 社内テスト用のビルド（`mode=testflight`）と DEBUG のビルドにだけ入る診断画面
 - `Config/Base.xcconfig` — バージョンの正（`MARKETING_VERSION`）

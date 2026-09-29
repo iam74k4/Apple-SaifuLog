@@ -14,28 +14,45 @@ struct StoreHostTests {
         var protectedDataAvailable = true
         /// 次に開くときに投げるエラー（先頭から順に使う）。
         var failures: [any Error] = []
+        /// この iCloud の扱いで開こうとしたら、いつも投げるエラー（iCloud と同期する保存先だけ開けない、などに使う）。
+        var failuresByDatabase: [ModelContainerFactory.CloudKitDatabase: any Error] = [:]
         /// 次に開くときに、開いている途中でロックされたことにする。
         var locksDuringNextOpen = false
+        /// 次にこの iCloud の扱いで開くときに、開いている途中でロックされたことにする（一度だけ）。
+        var locksDuringNextOpenOf: ModelContainerFactory.CloudKitDatabase?
         private(set) var openedWith: [ModelContainerFactory.CloudKitDatabase] = []
         /// VoiceOver に読み上げさせた文。
         private(set) var announcements: [String] = []
 
         func open(_ cloudKitDatabase: ModelContainerFactory.CloudKitDatabase) throws -> ModelContainer {
             openedWith.append(cloudKitDatabase)
-            if locksDuringNextOpen {
+            if locksDuringNextOpen || locksDuringNextOpenOf == cloudKitDatabase {
                 locksDuringNextOpen = false
+                locksDuringNextOpenOf = nil
                 protectedDataAvailable = false
                 throw TestError()
             }
+            if let failure = failuresByDatabase[cloudKitDatabase] { throw failure }
             if !failures.isEmpty { throw failures.removeFirst() }
+            // iCloud と同期する保存先も、テストではメモリの上に開く（署名なしのテストのプロセスは iCloud の
+            // entitlement を持たず、本物の CloudKit にはつながらない）。
             return try ModelContainerFactory.makeInMemoryContainer()
         }
 
-        func makeHost() -> StoreHost {
+        /// - Parameters:
+        ///   - cloudKitDatabase: 最初に開く保存先の iCloud の扱い。
+        ///   - defaults: 設定の置き場所（iCloud 同期の切り替えを書く）。iCloud 同期を切り替えるテストは、使い捨ての領域を渡す。
+        func makeHost(
+            cloudKitDatabase: ModelContainerFactory.CloudKitDatabase = .none, defaults: UserDefaults = .standard,
+            contentRemovalTimeout: Duration = .seconds(3)
+        ) -> StoreHost {
             StoreHost(
+                cloudKitDatabase: cloudKitDatabase,
+                defaults: defaults,
                 openContainer: { try self.open($0) },
                 isProtectedDataAvailable: { self.protectedDataAvailable },
-                announce: { self.announcements.append($0) }
+                announce: { self.announcements.append($0) },
+                contentRemovalTimeout: contentRemovalTimeout
             )
         }
     }
@@ -313,5 +330,62 @@ struct StoreHostTests {
 
         #expect(Self.container(of: host) != nil)
         #expect(store.openedWith.count == 2)
+    }
+
+    /// 開き直しの画面が出ても、前の保存先の画面がまだ消えていなければ（アラートを閉じる動きの途中など）、消えるまで
+    /// 新しい保存先を開かない（前の画面のモデルが前の保存先を使ったまま、同じファイルを開かないように）。
+    @Test func reopenWaitsForPreviousContentToDisappear() async throws {
+        let store = FakeStore()
+        let host = store.makeHost()
+        host.start()
+        host.contentDidAppear()
+
+        host.reopen(cloudKitDatabase: .none)
+        let reopening = Task { await host.finishReopening() }
+        for _ in 0..<20 { await Task.yield() }
+        #expect(Self.isReopening(host))
+        #expect(store.openedWith.count == 1)
+
+        host.contentDidDisappear()
+        await reopening.value
+
+        #expect(Self.container(of: host) != nil)
+        #expect(store.openedWith.count == 2)
+    }
+
+    /// 前の画面が消えた知らせが来なくても、上限を過ぎたら開く（読み込み中の画面で止まり続けない）。
+    @Test func reopenStopsWaitingForContentAfterTimeout() async throws {
+        let store = FakeStore()
+        let host = store.makeHost(contentRemovalTimeout: .milliseconds(50))
+        host.start()
+        host.contentDidAppear()
+
+        host.reopen(cloudKitDatabase: .none)
+        await host.finishReopening()
+
+        #expect(Self.container(of: host) != nil)
+        #expect(store.openedWith.count == 2)
+    }
+
+    /// 前の画面がもう消えていれば待たない。新しい保存先の画面が出たら、次の開き直しでまた待つ。
+    @Test func reopenDoesNotWaitWhenContentIsAlreadyGone() async throws {
+        let store = FakeStore()
+        let host = store.makeHost(contentRemovalTimeout: .seconds(60))
+        host.start()
+        host.contentDidAppear()
+        host.contentDidDisappear()
+
+        host.reopen(cloudKitDatabase: .none)
+        await host.finishReopening()
+        #expect(store.openedWith.count == 2)
+
+        host.contentDidAppear()
+        host.reopen(cloudKitDatabase: .none)
+        let reopening = Task { await host.finishReopening() }
+        for _ in 0..<20 { await Task.yield() }
+        #expect(store.openedWith.count == 2)
+        host.contentDidDisappear()
+        await reopening.value
+        #expect(store.openedWith.count == 3)
     }
 }
