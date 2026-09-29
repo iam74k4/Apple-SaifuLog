@@ -44,6 +44,15 @@ targets:
     # ロック中は保存先を開けないので、ウィジェット・App Intents・バックグラウンドの処理がロック中に記録を
     # 読み書きする必要が出たら、NSFileProtectionCompleteUnlessOpen に下げるかを見直す（docs/design.md）。
     #
+    # icloud-container-identifiers / icloud-services: iCloud 同期（利用者が設定で選ぶ。既定はオフ）で、記録と予算を
+    # 利用者自身の iCloud の私用データベース（CloudKit）に置く。コンテナの ID は Config/Base.xcconfig の
+    # ICLOUD_CONTAINER_ID から取る（ID を二か所に書かない。署名のときに Xcode が値に置き換える）。entitlement が
+    # あっても、同期するのは設定でオンにしたときだけ（保存先は ModelContainerFactory が cloudKitDatabase を明示して開く）。
+    #
+    # aps-environment: ほかの端末での変更を、CloudKit の知らせ（サイレントプッシュ）で受け取るため。通知を画面に出す
+    # ためのものではない（通知の許可は求めない）。ここは development のままでよい。App Store 向けの書き出しで、
+    # 配布用のプロファイルの production に替わる（make export-ipa が production になっているかを照合する）。
+    #
     # エンタイトルメントは署名ありのアーカイブにしか焼かれない。release.yml は開発用の証明書を取り込んで
     # 署名ありでアーカイブする（build.yml と make ci は署名なし）。ここに足したものが提出物に載っているかは
     # make export-ipa の照合（CI は release.yml の mode=export）で確かめる（docs/release-flow.md の
@@ -52,6 +61,11 @@ targets:
       path: SaifuLog/SaifuLog.entitlements
       properties:
         com.apple.developer.default-data-protection: NSFileProtectionComplete
+        com.apple.developer.icloud-container-identifiers:
+          - $(ICLOUD_CONTAINER_ID)
+        com.apple.developer.icloud-services:
+          - CloudKit
+        aps-environment: development
     # FoundationModels / SwiftData は import するだけで自動でリンクされるので、sdk: の指定は要らない。
     settings:
       base:
@@ -74,6 +88,12 @@ targets:
         # 書き起こしは SpeechAnalyzer（端末の中）で、声を Apple のサーバーへ送らないので、音声認識の利用目的
         # （NSSpeechRecognitionUsageDescription。SFSpeechRecognizer の許可のためのもの）は要らない（docs/design.md §9 の声の入力の決め事）。
         INFOPLIST_KEY_NSMicrophoneUsageDescription: 声で記録するためにマイクを使います。声は端末の中で文字にし、保存も送信もしません。
+        # Info.plist のうち、ビルドの設定（INFOPLIST_KEY_…）で書けないものだけを置くファイル。ほかのキーは上の設定から
+        # Xcode が作り（GENERATE_INFOPLIST_FILE）、このファイルと合わせる。いまは UIBackgroundModes の remote-notification
+        # だけ（INFOPLIST_KEY_UIBackgroundModes は Xcode 27 でも Info.plist に入らなかった）。iCloud 同期
+        # （SwiftData + CloudKit）が、ほかの端末での変更の知らせ（サイレントプッシュ）を、アプリが裏にいる間にも受け取って
+        # 取り込むため。同期がオフのときは何も届かない（CloudKit の購読を作らない）。
+        INFOPLIST_FILE: SaifuLog/Info.plist
         # 独自の暗号化は使っていない（使うとしても OS 標準のものだけ）。宣言しておくと、
         # 提出のたびに App Store Connect で輸出規制の質問に答えずに済む。
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO

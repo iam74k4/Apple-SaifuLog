@@ -3,9 +3,12 @@
 ORG_PREFIX = com.iam74k4
 APP_BUNDLE_ID = $(ORG_PREFIX).SaifuLog
 
-// 将来のウィジェット / App Intents / iCloud 同期用。いまはどのターゲットも使っていない。
+// 将来のウィジェット / App Intents 用。いまはどのターゲットも使っていない。
 // 使い始めるときは、ここの値を entitlements から参照する（ID を二か所に書かない）。
 APP_GROUP_ID = group.$(APP_BUNDLE_ID)
+// iCloud 同期の CloudKit のコンテナ。project.yml のエンタイトルメント（icloud-container-identifiers）が参照する。
+// Swift からはビルドの設定を読めないので、アプリは同じ決まり（「iCloud.」と Bundle ID）で組み立てる
+// （ModelContainerFactory.iCloudContainerIdentifier）。決まりを変えるときは両方を直す。
 ICLOUD_CONTAINER_ID = iCloud.$(APP_BUNDLE_ID)
 
 // バージョンの正はここだけ。CHANGELOG.md の先頭の「## [X.Y.Z]」と一致させる
