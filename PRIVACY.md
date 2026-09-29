@@ -92,11 +92,20 @@ iOS の文字認識（Vision）でお使いの iPhone の上で読みます。Ap
 カメラへのアクセスは、利用者が「撮る」を選んだときにだけ iOS が許可を求めます。写真から選ぶときは、iOS の写真の選択の画面（アプリの外で動きます）を
 使うため、写真のライブラリへのアクセスの許可は求めず、本アプリは利用者が選んだ 1 枚だけを受け取ります。
 
-### 声での記録（予定の機能）
+### 声での入力
 
-声で記録する機能を提供する場合は、iOS の端末内の音声認識を用いる予定です。音声を
-録音して保存したり、開発者へ送信したりはしません。マイクへのアクセスは、利用者が
-この機能を使うときにだけ求めます。
+入力欄のマイクのボタンを押して話すと、話した内容を iOS の音声の書き起こし（Speech フレームワークの SpeechAnalyzer）で
+お使いの iPhone の上で文字にし、入力欄に入れます。**声を録音してファイルに残すことはなく、声や書き起こした文を開発者へも
+Apple のサーバーへも送信しません**（この書き起こしは端末の中で行われ、声を Apple のサーバーへ送りません）。声は書き起こしの
+間だけアプリのメモリの中で扱います。書き起こした文は入力欄に入れるだけで、利用者が送信ボタンを押したときだけ、ほかの入力と
+同じく記録や質問として扱います（記録になった文は、上の「入力した家計の記録」と同じく保存します）。
+
+マイクへのアクセスは、利用者がマイクのボタンを初めて押したときにだけ iOS が許可を求めます。許可はいつでも iPhone の設定で
+変えられます。
+
+書き起こしに使う日本語のモデルがお使いの iPhone に無いときは、確認のうえで Apple のサーバーからダウンロードします（モデルは
+iOS が管理し、ほかのアプリと共有されます）。このダウンロードに声や記録は含まれません。モバイル回線かどうかの確認のために
+回線の種類をアプリの中で調べますが、その結果を保存したり送信したりはしません。
 
 ### CSV 書き出し
 
@@ -270,11 +279,23 @@ numbers, addresses, partial card numbers, staff names, and other details printed
 iOS asks for access to the camera only when you choose Take Photo. When you choose from Photos, the app uses the iOS photo picker
 (which runs outside the app), so it does not ask for access to your photo library and receives only the one photo you choose.
 
-### Voice Entry (Planned Feature)
+### Voice Input
 
-If voice entry is offered, it is planned to use the on-device speech recognition of iOS.
-Your voice is never recorded for storage and never sent to the developer. Access to the
-microphone will be requested only when you use this feature.
+When you tap the microphone button in the input field and speak, the app transcribes what you say on your iPhone using the
+iOS speech transcription (SpeechAnalyzer in the Speech framework) and puts the text in the input field. **Your voice is never
+recorded to a file, and neither your voice nor the transcribed text is ever sent to the developer or to Apple's servers** (this
+transcription runs on the device and does not send your voice to Apple's servers). Your voice is handled only in the app's
+memory while it is being transcribed. The transcribed text only goes into the input field; it is treated as a record or a
+question, like any other entry, only when you tap Send (text that becomes a record is stored as described in Your Records
+above).
+
+iOS asks for access to the microphone only the first time you tap the microphone button. You can change this at any time in
+your iPhone's Settings.
+
+If the Japanese model used for transcription is not on your iPhone, the app downloads it from Apple's servers after asking you
+(the model is managed by iOS and shared with other apps). This download does not include your voice or your records. To tell
+whether you are on cellular data, the app checks the type of network connection on the device; the result is neither stored nor
+sent.
 
 ### CSV Export
 
