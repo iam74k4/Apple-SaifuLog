@@ -47,4 +47,17 @@ struct LocalizationTests {
             #expect(value == en(key))
         }
     }
+
+    /// 許可を求める API は、Info.plist に利用目的が無いとアプリを落とす。マイク（声の入力）とカメラ（レシート）の利用目的が、
+    /// 開発言語の既定値（project.yml）と英語の訳（InfoPlist.xcstrings）の両方に入っていることを確かめる。
+    @Test("マイクとカメラの利用目的が Info.plist にあり、英語にも訳してある", arguments: [
+        "NSMicrophoneUsageDescription", "NSCameraUsageDescription",
+    ])
+    func usageDescriptions(key: String) throws {
+        let value = try #require(Bundle.main.object(forInfoDictionaryKey: key) as? String)
+        #expect(!value.isEmpty)
+        let english = try Self.bundle(for: "en").localizedString(forKey: key, value: nil, table: "InfoPlist")
+        #expect(english != key)
+        #expect(english.contains("never saved or sent"))
+    }
 }

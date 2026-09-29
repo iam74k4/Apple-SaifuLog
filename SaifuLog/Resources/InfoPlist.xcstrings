@@ -36,6 +36,24 @@
           }
         }
       }
+    },
+    "NSMicrophoneUsageDescription" : {
+      "comment" : "マイクの利用の許可を求める画面の説明。ホームの入力欄のマイクのボタン（声の入力）で使う",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SaifuLog uses the microphone so you can record by voice. Your voice is transcribed on your iPhone and is never saved or sent."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "声で記録するためにマイクを使います。声は端末の中で文字にし、保存も送信もしません。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

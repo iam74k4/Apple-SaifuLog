@@ -4,7 +4,7 @@ import SaifuLogCore
 import SwiftData
 import SwiftUI
 
-/// ホームの状態と操作（送信・家計への質問・レシートの読み取り・取り消し・直す・削除・予算を決める画面と月のまとめと設定と
+/// ホームの状態と操作（送信・家計への質問・レシートの読み取り・声の入力・取り消し・直す・削除・予算を決める画面と月のまとめと設定と
 /// プレミアムの出し入れ・先週のふりかえりのカード）。
 ///
 /// 画面（`HomeView`）から切り離し、解析器・時計・読み上げを差し替えて SaifuLogTests で確かめられるようにしている。
@@ -16,7 +16,14 @@ final class HomeModel {
     static let timelinePageSize = 200
 
     /// 入力欄の文。
-    var draft = ""
+    var draft = "" {
+        didSet {
+            // 入力欄を空にしたら（送った・消した）、声で入れた文ではなくなる。
+            if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { draftSource = .text }
+        }
+    }
+    /// 入力欄の文をどこから入れたか。声で入れた文（打ち直したものも含む）を送ったら、記録の入力元を「声」にする。
+    private(set) var draftSource: EntrySource = .text
     /// 送った文を読み取っている間（送信ボタンを押せなくし、読み取り中の印を出す）。
     private(set) var isParsing = false
     /// 直前に記録したもの。記録の直後に「取り消す」を出すため。
@@ -62,6 +69,8 @@ final class HomeModel {
     var receiptResult: ReceiptResultModel?
     /// この端末で書類カメラを使えるか（使えなければ「撮る」を出さない）。
     let canUseDocumentCamera: Bool
+    /// 声の入力（マイクのボタン）。書き起こした文は入力欄へ入れるだけで、送らない（送信は利用者が押したときだけ）。
+    let voice: VoiceInputModel
 
     @ObservationIgnored private let store: EntryStore
     @ObservationIgnored private let budgetStore: BudgetStore
@@ -97,6 +106,7 @@ final class HomeModel {
     ///   - makeRemarkWriter: ふりかえり（先週のふりかえり・月のまとめ）の AI の一言を書くもの。AI が使えなければ nil。テストで差し替える。
     ///   - receiptReader: レシートの画像の読み取り（文字認識と AI）。テストで決めた文字や偽物の AI に差し替える。
     ///   - canUseDocumentCamera: 書類カメラを使えるか。テストで決める。
+    ///   - voice: 声の入力。渡さなければ端末の書き起こし（SpeechAnalyzer）とマイクを使う。テストで書き起こしを差し替えたものを渡す。
     ///   - now: 記録の日時と「今日」の基準。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     init(
@@ -111,6 +121,7 @@ final class HomeModel {
         makeRemarkWriter: @escaping () -> (any RecapRemarkWriting)? = { RecapRemarkWriterFactory.makeWriter() },
         receiptReader: ReceiptReader = ReceiptReader(),
         canUseDocumentCamera: Bool = DocumentCameraView.isSupported,
+        voice: VoiceInputModel? = nil,
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
     ) {
@@ -125,13 +136,23 @@ final class HomeModel {
         self.makeRemarkWriter = makeRemarkWriter
         self.receiptReader = receiptReader
         self.canUseDocumentCamera = canUseDocumentCamera
+        self.voice = voice ?? VoiceInputModel()
         self.now = now
         self.announce = announce
         self.today = now()
+        self.voice.insertTranscript = { [weak self] text in self?.insertTranscript(text) }
+        self.voice.isCoveredByOtherScreen = { [weak self] in self?.isPresentingOtherScreen ?? false }
     }
 
     convenience init(context: ModelContext, pendingWrites: PendingStoreWrites = PendingStoreWrites(), purchases: PurchaseManager) {
         self.init(store: EntryStore(context: context), pendingWrites: pendingWrites, purchases: purchases)
+    }
+
+    /// ホームの上にほかの画面・シート・確認を出しているか。出している間は、体験の終わりの案内を重ねず、声の入力を止める
+    /// （見えない入力欄に向けて聞き続けないように）。
+    var isPresentingOtherScreen: Bool {
+        budgetSetup != nil || editing != nil || monthlyReport != nil || settings != nil || premiumSheet != nil
+            || weeklyRecapDetail != nil || receiptResult != nil || receiptCapture != nil || showsReceiptSourceChoice
     }
 
     /// 直前の記録を取り消せるか（「取り消す」のバナーと入力欄の VoiceOver の操作を出すか）。
@@ -163,6 +184,8 @@ final class HomeModel {
         // 保存のときに時計を読み直すと、読み取りを待つ間に日付が変わったとき（23:59:59 に送って 0:00:01 に保存）、
         // 「9/26」と書いた記録が 1 日ずれて保存されるため。質問も、この日時で期間を区切る。
         let sentAt = now()
+        // 入力欄を空ける前に、どこから入れた文かを取っておく（空けると `draftSource` は text に戻る）。
+        let source = draftSource
         // 送った時点で入力欄を空ける。解析（AI だと 1 秒以上かかることがある）を待ってから空けると、
         // 入力欄にとどまって打ち始めた次の入力まで、黙って消してしまうため。
         draft = ""
@@ -172,20 +195,22 @@ final class HomeModel {
         justRecorded = []
         switch InputIntentClassifier.classify(text, now: sentAt, calendar: calendar) {
         case .record:
-            return record(text, sentAt: sentAt, calendar: calendar)
+            return record(text, source: source, sentAt: sentAt, calendar: calendar)
         case .question:
-            return ask(text, sentAt: sentAt, calendar: calendar)
+            return ask(text, source: source, sentAt: sentAt, calendar: calendar)
         case .unclear:
             // 記録にはしない。書き直して送り直せるよう、送った文を入力欄に戻す。
             appendQuestion(text, askedAt: sentAt, state: .unclear)
-            restoreDraft(text)
+            restoreDraft(text, source: source)
             announce(String(localized: "記録か質問か分かりませんでした"))
             return Task {}
         }
     }
 
     /// 記録として読み取って保存する。
-    private func record(_ text: String, sentAt: Date, calendar: Calendar) -> Task<Void, Never> {
+    ///
+    /// - Parameter source: 送った文をどこから入れたか（声で入れた文なら、記録の入力元を「声」にする）。
+    private func record(_ text: String, source: EntrySource, sentAt: Date, calendar: Calendar) -> Task<Void, Never> {
         isParsing = true
         let parser = makeParser(sentAt, calendar)
         // 解析の間に保存先が開き直されないよう、Task を作る前に数える（Task は画面のツリーを畳んだ後も動き続け、
@@ -199,16 +224,16 @@ final class HomeModel {
             let parsed = (try? await parser.parse(text)) ?? []
             guard !parsed.isEmpty else {
                 // 送った文を入力欄に戻し、その場で直せるようにする。
-                restoreDraft(text)
+                restoreDraft(text, source: source)
                 showsNoAmountAlert = true
                 return
             }
-            let recorded = Entry.records(from: parsed, originalText: text, source: .text, now: sentAt, calendar: calendar)
+            let recorded = Entry.records(from: parsed, originalText: text, source: source, now: sentAt, calendar: calendar)
             do {
                 try store.insert(recorded)
             } catch {
                 // 保存できなかった。記録したことにはせず、送った文を戻して送り直せるようにする。
-                restoreDraft(text)
+                restoreDraft(text, source: source)
                 storeFailure = .record
                 return
             }
@@ -224,14 +249,14 @@ final class HomeModel {
     /// 無料の回数（月 10 回）を使い切っていれば、答えずにプレミアムの案内を出す（記録は無料で無制限のまま）。数えるのは
     /// 答えを出せたときだけ（読めなかった質問・失敗は数えない）。プレミアムと体験中は数えない（`UsageQuota`）。
     /// 保存先には書き込まない（読むだけ）ので、`pendingWrites` には数えない。
-    private func ask(_ text: String, sentAt: Date, calendar: Calendar) -> Task<Void, Never> {
+    private func ask(_ text: String, source: EntrySource, sentAt: Date, calendar: Calendar) -> Task<Void, Never> {
         let id = appendQuestion(text, askedAt: sentAt, state: .answering)
         let ledger: QuestionLedger
         do {
             ledger = try QuestionLedger.load(from: store.context, now: sentAt, calendar: calendar)
         } catch {
             setQuestionState(.loadFailed, for: id)
-            restoreDraft(text)
+            restoreDraft(text, source: source)
             announce(String(localized: "記録を読み込めませんでした"))
             return Task {}
         }
@@ -247,7 +272,7 @@ final class HomeModel {
             guard quotaStore.allowance(for: .question, status: purchases.status, calendar: calendar).canUse else {
                 setQuestionState(.limitReached, for: id)
                 // プレミアムを買ったあとに送り直せるよう、送った文を入力欄に戻す。
-                restoreDraft(text)
+                restoreDraft(text, source: source)
                 announce(String(localized: "今月の無料の質問を使い切りました"))
                 return
             }
@@ -266,7 +291,7 @@ final class HomeModel {
             case .unreadable:
                 setQuestionState(.unreadable, for: id)
                 // 書き直して送り直せるよう、送った文を入力欄に戻す（記録の「金額が見つかりませんでした」と同じ）。
-                restoreDraft(text)
+                restoreDraft(text, source: source)
                 announce(String(localized: "質問を読めませんでした"))
             }
         }
@@ -296,8 +321,25 @@ final class HomeModel {
     }
 
     /// 送った文を入力欄に戻す。ただし解析の間に次の入力を打ち始めていたら、そちらを上書きしない。
-    private func restoreDraft(_ text: String) {
-        if draft.isEmpty { draft = text }
+    ///
+    /// - Parameter source: 戻す文をどこから入れたか（声で入れた文を戻したら、送り直したときも入力元を「声」にする）。
+    private func restoreDraft(_ text: String, source: EntrySource = .text) {
+        guard draft.isEmpty else { return }
+        draft = text
+        if !text.isEmpty { draftSource = source }
+    }
+
+    // MARK: - 声の入力
+
+    /// 書き起こした文を入力欄へ入れる（打ちかけの文があれば、その後ろに足す）。送信はしない。
+    ///
+    /// 書き起こしは読み違えることがあるので、利用者が入力欄で見て直してから送信ボタンを押したときだけ、記録や質問として扱う。
+    /// 声の入力は無料で、回数も数えない（記録と同じく、いちばん使う入力の方法に上限を付けないため。docs/design.md §6）。
+    private func insertTranscript(_ text: String) {
+        let updated = VoiceTranscript.draft(appending: text, to: draft)
+        guard updated != draft else { return }
+        draft = updated
+        draftSource = .voice
     }
 
     /// 何円をどのカテゴリに記録したかを VoiceOver に読み上げさせる。
@@ -484,6 +526,7 @@ final class HomeModel {
         let items = targets.map { "\($0.kindText) \(YenFormatter.string(from: $0.amount))" }
         let originalText = targets.first?.originalText ?? ""
         let isReceipt = targets.allSatisfy { $0.source == .receipt }
+        let restoredSource: EntrySource = targets.allSatisfy { $0.source == .voice } ? .voice : .text
         let ids = targets.map(\.persistentModelID)
         do {
             try store.delete(targets)
@@ -497,7 +540,7 @@ final class HomeModel {
             quotaStore.refundUse(of: .receiptScan, month: charge.month)
         }
         receiptQuotaCharge = nil
-        if !isReceipt { restoreDraft(originalText) }
+        if !isReceipt { restoreDraft(originalText, source: restoredSource) }
         announce(String(localized: "取り消しました: \(items.formatted(.list(type: .and)))"))
     }
 
@@ -617,8 +660,9 @@ final class HomeModel {
     func presentPremiumIfTrialEnded() {
         guard purchases.hasLoadedPurchases, case .trialEnded = purchases.status else { return }
         guard !defaults.bool(for: AppSettings.hasShownTrialEndedPremium) else { return }
-        guard budgetSetup == nil, editing == nil, monthlyReport == nil, settings == nil, premiumSheet == nil,
-              weeklyRecapDetail == nil, receiptResult == nil, receiptCapture == nil, !showsReceiptSourceChoice
+        // 声の入力の間とその案内を出している間も出さない（話している途中を遮らないため）。マイクの許可の確認（iOS の確認）を
+        // 出している間も待機ではないので出さない（許可された後に、このシートの下でマイクを開かないように）。
+        guard !isPresentingOtherScreen, voice.phase == .idle, !voice.showsPermissionAlert, voice.downloadConfirmation == nil
         else { return }
         premiumSheet = PremiumSheetModel(purchases: purchases, announce: announce)
         defaults.set(true, for: AppSettings.hasShownTrialEndedPremium)
