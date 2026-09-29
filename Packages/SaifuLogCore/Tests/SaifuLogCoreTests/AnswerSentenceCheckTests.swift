@@ -139,6 +139,22 @@ struct AnswerSentenceCheckTests {
         #expect(!AnswerSentenceCheck.accepts("今月は赤字です。", facts: facts))
     }
 
+    @Test("週の数は、別の数え方（割・人・か月・位など）と分けて比べる")
+    func weeksAreSeparateFromOtherCounters() {
+        #expect(AnswerSentenceCheck.numbers(in: "1週間")[.weeks] == [1])
+        #expect(AnswerSentenceCheck.numbers(in: "一週間")[.weeks] == [1])
+        #expect(AnswerSentenceCheck.numbers(in: "2週続けて")[.weeks] == [2])
+        #expect(AnswerSentenceCheck.numbers(in: "1割")[.other] == [1])
+        #expect(AnswerSentenceCheck.numbers(in: "1週間")[.other].isEmpty)
+
+        // 結果の文に「1週間」があっても、ほかの数え方の 1 は確かめられないので使わない。
+        let facts = "期間: 先週の1週間\n支出の合計: ¥3,200（支出の記録 5件）"
+        #expect(AnswerSentenceCheck.accepts("この一週間で¥3,200でした。", facts: facts))
+        for sentence in ["1割でした。", "一人で頑張りました。", "1か月続きました。", "1位はカフェです。", "2週続けて減りました。"] {
+            #expect(!AnswerSentenceCheck.accepts(sentence, facts: facts), "\(sentence)")
+        }
+    }
+
     @Test("空の文と長すぎる文は使わない")
     func rejectsEmptyOrLong() {
         #expect(!AnswerSentenceCheck.accepts("", facts: Self.cafeFacts))

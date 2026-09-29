@@ -19,6 +19,7 @@ struct AppSettingsTests {
         #expect(AppSettings.questionQuota.key == "quota.question")
         #expect(AppSettings.quota(for: .receiptScan).key == "quota.receiptScan")
         #expect(AppSettings.quota(for: .question).key == "quota.question")
+        #expect(AppSettings.weeklyRecapShownAt.key == "weeklyRecap.shownAt")
     }
 
     /// 初回の案内はまだ終えていない、iCloud 同期はオフ（利用者が選んだときだけ同期する）、週の始まりは端末の設定に
@@ -30,6 +31,25 @@ struct AppSettingsTests {
         #expect(AppSettings.hasShownTrialEndedPremium.defaultValue == false)
         #expect(AppSettings.receiptScanQuota.defaultValue == UsageQuota())
         #expect(AppSettings.questionQuota.defaultValue == UsageQuota())
+        #expect(AppSettings.weeklyRecapShownAt.defaultValue == nil)
+    }
+
+    /// 日時の設定（先週のふりかえりを出した日時）は、書いた日時で読み、nil で消し、日時でない値は既定値（nil）で読む。
+    @Test func readsDateSetting() throws {
+        let suiteName = "AppSettingsTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        #expect(defaults.date(for: AppSettings.weeklyRecapShownAt) == nil)
+
+        defaults.set(TestSupport.now, for: AppSettings.weeklyRecapShownAt)
+        #expect(defaults.date(for: AppSettings.weeklyRecapShownAt) == TestSupport.now)
+
+        defaults.set(nil, for: AppSettings.weeklyRecapShownAt)
+        #expect(defaults.object(forKey: "weeklyRecap.shownAt") == nil)
+
+        defaults.set("broken", forKey: "weeklyRecap.shownAt")
+        #expect(defaults.date(for: AppSettings.weeklyRecapShownAt) == nil)
     }
 
     /// 形のある設定（無料で使った回数）は JSON で書き、読めない値は既定値で読む。

@@ -31,6 +31,8 @@ final class MonthlyReportModel {
     var selectedCategory: EntryCategory?
     /// 「直す」のシートで直している記録の状態と操作。シートを閉じると画面が nil に戻す。
     var editing: EditEntryModel?
+    /// まとめの先頭に添える AI の一言（プレミアムと体験中で、AI が使える端末だけ）。
+    let remark: RecapRemarkModel
 
     /// 月の区切りと日付の書き方の暦（ホームの画面の暦）。
     let calendar: Calendar
@@ -45,6 +47,7 @@ final class MonthlyReportModel {
     ///   - calendar: 月の区切りの暦。ホームと同じ暦を渡す（ホームの今月の合計と同じ月でまとめるため）。
     ///   - month: 開く月に入る日時（質問の回答カードから先月を開くときなど）。nil なら今月。今月より先の月は今月にする
     ///     （月送りで今月より先へ進めないのと同じ）。
+    ///   - remark: AI の一言の状態と書かせ方。渡さなければ一言を添えない（無料と同じ）。
     ///   - now: 今日の基準。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     ///   - didSave: ここから開いた「直す」で保存できたあとに呼ぶ（ホームが「取り消す」を片づける）。
@@ -53,6 +56,7 @@ final class MonthlyReportModel {
         store: EntryStore,
         calendar: Calendar,
         month anchor: Date? = nil,
+        remark: RecapRemarkModel? = nil,
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
         didSave: @escaping @MainActor (Entry) -> Void = { _ in },
@@ -65,6 +69,7 @@ final class MonthlyReportModel {
         self.announce = announce
         self.didSave = didSave
         self.didDelete = didDelete
+        self.remark = remark ?? RecapRemarkModel(purchases: nil)
         self.today = today
         // 暦で月を区切れないことは実際には無いが、そのときは数字を出さない（report が nil のまま）。
         self.month = ReportPeriod.thisMonth.interval(now: min(anchor ?? today, today), calendar: calendar)
@@ -137,10 +142,13 @@ final class MonthlyReportModel {
             let month = month
             monthEntries = records.filter { $0.spentAt >= month.start && $0.spentAt < month.end }
             loadFailed = false
+            // 数字の文が変わったときだけ書き直す（同じ月を読み直すたびに AI を呼ばない）。
+            remark.update(facts: report.flatMap { RecapFacts.text(for: $0, calendar: calendar) })
         } catch {
             report = nil
             monthEntries = []
             loadFailed = true
+            remark.update(facts: nil)
         }
     }
 
@@ -184,6 +192,21 @@ final class MonthlyReportModel {
                 self?.didDelete(id)
             }
         )
+    }
+}
+
+/// カテゴリの記録の一覧（`CategoryEntriesView`）に、この月の記録を出す。
+extension MonthlyReportModel: CategoryEntriesSource {
+    var periodTitle: String {
+        monthTitle
+    }
+
+    var emptyEntriesText: LocalizedStringResource {
+        "この月の記録はありません"
+    }
+
+    func breakdownItem(for category: EntryCategory) -> CategoryBreakdown.Item? {
+        report?.breakdown.item(for: category)
     }
 }
 

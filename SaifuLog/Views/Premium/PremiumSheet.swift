@@ -309,15 +309,16 @@ enum PremiumFeature: CaseIterable, Identifiable {
     case receiptScan
     case question
     case categoryBudget
-    case weeklyRecapAI
+    /// 先週のふりかえりと月のまとめの AI の一言。
+    case recapAI
 
     var id: Self { self }
 
     /// まだ出していない機能か（「近日」と書く。まだできないことを、できるように書かないため）。
     var isComingSoon: Bool {
         switch self {
-        case .receiptScan, .weeklyRecapAI: true
-        case .question, .categoryBudget: false
+        case .receiptScan: true
+        case .question, .categoryBudget, .recapAI: false
         }
     }
 }
@@ -416,14 +417,16 @@ private struct PremiumFeatureRow: View {
             "カテゴリ別の予算（プレミアムの表）", defaultValue: "カテゴリ別の予算",
             comment: "プレミアムのシート（⑨）。無料とプレミアムの違いの表の行"
         ))
-        case .weeklyRecapAI: Text("週のふりかえりの AI の一言")
+        case .recapAI: Text("ふりかえりの AI の一言")
         }
     }
 
     private var note: Text? {
         switch feature {
         case .categoryBudget: Text("食費・交通など、カテゴリごとにも月の予算を決められます。使った額との比べの表示は近日対応です。")
-        case .receiptScan, .question, .weeklyRecapAI: nil
+        // AI の使えない端末では、プレミアムでも一言は付かない。買ってから気づくことが無いよう、ここで書いておく。
+        case .recapAI: Text("先週のふりかえりと月のまとめに、端末内の AI が一言を添えます（Apple Intelligence に対応した iPhone のみ。数字はどちらもアプリが計算します）。")
+        case .receiptScan, .question: nil
         }
     }
 
@@ -431,14 +434,14 @@ private struct PremiumFeatureRow: View {
         switch feature {
         case .receiptScan: Text("月\(QuotaFeature.receiptScan.freeMonthlyLimit)回")
         case .question: Text("月\(QuotaFeature.question.freeMonthlyLimit)回")
-        case .categoryBudget, .weeklyRecapAI: Text("なし")
+        case .categoryBudget, .recapAI: Text("なし")
         }
     }
 
     private var premium: Text {
         switch feature {
         case .receiptScan, .question: Text("無制限")
-        case .categoryBudget, .weeklyRecapAI: Text("あり")
+        case .categoryBudget, .recapAI: Text("あり")
         }
     }
 }

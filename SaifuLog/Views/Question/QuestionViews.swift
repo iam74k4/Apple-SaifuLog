@@ -335,8 +335,8 @@ private struct AnswerContent: View {
 
 /// 内訳の 1 行（色と記号の丸・名前・金額・割合）。1 行に収まらなければ金額を名前の下に積み、それでも収まらなければ
 /// 割合を金額の下に積む（縮めて読めなくしない）。アクセシビリティサイズの文字では、名前と金額に幅を使わせるため丸を省く
-/// （記録の吹き出しと同じ。名前はいつも出る）。
-private struct BreakdownLine: View {
+/// （記録の吹き出しと同じ。名前はいつも出る）。先週のふりかえりのカードの上位のカテゴリでも使う。
+struct BreakdownLine: View {
     let item: CategoryBreakdown.Item
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize

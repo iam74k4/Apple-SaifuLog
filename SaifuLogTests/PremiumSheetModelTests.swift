@@ -114,11 +114,11 @@ struct PremiumSheetModelTests {
     }
 
     /// 無料とプレミアムの違いの表で「近日」と書く機能。まだ出していない機能を、できるように書かない。
-    /// 家計への質問は出したので「近日」を外した（出した機能を「近日」のままにしない）。
+    /// 家計への質問とふりかえりの AI の一言は出したので「近日」を外した（出した機能を「近日」のままにしない）。
     @Test func comingSoonFeatures() {
         #expect(PremiumFeature.receiptScan.isComingSoon)
         #expect(!PremiumFeature.question.isComingSoon)
-        #expect(PremiumFeature.weeklyRecapAI.isComingSoon)
+        #expect(!PremiumFeature.recapAI.isComingSoon)
         #expect(!PremiumFeature.categoryBudget.isComingSoon)
     }
 

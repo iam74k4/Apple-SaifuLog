@@ -62,10 +62,17 @@ Apple Intelligence を使えない端末では、端末内のキーワード辞�
 質問と答えは記録として保存せず、アプリを起動している間だけアプリのメモリの中に置きます（アプリを開き直すと消えます）。
 無料で質問した回数（月ごとの回数）だけを、下の「保存される設定」に保存します。
 
-### ふりかえり・修正の記憶（予定の機能）
+### 週のふりかえりと月のまとめ
 
-ふりかえりのメッセージの作成を提供する場合も、同じく Foundation Models を用いてお使いの iPhone の上で行い、外部へ送信する
-ことはありません。
+週が替わって最初に開いたときにホームに出す「先週のふりかえり」（先週の支出・前の週との差・カテゴリ別の内訳・予算の目安と、
+直近の月の支出から出す月の予算の目安）と、月のまとめの数字は、本アプリがお使いの iPhone の中の記録から計算します。
+プレミアムと無料体験の間は、計算した数字を並べた文を Foundation Models に渡して一言を書かせますが、この処理もお使いの
+iPhone の上で行います。**記録や計算した数字、一言を外部へ送信することはありません。** 一言は保存せず、アプリを起動している
+間だけアプリのメモリの中に置きます。予算の目安は表示するだけで、利用者が保存しない限り予算は変わりません。
+
+ふりかえりを最後に表示した日時だけを、下の「保存される設定」に保存します（同じ週にもう一度出さないため）。
+
+### 修正の記憶（予定の機能）
 
 利用者が記録を直した内容（例: ある言葉をどのカテゴリに分けるか）を以後の読み取りに
 役立てる機能を提供する場合、その内容は端末内にのみ保存します。
@@ -124,7 +131,8 @@ iCloud へのバックアップや同期を提供する場合の取り扱いで�
 ### 保存される設定
 
 初回の案内を終えたかどうか、週の始まり（日曜か月曜か）、無料体験が終わったときの案内を出したかどうか、家計への質問を
-無料で使った回数（月ごとの回数。質問の文や答えは含みません）といったアプリの設定は、iOS の標準的な仕組み（UserDefaults）を
+無料で使った回数（月ごとの回数。質問の文や答えは含みません）、先週のふりかえりを最後に表示した日時（ふりかえりの中身は
+含みません）といったアプリの設定は、iOS の標準的な仕組み（UserDefaults）を
 用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存します。レシートの読み取りの機能を提供したら、無料で使った回数も
 同じ場所に保存します。
 これらを外部に送信することはありません。予算の金額は設定ではなく、上の家計の記録と同じ場所に保存します。
@@ -220,10 +228,20 @@ Questions and answers are not saved as records. They are kept only in the app's 
 when you reopen the app. Only the number of free questions you have used (counted per month) is stored, as described in
 Settings We Store below.
 
-### Weekly Reviews and Remembered Corrections (Planned Features)
+### Last Week in Review and the Monthly Summary
 
-If writing review messages is offered, it will also be done with Apple's Foundation Models framework on your own iPhone, and
-nothing will be sent anywhere.
+The numbers in Last Week in Review, which appears on the home screen the first time you open the app in a new week (last week's
+spending, the difference from the week before, spending by category, a weekly guide based on your budget, and a suggested monthly
+budget based on your recent spending), and the numbers in the monthly summary are calculated by the app from the records on your
+own iPhone. While you have Premium or the free trial, the app passes a text listing the calculated numbers to Apple's Foundation
+Models framework to write a short note; this also happens on your own iPhone. **Your records, the calculated numbers, and the note
+are never sent anywhere.** The note is not saved; it is kept only in the app's memory while the app is running. The suggested
+budget is only displayed; your budget does not change unless you save it yourself.
+
+Only the date and time Last Week in Review was last shown is stored, as described in Settings We Store below (so that it does not
+appear again in the same week).
+
+### Remembered Corrections (Planned Feature)
 
 If the app offers to remember your corrections (for example, which category a certain word
 belongs to) so that later entries can be read more accurately, those corrections will be
@@ -293,7 +311,7 @@ which do not include buyers' names, contact details, or payment information.
 App settings, such as whether you have finished the first-launch introduction, which day your
 week starts on, whether the notice at the end of the free trial has been shown, and the number of free
 questions about your spending you have used (counted per month; your questions and answers are not
-included), are stored only on your own iPhone, in an area reserved for this app, using the standard iOS
+included), and the date and time Last Week in Review was last shown (not its contents), are stored only on your own iPhone, in an area reserved for this app, using the standard iOS
 mechanism (UserDefaults). Once receipt reading is offered, the number of times you have used it for free
 will be stored in the same place. They are never transmitted
 anywhere. Your budget amount is not a setting; it is stored in the same place as your records,
