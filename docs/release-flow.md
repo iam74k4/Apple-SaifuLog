@@ -209,7 +209,7 @@ submit ジョブは提出の段階で止まる（アップロードまでは進�
 | アプリ情報 | アプリ → 一般 → App 情報 | 名前（日本語の表記は `docs/design.md` §13 で未決）、サブタイトル（案: ja「ひとことで家計簿」/ en「Budget in one line」）、カテゴリ（ファイナンス）、コンテンツ配信権 |
 | 年齢制限 | App 情報 → 年齢制限 | 質問に答える |
 | 価格と配信状況 | 価格および配信状況 | 無料。配信する国と地域。**Apple Silicon 搭載の Mac と Apple Vision Pro での配信をオフにする**（iPhone 向けのアプリは、既定のままだとこれらでも配信される。README の「Mac と Apple Vision Pro では配信しません」と揃えるため）。**iPad は外せない**（iPhone 専用のアプリも iPad の App Store で配信され、iPhone 版が拡大して動く） |
-| App のプライバシー | App のプライバシー | プライバシーポリシーの URL（`https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md`。草案の注記を外して main へ入れてから。下の「初回リリース」の 4）と、「データの収集なし」の回答（`docs/design.md` §11）。App 内課金（プレミアム）があっても、購入は Apple の StoreKit だけが扱い、アプリから開発者へ送らないので「購入」も収集しない |
+| App のプライバシー | App のプライバシー | プライバシーポリシーの URL（`https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md`。草案の注記を外して main へ入れてから。下の「初回リリース」の 4）と、「データの収集なし」の回答（`docs/design.md` §11）。App 内課金（プレミアム）があっても、購入は Apple の StoreKit だけが扱い、アプリから開発者へ送らないので「購入」も収集しない。声の入力（マイク）も、声を端末の中で書き起こして録音を残さず、開発者へも Apple のサーバーへも送らないので「音声データ」を収集しない |
 | スクリーンショット | バージョン → iPhone | **6.9 インチ**（1320 × 2868 など）が必須。小さい画面の分は自動で縮小される。**Release の構成で起動して撮る**（Xcode の Product → Scheme → Edit Scheme → Run → Build Configuration を Release にする）。DEBUG のビルドと TestFlight の社内テスト用のビルドでは、ホームの帯に App Store 版には無い診断のボタン（聴診器）が出る |
 | 説明文など | バージョン | 説明、キーワード、**サポート URL（必須）**、著作権。英語ローカライズを出すなら en の分も |
 | App Review に関する情報 | バージョン → App Review に関する情報 | 連絡先と審査メモ。AI の機能は Apple Intelligence 対応機種でしか動かないこと、非対応機種でも記録はできること、ログインが要らないことを書いておく。審査は iPad で行われることもあるので、提出の前に iPad のシミュレータ（iPhone 版の互換モード）でも一通り動くことを確かめる |
@@ -312,7 +312,8 @@ App ID の In-App Purchase の Capability は、明示的な App ID なら最初
      課金されず、プレミアムの機能が使えなくなるだけです（記録は消えません）。画面では、始める前に期間・料金がかからないこと・
      終わった後の内容を示しています。」
    - アプリのバージョンの「App Review に関する情報」にも、ログインが要らないこと、プレミアムの入口（設定 → プレミアム）、体験は
-     体験のボタンから 0 円で始められることを書く。
+     体験のボタンから 0 円で始められることを書く。マイクの許可は、ホームの入力欄のマイクのボタン（声の入力）を初めて押したときだけ求め、
+     声は端末の中で文字にして入力欄に入れるだけ（保存も送信もしない。送信は利用者が押す）ことも書く。
 3. 表示名と説明（ja と en）。アプリの中の表示（`Config/SaifuLog.storekit` のローカライズ）と食い違わないようにする。
 4. 審査の前に、Sandbox のテスター（ユーザとアクセス → Sandbox）で実機に TestFlight のビルドを入れ、購入・体験・復元を一通り試す
    （`docs/design.md` §15 の「これから」）。
@@ -483,7 +484,7 @@ main へマージする前の develop のビルドを、TestFlight で自分の 
 | 保存先（`default.store`・`-wal`・`-shm`）の保護クラス | 3 つとも `NSFileProtectionComplete`（データ保護が効いている。`docs/design.md` §5-4）。`default.store` は保存先を開いた時点（ホームが出る前）に作られるので、これが `missing` なら異常（診断画面の見ている場所と実際の保存先が食い違っているなど。記録を入れても直らない）。`-wal` / `-shm` は保存先を開いている間はふつうある（SQLite の WAL）。`missing` なら記録を 1 件入れてから再読み込みし、それでも `missing` なら報告に添える |
 | 保護されたデータを読めるか | 画面を見ている間は `true` |
 | 端末内 AI（Foundation Models） | `available` か、使えない理由（`deviceNotEligible`・`appleIntelligenceNotEnabled`・`modelNotReady`）。日本語に対応しているか。iOS 27 なら画像を入力できるか |
-| 音声の書き起こし（SpeechTranscriber） | 使えるか、日本語のモデルが入っているか（声で記録を作るときの下調べ）。`checking` は端末への問い合わせがまだ返っていないところ（ほかの行はそれを待たずに出る）。再読み込みしても `checking` のままなら、問い合わせが返らない端末として報告に添える |
+| 音声の書き起こし（SpeechTranscriber） | 使えるか、日本語のモデルが入っているか、声の入力が使っている経路（`speechTranscriber` / `dictationTranscriber` / `none`）とそのモデルの状態（`installed` / `needsReservation` / `needsDownload` / `downloading`）。`checking` は端末への問い合わせがまだ返っていないところ（ほかの行はそれを待たずに出る）。再読み込みしても `checking` のままなら、問い合わせが返らない端末として報告に添える |
 | 版・ビルド番号・OS・機種 | 不具合を報告するときに添える |
 | 記録の件数・予算の行数 | 中身ではなく数だけ。iCloud のアカウントの状態は、iCloud 同期を作るまで `not implemented` |
 

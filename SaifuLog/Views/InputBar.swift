@@ -1,9 +1,11 @@
 import SwiftUI
 
 /// ホームの下の入力欄。記録も家計への質問も、ここに打つ（見分けは `HomeModel` がコアに任せる）。
-/// 左のカメラのボタンから、レシートを読み取って記録できる。
+/// 左のカメラのボタンから、レシートを読み取って記録できる。右のマイクのボタンから、話した内容を入力欄に入れられる
+/// （入力欄が空のときは、送信ボタンの位置にマイクを出す。空の入力は送れないので、その位置を声の入力の入口に使う）。
 ///
-/// マイク（声で記録）のボタンは、機能ができてから足す。押しても何も起きないボタンは置かない。
+/// マイクのボタンは、日本語の書き起こしを使える端末でだけ出す（押しても何も起きないボタンは置かない）。
+/// 声の入力の間は、入力欄の代わりに書き起こしの表示（`VoiceInputPanel`）を出す。
 struct InputBar: View {
     @Binding var text: String
     let isSending: Bool
@@ -22,6 +24,8 @@ struct InputBar: View {
     var recorded: [Entry] = []
     /// 「直す」のシートを出す。
     var edit: (Entry) -> Void = { _ in }
+    /// 声の入力。渡さなければマイクのボタンを出さない。
+    var voice: VoiceInputModel?
 
     @FocusState private var isFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -39,7 +43,25 @@ struct InputBar: View {
         canSend ? Theme.onAccent : Theme.inkSecondary
     }
 
+    /// マイクのボタンを出すか（日本語の書き起こしを使える端末だけ）。
+    private var showsMicrophone: Bool {
+        voice?.isAvailable == true
+    }
+
+    /// 送信ボタンを出すか。マイクを出す端末では、入力欄が空の間はマイクに譲る（読み取り中の印は出したままにする）。
+    private var showsSendButton: Bool {
+        !showsMicrophone || isSending || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
+        if let voice, voice.isActive {
+            VoiceInputPanel(model: voice, prefix: text)
+        } else {
+            textInput
+        }
+    }
+
+    private var textInput: some View {
         HStack(spacing: 8) {
             if let scanReceipt {
                 receiptButton(scanReceipt)
@@ -76,26 +98,35 @@ struct InputBar: View {
             .simultaneousGesture(TapGesture().onEnded { isFocused = true })
             .glassEffect(.regular, in: .rect(cornerRadius: 22))
 
-            Button(action: send) {
-                Group {
-                    if isSending {
-                        ProgressView()
-                            .tint(sendSymbolColor)
-                    } else {
-                        Image(systemName: "arrow.up")
-                            .font(.body.weight(.bold))
-                    }
-                }
-                .frame(width: 44, height: 44)
-                .foregroundStyle(sendSymbolColor)
+            if let voice, showsMicrophone {
+                VoiceMicButton(isEnabled: voice.canStart) { voice.toggle() }
             }
-            .buttonStyle(.glassProminent)
-            .buttonBorderShape(.circle)
-            // tint は塗りの色になる。AccentColor（ライトは濃い琥珀）のままにせず、塗り用の山吹にする。
-            .tint(Theme.accentFill)
-            .disabled(!canSend)
-            .accessibilityLabel(isSending ? "読み取り中" : "送信")
+            if showsSendButton {
+                sendButton
+            }
         }
+    }
+
+    private var sendButton: some View {
+        Button(action: send) {
+            Group {
+                if isSending {
+                    ProgressView()
+                        .tint(sendSymbolColor)
+                } else {
+                    Image(systemName: "arrow.up")
+                        .font(.body.weight(.bold))
+                }
+            }
+            .frame(width: 44, height: 44)
+            .foregroundStyle(sendSymbolColor)
+        }
+        .buttonStyle(.glassProminent)
+        .buttonBorderShape(.circle)
+        // tint は塗りの色になる。AccentColor（ライトは濃い琥珀）のままにせず、塗り用の山吹にする。
+        .tint(Theme.accentFill)
+        .disabled(!canSend)
+        .accessibilityLabel(isSending ? "読み取り中" : "送信")
     }
 
     /// レシートを読み取るボタン。山吹は送信の塗りにだけ使うので、ガラスの地に墨の記号にする。

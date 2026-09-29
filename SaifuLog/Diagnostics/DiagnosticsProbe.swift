@@ -5,9 +5,7 @@ import UIKit
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
-#if canImport(Speech)
 import Speech
-#endif
 
 /// 診断画面の値を、端末・OS・保存先から読む。
 ///
@@ -98,21 +96,31 @@ enum DiagnosticsProbe {
         #endif
     }
 
-    /// 端末内の音声の書き起こし（声で記録するときに使う予定）が、日本語で使えるか。
+    /// 端末内の音声の書き起こし（声の入力）が、日本語で使えるか。声の入力が使っている経路も出す。
     ///
     /// 使えるかを尋ねるだけで、マイクも音声認識の許可も使わない（許可のダイアログは出ない）。
     static func speech() async -> DiagnosticsReport.SpeechStatus {
-        #if canImport(Speech)
-        let japanese = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "ja_JP"))
+        let japanese = await SpeechTranscriber.supportedLocale(equivalentTo: SpeechModules.japanese)
         let installed = await SpeechTranscriber.installedLocales
+        // 経路の選び方は声の入力と同じもの（`SpeechModules.availability`）を使う。
+        let voice = await SpeechModules.availability()
         return DiagnosticsReport.SpeechStatus(
             isAvailable: SpeechTranscriber.isAvailable,
             japaneseLocale: japanese?.identifier,
-            isJapaneseInstalled: installed.contains { $0.language.languageCode == .japanese }
+            isJapaneseInstalled: installed.contains { $0.language.languageCode == .japanese },
+            route: voice.route.rawValue,
+            model: voice.model.map(modelName) ?? "none"
         )
-        #else
-        return DiagnosticsReport.SpeechStatus(isAvailable: false, japaneseLocale: nil, isJapaneseInstalled: false)
-        #endif
+    }
+
+    /// モデルの状態の名前（訳さない）。
+    static func modelName(_ state: VoiceModelState) -> String {
+        switch state {
+        case .installed: "installed"
+        case .needsReservation: "needsReservation"
+        case .needsDownload: "needsDownload"
+        case .downloading: "downloading"
+        }
     }
 
     /// 保存先のファイル（本体・-wal・-shm）の保護クラス。

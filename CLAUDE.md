@@ -4,7 +4,7 @@
 端末内の AI（Apple の Foundation Models）で行い、家計のデータを端末の外に出さない。
 
 ## 現在の到達点
-- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・家計への質問・レシートの読み取り・月の予算・月のまとめ・週のふりかえり・設定と CSV 書き出し・初回の案内・プレミアム（StoreKit）の試作**まで。
+- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・家計への質問・レシートの読み取り・声の入力・月の予算・月のまとめ・週のふりかえり・設定と CSV 書き出し・初回の案内・プレミアム（StoreKit）の試作**まで。
   - 試作済み: 一行の読み取り（端末内 AI、使えない端末ではキーワード辞書）、タイムライン、記録直後の
     「直す」「取り消す」、長押しでの記録の削除（確認つき）、今月の支出と収入の合計。画面は縦向きのみ。
     ⑥ 直す（吹き出しを押す・長押しのメニュー・記録直後のバナー・VoiceOver の操作・⑦ の記録の一覧から開くシート。金額・品目・支出か収入か・
@@ -50,12 +50,20 @@
     カメラのボタンから ⑨。⑤ で直した内容があれば閉じる前に確かめ（⑥ と同じ）、書類カメラは 4 ページまで読んで、超えたら ⑤ に知らせる。
     状態は `SaifuLog/Views/Receipt/ReceiptResultModel`、出し入れと記録は `HomeModel`。実機でのカメラ・実際のレシートの読み取りの
     精度・モデルの整え方の確認はまだ）。
+    声の入力（入力欄の右のマイクのボタン。入力欄が空なら送信の位置。話した内容を iOS 26 の SpeechAnalyzer で端末の中で書き起こし、入力欄に
+    入れるだけで送信はしない（送信は利用者が押したときだけ）。SpeechTranscriber（ja_JP）を先に、日本語に対応しなければ DictationTranscriber、
+    どちらも無ければマイクを出さない。書き起こしは `SaifuLog/Voice/`（`SpeechModules`・`SpeechAnalysisSession`・`SpeechAnalyzerTranscriber`。
+    マイクは AVAudioEngine で取り、`bestAvailableAudioFormat` の形式に AVAudioConverter で変えて渡す）、状態は `SaifuLog/Views/Voice/VoiceInputModel`
+    （許可・モデルのダウンロードの確認と進み・途中の文・止めるボタン・話し終えて 2 秒・話し始めずに 6 秒・30 秒・割り込み・裏へ）、まとめ方と
+    止める決まりはコアの `VoiceTranscript`・`VoiceListeningLimit`。マイクの許可だけを求め、音声認識の許可は求めない（Apple の説明）。声は保存も
+    送信もしない。無料で回数を数えない。声で入れた文の記録は入力元 `.voice`。実機での実際の声の書き起こし・許可・ダウンロード・割り込みの確認はまだ。
+    シミュレータの iOS 26.4 では SpeechTranscriber が使えず、DictationTranscriber の日本語のモデルも無い）。
     保存先を開けないときは落とさず、ロック中なら解除を待って開き直し、それ以外は再試行の画面を出す（`StoreHost`）。
     保存先のデータ保護は NSFileProtectionComplete（ロック中は読めないようにする。実機での確認はまだ。
     release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
     main で `mode=export` の照合が通るかの確認はまだ。`docs/design.md` §5-4）。
   - **未実装:** カテゴリ別の予算の進みの表示・週のふりかえりの通知・iCloud 同期（設定の切り替えを含む）・
-    家族との共有・声で記録・修正の記憶・CSV の読み込み。
+    家族との共有・修正の記憶・CSV の読み込み。
   - 実機での確認の手段: release.yml の手動実行 `mode=testflight` で、develop のビルドを診断画面入りで TestFlight の
     社内テスト専用に送れるようにした（審査には出ない）。Environment `release` の配備ブランチへの develop の追加
     （所有者の作業）と、実際に TestFlight で入れての確認はまだ（`docs/release-flow.md` の「TestFlight で実機に入れる（社内テスト）」）。

@@ -89,6 +89,10 @@ extension DiagnosticsReport {
         var japaneseLocale: String?
         /// 日本語のモデルが端末に入っているか。
         var isJapaneseInstalled: Bool
+        /// 声の入力で使っている経路（speechTranscriber / dictationTranscriber / none。`VoiceRoute`）。
+        var route: String
+        /// その経路のモデルの状態（installed / needsReservation / needsDownload / downloading。経路が無ければ none）。
+        var model: String
     }
 
     /// 保存先のファイル 1 つの保護クラス。
@@ -151,7 +155,7 @@ extension DiagnosticsReport {
                     value: foundationModels.supportsVision.map(String.init) ?? "n/a (before iOS 27)"
                 ),
             ]),
-            // 音声の問い合わせは返るまで待たずに画面を出すので、返る前は 3 つとも checking にする。
+            // 音声の問い合わせは返るまで待たずに画面を出すので、返る前はすべて checking にする。
             Section(id: "speech", title: "音声の書き起こし（SpeechTranscriber）", rows: [
                 Row(key: "speech.available", label: "使えるか", value: speech.map { String($0.isAvailable) } ?? Self.checking),
                 Row(
@@ -162,6 +166,9 @@ extension DiagnosticsReport {
                     key: "speech.japaneseInstalled", label: "日本語のモデルが入っているか",
                     value: speech.map { String($0.isJapaneseInstalled) } ?? Self.checking
                 ),
+                // SpeechTranscriber が日本語に対応しない端末では DictationTranscriber に切り替えるので、どちらを使っているかも出す。
+                Row(key: "speech.route", label: "使っている経路", value: speech.map(\.route) ?? Self.checking),
+                Row(key: "speech.model", label: "経路のモデルの状態", value: speech.map(\.model) ?? Self.checking),
             ]),
             Section(
                 id: "store", title: "保存先",

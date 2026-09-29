@@ -10,7 +10,9 @@ import Testing
 @MainActor
 struct DiagnosticsTests {
     /// 音声の書き起こしの問い合わせの代わり（テストでは OS に問い合わせない。資産の問い合わせは環境で時間がかかりうるため）。
-    nonisolated static let speech = DiagnosticsReport.SpeechStatus(isAvailable: true, japaneseLocale: "ja_JP", isJapaneseInstalled: false)
+    nonisolated static let speech = DiagnosticsReport.SpeechStatus(
+        isAvailable: true, japaneseLocale: "ja_JP", isJapaneseInstalled: false, route: "speechTranscriber", model: "needsDownload"
+    )
 
     /// クリップボードと読み上げの代わり。
     @MainActor
@@ -172,6 +174,8 @@ struct DiagnosticsTests {
         #expect(pending.value(for: "speech.available") == DiagnosticsReport.checking)
         #expect(pending.value(for: "speech.japaneseLocale") == DiagnosticsReport.checking)
         #expect(pending.value(for: "speech.japaneseInstalled") == DiagnosticsReport.checking)
+        #expect(pending.value(for: "speech.route") == DiagnosticsReport.checking)
+        #expect(pending.value(for: "speech.model") == DiagnosticsReport.checking)
         #expect(pending.value(for: "store.default.store") == "missing")
         #expect(pending.value(for: "store.protectedDataAvailable") == "true")
         #expect(pending.value(for: "fm.availability") != nil)
@@ -184,6 +188,8 @@ struct DiagnosticsTests {
         #expect(answered.value(for: "speech.available") == "true")
         #expect(answered.value(for: "speech.japaneseLocale") == "ja_JP")
         #expect(answered.value(for: "speech.japaneseInstalled") == "false")
+        #expect(answered.value(for: "speech.route") == "speechTranscriber")
+        #expect(answered.value(for: "speech.model") == "needsDownload")
     }
 
     @Test("読み直しの後に前の問い合わせの答えが返っても、新しい答えを上書きしない")
@@ -200,7 +206,9 @@ struct DiagnosticsTests {
             copy: { _ in },
             announce: { _ in }
         )
-        let stale = DiagnosticsReport.SpeechStatus(isAvailable: false, japaneseLocale: nil, isJapaneseInstalled: false)
+        let stale = DiagnosticsReport.SpeechStatus(
+            isAvailable: false, japaneseLocale: nil, isJapaneseInstalled: false, route: "none", model: "none"
+        )
 
         let first = Task { await model.load() }
         try #require(await Self.eventually { await gate.count == 1 })
@@ -216,6 +224,7 @@ struct DiagnosticsTests {
         let report = try #require(model.report)
         #expect(report.value(for: "speech.available") == "true")
         #expect(report.value(for: "speech.japaneseLocale") == "ja_JP")
+        #expect(report.value(for: "speech.route") == "speechTranscriber")
     }
 
     // MARK: - コピーする文

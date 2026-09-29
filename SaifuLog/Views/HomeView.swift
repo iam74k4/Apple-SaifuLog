@@ -13,6 +13,8 @@ import UIKit
 ///
 /// 入力欄の左のカメラのボタンから、レシートを撮るか写真から選んで読み取り（④）、読み取り結果（⑤）のシートで確かめて記録する。
 ///
+/// 入力欄の右のマイクのボタンから、話した内容を端末の中で書き起こして入力欄に入れる（送信は利用者が押したときだけ）。
+///
 /// 状態と操作（送信・質問・レシート・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ・
 /// 先週のふりかえり）は `HomeModel` が持つ。ここは表示と、
 /// 環境（文字の大きさ・支援技術・前面かどうか）に合わせた出し方だけを受け持つ。
@@ -21,6 +23,7 @@ struct HomeView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Environment(\.accessibilitySwitchControlEnabled) private var switchControlEnabled
+    @Environment(\.openURL) private var openURL
 
     @State private var model: HomeModel
     /// 写真の選択で選んだもの。読み取りに渡したら nil に戻す（写真はメモリの上で読み、保存しない）。
@@ -101,6 +104,30 @@ struct HomeView: View {
                     photoItem = nil
                     readPhoto(item)
                 }
+                // 声の入力でマイクの許可が無い・断られたとき。許可は iOS の設定でしか変えられないので、設定を開くボタンを出す。
+                .alert("マイクを使えません", isPresented: showsMicrophonePermissionAlert) {
+                    Button("設定を開く") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                    }
+                    Button("キャンセル", role: .cancel) {}
+                } message: {
+                    Text("声で入力するには、設定でサイフログのマイクの使用を許可してください。")
+                }
+                // 書き起こしのモデルが無いとき。大きなファイルを Apple からダウンロードするので、始める前に確かめる。
+                .alert(
+                    "日本語の音声モデルをダウンロードしますか？",
+                    isPresented: showsDownloadConfirmation,
+                    presenting: model.voice.downloadConfirmation
+                ) { _ in
+                    Button("ダウンロード") { model.voice.confirmDownload() }
+                    Button("キャンセル", role: .cancel) { model.voice.declineDownload() }
+                } message: { confirmation in
+                    if confirmation.onExpensiveNetwork {
+                        Text("声を文字にするための日本語のモデルを、Apple からこの iPhone にダウンロードします。声や記録は送りません。いまはモバイル回線か低データモードです。大きなファイルなので、Wi‑Fi でのダウンロードをおすすめします。")
+                    } else {
+                        Text("声を文字にするための日本語のモデルを、Apple からこの iPhone にダウンロードします。声や記録は送りません。")
+                    }
+                }
                 // ⑤ 読み取り結果。item で出す（閉じる間も中身を保つ）。閉じきったら、撮り直しやプレミアムの案内を続ける。
                 .sheet(item: $model.receiptResult, onDismiss: { model.receiptResultDidDismiss() }) { result in
                     ReceiptResultSheet(model: result)
@@ -118,6 +145,15 @@ struct HomeView: View {
                 // 週が替わって最初に開いたときだけ、先週のふりかえりのカードを出す（前面に戻ったとき・日付が変わったときは下）。
                 .onAppear {
                     model.showWeeklyRecapIfDue(calendar: calendar)
+                }
+                // この端末で声の入力を使えるか（マイクのボタンを出すか）を調べる。前面に戻ったときにも調べ直す（下の scenePhase）。
+                .task {
+                    await model.voice.refreshAvailability()
+                }
+                // ほかの画面やシートを出したら、声の入力を止める（聞き取れた分は入力欄に入れる）。見えない入力欄に向けて
+                // 聞き続けないように。
+                .onChange(of: model.isPresentingOtherScreen) { _, presenting in
+                    if presenting { model.voice.stop(.user) }
                 }
                 // 週の始まりの設定を変えると画面の暦が変わるので、変えた後の週で決め直す。
                 .onChange(of: calendar) { _, calendar in
@@ -153,11 +189,18 @@ struct HomeView: View {
                     if !Task.isCancelled { model.dismissUndo() }
                 }
                 .onChange(of: scenePhase) { _, phase in
-                    if phase == .active {
+                    switch phase {
+                    case .active:
                         model.refreshToday()
                         // 状態が変わらなくても、前面に戻ったときには確かめる（ほかの画面を閉じた後で出せるように）。
                         model.presentPremiumIfTrialEnded()
                         model.showWeeklyRecapIfDue(calendar: calendar)
+                        Task { await model.voice.refreshAvailability() }
+                    case .background:
+                        // 裏に回ったら、聞き取れた分を入力欄へ入れて止める（裏ではマイクを使い続けない）。
+                        model.voice.stop(.background)
+                    default:
+                        break
                     }
                 }
                 // 日付が変わったとき（0 時・時間帯の変更など）。前面に置いたまま月をまたいでも合計を切り替える。
@@ -165,6 +208,10 @@ struct HomeView: View {
                     model.refreshToday()
                     model.showWeeklyRecapIfDue(calendar: calendar)
                 }
+        }
+        // 保存先の開き直しなどでホームの画面が片づけられるときは、声の入力をやめる（マイクを開いたままにしない）。
+        .onDisappear {
+            model.voice.cancel()
         }
     }
 
@@ -203,6 +250,15 @@ struct HomeView: View {
 
     private var bottomBar: some View {
         VStack(spacing: 8) {
+            if let notice = model.voice.notice {
+                VoiceNoticeView(notice: notice)
+                    .transition(.opacity)
+                    // 少しの間だけ出す。次の知らせに替わったら数え直す。
+                    .task(id: notice) {
+                        try? await Task.sleep(for: .seconds(5))
+                        if !Task.isCancelled, model.voice.notice == notice { model.voice.notice = nil }
+                    }
+            }
             if model.canUndo {
                 UndoBanner(
                     recorded: model.justRecorded,
@@ -222,12 +278,14 @@ struct HomeView: View {
                 chooseReceiptSource: { model.startReceiptCapture($0) },
                 undo: undoAction,
                 recorded: model.justRecorded,
-                edit: { model.presentEdit($0, calendar: calendar) }
+                edit: { model.presentEdit($0, calendar: calendar) },
+                voice: model.voice
             )
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
         .animation(.default, value: model.canUndo)
+        .animation(.default, value: model.voice.notice)
     }
 
     /// 入力欄の「直前の記録を取り消す」の操作。取り消せるものがあるときだけ渡す。
@@ -253,6 +311,14 @@ struct HomeView: View {
             guard let data = try? await item.loadTransferable(type: Data.self) else { return nil }
             return ReceiptImage(data: data)
         }
+    }
+
+    private var showsMicrophonePermissionAlert: Binding<Bool> {
+        Binding(get: { model.voice.showsPermissionAlert }, set: { model.voice.showsPermissionAlert = $0 })
+    }
+
+    private var showsDownloadConfirmation: Binding<Bool> {
+        Binding(get: { model.voice.downloadConfirmation != nil }, set: { if !$0 { model.voice.downloadConfirmation = nil } })
     }
 
     private var showsStoreFailure: Binding<Bool> {

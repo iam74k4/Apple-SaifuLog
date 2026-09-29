@@ -38,7 +38,8 @@ struct HomeModelTests {
         /// - Parameters:
         ///   - purchases: プレミアムの状態。渡さなければ購入の無い状態（無料）。
         ///   - canUseDocumentCamera: 書類カメラを使えるか（シミュレータには無いので、決めて渡す）。
-        init(purchases: PurchaseManager? = nil, canUseDocumentCamera: Bool = true) throws {
+        ///   - voice: 声の入力（書き起こしを差し替えたもの）。渡さなければ HomeModel の既定（端末の書き起こし。テストでは使わない）。
+        init(purchases: PurchaseManager? = nil, canUseDocumentCamera: Bool = true, voice: VoiceInputModel? = nil) throws {
             context = try TestSupport.makeContext()
             defaults = try #require(UserDefaults(suiteName: suiteName))
             self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
@@ -60,6 +61,7 @@ struct HomeModelTests {
                 makeRemarkWriter: { [unowned self] in remarkWriter },
                 receiptReader: receipt.reader,
                 canUseDocumentCamera: canUseDocumentCamera,
+                voice: voice,
                 now: { [unowned self] in now },
                 announce: { [unowned self] in announcements.append($0) }
             )
