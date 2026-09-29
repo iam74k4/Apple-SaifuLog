@@ -27,6 +27,7 @@ final class DiagnosticsModel {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let copy: @MainActor (String) -> Void
     @ObservationIgnored private let announce: @MainActor (String) -> Void
+    @ObservationIgnored private let household: HouseholdHost?
 
     /// - Parameters:
     ///   - context: 件数を数える保存先。
@@ -38,6 +39,7 @@ final class DiagnosticsModel {
     ///   - defaults: 設定の「iCloud で同期」を読む置き場所。
     ///   - copy: まとめてコピーする先（クリップボード）。テストで文を集める。
     ///   - announce: VoiceOver に読み上げさせる。
+    ///   - household: 家計の共有。渡すと（有効なときだけ）家計の行を出す。
     init(
         context: ModelContext,
         storeURL: URL = ModelContainerFactory.storeURL,
@@ -46,8 +48,10 @@ final class DiagnosticsModel {
         iCloudAccount: @escaping @Sendable () async -> ICloudAccountStatus = { await ICloudAccountStatus.current() },
         defaults: UserDefaults = .standard,
         copy: @escaping @MainActor (String) -> Void = { UIPasteboard.general.string = $0 },
-        announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
+        announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
+        household: HouseholdHost? = nil
     ) {
+        self.household = household
         self.context = context
         self.storeURL = storeURL
         self.isProtectedDataAvailable = isProtectedDataAvailable
@@ -90,7 +94,21 @@ final class DiagnosticsModel {
                 account: iCloudAccount?.diagnosticName,
                 database: DiagnosticsProbe.cloudKitDatabase(container: context.container),
                 isSyncSettingOn: defaults.bool(for: AppSettings.iCloudSyncEnabled)
-            )
+            ),
+            household: householdStatus()
+        )
+    }
+
+    /// 家計の共有の状態。家計の共有が無効なら nil（行を出さない）。
+    private func householdStatus() -> DiagnosticsReport.HouseholdStatus? {
+        guard let household, household.isEnabled else { return nil }
+        let current = household.currentHousehold
+        return DiagnosticsReport.HouseholdStatus(
+            isStoreOpen: household.store != nil,
+            role: current?.role.rawValue ?? "none",
+            entries: household.store.flatMap { try? $0.context.fetchCount(FetchDescriptor<HouseholdEntry>()) },
+            hasMemberName: !(current?.memberName.isEmpty ?? true),
+            storeFiles: DiagnosticsProbe.storeFiles(storeURL: ModelContainerFactory.householdStoreURL)
         )
     }
 

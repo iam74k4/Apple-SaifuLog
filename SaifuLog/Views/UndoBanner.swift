@@ -6,9 +6,9 @@ import SwiftUI
 /// 出している間は、時間では引っ込めない。次の文を送ったら、読み取りを待たずにすぐ引っ込める）。
 struct UndoBanner: View {
     /// 直前に記録したもの（「直す」の対象）。1 回の送信で複数件を記録したときは、どれを直すかを選ばせる。
-    let recorded: [Entry]
+    let recorded: [RecordedItem]
     /// 「直す」のシートを出す。
-    let edit: (Entry) -> Void
+    let edit: (RecordedItem) -> Void
     let undo: () -> Void
     /// バナーを閉じる。VoiceOver などの操作の一覧から使う（自動で引っ込めないときの閉じ方）。
     let dismiss: () -> Void
@@ -84,9 +84,9 @@ struct UndoBanner: View {
             .accessibilityAction(named: "閉じる", dismiss)
         } else if !recorded.isEmpty {
             Menu {
-                ForEach(recorded) { entry in
-                    Button { edit(entry) } label: {
-                        Text(verbatim: entry.summaryText)
+                ForEach(recorded) { item in
+                    Button { edit(item) } label: {
+                        Text(verbatim: item.summaryText)
                     }
                 }
             } label: {
@@ -113,6 +113,16 @@ struct UndoBanner: View {
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(.rect)
     }
+}
+
+/// 記録の直後の「直す」「取り消す」の対象の 1 件（自分の記録か家計の記録か）。
+///
+/// バナーと入力欄の VoiceOver の操作は、どちらの保存先の記録かを知らなくてよいので、見出しと ID だけを持つ。
+/// どの記録を直すかは、ID から `HomeModel` が決める。
+struct RecordedItem: Identifiable {
+    let id: AnyHashable
+    /// 「ランチ ¥850」
+    let summaryText: String
 }
 
 #Preview {

@@ -137,6 +137,20 @@ extension DiagnosticsReport {
         var isSyncSettingOn: Bool
     }
 
+    /// 家計の共有の状態（家計の中身・名前は持たない。件数と立場と保存先の保護クラスだけ）。
+    struct HouseholdStatus: Equatable, Sendable {
+        /// 家計の保存先を開けたか。
+        var isStoreOpen: Bool
+        /// 家計での立場（none / owner / participant）。
+        var role: String
+        /// 家計の記録の件数。読めなければ nil。
+        var entries: Int?
+        /// 自分の表示名を決めたか（名前そのものは出さない）。
+        var hasMemberName: Bool
+        /// 家計の保存先のファイル（本体・-wal・-shm）の保護クラス。
+        var storeFiles: [StoreFile]
+    }
+
     init(
         app: AppInfo,
         device: DeviceInfo,
@@ -145,7 +159,8 @@ extension DiagnosticsReport {
         storeFiles: [StoreFile],
         isProtectedDataAvailable: Bool,
         counts: RecordCounts,
-        iCloud: ICloudStatus
+        iCloud: ICloudStatus,
+        household: HouseholdStatus? = nil
     ) {
         sections = [
             Section(id: "app", title: "アプリ", rows: [
@@ -204,6 +219,20 @@ extension DiagnosticsReport {
                 Row(key: "icloud.syncSetting", label: "設定の「iCloud で同期」", value: String(iCloud.isSyncSettingOn)),
             ]),
         ]
+        // 家計の共有（有効なビルドで、家計の受け持ちを渡されたときだけ）。家計の保存先の保護クラスを実機で確かめるのにも使う。
+        if let household {
+            sections.append(Section(
+                id: "household", title: "家族と共有",
+                rows: [
+                    Row(key: "household.store", label: "家計の保存先", value: household.isStoreOpen ? "open" : "unavailable"),
+                    Row(key: "household.role", label: "家計での立場", value: household.role),
+                    Row(key: "household.entries", label: "家計の記録の件数", value: household.entries.map(String.init) ?? "error"),
+                    Row(key: "household.memberName", label: "表示名を決めたか", value: String(household.hasMemberName)),
+                ] + household.storeFiles.map { file in
+                    Row(key: "household.file.\(file.name)", label: "\(file.name) の保護クラス", value: file.protection.description)
+                }
+            ))
+        }
     }
 }
 #endif

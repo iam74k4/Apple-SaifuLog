@@ -4,14 +4,19 @@ import SwiftUI
 /// タイムラインの 1 件。自分が送ったメッセージのように右寄せの吹き出しで出す。
 ///
 /// 吹き出しを押すと「直す」のシートを開く。長押しのメニューには「直す」と「削除」を出す。
-struct EntryBubble: View {
-    let entry: Entry
+///
+/// 自分の記録（`Entry`）と家計の記録（`HouseholdEntry`）の両方に使う。家計の記録は、だれが記録したか（`recorderName`）を
+/// 日付の前に添える（家族の記録が混ざって並ぶので、だれのものかが分からないと直す・消すを決められないため）。
+struct EntryBubble<Record: LedgerEntryDisplaying>: View {
+    let entry: Record
     /// 今日。日付に年を添えるかの基準にする。
     let today: Date
     /// 「直す」のシートを出す。
     let edit: () -> Void
     /// 削除を求める（確認は呼び出し側で出す）。
     let requestDelete: () -> Void
+    /// 記録した人の名前（家計の記録だけ）。nil なら出さない（自分の記録）。
+    var recorderName: String?
 
     @Environment(\.calendar) private var calendar
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -74,6 +79,9 @@ struct EntryBubble: View {
                 if !entry.memo.isEmpty {
                     kindLabel
                 }
+                if let recorderName {
+                    recorderLabel(recorderName)
+                }
                 Text(entry.spentAt, format: dateFormat)
             }
             .font(.caption)
@@ -118,6 +126,23 @@ struct EntryBubble: View {
         }
     }
 
+    /// 記録した人の名前。名前が空（決める前に記録したものなど）なら「名前なし」と出す（空欄で並べると、だれのものかの印が
+    /// 消えたように見えるため）。
+    @ViewBuilder
+    private func recorderLabel(_ name: String) -> some View {
+        if name.isEmpty {
+            Label("名前なし", systemImage: "person")
+                .labelStyle(.titleAndIcon)
+        } else {
+            Label {
+                Text(verbatim: name)
+            } icon: {
+                Image(systemName: "person")
+            }
+            .labelStyle(.titleAndIcon)
+        }
+    }
+
     private var amountText: String {
         entry.isIncome ? YenFormatter.signedString(from: entry.amount) : YenFormatter.string(from: entry.amount)
     }
@@ -152,7 +177,15 @@ private struct AdaptiveRow<Content: View>: View {
     }
 }
 
-extension Entry {
+/// タイムラインの吹き出し・削除の確認・直す対象の選択に出す記録の形（自分の記録と家計の記録）。
+protocol LedgerEntryDisplaying: LedgerRecord {
+    /// 品目（メモ）。
+    var memo: String { get }
+}
+
+extension Entry: LedgerEntryDisplaying {}
+
+extension LedgerEntryDisplaying {
     /// 日付に年を添えるか。今年でない記録を年なしで出すと今年の記録に見え、今月の合計に
     /// 入っていない理由が利用者に分からないため。
     func showsYear(today: Date, calendar: Calendar) -> Bool {

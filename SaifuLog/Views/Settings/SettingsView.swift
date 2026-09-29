@@ -4,7 +4,7 @@ import SwiftUI
 /// ⑧ 設定。必要なときだけ開く画面。ホームの帯の右上の歯車から横に進む。
 ///
 /// プレミアム（⑨ のシートを開く・購入の復元）、月の予算（② のシートを開く）、週の始まり、iCloud で同期（既定はオフ）、
-/// 記録の CSV 書き出し、このアプリについて（プライバシーポリシー・ライセンス・版）を並べる。
+/// 家族と共有（家計の共有が有効なビルドだけ）、記録の CSV 書き出し、このアプリについて（プライバシーポリシー・ライセンス・版）を並べる。
 ///
 /// 状態と操作は `SettingsModel` が持つ。ここは表示と、共有のシート・アラートの出し入れだけ。
 /// 押せる行の名前は墨にし、操作のボタン（「CSV ファイルを書き出す」）だけ、ほかの画面のボタンと同じ tint（AccentColor。
@@ -23,6 +23,10 @@ struct SettingsView: View {
             if model.showsICloudSync {
                 iCloudSection
             }
+            // 家族と共有（家計の共有が有効なビルドで、家計の保存先を開けたときだけ）。
+            if let household = model.household {
+                HouseholdSettingsSection(model: household)
+            }
             exportSection
             aboutSection
         }
@@ -40,6 +44,8 @@ struct SettingsView: View {
         .sheet(item: $model.premiumSheet) { premium in
             PremiumSheet(model: premium)
         }
+        // 「家族と共有」の節のシートと確認（節に付けると行ごとに付いてしまうので、リストに付ける）。
+        .modifier(HouseholdSettingsPresentationsIfAvailable(model: model.household))
         .alert(
             alertTitle,
             isPresented: showsExportAlert,
@@ -108,6 +114,28 @@ struct SettingsView: View {
         .task { await model.refreshICloudAccountStatus() }
         // iCloud で届いたほかの端末の変更（予算を変えたなど）で、月の予算の行を読み直す。
         .onReceive(StoreChanges.remote) { _ in model.reloadBudget() }
+        // 家計の共有の知らせ（共有をやめた・抜けた・消えたなど）。設定の画面を出している間は、ホームの下からはアラートを
+        // 出せないので、ここで出す（節のシートや確認を出している間は、閉じてから出す）。
+        .alert(
+            model.household?.host.notice?.title ?? Text(verbatim: ""),
+            isPresented: showsHouseholdNotice,
+            presenting: model.household?.host.notice
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { notice in
+            notice.message
+        }
+    }
+
+    private var showsHouseholdNotice: Binding<Bool> {
+        Binding(
+            get: {
+                guard let household = model.household else { return false }
+                return household.host.notice != nil && household.canPresentNotice && model.budgetSetup == nil
+                    && model.premiumSheet == nil
+            },
+            set: { if !$0 { model.household?.host.notice = nil } }
+        )
     }
 
     // MARK: - プレミアム

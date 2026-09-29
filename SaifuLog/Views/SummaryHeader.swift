@@ -16,12 +16,16 @@ struct SummaryHeader: View {
     let summary: MonthlySummary
     /// 今月の予算の進み。予算を決めていなければ nil。
     let budget: BudgetStatus?
-    /// 予算を決める（変える）画面を出す。
-    let editBudget: () -> Void
+    /// 予算を決める（変える）画面を出す。nil なら予算のボタンを出さない（家族の家計。予算は v1 では「自分」だけ）。
+    let editBudget: (() -> Void)?
     /// 月のまとめへ進む。nil なら見出しと数字は押せない（プレビューなど）。
     var openReport: (() -> Void)?
     /// 設定へ進む。nil なら歯車のボタンを出さない（プレビューなど）。
     var openSettings: (() -> Void)?
+    /// 「自分／家族」の切り替え。家計に入っているときだけ渡す（nil なら出さない）。
+    var ledgerScope: Binding<HomeModel.LedgerScope>?
+    /// 家族の家計の今月の合計か（見出しを「家族の今月の支出」にする）。
+    var isHousehold = false
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     #if DEBUG || INTERNAL_DIAGNOSTICS
@@ -31,6 +35,10 @@ struct SummaryHeader: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
+            if let ledgerScope {
+                LedgerScopePicker(selection: ledgerScope)
+                    .padding(.top, 8)
+            }
             titleRow
             figuresElement
         }
@@ -55,7 +63,8 @@ struct SummaryHeader: View {
 
     /// 見出し（予算の有無と超えたかで変わる）。
     private var title: Text {
-        switch budget {
+        if isHousehold { return Text("家族の今月の支出") }
+        return switch budget {
         case nil: Text("今月の支出")
         case let budget? where budget.isOver: Text("今月の予算")
         case _?: Text("今月あと")
@@ -192,7 +201,14 @@ struct SummaryHeader: View {
         .accessibilityHidden(true)
     }
 
+    @ViewBuilder
     private var budgetButton: some View {
+        if let editBudget {
+            budgetButton(editBudget)
+        }
+    }
+
+    private func budgetButton(_ editBudget: @escaping () -> Void) -> some View {
         Button(action: editBudget) {
             Text(budget == nil ? "予算を決める" : "予算を変更")
                 .font(.subheadline.weight(.semibold))
@@ -333,6 +349,25 @@ struct SummaryHeader: View {
     }
 }
 
+/// 帯の「自分／家族」の切り替え（家族と家計を共有しているときだけ）。
+///
+/// 選んだほうに記録し、タイムラインと帯の合計もそちらを出す。2 つしかなく、いまどちらかが常に見えている必要があるので、
+/// 分段のピッカーにする。
+private struct LedgerScopePicker: View {
+    @Binding var selection: HomeModel.LedgerScope
+
+    var body: some View {
+        Picker(selection: $selection) {
+            Text("自分").tag(HomeModel.LedgerScope.personal)
+            Text("家族").tag(HomeModel.LedgerScope.household)
+        } label: {
+            Text("記録先")
+        }
+        .pickerStyle(.segmented)
+        .accessibilityHint("記録する先と、表示する記録を切り替えます")
+    }
+}
+
 /// 予算のうち使った割合のバー。山吹で塗り、予算を超えたら注意の色で満たす（ホームの帯と月のまとめ）。
 ///
 /// 数字（残り・超えた額）は文字で出しているので、バーは目安として添えるだけにし、VoiceOver では読ませない
@@ -412,6 +447,7 @@ struct MonthSummaryHeader: View {
     private let editBudget: () -> Void
     private let openReport: () -> Void
     private let openSettings: () -> Void
+    private let ledgerScope: Binding<HomeModel.LedgerScope>?
     @Query private var records: [Entry]
     @Query private var budgets: [Budget]
 
@@ -420,13 +456,15 @@ struct MonthSummaryHeader: View {
         calendar: Calendar,
         editBudget: @escaping () -> Void,
         openReport: @escaping () -> Void,
-        openSettings: @escaping () -> Void
+        openSettings: @escaping () -> Void,
+        ledgerScope: Binding<HomeModel.LedgerScope>? = nil
     ) {
         self.today = today
         self.calendar = calendar
         self.editBudget = editBudget
         self.openReport = openReport
         self.openSettings = openSettings
+        self.ledgerScope = ledgerScope
         _records = Query(Entry.monthDescriptor(containing: today, calendar: calendar))
     }
 
@@ -437,7 +475,8 @@ struct MonthSummaryHeader: View {
             budget: figures.budget,
             editBudget: editBudget,
             openReport: openReport,
-            openSettings: openSettings
+            openSettings: openSettings,
+            ledgerScope: ledgerScope
         )
     }
 
@@ -454,6 +493,47 @@ struct MonthSummaryHeader: View {
         let ledger = LedgerSummary(records: records, interval: month, calendar: calendar)
         let budget = BudgetStatus(budget: BudgetPlan.resolve(budgets).total, summary: ledger, now: today, calendar: calendar)
         return (MonthlySummary(ledger), budget)
+    }
+}
+
+/// 家族の家計の今月の合計を読み、帯に出す（「家族」のとき）。予算は v1 では家計に持たせないので、合計だけを出す。
+///
+/// 家計の保存先（household.store）を読むので、呼び出し側が家計の保存先を環境に渡す（`.modelContainer`）。
+struct HouseholdSummaryHeader: View {
+    private let today: Date
+    private let calendar: Calendar
+    private let openSettings: () -> Void
+    private let ledgerScope: Binding<HomeModel.LedgerScope>
+    @Query private var records: [HouseholdEntry]
+
+    init(
+        zoneName: String, today: Date, calendar: Calendar, ledgerScope: Binding<HomeModel.LedgerScope>,
+        openSettings: @escaping () -> Void
+    ) {
+        self.today = today
+        self.calendar = calendar
+        self.ledgerScope = ledgerScope
+        self.openSettings = openSettings
+        _records = Query(HouseholdEntry.monthDescriptor(zoneName: zoneName, containing: today, calendar: calendar))
+    }
+
+    var body: some View {
+        SummaryHeader(
+            summary: Self.summary(records: records, today: today, calendar: calendar),
+            budget: nil,
+            editBudget: nil,
+            openReport: nil,
+            openSettings: openSettings,
+            ledgerScope: ledgerScope,
+            isHousehold: true
+        )
+    }
+
+    /// 家族の今月の合計（家族のだれが記録したかによらず、家計のすべての記録）。区切りと数え方は自分の記録と同じ
+    /// （`ReportPeriod.thisMonth` と `LedgerSummary`）。
+    static func summary(records: [HouseholdEntry], today: Date, calendar: Calendar) -> MonthlySummary {
+        guard let month = ReportPeriod.thisMonth.interval(now: today, calendar: calendar) else { return MonthlySummary() }
+        return MonthlySummary(LedgerSummary(records: records, interval: month, calendar: calendar))
     }
 }
 

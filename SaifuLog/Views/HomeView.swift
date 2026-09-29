@@ -15,6 +15,10 @@ import UIKit
 ///
 /// 入力欄の右のマイクのボタンから、話した内容を端末の中で書き起こして入力欄に入れる（送信は利用者が押したときだけ）。
 ///
+/// 家族と家計を共有しているとき（家計の共有が有効なビルドだけ）は、帯の「自分／家族」で記録先を切り替える。「家族」のときは、
+/// タイムラインに家計の記録（記録した人の名前つき）を、帯に家族の今月の合計を出し、カメラとマイクのボタンは出さない
+/// （レシートと声は v1 では「自分」だけ）。
+///
 /// 状態と操作（送信・質問・レシート・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ・
 /// 先週のふりかえり）は `HomeModel` が持つ。ここは表示と、
 /// 環境（文字の大きさ・支援技術・前面かどうか）に合わせた出し方だけを受け持つ。
@@ -171,7 +175,7 @@ struct HomeView: View {
                 }
                 #if DEBUG || INTERNAL_DIAGNOSTICS
                 .sheet(isPresented: $showsDiagnostics) {
-                    DiagnosticsView(model: DiagnosticsModel(context: modelContext))
+                    DiagnosticsView(model: DiagnosticsModel(context: modelContext, household: model.household))
                 }
                 // 帯の右上に診断のボタンを出させる（渡さなければ出ない）。
                 .environment(\.openDiagnostics, OpenDiagnosticsAction { showsDiagnostics = true })
@@ -185,6 +189,47 @@ struct HomeView: View {
                     Button("削除", role: .destructive) { model.delete(pending) }
                 } message: { pending in
                     Text("\(pending.summary)の記録を削除します。この操作は取り消せません。")
+                }
+                // 家計の記録の削除。家族の端末からも消えることを添える。
+                .confirmationDialog(
+                    "この記録を削除しますか？",
+                    isPresented: showsHouseholdDeletionConfirmation,
+                    titleVisibility: .visible,
+                    presenting: model.pendingHouseholdDeletion
+                ) { pending in
+                    Button("削除", role: .destructive) { model.deleteHouseholdEntry(pending) }
+                } message: { pending in
+                    Text("\(pending.summary)の家計の記録を削除します。家族の端末からも消えます。この操作は取り消せません。")
+                }
+                // 「家族」のときに質問や読めない文を送った（家計には記録しない）。送った文は入力欄に戻っている。
+                .alert(
+                    householdInputAlertTitle,
+                    isPresented: showsHouseholdInputAlert,
+                    presenting: model.householdInputAlert
+                ) { _ in
+                    Button("OK", role: .cancel) {}
+                } message: { alert in
+                    switch alert {
+                    case .question:
+                        Text("家族の家計への質問は、まだできません。帯の「自分」に切り替えると、自分の記録について聞けます。")
+                    case .unclear:
+                        Text("「ランチ 850」のように、品目と金額を入れてください。")
+                    }
+                }
+                // 家計の共有の知らせ（招待を受け入れた・家計が消えたなど）。ほかの画面を出している間は、閉じてから出す
+                // （設定の画面を出している間は、設定の画面が出す）。
+                .alert(
+                    model.household?.notice?.title ?? Text(verbatim: ""),
+                    isPresented: showsHouseholdNotice,
+                    presenting: model.household?.notice
+                ) { _ in
+                    Button("OK", role: .cancel) {}
+                } message: { notice in
+                    notice.message
+                }
+                // 家計から抜けた・消えたら「自分」に戻す。
+                .onChange(of: model.showsLedgerSwitch) {
+                    model.householdAvailabilityDidChange()
                 }
                 // 「取り消す」は記録の直後だけのもの。しばらくしたら引っ込め、タイムラインを広く使う。
                 // 支援技術を使い始めたときにも数え直す（id に含める）と、途中で引っ込むことがない。
@@ -222,35 +267,79 @@ struct HomeView: View {
     }
 
     private var timeline: some View {
-        EntryTimeline(
-            limit: model.timelineLimit,
-            today: model.today,
-            questions: model.questions,
-            weeklyRecap: model.weeklyRecap,
-            showMore: { model.showMoreTimeline() },
-            edit: { model.presentEdit($0, calendar: calendar) },
-            requestDelete: { model.requestDelete($0) },
-            openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
-            setBudget: { model.presentBudgetSetup() },
-            openPremium: { model.presentPremium() },
-            openWeeklyRecap: { model.presentWeeklyRecapDetail() },
-            dismissWeeklyRecap: { model.dismissWeeklyRecap() }
-        )
-        .background(Theme.background)
-        .safeAreaInset(edge: .top, spacing: 0) {
+        timelineContent
+            .background(Theme.background)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                header
+                    // 合計は画面の上に常に出ている帯なので、文字の大きさに上限を設ける。最大の文字サイズの
+                    // ままだと、下の入力欄と合わせて画面の半分以上を占め、タイムラインがほとんど見えなくなるため。
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                bottomBar
+            }
+    }
+
+    /// 「家族」のときの家計の保存先といまの家計（家計に入っていて、「家族」を選んでいるときだけ）。
+    private var activeHousehold: (container: ModelContainer, zoneName: String)? {
+        guard model.isHouseholdActive, let host = model.household, let container = host.container,
+              let zoneName = host.currentHousehold?.zoneName
+        else { return nil }
+        return (container, zoneName)
+    }
+
+    @ViewBuilder
+    private var timelineContent: some View {
+        if let household = activeHousehold {
+            // 家計の記録は家計の保存先から読む（自分の記録の保存先とは別）。
+            HouseholdTimeline(
+                zoneName: household.zoneName,
+                limit: model.timelineLimit,
+                today: model.today,
+                showMore: { model.showMoreTimeline() },
+                edit: { model.presentHouseholdEdit($0, calendar: calendar) },
+                requestDelete: { model.requestHouseholdDelete($0) }
+            )
+            .modelContainer(household.container)
+        } else {
+            EntryTimeline(
+                limit: model.timelineLimit,
+                today: model.today,
+                questions: model.questions,
+                weeklyRecap: model.weeklyRecap,
+                showMore: { model.showMoreTimeline() },
+                edit: { model.presentEdit($0, calendar: calendar) },
+                requestDelete: { model.requestDelete($0) },
+                openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
+                setBudget: { model.presentBudgetSetup() },
+                openPremium: { model.presentPremium() },
+                openWeeklyRecap: { model.presentWeeklyRecapDetail() },
+                dismissWeeklyRecap: { model.dismissWeeklyRecap() }
+            )
+        }
+    }
+
+    /// 上の帯。「家族」のときは家族の今月の合計（予算は v1 では「自分」だけなので出さない。まとめへも進まない）。
+    @ViewBuilder
+    private var header: some View {
+        if let household = activeHousehold {
+            HouseholdSummaryHeader(
+                zoneName: household.zoneName,
+                today: model.today,
+                calendar: calendar,
+                ledgerScope: $model.ledgerScope,
+                openSettings: { model.presentSettings() }
+            )
+            .modelContainer(household.container)
+        } else {
             MonthSummaryHeader(
                 today: model.today,
                 calendar: calendar,
                 editBudget: { model.presentBudgetSetup() },
                 openReport: { model.presentMonthlyReport(calendar: calendar) },
-                openSettings: { model.presentSettings() }
+                openSettings: { model.presentSettings() },
+                ledgerScope: model.showsLedgerSwitch ? $model.ledgerScope : nil
             )
-                // 合計は画面の上に常に出ている帯なので、文字の大きさに上限を設ける。最大の文字サイズの
-                // ままだと、下の入力欄と合わせて画面の半分以上を占め、タイムラインがほとんど見えなくなるため。
-                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            bottomBar
         }
     }
 
@@ -267,7 +356,7 @@ struct HomeView: View {
             }
             if model.canUndo {
                 UndoBanner(
-                    recorded: model.justRecorded,
+                    recorded: model.recordedItems,
                     edit: { model.presentEdit($0, calendar: calendar) },
                     undo: { model.undoLastRecord() },
                     dismiss: { model.dismissUndo() }
@@ -278,14 +367,16 @@ struct HomeView: View {
                 text: $model.draft,
                 isSending: model.isParsing,
                 send: { model.send(calendar: calendar) },
-                scanReceipt: { model.requestReceiptScan(calendar: calendar) },
+                // レシートと声の入力は v1 では「自分」だけ（「家族」のときはボタンを出さない）。
+                scanReceipt: model.isHouseholdActive ? nil : { model.requestReceiptScan(calendar: calendar) },
                 showsReceiptChoice: $model.showsReceiptSourceChoice,
                 canUseDocumentCamera: model.canUseDocumentCamera,
                 chooseReceiptSource: { model.startReceiptCapture($0) },
                 undo: undoAction,
-                recorded: model.justRecorded,
+                recorded: model.canUndo ? model.recordedItems : [],
                 edit: { model.presentEdit($0, calendar: calendar) },
-                voice: model.voice
+                voice: model.isHouseholdActive ? nil : model.voice,
+                targetsHousehold: model.isHouseholdActive
             )
         }
         .padding(.horizontal)
@@ -335,9 +426,32 @@ struct HomeView: View {
         Binding(get: { model.pendingDeletion != nil }, set: { if !$0 { model.pendingDeletion = nil } })
     }
 
+    private var showsHouseholdDeletionConfirmation: Binding<Bool> {
+        Binding(get: { model.pendingHouseholdDeletion != nil }, set: { if !$0 { model.pendingHouseholdDeletion = nil } })
+    }
+
+    private var showsHouseholdInputAlert: Binding<Bool> {
+        Binding(get: { model.householdInputAlert != nil }, set: { if !$0 { model.householdInputAlert = nil } })
+    }
+
+    private var householdInputAlertTitle: Text {
+        switch model.householdInputAlert {
+        case .question: Text("家族の家計では質問できません")
+        case .unclear, nil: Text("記録として読めませんでした")
+        }
+    }
+
+    /// 家計の共有の知らせを、ホームで出してよいか（ほかの画面を出している間は出せないので、閉じてから出す）。
+    private var showsHouseholdNotice: Binding<Bool> {
+        Binding(
+            get: { model.household?.notice != nil && !model.isPresentingOtherScreen },
+            set: { if !$0 { model.household?.notice = nil } }
+        )
+    }
+
     private var undoBannerSchedule: UndoBannerSchedule {
         UndoBannerSchedule(
-            ids: model.justRecorded.map(\.persistentModelID),
+            ids: model.recordedItems.map(\.id),
             keepsOpen: keepsUndoBanner,
             isEditing: model.editing != nil,
             showsStoreFailure: model.storeFailure != nil
@@ -347,7 +461,7 @@ struct HomeView: View {
 
 /// 「取り消す」を引っ込めるタイマーの数え直しの条件。
 private struct UndoBannerSchedule: Hashable {
-    var ids: [PersistentIdentifier]
+    var ids: [AnyHashable]
     var keepsOpen: Bool
     /// 「直す」のシートを出しているか。出したときにタイマーを止め、閉じたときに数え直すため。
     var isEditing: Bool
@@ -511,6 +625,82 @@ private struct EntryTimeline: View {
             }
             .animation(.default, value: weeklyRecap?.id)
         }
+    }
+}
+
+/// 家族の家計のタイムライン（「家族」のとき）。家計の記録を、記録した日時の新しいものから `limit` 件読み、古い順に並べる。
+/// 吹き出しには記録した人の名前を添える。押すと直し（ほかの人の記録も）、長押しで削除できる。
+///
+/// 家計の保存先（household.store）を読むので、呼び出し側が家計の保存先を環境に渡す（`.modelContainer`）。
+private struct HouseholdTimeline: View {
+    let limit: Int
+    let today: Date
+    let showMore: () -> Void
+    let edit: (HouseholdEntry) -> Void
+    let requestDelete: (HouseholdEntry) -> Void
+
+    @Query private var recentEntries: [HouseholdEntry]
+
+    init(
+        zoneName: String,
+        limit: Int,
+        today: Date,
+        showMore: @escaping () -> Void,
+        edit: @escaping (HouseholdEntry) -> Void,
+        requestDelete: @escaping (HouseholdEntry) -> Void
+    ) {
+        self.limit = limit
+        self.today = today
+        self.showMore = showMore
+        self.edit = edit
+        self.requestDelete = requestDelete
+        _recentEntries = Query(HouseholdEntry.timelineDescriptor(zoneName: zoneName, limit: limit))
+    }
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    if recentEntries.isEmpty {
+                        HouseholdEmptyTimelineView()
+                    }
+                    if recentEntries.count >= limit {
+                        Button("前の記録を表示", action: showMore)
+                            .font(.subheadline)
+                            .frame(minHeight: 44)
+                    }
+                    ForEach(recentEntries.reversed()) { entry in
+                        EntryBubble(
+                            entry: entry, today: today, edit: { edit(entry) }, requestDelete: { requestDelete(entry) },
+                            recorderName: entry.recorderName
+                        )
+                        .id(entry.id)
+                    }
+                }
+                .padding()
+            }
+            .defaultScrollAnchor(.bottom)
+            .scrollDismissesKeyboard(.interactively)
+            .onChange(of: recentEntries.first?.id) { _, id in
+                guard let id else { return }
+                withAnimation { proxy.scrollTo(id, anchor: .bottom) }
+            }
+        }
+    }
+}
+
+/// 家族の家計にまだ記録が無いときの案内。
+private struct HouseholdEmptyTimelineView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("家族の家計")
+                .font(.title2.bold())
+            Text("下の入力欄に送ると、家族と共有している家計に記録します。家族が記録したものも、ここに並びます。自分の記録は帯の「自分」に切り替えると見られます。")
+                .foregroundStyle(Theme.inkSecondary)
+        }
+        .foregroundStyle(Theme.ink)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 24)
     }
 }
 
