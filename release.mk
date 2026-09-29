@@ -5,7 +5,7 @@
 #   make archive [BUILD_NUMBER=123]    Release の .xcarchive を build/ に作る
 #                                      既定は署名あり。ARCHIVE_SIGNING=NO で署名なし（build.yml と make ci）、
 #                                      ARCHIVE_KEYCHAIN=… で署名に使うキーチェーンを指定する（release.yml）
-#                                      INTERNAL_BUILD=YES で社内テスト用（診断画面入り。release.yml の mode=testflight）
+#                                      INTERNAL_BUILD=YES で社内テスト用（診断画面と家計の共有入り。release.yml の mode=testflight）
 #   make export-ipa                    アーカイブから .ipa を書き出すだけ（送信しない。疎通確認用）
 #   make upload                        アーカイブを App Store Connect へ送る（本当に送信される）
 #                                      ビルド番号は make archive の BUILD_NUMBER で決まる（upload では変えられない）
@@ -154,6 +154,55 @@ RELEASE_INTERNAL_CHECK = \
 		echo "診断画面: 入っていない"; \
 	fi
 
+# 家計の共有（家族・パートナー）が有効なアプリにだけある文字列。SaifuLog/Household/HouseholdSharing.swift の enabledMarker と
+# 同じ値にする（変えるときは両方）。家計の共有は実機（2 つの Apple アカウントと 2 台）で確かめるまで、DEBUG と社内テスト用の
+# ビルドでだけ有効にし、App Store へ出すビルドでは隠す（docs/design.md §5-5）。
+RELEASE_HOUSEHOLD_MARKER := SaifuLog-HouseholdSharing-v1
+
+# 家計の共有が INTERNAL_BUILD のとおりに有効か（App Store へ出すビルドで無効か）を、アーカイブのアプリで確かめるシェルの文
+# （archive・export-ipa・upload のレシピで、RELEASE_INTERNAL_CHECK の後に使う）。診断画面の印と同じ仕組みで、次の 3 つを見る。
+# - アプリの中に RELEASE_HOUSEHOLD_MARKER があるか（有効なときに同期を始める処理が書くログの文字列）
+# - Info.plist の CKSharingSupported（招待のリンクでアプリを開かせるキー。有効なビルドだけ true、App Store へ出すビルドには無い）
+# - Info.plist の UIBackgroundModes に remote-notification があるか（Info.plist を 2 つに分けたので、片方だけ直して
+#   iCloud 同期と家計の同期の知らせが届かなくなっていないか。どちらのビルドにも要る）
+RELEASE_HOUSEHOLD_CHECK = \
+	app=$$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:ApplicationPath" "$(RELEASE_ARCHIVE)/Info.plist" 2>/dev/null); \
+	plist="$(RELEASE_ARCHIVE)/Products/$$app/Info.plist"; \
+	grep -r -a -F -q "$(RELEASE_HOUSEHOLD_MARKER)" "$(RELEASE_ARCHIVE)/Products/$$app"; \
+	case $$? in \
+		0) found=YES ;; \
+		1) found=NO ;; \
+		*) echo "error: $(RELEASE_ARCHIVE)/Products/$$app を読めず、家計の共有が有効かを確かめられませんでした。"; exit 1 ;; \
+	esac; \
+	sharing=$$(/usr/libexec/PlistBuddy -c "Print :CKSharingSupported" "$$plist" 2>/dev/null || echo missing); \
+	if [ "$$found" = YES ] && [ "$(INTERNAL_BUILD)" != YES ]; then \
+		echo "error: このアーカイブのアプリでは家計の共有（実機で確かめる前の機能）が有効になっています（$(RELEASE_HOUSEHOLD_MARKER) が見つかった）。App Store へ出すビルドでは隠すため止めます。"; \
+		echo "       SaifuLog/Household/HouseholdSharing.swift の enabledMarker が \#if DEBUG || INTERNAL_DIAGNOSTICS の外で値を持っていないかを確かめてください。"; \
+		exit 1; \
+	fi; \
+	if [ "$$found" = NO ] && [ "$(INTERNAL_BUILD)" = YES ]; then \
+		echo "error: INTERNAL_BUILD=YES ですが、アーカイブのアプリに家計の共有の印（$(RELEASE_HOUSEHOLD_MARKER)）が見つかりません。"; \
+		echo "       SaifuLog/Household/HouseholdSharing.swift の enabledMarker が release.mk の RELEASE_HOUSEHOLD_MARKER と同じ値か、HouseholdHost.start がその文字列をログに書いているかを確かめてください。"; \
+		exit 1; \
+	fi; \
+	if [ "$(INTERNAL_BUILD)" = YES ] && [ "$$sharing" != true ]; then \
+		echo "error: INTERNAL_BUILD=YES ですが、アプリの Info.plist の CKSharingSupported が true ではありません（いま: $$sharing）。project.yml の SAIFULOG_HOUSEHOLD_SHARING と INFOPLIST_FILE の選び方を確かめてください。"; \
+		exit 1; \
+	fi; \
+	if [ "$(INTERNAL_BUILD)" != YES ] && [ "$$sharing" != missing ]; then \
+		echo "error: App Store へ出すビルドのアプリの Info.plist に CKSharingSupported があります（いま: $$sharing）。家計の共有を隠している間は入れません。project.yml の SAIFULOG_HOUSEHOLD_SHARING と INFOPLIST_FILE の選び方を確かめてください。"; \
+		exit 1; \
+	fi; \
+	if ! /usr/libexec/PlistBuddy -c "Print :UIBackgroundModes" "$$plist" 2>/dev/null | sed 's/^ *//' | grep -Fqx remote-notification; then \
+		echo "error: アプリの Info.plist の UIBackgroundModes に remote-notification がありません。SaifuLog/Info.plist と SaifuLog/Info-HouseholdSharing.plist の両方に入っているかを確かめてください（iCloud 同期と家計の同期が、ほかの端末の変更の知らせを受け取れなくなる）。"; \
+		exit 1; \
+	fi; \
+	if [ "$$found" = YES ]; then \
+		echo "家計の共有: 有効（社内テスト用）"; \
+	else \
+		echo "家計の共有: 無効（App Store 向け）"; \
+	fi
+
 # 3 つとも揃っているときだけ API キーの認証フラグを付ける。
 RELEASE_AUTH = $(if $(and $(ASC_API_KEY_ID),$(ASC_API_ISSUER_ID),$(ASC_API_KEY_PATH)),-authenticationKeyPath "$(ASC_API_KEY_PATH)" -authenticationKeyID "$(ASC_API_KEY_ID)" -authenticationKeyIssuerID "$(ASC_API_ISSUER_ID)")
 
@@ -268,6 +317,8 @@ archive: release-args check-version release-auth generate
 	@# 診断画面（社内テスト用）が INTERNAL_BUILD のとおりに入っているか（入っていないか）を、できあがったアプリで確かめる。
 	@# ビルドの設定だけを信じると、条件をほかの場所で足したときや、診断画面のコードが #if の外に出たときに気づけない。
 	@$(RELEASE_INTERNAL_CHECK)
+	@# 家計の共有（実機で確かめる前の機能）も同じく、App Store へ出すビルドで無効になっているかを確かめる。
+	@$(RELEASE_HOUSEHOLD_CHECK)
 
 # 送信せずに .ipa を書き出す。署名（クラウド管理の配布証明書）と API キーの権限が
 # 足りているかを、App Store Connect に何も残さずに確かめられる。
@@ -283,6 +334,7 @@ export-ipa: release-auth
 	esac
 	@test -d "$(RELEASE_ARCHIVE)" || { echo "error: $(RELEASE_ARCHIVE) がありません。先に make archive を実行してください。"; exit 1; }
 	@$(RELEASE_INTERNAL_CHECK)
+	@$(RELEASE_HOUSEHOLD_CHECK)
 	rm -rf "$(RELEASE_EXPORT_DIR)"
 	@mkdir -p "$(dir $(RELEASE_EXPORT_OPTIONS_LOCAL))"
 	cp "$(RELEASE_EXPORT_OPTIONS)" "$(RELEASE_EXPORT_OPTIONS_LOCAL)"
@@ -377,6 +429,7 @@ upload: release-auth
 		exit 1; \
 	fi
 	@$(RELEASE_INTERNAL_CHECK)
+	@$(RELEASE_HOUSEHOLD_CHECK)
 	@if [ -t 0 ] && [ -z "$$CI" ]; then \
 		build=$$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleVersion" "$(RELEASE_ARCHIVE)/Info.plist" 2>/dev/null); \
 		printf '%s' "ビルド $$build を App Store Connect へ送信します$(if $(filter YES,$(INTERNAL_BUILD)),（TestFlight の社内テスト専用）)。よろしいですか？ [y/N] "; \

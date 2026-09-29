@@ -29,6 +29,15 @@ targets:
     platform: iOS
     sources:
       - path: SaifuLog
+        # Info.plist は 2 つ（家計の共有が無効なビルド用と有効なビルド用）あり、どちらを使うかをビルドの設定で選ぶ
+        # （下の INFOPLIST_FILE）。設定の値に変数を使うと XcodeGen が Info.plist を見分けられず、アプリの中へ写す
+        # ファイル（Copy Bundle Resources）に入れてしまうので、ここで外して、下で写さないファイルとして載せ直す。
+        excludes:
+          - "Info*.plist"
+      - path: SaifuLog/Info.plist
+        buildPhase: none
+      - path: SaifuLog/Info-HouseholdSharing.plist
+        buildPhase: none
       # StoreKit の設定ファイル（課金アイテム 2 つ）。Xcode の Run で App Store の代わりに使う（下のスキームの
       # storeKitConfiguration）。アプリには入れない（buildPhase: none）。スキームから指すには、ファイルが
       # プロジェクトに載っている必要があるため、ここに置く。
@@ -89,11 +98,17 @@ targets:
         # （NSSpeechRecognitionUsageDescription。SFSpeechRecognizer の許可のためのもの）は要らない（docs/design.md §9 の声の入力の決め事）。
         INFOPLIST_KEY_NSMicrophoneUsageDescription: 声で記録するためにマイクを使います。声は端末の中で文字にし、保存も送信もしません。
         # Info.plist のうち、ビルドの設定（INFOPLIST_KEY_…）で書けないものだけを置くファイル。ほかのキーは上の設定から
-        # Xcode が作り（GENERATE_INFOPLIST_FILE）、このファイルと合わせる。いまは UIBackgroundModes の remote-notification
-        # だけ（INFOPLIST_KEY_UIBackgroundModes は Xcode 27 でも Info.plist に入らなかった）。iCloud 同期
-        # （SwiftData + CloudKit）が、ほかの端末での変更の知らせ（サイレントプッシュ）を、アプリが裏にいる間にも受け取って
-        # 取り込むため。同期がオフのときは何も届かない（CloudKit の購読を作らない）。
-        INFOPLIST_FILE: SaifuLog/Info.plist
+        # Xcode が作り（GENERATE_INFOPLIST_FILE）、このファイルと合わせる。
+        # - UIBackgroundModes の remote-notification（INFOPLIST_KEY_UIBackgroundModes は Xcode 27 でも Info.plist に入らなかった）。
+        #   iCloud 同期（SwiftData + CloudKit）と家計の同期（CKSyncEngine）が、ほかの端末での変更の知らせ（サイレントプッシュ）を、
+        #   アプリが裏にいる間にも受け取って取り込むため。同期がオフのときは何も届かない（CloudKit の購読を作らない）。
+        # - CKSharingSupported（家計の共有の招待のリンクでアプリを開かせる）。家計の共有が有効なビルドだけ
+        #   （SaifuLog/Info-HouseholdSharing.plist）。App Store へ出すビルドでは招待を受け入れないので、キーも入れない
+        #   （入れると、招待のリンクでアプリが開くのに何も起きない）。無いことは release.mk がアーカイブで確かめる。
+        # 2 つのファイルは、CKSharingSupported のほかは同じ中身に保つ（片方だけ直すと、ビルドによって動きが変わる）。
+        INFOPLIST_FILE: $(SAIFULOG_INFOPLIST_$(SAIFULOG_HOUSEHOLD_SHARING))
+        SAIFULOG_INFOPLIST_NO: SaifuLog/Info.plist
+        SAIFULOG_INFOPLIST_YES: SaifuLog/Info-HouseholdSharing.plist
         # 独自の暗号化は使っていない（使うとしても OS 標準のものだけ）。宣言しておくと、
         # 提出のたびに App Store Connect で輸出規制の質問に答えずに済む。
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
@@ -111,6 +126,13 @@ targets:
         SAIFULOG_INTERNAL_BUILD: NO
         SAIFULOG_INTERNAL_CONDITIONS_YES: INTERNAL_DIAGNOSTICS
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) $(SAIFULOG_INTERNAL_CONDITIONS_$(SAIFULOG_INTERNAL_BUILD))
+        # 家計の共有（家族・パートナー）が有効なビルドか（YES / NO）。Swift の側の機能フラグ（HouseholdSharing.isEnabled。
+        # DEBUG || INTERNAL_DIAGNOSTICS）と同じ条件にする。Release は社内テスト用のビルド（SAIFULOG_INTERNAL_BUILD）のとおり、
+        # Debug はいつも YES（下の configs）。Info.plist の選び方（CKSharingSupported の有無）に使う。
+        SAIFULOG_HOUSEHOLD_SHARING: $(SAIFULOG_INTERNAL_BUILD)
+      configs:
+        Debug:
+          SAIFULOG_HOUSEHOLD_SHARING: YES
 
   # アプリ側（SaifuLog/）のテスト。SwiftData の保存と読み込みの条件、保存の失敗の扱いなど、
   # コアに置けない（SwiftData に依存する）部分を確かめる。シミュレータで動かすので make test（swift test）とは
