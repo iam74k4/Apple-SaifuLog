@@ -5121,13 +5121,13 @@
         }
       }
     },
-    "記録と予算を、あなたの iCloud（Apple）に保存し、同じ Apple アカウントでサインインしている端末どうしでそろえます。いまこの iPhone にある記録も iCloud に上がります。開発者は中身を見られません。\n\niCloud に保存した記録は、通信中と Apple のサーバー上で暗号化されますが、エンドツーエンドでは暗号化されません（暗号の鍵は Apple が管理します。高度なデータ保護をオンにしていても同じです）。\n\n切り替えると記録を開き直します。オフに戻しても、この iPhone の記録は残ります。" : {
-      "comment" : "設定の「iCloud で同期」をオンにする前の説明のアラートの本文。暗号化の説明は Apple の iCloud のデータ保護の説明（標準のデータ保護、CloudKit の暗号化フィールドを使わないアプリ）に合わせてある",
+    "記録と予算を、あなたの iCloud（Apple）に保存し、同じ Apple アカウントでサインインしている端末どうしでそろえます。いまこの iPhone にある記録も iCloud に上がります。開発者は中身を見られません。\n\n記録と予算の中身は、この iPhone の中で暗号化してから iCloud に保存します。Apple の「高度なデータ保護」をオンにしていれば、エンドツーエンドで暗号化され、鍵はあなたの信頼できるデバイスだけが持ちます。オフのときは、鍵を Apple が管理する標準の暗号化です。\n\n切り替えると記録を開き直します。オフに戻しても、この iPhone の記録は残ります。" : {
+      "comment" : "設定の「iCloud で同期」をオンにする前の説明のアラートの本文。暗号化の説明は Apple の説明（CloudKit の encryptedValues と iCloud のデータセキュリティの概要 support.apple.com/102651。記録と予算の項目はすべて CloudKit の暗号化フィールド）に合わせてある",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your records and budgets will be saved in your iCloud (Apple) and kept in sync across devices signed in to the same Apple Account. Records already on this iPhone will be uploaded to iCloud too. The developer can’t see them.\n\nRecords saved in iCloud are encrypted in transit and on Apple’s servers, but not end-to-end encrypted (Apple manages the keys, even if Advanced Data Protection is on).\n\nSwitching reopens your records. If you turn it off later, the records on this iPhone stay."
+            "value" : "Your records and budgets will be saved in your iCloud (Apple) and kept in sync across devices signed in to the same Apple Account. Records already on this iPhone will be uploaded to iCloud too. The developer can’t see them.\n\nThe contents of your records and budgets are encrypted on this iPhone before they’re saved to iCloud. If Apple’s Advanced Data Protection is on, they’re end-to-end encrypted, and only your trusted devices have the keys. If it’s off, they use standard encryption, with keys managed by Apple.\n\nSwitching reopens your records. If you turn it off later, the records on this iPhone stay."
           }
         }
       }

@@ -378,8 +378,8 @@ App ID の In-App Purchase の Capability は、明示的な App ID なら最初
    スクリーンショットは撮り直す）。プライバシーポリシーの URL には、4 で確定させた main の `PRIVACY.md` を、サポート URL には
    main の `docs/support.md` を入れる（どちらも main に入ってから開けることを確かめる）
    - **CloudKit のスキーマを Production に出す**（「[Capability（iCloud など）を足すとき](#capabilityicloud-などを足すとき)」の
-     「CloudKit のスキーマ」）。出さないと、配信したアプリで iCloud 同期が働かない。出す前に、記録を CloudKit の暗号化フィールドに
-     するかを決める（`docs/design.md` §13。出した後は変えられない）
+     「CloudKit のスキーマ」）。出さないと、配信したアプリで iCloud 同期が働かない。出す前に、記録と予算の項目の型が暗号化
+     （Encrypted …）になっているかを確かめる（同じ節の 2。`docs/design.md` §5-3。出した後は変えられない）
 6. **審査に出す前に、エンタイトルメントの照合が通ることを確かめる。** アップロード前の照合はまだ警告だけで、
    データ保護が抜けていても送ってしまう。抜けたビルドを審査に出さないための関門なので、ここが済むまで 7 に進まない
    - main で Actions → release → Run workflow → `mode=export` を走らせ、「書き出すだけ（送信しない）」が緑で
@@ -864,18 +864,39 @@ iCloud 同期は、SwiftData が記録と予算を CloudKit のレコード（`C
 所有者が CloudKit Console で出す。TestFlight と App Store のビルドは Production の環境を使う（Xcode から入れた Debug のビルドは
 Development）。
 
+記録と予算の項目は、すべて CloudKit の暗号化フィールドにしている（SwiftData の `@Attribute(.allowsCloudEncryption)`。`docs/design.md` §5-3）。
+CloudKit は、スキーマに載った項目を後から暗号化フィールドに変えられず、暗号化フィールドをふつうの項目に戻すこともできない。
+**Production に出す前に、型が暗号化になっているかを必ず確かめる**（2）。
+
+0. **開発用の環境に、暗号化にする前の形のスキーマが残っていないかを確かめる。** 暗号化フィールドにする前のビルド（iCloud 同期を
+   入れてから、記録と予算の項目を暗号化フィールドにする変更が develop に入るまでのビルド）で同期を試したことがあると、Development に
+   `CD_Entry`・`CD_Budget` が暗号化でない項目（型が `String`・`Int(64)`・`Date/Time` など）で作られている。そのままでは同じ名前の
+   項目を暗号化フィールドにできないので、CloudKit Console → `iCloud.com.iam74k4.SaifuLog` → Development → Reset Environment で
+   リセットしてから（開発用の記録とスキーマがすべて消える。家計の共有を試していれば、その型も消えるので 5 で作り直す。Production には
+   影響しない）1 に進む。試した実機のアプリは消して入れ直す（前のスキーマで同期した状態が端末の保存先に
+   残っているため。消えるのは開発用の記録だけ）。`CD_Entry` が無ければ、そのまま 1 に進む
 1. **開発用の環境にスキーマを作る。** 手元の Xcode から、iCloud にサインインした実機（登録済みの端末）へ Debug のビルドを入れ、
    設定の「iCloud で同期」をオンにして、記録を 1 件と月の予算を 1 つ入れる（どの項目にも既定値があるので、1 件で全部の項目が作られる）。
    数分待ってから [CloudKit Console](https://icloud.developer.apple.com/) → `iCloud.com.iam74k4.SaifuLog` → Development →
    Schema → Record Types に `CD_Entry` と `CD_Budget` があり、`CD_amount`・`CD_memo` などの項目が並んでいるかを確かめる
    - 項目の名前と型を間違えて作ったときは、Development の環境をリセットしてから（Console の Reset Environment。開発用の記録も消える）
      作り直す。Production に出した後はリセットできない
-2. **暗号化フィールドにするかを決める**（`docs/design.md` §13）。決めたら、その形で 1 を済ませる（Production に出した後は変えられない）
+2. **暗号化フィールドになっているかを確かめる。** 同じ画面で、`CD_Entry` と `CD_Budget` のアプリの項目の型が、すべて「Encrypted」で
+   始まっているかを見る（Console は暗号化フィールドの型を「Encrypted String」「Encrypted Double」「Encrypted Timestamp」のように
+   表す。Apple の説明）。確かめる項目は次の 11（名前は Core Data が付ける `CD_` つき）
+   - `CD_Entry`: `CD_amount`・`CD_isIncome`・`CD_categoryRawValue`・`CD_memo`・`CD_spentAt`・`CD_createdAt`・`CD_sourceRawValue`・`CD_originalText`
+   - `CD_Budget`: `CD_scopeRawValue`・`CD_amount`・`CD_updatedAt`
+   - Core Data が足す管理用の項目（`CD_entityName` と、文字の項目ごとの `…_ckAsset`）と、CloudKit のシステムの項目（`recordName`・
+     `createdTimestamp` など）は、アプリから暗号化を指定しないので、ここでは見ない（`…_ckAsset` はアセットで、アセットは CloudKit が
+     いつも暗号化する）
+   - 暗号化でない型の項目が 1 つでもあれば、Production に出さない。アプリのモデルで指定が外れていないか（`make test-app` の
+     `ModelContainerFactoryTests` が止めるはず）と、0 のリセットを済ませたかを確かめてから、0 からやり直す
 3. **Production に出す。** CloudKit Console → Deploy Schema Changes で、Development のスキーマを Production に反映する。
    初回リリースの審査の前に済ませる（「[初回リリース（0.1.0）の進め方](#初回リリース010の進め方)」の 5）。TestFlight
    （`mode=testflight`）で同期を試すのも、これを済ませてから
-4. モデルに項目を足したら（既定値つき。`docs/design.md` §5-2）、1 と 3 をやり直す。Production のスキーマは足すことしかできないので、
-   項目の名前や型の変更・削除はしない（アプリのテスト `ModelContainerFactoryTests` で今の項目が残っていることを確かめている）
+4. モデルに項目を足したら（既定値つき・暗号化フィールド。`docs/design.md` §5-2）、1・2・3 をやり直す。Production のスキーマは足すことしか
+   できないので、項目の名前や型の変更・削除はしない（アプリのテスト `ModelContainerFactoryTests` で、今の項目が残っていることと、すべての
+   項目が暗号化フィールドであることを確かめている）。足した項目も、Production に出す前に 2 で型が暗号化になっているかを確かめる
 5. **家族との共有の家計の記録の型（`HouseholdEntry`）**も同じく出す（家計の共有は実機で確かめるまで機能フラグで隠しているので、
    出すのは提供を決めてからでよい。`docs/design.md` §5-5）。家計の共有が有効なビルド（Debug）で、iCloud にサインインした実機から
    設定の「家族と共有」で家計を作り、「家族」で記録を 1 件入れると、持ち主の私用データベースの `household-…` のゾーンに `HouseholdEntry` の

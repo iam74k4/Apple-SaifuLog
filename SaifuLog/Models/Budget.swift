@@ -10,15 +10,18 @@ import SwiftData
 /// 予算をなくすときも行は消さず、金額 0（設定なし）を書く。CloudKit では削除が他の端末に伝わるのが遅れたり、
 /// 別の端末で同時に書いた値と食い違ったりするため、「最後に書いた値」が勝つ形にしておく。一意制約が無いので、
 /// 同じ対象の行が複数できることもある。どの行を採るかは `BudgetPlan.resolve`（updatedAt の新しいもの）が決める。
+///
+/// 記録と同じく、**項目はすべて CloudKit の暗号化フィールドにする**（`.allowsCloudEncryption`。理由は `Entry`）。
+/// 書き込んだ日時も入れる（予算を変えた時機も家計の情報で、暗号化してもサーバーで使うことは無いため）。
 @Model
 final class Budget {
     /// 対象（`BudgetScope.rawValue`）。全体は "total"、カテゴリ別はカテゴリの rawValue。
     /// 列挙型のまま保存すると、検索条件（#Predicate）で扱いにくいため文字列で持つ（Entry のカテゴリと同じ）。
-    var scopeRawValue: String = BudgetScope.totalRawValue
+    @Attribute(.allowsCloudEncryption) var scopeRawValue: String = BudgetScope.totalRawValue
     /// 月の予算（円）。0 は設定なし。
-    var amount: Int = 0
+    @Attribute(.allowsCloudEncryption) var amount: Int = 0
     /// 最後に書いた日時。同じ対象の行が複数あるときは、これが新しいものを採る。
-    var updatedAt: Date = Date.now
+    @Attribute(.allowsCloudEncryption) var updatedAt: Date = Date.now
 
     init(scope: BudgetScope, amount: Int, updatedAt: Date) {
         self.scopeRawValue = scope.rawValue

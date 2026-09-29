@@ -68,6 +68,9 @@ enum ModelContainerFactory {
     /// 先に確かめる。iCloud 同期を出した後は、CloudKit の制約（すべての項目に既定値か optional、一意制約なし、
     /// 関係は optional で逆向きあり。テストで確かめている）を守り、項目の削除・名前や型の変更をしない
     /// （Production に出した CloudKit のスキーマは、足すことしかできないため）。
+    /// 項目は足すときから `@Attribute(.allowsCloudEncryption)` を付けて暗号化フィールドにする（テストで確かめている）。
+    /// CloudKit は、一度スキーマに載った項目を暗号化フィールドに変えられないため。暗号化の指定は Core Data のモデルの版
+    /// （バージョンハッシュ）に入らないので、指定を足しても端末の保存先は移行なしでそのまま開ける（どちらもテストで確かめている）。
     static var modelTypes: [any PersistentModel.Type] {
         [Entry.self, Budget.self]
     }
