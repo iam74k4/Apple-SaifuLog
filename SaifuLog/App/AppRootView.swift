@@ -50,6 +50,16 @@ struct AppRootView: View {
         // 案内からホームへの切り替えの動きは、案内を終える操作の側（`OnboardingView.finish`）で付ける。動きが済んだ
         // ところで VoiceOver に画面が替わったことを知らせるため（ここで付けると、済んだときが分からない）。
         .onAppear(perform: decide)
+        #if DEBUG
+        // 撮影用のデモ（DEBUG のビルドだけ）: ホームが出た後に、撮る画面（質問・月のまとめ・シートなど）を開く。
+        // ホームが画面に出きるのを待ってから開く（出る前にシートや横に進む画面を開くと、出ないことがあるため）。
+        .task {
+            guard let demo = ScreenshotDemo.current else { return }
+            try? await Task.sleep(for: .milliseconds(800))
+            guard let home else { return }
+            await demo.stage(on: home, calendar: weekStart.applied(to: systemCalendar))
+        }
+        #endif
         // 週の始まりを、画面の暦（ホーム・まとめ・直すシートの日付の選択が使う環境の calendar）に当てはめる。ホームは
         // この暦を解析や期間の区切り（`ReportPeriod`）に渡すので、今週・先週の区切りも設定に従う。暦を 1 か所で
         // 置き換えるのは、画面ごとに当てはめると、当てはめ忘れた画面だけ別の週になるため。
@@ -64,6 +74,21 @@ struct AppRootView: View {
         // 2 回目からは何もしない（iCloud 同期の切り替えで自分の記録の保存先を開き直しても、家計の保存先は開き直さない）。
         household.start()
         guard home == nil else { return }
+        #if DEBUG
+        if let demo = ScreenshotDemo.current {
+            // 撮影用のデモ（DEBUG のビルドだけ）: 初回の案内を出さず、デモの設定・時計・AI の代わりでホームを作る。
+            let home = demo.makeHomeModel(
+                context: container.mainContext, pendingWrites: storeHost.pendingWrites, purchases: purchases, storeHost: storeHost,
+                household: household
+            )
+            let calendar = weekStart.applied(to: systemCalendar)
+            Task {
+                await demo.prepare(home, calendar: calendar)
+                self.home = home
+            }
+            return
+        }
+        #endif
         if OnboardingModel.needsOnboarding(context: container.mainContext) {
             onboarding = OnboardingModel(budgetStore: BudgetStore(context: container.mainContext))
         }

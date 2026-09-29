@@ -16,6 +16,11 @@ final class PremiumSheetModel: Identifiable {
     var alert: PurchaseAlert?
     /// 手続き中の商品（押したボタンにだけ進行中の印を出す）。
     private(set) var inFlight: PremiumProduct?
+    #if DEBUG
+    /// シートを下の端（14 日間の無料体験の説明とボタン）まで送った状態で開くか。撮影用のデモ（`ScreenshotDemo`）が、体験の
+    /// 課金アイテムの審査用のスクリーンショットを撮るときだけ使う（DEBUG のビルドだけ）。
+    var screenshotScrollsToBottom = false
+    #endif
 
     @ObservationIgnored private let announce: @MainActor (String) -> Void
 
@@ -30,18 +35,17 @@ final class PremiumSheetModel: Identifiable {
     /// 購入か復元の途中（ボタンを押せなくし、シートを下へのスワイプで閉じさせない）。
     var isBusy: Bool { purchases.isPurchasing || purchases.isRestoring }
 
-    /// App Store の価格の表示（「¥1,800」）。読めていなければ nil。金額をアプリに書かないのは、価格は App Store Connect で
-    /// 決まり、国や地域・税で変わるため。
-    var premiumPrice: String? { purchases.products[.premium]?.displayPrice }
+    /// App Store の価格の表示（「¥1,800」）。読めていなければ nil（`PurchaseManager.displayPrice(for:)`）。
+    var premiumPrice: String? { purchases.displayPrice(for: .premium) }
 
     /// 体験の案内とボタンを出すか（まだ体験していない無料のときだけ）。
     var showsTrial: Bool { status.canStartTrial }
 
     /// 体験を始められるか。
-    var canStartTrial: Bool { showsTrial && purchases.products[.trial14] != nil && !isBusy }
+    var canStartTrial: Bool { showsTrial && purchases.isOffered(.trial14) && !isBusy }
 
     /// プレミアムを買えるか。
-    var canPurchase: Bool { status.canPurchase && purchases.products[.premium] != nil && !isBusy }
+    var canPurchase: Bool { status.canPurchase && purchases.isOffered(.premium) && !isBusy }
 
     /// 価格を読む（シートを開いたとき・「もう一度読み込む」）。
     func loadProducts() async {

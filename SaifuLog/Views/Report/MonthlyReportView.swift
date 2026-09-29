@@ -17,6 +17,10 @@ struct MonthlyReportView: View {
     @Bindable var model: MonthlyReportModel
 
     @Environment(\.scenePhase) private var scenePhase
+    #if DEBUG
+    /// 撮影用のデモで下の端へ送るための位置（DEBUG のビルドだけ）。
+    @State private var screenshotScrollPosition = ScrollPosition()
+    #endif
 
     var body: some View {
         ScrollView {
@@ -28,6 +32,17 @@ struct MonthlyReportView: View {
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        #if DEBUG
+        // 撮影用のデモで、カテゴリ別のグラフと金額の行を写すときだけ下の端へ送る（上から開くと、グラフが画面の下で切れる）。
+        // 横に進む動きと中身の並べ直しが済んでから送る。開く時点の位置（defaultScrollAnchor）だけでは、シミュレータ
+        // （iOS 26.4）で下の端まで届かずに途中で止まったため。
+        .scrollPosition($screenshotScrollPosition)
+        .task(id: model.screenshotScrollsToBottom) {
+            guard model.screenshotScrollsToBottom else { return }
+            try? await Task.sleep(for: .milliseconds(800))
+            screenshotScrollPosition.scrollTo(edge: .bottom)
+        }
+        #endif
         .background(Theme.background)
         .navigationTitle("月のまとめ")
         .navigationBarTitleDisplayMode(.inline)

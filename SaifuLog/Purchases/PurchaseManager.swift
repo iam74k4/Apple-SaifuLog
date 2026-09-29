@@ -46,6 +46,14 @@ final class PurchaseManager {
     /// 購入の事実を読み直した回数。後から始めた読み直しの結果だけを採る（前の読み直しが後から終わって、新しい状態を
     /// 古い状態で上書きしないように）。
     @ObservationIgnored private var refreshGeneration = 0
+    #if DEBUG
+    /// 撮影用のデモ（`ScreenshotDemo`）で、App Store の商品の代わりに出す価格の表示。DEBUG のビルドだけ。
+    ///
+    /// `xcrun simctl launch` で起動したアプリは Xcode の StoreKit の設定ファイルを使えず、App Store の商品を読めない
+    /// （プレミアムのシートが「価格を読み込めませんでした」になる）。課金アイテムの審査用のスクリーンショットに価格とボタンを
+    /// 写すため、表示だけを差し込む。購入の手続きは商品が無いので進まない。
+    @ObservationIgnored private var screenshotDisplayPrices: [PremiumProduct: String] = [:]
+    #endif
 
     /// - Parameters:
     ///   - now: 体験の残りの判定に使う時刻。テストで固定する。
@@ -201,6 +209,29 @@ final class PurchaseManager {
     }
 
     // MARK: - 商品
+
+    /// 価格の表示（「¥1,800」）。App Store の商品を読めていなければ nil。金額をアプリに書かないのは、価格は App Store
+    /// Connect で決まり、国や地域・税で変わるため。
+    func displayPrice(for kind: PremiumProduct) -> String? {
+        #if DEBUG
+        if let price = screenshotDisplayPrices[kind] { return price }
+        #endif
+        return products[kind]?.displayPrice
+    }
+
+    /// その商品を売り場に出せるか（App Store の商品を読めていて、購入のボタンを押せる状態にしてよいか）。
+    func isOffered(_ kind: PremiumProduct) -> Bool {
+        displayPrice(for: kind) != nil
+    }
+
+    #if DEBUG
+    /// 撮影用のデモで、App Store の商品を読まずに価格を出す（`screenshotDisplayPrices`）。読み込み済みにして、シートが
+    /// App Store に商品を読みにいかないようにする。
+    func useScreenshotDisplayPrices(_ prices: [PremiumProduct: String]) {
+        screenshotDisplayPrices = prices
+        productsState = .loaded
+    }
+    #endif
 
     /// App Store の商品（価格など）を読む。読み込み中なら何もしない。
     func loadProductsIfNeeded() async {

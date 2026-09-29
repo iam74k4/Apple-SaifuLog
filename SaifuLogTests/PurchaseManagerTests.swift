@@ -263,6 +263,10 @@ struct PurchaseManagerTests {
 
         #expect(manager.productsState == .failed)
         #expect(manager.products.isEmpty)
+        // 商品を読めていなければ、価格の表示は無く、購入と体験のボタンを押せる状態にしない。
+        #expect(manager.displayPrice(for: .premium) == nil)
+        #expect(!manager.isOffered(.premium))
+        #expect(!manager.isOffered(.trial14))
     }
 
     @Test func productsFailWhenLoadingThrows() async {
