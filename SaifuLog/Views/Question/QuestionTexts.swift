@@ -72,11 +72,14 @@ enum QuestionTexts {
         return (interval.start..<lastDay).formatted(style)
     }
 
-    /// 期間の名前と日付（「今月・9月1日～30日」）。
+    /// 期間の名前と日付（「今月・9月1日～30日」「This Month · Sep 1–30」）。
+    ///
+    /// 区切りはホームの帯の「・」と別のキーにする。帯は区切りの前後に並べ方で空きを入れるので訳に空白を持たないが、ここは
+    /// 文字をつなげるだけなので、英語の訳で前後に空白を入れないと「This Month·Sep 1–30」と詰まるため。
     static func periodText(for answer: LedgerAnswer, calendar: Calendar) -> String {
         let name = String(localized: answer.period.label)
         let range = dateRange(answer.interval, calendar: calendar)
-        return "\(name)\(String(localized: "・"))\(range)"
+        return String(localized: "\(name)・\(range)")
     }
 
     /// 大きく出す数字（または、数字の無い答えの文）。
