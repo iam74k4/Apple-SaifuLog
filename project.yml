@@ -118,6 +118,11 @@ schemes:
       # 効かない（提出物は本物の App Store とつながる。テストは SKTestSession で同じファイルを読む）。
       storeKitConfiguration: Config/SaifuLog.storekit
     test:
+      # アプリのテストは日本語の文で期待値を書いているので、テストを動かすときの言語と地域を日本語に固定する。
+      # 固定しないとシミュレータの言語に左右され、手元（Mac が日本語）では通り、CI のランナー（英語）では英語の訳が
+      # 返って落ちる。英語の訳は、LocalizationTests などで en.lproj を直接読んで確かめる（make check-strings も）。
+      language: ja
+      region: JP
       targets:
         - package: SaifuLogCore/SaifuLogCoreTests
         - SaifuLogTests
