@@ -77,13 +77,20 @@ iPhone の上で行います。**記録や計算した数字、一言を外部�
 利用者が記録を直した内容（例: ある言葉をどのカテゴリに分けるか）を以後の読み取りに
 役立てる機能を提供する場合、その内容は端末内にのみ保存します。
 
-### レシート・スクリーンショットの取り扱い（予定の機能）
+### レシート・スクリーンショットの取り扱い
 
-利用者がレシートを撮影したり、スクリーンショットを選んだりしたときは、明細を読み取るために
-その画像を端末内で処理します。**画像を外部へ送信することはありません。**
+利用者がレシートを撮影したり、写真（スクリーンショットを含む）を選んだりしたときは、明細を読み取るために、その画像の文字を
+iOS の文字認識（Vision）でお使いの iPhone の上で読みます。Apple Intelligence を使える端末では、読み取った品目の一覧（品名と金額）と
+店名を Foundation Models に渡して品名とカテゴリを整えさせ、iOS 27 以降で画像の入力に対応した端末では画像も渡しますが、この処理も
+お使いの iPhone の上で行います。**画像や読み取った文字を外部へ送信することはありません。**
 
-カメラや写真へのアクセスは、利用者がこの機能を使うときにだけ求める予定です。読み取りが
-終わった画像そのものを保存するかどうかは、実装時に決めてこのポリシーに記載します。
+**画像は読み取りの間だけアプリのメモリの中に置き、ファイルにも写真のアルバムにも保存しません。読み取った文字の全体も保存しません。**
+保存するのは、利用者が読み取り結果を確かめて「記録する」を押したときの記録（品名・金額・カテゴリ・日付）だけで、記録の「入力した文章」には、
+レシートの文字の全体ではなく「レシート: 店名 合計 ¥…」という短い要約だけを入れます（店名からも電話番号やカード番号のような数字の並びを除きます）。
+レシートに印字された電話番号・住所・カード番号の一部・担当者の名前などは保存しません。
+
+カメラへのアクセスは、利用者が「撮る」を選んだときにだけ iOS が許可を求めます。写真から選ぶときは、iOS の写真の選択の画面（アプリの外で動きます）を
+使うため、写真のライブラリへのアクセスの許可は求めず、本アプリは利用者が選んだ 1 枚だけを受け取ります。
 
 ### 声での記録（予定の機能）
 
@@ -132,9 +139,8 @@ iCloud へのバックアップや同期を提供する場合の取り扱いで�
 
 初回の案内を終えたかどうか、週の始まり（日曜か月曜か）、無料体験が終わったときの案内を出したかどうか、家計への質問を
 無料で使った回数（月ごとの回数。質問の文や答えは含みません）、先週のふりかえりを最後に表示した日時（ふりかえりの中身は
-含みません）といったアプリの設定は、iOS の標準的な仕組み（UserDefaults）を
-用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存します。レシートの読み取りの機能を提供したら、無料で使った回数も
-同じ場所に保存します。
+含みません）、レシートの読み取りを無料で使った回数（月ごとの回数。画像や読み取った内容は含みません）といったアプリの設定は、
+iOS の標準的な仕組み（UserDefaults）を用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存します。
 これらを外部に送信することはありません。予算の金額は設定ではなく、上の家計の記録と同じ場所に保存します。
 購入したかどうかは設定には保存しません（上の「購入の取り扱い」）。
 
@@ -247,14 +253,22 @@ If the app offers to remember your corrections (for example, which category a ce
 belongs to) so that later entries can be read more accurately, those corrections will be
 stored only on your device.
 
-### Receipts and Screenshots (Planned Feature)
+### Receipts and Screenshots
 
-When you photograph a receipt or choose a screenshot, the image is processed on your device
-to read its line items. **The image is never sent anywhere.**
+When you photograph a receipt or choose a photo (including a screenshot), the app reads the text in the image with the
+iOS text recognition (Vision) on your iPhone to find its line items. On devices where Apple Intelligence is available, the list of
+items read (names and amounts) and the store name are passed to Foundation Models to tidy up item names and categories, and on
+iOS 27 or later with a model that accepts images, the image is passed as well; this processing also takes place on your iPhone.
+**Neither the image nor the text read from it is ever sent anywhere.**
 
-The app is planned to ask for access to the camera or photos only when you use this
-feature. Whether the image itself is kept after reading will be decided during
-implementation and stated in this policy.
+**The image is kept in the app's memory only while it is being read, and is never saved to a file or to your photo library. The full
+text read from the receipt is not saved either.** Only the entries you record, after checking the result and tapping Record (item,
+amount, category, and date), are saved, and their "text you entered" contains only a short summary such as "Receipt: store total
+¥…", not the full text of the receipt (numbers such as phone or card numbers are removed from the store name as well). Phone
+numbers, addresses, partial card numbers, staff names, and other details printed on the receipt are not saved.
+
+iOS asks for access to the camera only when you choose Take Photo. When you choose from Photos, the app uses the iOS photo picker
+(which runs outside the app), so it does not ask for access to your photo library and receives only the one photo you choose.
 
 ### Voice Entry (Planned Feature)
 
@@ -311,9 +325,9 @@ which do not include buyers' names, contact details, or payment information.
 App settings, such as whether you have finished the first-launch introduction, which day your
 week starts on, whether the notice at the end of the free trial has been shown, and the number of free
 questions about your spending you have used (counted per month; your questions and answers are not
-included), and the date and time Last Week in Review was last shown (not its contents), are stored only on your own iPhone, in an area reserved for this app, using the standard iOS
-mechanism (UserDefaults). Once receipt reading is offered, the number of times you have used it for free
-will be stored in the same place. They are never transmitted
+included), the date and time Last Week in Review was last shown (not its contents), and the number of free receipt scans you have used
+(counted per month; no images or scanned contents), are stored only on your own iPhone, in an area reserved for this app, using the
+standard iOS mechanism (UserDefaults). They are never transmitted
 anywhere. Your budget amount is not a setting; it is stored in the same place as your records,
 described above. Whether you have purchased Premium is not stored as a setting (see Purchases above).
 

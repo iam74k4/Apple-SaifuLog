@@ -4,7 +4,7 @@
 端末内の AI（Apple の Foundation Models）で行い、家計のデータを端末の外に出さない。
 
 ## 現在の到達点
-- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・家計への質問・月の予算・月のまとめ・週のふりかえり・設定と CSV 書き出し・初回の案内・プレミアム（StoreKit）の試作**まで。
+- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・家計への質問・レシートの読み取り・月の予算・月のまとめ・週のふりかえり・設定と CSV 書き出し・初回の案内・プレミアム（StoreKit）の試作**まで。
   - 試作済み: 一行の読み取り（端末内 AI、使えない端末ではキーワード辞書）、タイムライン、記録直後の
     「直す」「取り消す」、長押しでの記録の削除（確認つき）、今月の支出と収入の合計。画面は縦向きのみ。
     ⑥ 直す（吹き出しを押す・長押しのメニュー・記録直後のバナー・VoiceOver の操作・⑦ の記録の一覧から開くシート。金額・品目・支出か収入か・
@@ -22,7 +22,7 @@
     `com.iam74k4.SaifuLog.premium`（ファミリー共有）と、価格 0 の非消耗型の 14 日間の体験 `com.iam74k4.SaifuLog.trial14`（購入日時から
     経過時間で 14 日）。価格は App Store の表示のまま。まだ出していない機能は「近日」。`PremiumSheet` と `PremiumSheetModel`、購入・復元・
     Transaction.updates の購読は `SaifuLog/Purchases/PurchaseManager`（`SaifuLogApp` で 1 つ作り、起動したらすぐ購読）、状態はコアの
-    `PremiumStatus`・`TrialPeriod`。無料の回数の数え方はコアの `UsageQuota` と `QuotaStore`（家計への質問で使う。レシートでも使う予定）。
+    `PremiumStatus`・`TrialPeriod`。無料の回数の数え方はコアの `UsageQuota` と `QuotaStore`（家計への質問とレシートの読み取りで使う）。
     Xcode の Run では `Config/SaifuLog.storekit` で購入を試せる。購入のテストは SKTestSession で、iOS 26.3・26.4 のシミュレータでは
     Apple の不具合で動かないので、`make test-app` から除き、`make test-storekit` が iOS 26.2 のシミュレータで動かす（飛ばされたら失敗。
     CI のランナーで iOS 26.2 のランタイムを入れて通るかはまだ走らせていない）。実機（Sandbox）での購入・復元・返金・ファミリー共有の
@@ -41,11 +41,20 @@
     `WeeklyRecapView`。プレミアムと体験中で AI が使える端末では、数字の文（コアの `RecapFacts`）だけを端末内 AI に渡して一言を書かせ
     （`SaifuLog/AI/FoundationModelsRecapRemarkWriter`）、`AnswerSentenceCheck` で照合して合わなければ捨てる（`RecapRemarkModel`）。月のまとめの先頭にも
     同じ一言。無料と AI の使えない端末は定型文だけ。週の始まりの朝の通知は出さない（未決）。実機でのモデルの一言の確認はまだ）。
+    レシートの読み取り（④⑤。入力欄の左のカメラのボタン →「撮る」（VisionKit の書類カメラ）か「写真から選ぶ」（PhotosPicker）→ ⑤ の読み取り結果の
+    シート。文字は `SaifuLog/Receipt/ReceiptTextRecognizer` が Vision で端末内で読み（iOS 26 の `RecognizeDocumentsRequest`、日本語に対応しないか読めなければ
+    `VNRecognizeTextRequest`）、店名・日付・品目・値引き・税・合計などの見分けはコアの `ReceiptLineScanner`、照合と記録の下書きは `ReceiptReconciler`
+    （外税は「税・その他」の 1 行。合わなければ ⑤ で確かめてから記録）。AI は品名とカテゴリだけを整え（iOS 27 で画像に対応したモデルは画像も、iOS 26 は
+    文字だけ。`SaifuLog/AI/FoundationModelsReceiptItemRefiner`）、AI の金額は使わない（コアの `ReceiptItemRefinement`）。画像も OCR の全文も保存せず、
+    記録の元の文は「レシート: 店名 合計 ¥…」の要約（`ReceiptSummary`）。無料は月 5 回で、記録したときだけ数え、直後の取り消しで戻す。使い切ったら
+    カメラのボタンから ⑨。⑤ で直した内容があれば閉じる前に確かめ（⑥ と同じ）、書類カメラは 4 ページまで読んで、超えたら ⑤ に知らせる。
+    状態は `SaifuLog/Views/Receipt/ReceiptResultModel`、出し入れと記録は `HomeModel`。実機でのカメラ・実際のレシートの読み取りの
+    精度・モデルの整え方の確認はまだ）。
     保存先を開けないときは落とさず、ロック中なら解除を待って開き直し、それ以外は再試行の画面を出す（`StoreHost`）。
     保存先のデータ保護は NSFileProtectionComplete（ロック中は読めないようにする。実機での確認はまだ。
     release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
     main で `mode=export` の照合が通るかの確認はまだ。`docs/design.md` §5-4）。
-  - **未実装:** カテゴリ別の予算の進みの表示・レシート・週のふりかえりの通知・iCloud 同期（設定の切り替えを含む）・
+  - **未実装:** カテゴリ別の予算の進みの表示・週のふりかえりの通知・iCloud 同期（設定の切り替えを含む）・
     家族との共有・声で記録・修正の記憶・CSV の読み込み。
   - 実機での確認の手段: release.yml の手動実行 `mode=testflight` で、develop のビルドを診断画面入りで TestFlight の
     社内テスト専用に送れるようにした（審査には出ない）。Environment `release` の配備ブランチへの develop の追加
