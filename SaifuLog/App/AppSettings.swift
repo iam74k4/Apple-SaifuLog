@@ -23,7 +23,8 @@ enum AppSettings {
     /// 初回の案内（ようこそ・予算を決める）を終えたか。予算を決めずに「あとで」で進んでも終えたことになる。
     /// 案内を出す前の版から使っていて記録がある端末は、案内を出さずに true にする（`OnboardingModel.needsOnboarding`）。
     static let hasCompletedOnboarding = AppSetting(key: "hasCompletedOnboarding", defaultValue: false)
-    /// iCloud と同期するか。既定はオフ（利用者が選んだときだけ同期する）。iCloud 同期を作るときに使う。
+    /// iCloud と同期するか（設定の「iCloud で同期」）。既定はオフ（利用者が選んだときだけ同期する）。起動したときに
+    /// `SaifuLogApp` が読んで保存先の開き方を決め、切り替えと、開けずに端末の中だけへ戻したときは `StoreHost` が書く。
     static let iCloudSyncEnabled = AppSetting(key: "iCloudSyncEnabled", defaultValue: false)
     /// 週の始まり（設定の画面で選ぶ）。既定は端末の設定（地域と iOS の設定）に合わせる。
     /// 画面の根元（`AppRootView`）が画面の暦の週の始まりに当てはめ、`ReportPeriod` の今週・先週の区切りに効かせる。

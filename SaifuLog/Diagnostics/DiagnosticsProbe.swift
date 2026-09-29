@@ -168,6 +168,20 @@ enum DiagnosticsProbe {
         }
     }
 
+    /// いま開いている保存先の iCloud の扱い（none / private(コンテナ)）。設定の値ではなく、開いた保存先の設定から読む
+    /// （iCloud と同期する保存先を開けずに端末の中だけへ戻したときに、設定と見比べられるように）。
+    @MainActor
+    static func cloudKitDatabase(container: ModelContainer) -> String {
+        cloudKitDatabaseName(configurations: Array(container.configurations))
+    }
+
+    static func cloudKitDatabaseName(configurations: [ModelConfiguration]) -> String {
+        let values = configurations.map { configuration in
+            configuration.cloudKitContainerIdentifier.map { "private(\($0))" } ?? "none"
+        }
+        return values.isEmpty ? "unknown" : values.joined(separator: ", ")
+    }
+
     /// 記録と予算の件数。中身は読まない（数えるだけ）。
     @MainActor
     static func counts(context: ModelContext) -> DiagnosticsReport.RecordCounts {

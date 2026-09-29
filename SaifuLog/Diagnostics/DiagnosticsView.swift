@@ -4,7 +4,7 @@ import SwiftUI
 
 /// 実機での確認のための診断画面（社内テスト用のビルドと DEBUG のビルドだけ）。
 ///
-/// シミュレータでは確かめられないもの（保存先のデータ保護、端末内 AI や音声の書き起こしの可否）を、TestFlight で
+/// シミュレータでは確かめられないもの（保存先のデータ保護、端末内 AI や音声の書き起こしの可否、iCloud のアカウントと同期）を、TestFlight で
 /// 入れた実機で見るために置く。ホームの帯の右上の小さなボタン（VoiceOver では「診断」）から開く。長押しや隠しの
 /// ジェスチャにしないのは、ほかの操作（予算のボタンなど）と取り違えず、入っているビルドかどうかが見て分かるように
 /// するため。App Store へ出すビルドには入らない（release.mk がアーカイブの中身で確かめる）。
@@ -104,7 +104,8 @@ extension EnvironmentValues {
 
 #Preview {
     if let container = try? ModelContainerFactory.makeInMemoryContainer() {
-        DiagnosticsView(model: DiagnosticsModel(context: container.mainContext))
+        // プレビューでは CloudKit に問い合わせない（iCloud の entitlement の無いプロセスで CKContainer を作ると落ちる）。
+        DiagnosticsView(model: DiagnosticsModel(context: container.mainContext, iCloudAccount: { .available }))
             .modelContainer(container)
     }
 }

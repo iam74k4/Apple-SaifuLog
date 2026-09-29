@@ -3,14 +3,15 @@ import Observation
 import SaifuLogCore
 import SwiftData
 
-/// 「設定」（⑧）の状態と操作。プレミアム（⑨ を開く・購入の復元）、月の予算を開く、週の始まり、記録の CSV 書き出し、
-/// このアプリについて。
+/// 「設定」（⑧）の状態と操作。プレミアム（⑨ を開く・購入の復元）、月の予算を開く、週の始まり、iCloud で同期、
+/// 記録の CSV 書き出し、このアプリについて。
 ///
 /// 画面（`SettingsView`）から切り離し、保存先・設定の置き場所・時計・書き出し先を差し替えて SaifuLogTests で
 /// 確かめられるようにしている。CSV の中身はコア（`LedgerCSVWriter`）、ファイルの作成は `LedgerExporter` が受け持つ。
 /// 購入と復元そのものは、アプリで 1 つの `PurchaseManager` が受け持つ。
 ///
-/// iCloud 同期の行は、その仕組みを作るまで出さない（まだできないことを設定に並べない）。
+/// iCloud 同期は、オンにする前に iCloud のアカウントを確かめ（使えなければ案内だけ）、説明を読んでもらってから
+/// `StoreHost.setICloudSyncEnabled(_:)` に頼む（保存先を開き直すので、この画面ごと作り直される）。オフにするときも説明を出す。
 @MainActor
 @Observable
 final class SettingsModel {
@@ -42,6 +43,22 @@ final class SettingsModel {
     /// このアプリについての版とビルド番号（「0.1.0 (12)」）。
     let versionText: String
 
+    // MARK: iCloud 同期の状態
+
+    /// iCloud 同期の節を出すか（保存先を開いたもの（`StoreHost`）を渡されたときだけ。テストとプレビューでは出さない）。
+    var showsICloudSync: Bool { storeHost != nil }
+    /// いま iCloud と同期する保存先を開いているか。切り替えると保存先を開き直してこの画面ごと作り直すので、開いたときの
+    /// 値のまま変わらない。トグルはこれを出し、押されたら確かめと説明に進む（押しただけでは変わらない）。
+    let isICloudSyncEnabled: Bool
+    /// iCloud のアカウントを確かめている途中（トグルを押せなくし、進行中の印を出す）。
+    private(set) var isCheckingICloudAccount = false
+    /// 同期がオンのときに確かめた iCloud のアカウントの状態（使えなければ、同期していないことを案内する）。まだなら nil。
+    private(set) var iCloudAccountStatus: ICloudAccountStatus?
+    /// オンにする・オフにする前の説明（確かめのダイアログ）。出していなければ nil。
+    var iCloudSyncConfirmation: ICloudSyncChange?
+    /// オンにしようとしたら iCloud を使えなかった（案内のアラートを出す）。
+    var iCloudAccountAlert: ICloudAccountStatus?
+
     /// 週の始まり。変えるとすぐ設定に書く（画面の根元が `@AppStorage` で読み、画面の暦に当てはめる）。
     var weekStart: WeekStart {
         get { storedWeekStart }
@@ -59,11 +76,17 @@ final class SettingsModel {
     @ObservationIgnored private let csvLanguage: LedgerCSVWriter.Language
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
+    @ObservationIgnored private let storeHost: StoreHost?
+    @ObservationIgnored private let accountStatus: @MainActor () async -> ICloudAccountStatus
+    @ObservationIgnored private var accountCheckTask: Task<Void, Never>?
 
     /// - Parameters:
     ///   - budgetStore: 予算の読み書き。渡さなければ `context` を使う。
     ///   - purchases: プレミアムの購入と状態。アプリはホームから同じもの（`SaifuLogApp` の 1 つ）を渡す。渡さなければ
     ///     購入の無い状態（テストとプレビュー用）。
+    ///   - storeHost: 保存先を開いたもの。「iCloud で同期」の切り替えを頼む。渡さなければ iCloud の節を出さない。
+    ///   - accountStatus: iCloud のアカウントの状態の問い合わせ。テストでは CloudKit に問い合わせない値に差し替える
+    ///     （iCloud の entitlement の無いテストのプロセスで `CKContainer` を作ると落ちるため）。
     ///   - defaults: 設定の置き場所。アプリは `UserDefaults.standard`（`AppSettings` の決まり）、テストは使い捨ての領域。
     ///   - exporter: 記録をファイルに書き出す。渡さなければ `context` と同じ保存先から、アプリの一時ディレクトリへ書き出す。
     ///     テストで書き出し先を使い捨ての場所にし、書き出しがメインスレッドの外で進むかを確かめる。
@@ -76,6 +99,8 @@ final class SettingsModel {
         context: ModelContext,
         budgetStore: BudgetStore? = nil,
         purchases: PurchaseManager? = nil,
+        storeHost: StoreHost? = nil,
+        accountStatus: @escaping @MainActor () async -> ICloudAccountStatus = { await ICloudAccountStatus.current() },
         defaults: UserDefaults = .standard,
         exporter: LedgerExporter? = nil,
         csvLanguage: LedgerCSVWriter.Language = LedgerCSVWriter.Language(localization: Bundle.main.preferredLocalizations.first),
@@ -86,6 +111,9 @@ final class SettingsModel {
     ) {
         self.budgetStore = budgetStore ?? BudgetStore(context: context)
         self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
+        self.storeHost = storeHost
+        self.accountStatus = accountStatus
+        self.isICloudSyncEnabled = storeHost?.cloudKitDatabase.isSyncEnabled ?? false
         self.defaults = defaults
         self.exporter = exporter ?? LedgerExporter(container: context.container)
         self.csvLanguage = csvLanguage
@@ -105,6 +133,59 @@ final class SettingsModel {
     /// 週の始まりを当てはめた暦（画面の根元が当てはめるものと同じ）。`ReportPeriod` の今週・先週の区切りに使われる。
     func calendar(applyingTo systemCalendar: Calendar) -> Calendar {
         weekStart.applied(to: systemCalendar)
+    }
+
+    // MARK: - iCloud 同期
+
+    /// トグルを押した。オンにするなら iCloud のアカウントを確かめ、使えれば説明を出し、使えなければ案内を出す。
+    /// オフにするなら説明を出す。確かめ終えるのを待つ Task を返す（テストで使う）。確かめている途中や、いまと同じ値なら
+    /// 何もしない（nil を返す）。
+    @discardableResult
+    func requestICloudSync(_ enabled: Bool) -> Task<Void, Never>? {
+        guard storeHost != nil, enabled != isICloudSyncEnabled, !isCheckingICloudAccount else { return nil }
+        guard enabled else {
+            iCloudSyncConfirmation = .disable
+            return nil
+        }
+        isCheckingICloudAccount = true
+        let task = Task {
+            let status = await accountStatus()
+            // やめた確かめ（画面を離れた）は、後から始めた確かめの印を消さないよう、何も触らない。
+            guard !Task.isCancelled else { return }
+            isCheckingICloudAccount = false
+            if status.isAvailable {
+                iCloudSyncConfirmation = .enable
+            } else {
+                iCloudAccountAlert = status
+            }
+        }
+        accountCheckTask = task
+        return task
+    }
+
+    /// 説明を読んで「オンにする」「オフにする」を押した。保存先を開き直す（この画面は畳まれ、開き直したら設定に戻る）。
+    ///
+    /// 何に切り替えるかは、ダイアログに出していた値を受け取る（ボタンを押すとダイアログを閉じる側が先に
+    /// `iCloudSyncConfirmation` を nil にすることがあるため）。
+    func confirmICloudSync(_ change: ICloudSyncChange) {
+        iCloudSyncConfirmation = nil
+        storeHost?.setICloudSyncEnabled(change == .enable)
+    }
+
+    /// 同期がオンのとき、iCloud のアカウントがいまも使えるかを確かめる（設定の画面を開いたとき）。
+    ///
+    /// サインアウトなどで使えなくなっても保存先は開けて、同期だけが止まる。気づかないまま別の端末とそろっていると
+    /// 思わないよう、使えないことを節の中に出す。オフのときは問い合わせない。
+    func refreshICloudAccountStatus() async {
+        guard isICloudSyncEnabled else { return }
+        iCloudAccountStatus = await accountStatus()
+    }
+
+    /// 設定の画面を離れたら、途中のアカウントの確かめをやめる（戻った後で説明やアラートを出さない）。
+    func cancelICloudAccountCheck() {
+        accountCheckTask?.cancel()
+        accountCheckTask = nil
+        isCheckingICloudAccount = false
     }
 
     // MARK: - 予算
@@ -216,6 +297,14 @@ final class SettingsModel {
     }
 
     // MARK: - 型
+
+    /// iCloud 同期をどちらへ切り替えるか（確かめのダイアログの中身）。
+    enum ICloudSyncChange: Identifiable, Equatable {
+        case enable
+        case disable
+
+        var id: Self { self }
+    }
 
     /// 共有に出す、書き出したファイル。
     struct ExportedFile: Identifiable, Equatable {

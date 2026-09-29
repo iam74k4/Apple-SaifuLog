@@ -144,6 +144,8 @@ struct HomeView: View {
                 }
                 // 週が替わって最初に開いたときだけ、先週のふりかえりのカードを出す（前面に戻ったとき・日付が変わったときは下）。
                 .onAppear {
+                    // モデルは初回の案内より前に作っている（`AppRootView`）。案内の間に日付が変わっていても今日で数えるよう、読み直す。
+                    model.refreshToday()
                     model.showWeeklyRecapIfDue(calendar: calendar)
                 }
                 // この端末で声の入力を使えるか（マイクのボタンを出すか）を調べる。前面に戻ったときにも調べ直す（下の scenePhase）。
@@ -161,6 +163,10 @@ struct HomeView: View {
                 }
                 // 保存先に書き込まれたら、ふりかえりのカード（と内訳）の数字を読み直す（先週の日付で記録したり、直したりしたとき）。
                 .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { _ in
+                    model.weeklyRecap?.reload()
+                }
+                // iCloud で届いたほかの端末の変更でも読み直す（didSave にならないため。帯とタイムラインは @Query が追う）。
+                .onReceive(StoreChanges.remote) { _ in
                     model.weeklyRecap?.reload()
                 }
                 #if DEBUG || INTERNAL_DIAGNOSTICS

@@ -6,7 +6,10 @@ struct SaifuLogApp: App {
     /// 記録の保存先。ここでは作るだけで、開くのは最初の画面が出るとき（`StoreHost.start()`）。
     /// App の生成の時点で開くと、iOS が起動を前倒しで済ませておく prewarm の間（ロック中のことがある）に
     /// 開くことになり、NSFileProtectionComplete の保存先を読めないため。
-    @State private var storeHost = StoreHost()
+    /// iCloud と同期するかは、設定の「iCloud で同期」（既定はオフ）で決める。
+    @State private var storeHost = StoreHost(
+        cloudKitDatabase: .init(syncEnabled: UserDefaults.standard.bool(for: AppSettings.iCloudSyncEnabled))
+    )
     /// プレミアムの購入と状態。アプリで 1 つ。
     @State private var purchases: PurchaseManager
 
@@ -22,7 +25,7 @@ struct SaifuLogApp: App {
         WindowGroup {
             StoreRootView(host: storeHost) { container in
                 // 初回だけ案内（ようこそ → 予算を決める）を出し、それ以外はホーム。
-                AppRootView(container: container, pendingWrites: storeHost.pendingWrites, purchases: purchases)
+                AppRootView(container: container, storeHost: storeHost, purchases: purchases)
             }
         }
     }

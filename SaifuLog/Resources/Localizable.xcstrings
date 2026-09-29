@@ -388,6 +388,127 @@
         }
       }
     },
+    "iCloud での同期をオフにしました。記録はこの iPhone に残っています" : {
+      "comment" : "設定で iCloud 同期をオフにして記録を開き直せたときの VoiceOver の読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud sync is off. Your records are still on this iPhone"
+          }
+        }
+      }
+    },
+    "iCloud での同期をオフにしますか？" : {
+      "comment" : "設定の「iCloud で同期」をオフにする前の確認のアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn Off iCloud Sync?"
+          }
+        }
+      }
+    },
+    "iCloud での同期をオンにしました" : {
+      "comment" : "設定で iCloud 同期をオンにして記録を開き直せたときの VoiceOver の読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud sync is on"
+          }
+        }
+      }
+    },
+    "iCloud で同期" : {
+      "comment" : "設定の「同期」の節のトグル。記録と予算を利用者自身の iCloud に保存して、同じ Apple アカウントの端末どうしでそろえる（既定はオフ）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync with iCloud"
+          }
+        }
+      }
+    },
+    "iCloud で同期しますか？" : {
+      "comment" : "設定の「iCloud で同期」をオンにする前の説明のアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync with iCloud?"
+          }
+        }
+      }
+    },
+    "iCloud で同期できませんでした" : {
+      "comment" : "iCloud と同期する保存先を開けず、端末の中だけの保存先に戻したときのアラートの見出し（切り替えた直後にも、起動したときにも出る）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Sync with iCloud"
+          }
+        }
+      }
+    },
+    "iCloud にサインインしていないため、この iPhone の中だけに保存しています。iPhone の設定で iCloud にサインインしてください（サインインしているときは、設定の iCloud で iCloud Drive とこのアプリがオフになっていないかを確かめてください）。" : {
+      "comment" : "設定の「iCloud で同期」がオンなのに iCloud のアカウントが無いときに、節の中に出す案内（保存はできていて、同期だけが止まっている）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You’re not signed in to iCloud, so records are being saved only on this iPhone. Sign in to iCloud in the Settings app (if you are signed in, check in iCloud settings that iCloud Drive and this app aren’t turned off)."
+          }
+        }
+      }
+    },
+    "iCloud にサインインしていません。iPhone の設定でサインインしてから、もう一度お試しください。サインインしているときは、設定の iCloud で iCloud Drive とこのアプリがオフになっていないかも確かめてください。" : {
+      "comment" : "設定で iCloud 同期をオンにしようとしたら、iCloud のアカウントが無かったときの案内（アラートと、オンのときの節の中）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You’re not signed in to iCloud. Sign in in the Settings app, then try again. If you are signed in, check in iCloud settings that iCloud Drive and this app aren’t turned off."
+          }
+        }
+      }
+    },
+    "iCloud の状態を確かめられませんでした。インターネットにつながっているかを確かめて、もう一度お試しください。" : {
+      "comment" : "設定で iCloud 同期をオンにしようとしたら、iCloud のアカウントの状態を確かめられなかったときの案内",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t check your iCloud status. Make sure you’re connected to the internet, then try again."
+          }
+        }
+      }
+    },
+    "iCloud の状態を確かめられませんでした。インターネットにつながっているかを確かめてください。" : {
+      "comment" : "設定の「iCloud で同期」がオンなのに iCloud のアカウントの状態を確かめられなかったときに、節の中に出す案内",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t check your iCloud status. Make sure you’re connected to the internet."
+          }
+        }
+      }
+    },
+    "iCloud を使えません" : {
+      "comment" : "設定で iCloud 同期をオンにしようとしたら、iCloud を使えなかったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud Isn’t Available"
+          }
+        }
+      }
+    },
     "¥1 以上の金額にしてください。" : {
       "comment" : "直すシートで金額が 0 のとき、保存できない理由として出す",
       "localizations" : {
@@ -476,6 +597,17 @@
         }
       }
     },
+    "いまの保存先の同期" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。いま開いている保存先が iCloud と同期しているか（none / private）の項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current store sync"
+          }
+        }
+      }
+    },
     "いまは Apple Intelligence を使えないため、端末内の辞書で読み取ります。記録はそのままできます。" : {
       "comment" : "ようこその画面。そのほかの理由で AI を使えないときの説明",
       "localizations" : {
@@ -487,6 +619,28 @@
         }
       }
     },
+    "いまは iCloud を使えないため、この iPhone の中だけに保存しています。iPhone の設定で、Apple アカウントの確認を求められていないかを確かめてください。" : {
+      "comment" : "設定の「iCloud で同期」がオンなのに iCloud が一時的に使えないときに、節の中に出す案内",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud isn’t available right now, so records are being saved only on this iPhone. Check the Settings app to see whether your Apple Account needs attention."
+          }
+        }
+      }
+    },
+    "いまは iCloud を使えません。iPhone の設定で、Apple アカウントの確認を求められていないかを確かめてください。" : {
+      "comment" : "iCloud のアカウントが一時的に使えないとき（Apple アカウントの確認が要るなど）の案内",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud isn’t available right now. Check the Settings app to see whether your Apple Account needs attention."
+          }
+        }
+      }
+    },
     "いまはキーワード辞書で読みます" : {
       "comment" : "ようこその画面。Apple Intelligence がオフ・準備中などで、いまは AI を使えないときの見出し",
       "localizations" : {
@@ -494,6 +648,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Entries are read with a keyword dictionary for now"
+          }
+        }
+      }
+    },
+    "いまは同期していません" : {
+      "comment" : "設定の「iCloud で同期」がオンなのに iCloud を使えないとき（サインアウトしたなど）に、節の中に出す見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Syncing Right Now"
           }
         }
       }
@@ -553,6 +718,28 @@
         }
       }
     },
+    "この iPhone では iCloud の利用が制限されています（スクリーンタイムや機器の管理の設定など）。" : {
+      "comment" : "iCloud の利用が制限されているとき（スクリーンタイム・機器の管理）の案内",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud is restricted on this iPhone (for example, by Screen Time or device management)."
+          }
+        }
+      }
+    },
+    "この iPhone では iCloud の利用が制限されているため、この iPhone の中だけに保存しています。" : {
+      "comment" : "設定の「iCloud で同期」がオンなのに iCloud の利用が制限されているときに、節の中に出す案内",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud is restricted on this iPhone, so records are being saved only on this iPhone."
+          }
+        }
+      }
+    },
     "この iPhone ではキーワード辞書で読みます" : {
       "comment" : "ようこその画面。Apple Intelligence に対応していない機種での見出し",
       "localizations" : {
@@ -571,6 +758,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Purchases Are Restricted on This iPhone"
+          }
+        }
+      }
+    },
+    "この iPhone の記録は残り、これからはこの iPhone の中だけに保存します。iCloud に保存した記録は iCloud に残り、ほかの端末とはそろわなくなります。\n\n切り替えると記録を開き直します。" : {
+      "comment" : "設定の「iCloud で同期」をオフにする前の確認のアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your records stay on this iPhone and will be saved only on this iPhone from now on. Records saved in iCloud stay in iCloud, and this iPhone will no longer stay in sync with your other devices.\n\nSwitching reopens your records."
           }
         }
       }
@@ -979,6 +1177,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Check your internet connection and try again."
+          }
+        }
+      }
+    },
+    "オフにする" : {
+      "comment" : "設定の「iCloud で同期」をオフにする前の確認のアラートの、オフにするボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn Off"
+          }
+        }
+      }
+    },
+    "オンにする" : {
+      "comment" : "設定の「iCloud で同期」をオンにする前の説明のアラートの、オンにするボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn On"
+          }
+        }
+      }
+    },
+    "オンにすると、記録と予算をあなたの iCloud に保存し、同じ Apple アカウントの端末どうしでそろえます。オフのあいだは、この iPhone の中だけに保存します。" : {
+      "comment" : "設定の「同期」の節の注記（「iCloud で同期」がオフのとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When this is on, your records and budgets are saved in your iCloud and kept in sync across devices signed in to the same Apple Account. While it’s off, they’re saved only on this iPhone."
           }
         }
       }
@@ -2659,6 +2890,17 @@
         }
       }
     },
+    "同期" : {
+      "comment" : "設定の節の見出し。「iCloud で同期」のトグルを置く",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync"
+          }
+        }
+      }
+    },
     "品名" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。品目の行の品名の入力欄の名前",
       "localizations" : {
@@ -3579,6 +3821,17 @@
         }
       }
     },
+    "理由: %@ %@" : {
+      "comment" : "iCloud と同期する保存先を開けず、端末の中だけに戻した理由。アラートの文の途中に入る。1 つ目の %@ はエラーのドメイン、2 つ目の %@ はその番号（どちらも訳さない。番号は桁区切りを入れずに文字にしてある）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reason: %@ %@"
+          }
+        }
+      }
+    },
     "画像の入力（iOS 27 から）" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。端末内 AI に画像を入力できるかの項目名",
       "localizations" : {
@@ -3933,6 +4186,39 @@
         }
       }
     },
+    "記録と予算を、あなたの iCloud で同じ Apple アカウントの端末とそろえます" : {
+      "comment" : "設定の「iCloud で同期」のトグルの VoiceOver の説明（ヒント）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keeps your records and budgets in sync with devices on the same Apple Account, using your iCloud."
+          }
+        }
+      }
+    },
+    "記録と予算を、あなたの iCloud に保存し、同じ Apple アカウントの端末どうしでそろえています。開発者は中身を見られません。同期されないときは、iCloud にサインインしているかと、iCloud の空き容量を確かめてください。iCloud からサインアウトする前に、ここでオフにしてください（オンのままサインアウトすると、同期した記録がこの iPhone から消えることがあります。iCloud には残ります）。オフにしても、この iPhone の記録は残ります。" : {
+      "comment" : "設定の「同期」の節の注記（「iCloud で同期」がオンのとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your records and budgets are saved in your iCloud and kept in sync across devices signed in to the same Apple Account. The developer can’t see them. If they don’t sync, check that you’re signed in to iCloud and that you have enough iCloud storage. Turn this off here before you sign out of iCloud (if you sign out while it’s on, synced records may disappear from this iPhone; they stay in iCloud). Turning it off keeps the records on this iPhone."
+          }
+        }
+      }
+    },
+    "記録と予算を、あなたの iCloud（Apple）に保存し、同じ Apple アカウントでサインインしている端末どうしでそろえます。いまこの iPhone にある記録も iCloud に上がります。開発者は中身を見られません。\n\niCloud に保存した記録は、通信中と Apple のサーバー上で暗号化されますが、エンドツーエンドでは暗号化されません（暗号の鍵は Apple が管理します。高度なデータ保護をオンにしていても同じです）。\n\n切り替えると記録を開き直します。オフに戻しても、この iPhone の記録は残ります。" : {
+      "comment" : "設定の「iCloud で同期」をオンにする前の説明のアラートの本文。暗号化の説明は Apple の iCloud のデータ保護の説明（標準のデータ保護、CloudKit の暗号化フィールドを使わないアプリ）に合わせてある",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your records and budgets will be saved in your iCloud (Apple) and kept in sync across devices signed in to the same Apple Account. Records already on this iPhone will be uploaded to iCloud too. The developer can’t see them.\n\nRecords saved in iCloud are encrypted in transit and on Apple’s servers, but not end-to-end encrypted (Apple manages the keys, even if Advanced Data Protection is on).\n\nSwitching reopens your records. If you turn it off later, the records on this iPhone stay."
+          }
+        }
+      }
+    },
     "記録のある日" : {
       "comment" : "先週のふりかえりの内訳の行の見出し。先週のうち記録（支出か収入）のある日の数",
       "localizations" : {
@@ -3994,6 +4280,17 @@
         }
       }
     },
+    "記録はこの iPhone の中だけに保存しています（「iCloud で同期」はオフに戻しました）。%@ 設定からもう一度オンにできます。" : {
+      "comment" : "iCloud と同期する保存先を開けず、端末の中だけの保存先に戻したときのアラートの本文。%@ は理由の文（「iCloud の空き容量が足りません。」など）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your records are being saved only on this iPhone (Sync with iCloud has been turned off). %@ You can turn it on again in Settings."
+          }
+        }
+      }
+    },
     "記録はこの iPhone の中に" : {
       "comment" : "ようこその画面。記録の保存先の見出し",
       "localizations" : {
@@ -4005,13 +4302,13 @@
         }
       }
     },
-    "記録はこの iPhone の中に保存し、文の読み取りもこの iPhone の中で行います。開発者のサーバーはなく、記録や入力した文を開発者や第三者に送ることはありません。" : {
+    "記録はこの iPhone の中に保存し、文の読み取りもこの iPhone の中で行います。開発者のサーバーはなく、記録や入力した文を開発者や第三者に送ることはありません。設定で iCloud の同期をオンにしたときだけ、記録をあなたの iCloud にも保存し、同じ Apple アカウントの端末どうしでそろえます。" : {
       "comment" : "ようこその画面。記録の保存先とプライバシーの説明",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your records are saved on this iPhone, and what you write is read on this iPhone too. There’s no developer server, and your records and what you type are never sent to the developer or any third party."
+            "value" : "Your records are saved on this iPhone, and what you write is read on this iPhone too. There’s no developer server, and your records and what you type are never sent to the developer or any third party. Only if you turn on iCloud sync in Settings are your records also saved in your iCloud and kept in sync across devices signed in to the same Apple Account."
           }
         }
       }
@@ -4100,6 +4397,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Settings"
+          }
+        }
+      }
+    },
+    "設定の「iCloud で同期」" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。設定の「iCloud で同期」がオンかの項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync with iCloud setting"
           }
         }
       }

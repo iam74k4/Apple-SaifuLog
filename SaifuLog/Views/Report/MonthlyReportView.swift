@@ -41,6 +41,10 @@ struct MonthlyReportView: View {
         .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { _ in
             model.reload()
         }
+        // iCloud で届いたほかの端末の変更でも読み直す（SwiftData が裏で取り込むので didSave にならない）。
+        .onReceive(StoreChanges.remote) { _ in
+            model.reload()
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { model.refreshToday() }
         }

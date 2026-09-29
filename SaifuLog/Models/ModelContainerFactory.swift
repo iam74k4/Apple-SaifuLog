@@ -11,24 +11,63 @@ enum ModelContainerFactory {
     /// iCloud と同期するか。
     ///
     /// SwiftData の `ModelConfiguration.CloudKitDatabase` をそのまま受けず、使う値だけを並べる。
-    /// `.automatic` を渡せないようにするため。iCloud 同期（利用者が設定で選ぶ。既定はオフ）を作るときに、
-    /// 利用者の私用データベースのケースを足す。
+    /// `.automatic` を渡せないようにするため（entitlement を足しただけで、利用者が選んでいないのに同期が始まる）。
     enum CloudKitDatabase: Hashable, Sendable {
-        /// 端末の中だけに保存する。
+        /// 端末の中だけに保存する（既定）。
         case none
+        /// 利用者自身の iCloud の私用データベースと同期する（設定の「iCloud で同期」をオンにしたときだけ）。
+        /// 開発者は中身を読めない。家族との共有（共有データベース）には使わない。
+        case `private`
+
+        /// 設定の「iCloud で同期」（`AppSettings.iCloudSyncEnabled`）に当たる値。
+        init(syncEnabled: Bool) {
+            self = syncEnabled ? .private : .none
+        }
+
+        /// iCloud と同期するか。
+        var isSyncEnabled: Bool {
+            self == .private
+        }
+
+        /// 診断画面とログに出す名前（訳さない）。
+        var diagnosticName: String {
+            switch self {
+            case .none: "none"
+            case .private: "private"
+            }
+        }
 
         var configurationValue: ModelConfiguration.CloudKitDatabase {
             switch self {
             case .none: .none
+            case .private: .private(ModelContainerFactory.iCloudContainerIdentifier)
             }
         }
+    }
+
+    /// iCloud 同期に使う CloudKit のコンテナ。
+    ///
+    /// エンタイトルメント（project.yml の icloud-container-identifiers）は Config/Base.xcconfig の
+    /// `ICLOUD_CONTAINER_ID = iCloud.$(APP_BUNDLE_ID)` を使う。Swift からはビルドの設定を読めないので、同じ決まり
+    /// （「iCloud.」と Bundle ID）でここでも組み立てる。ID を文字で書き写すと、`ORG_PREFIX` を上書きして自分のチームで
+    /// 入れたときに、entitlement のコンテナと食い違って同期できないため。決まりを変えるときは両方を直す。
+    /// アプリの拡張（ウィジェットなど）から使うときは、拡張の Bundle ID ではなくアプリの Bundle ID から組み立てること。
+    static var iCloudContainerIdentifier: String {
+        iCloudContainerIdentifier(bundleIdentifier: Bundle.main.bundleIdentifier)
+    }
+
+    /// Bundle ID から CloudKit のコンテナの ID を組み立てる（読めなければ作者の Bundle ID を使う）。
+    static func iCloudContainerIdentifier(bundleIdentifier: String?) -> String {
+        "iCloud." + (bundleIdentifier ?? "com.iam74k4.SaifuLog")
     }
 
     /// 保存するモデル。モデルを足すときはここに並べる（アプリ・テスト・プレビューが同じ一覧を使う）。
     ///
     /// 足したモデルは、それまでの保存先を開いたときに SwiftData が自動で移行する（テーブルを足すだけで、
     /// 記録はそのまま読める。テストで確かめている）。既存のモデルの項目を変えるときは、自動の移行で済むかを
-    /// 先に確かめる（iCloud 同期を入れた後は、CloudKit の制約で項目の削除や型の変更ができない）。
+    /// 先に確かめる。iCloud 同期を出した後は、CloudKit の制約（すべての項目に既定値か optional、一意制約なし、
+    /// 関係は optional で逆向きあり。テストで確かめている）を守り、項目の削除・名前や型の変更をしない
+    /// （Production に出した CloudKit のスキーマは、足すことしかできないため）。
     static var modelTypes: [any PersistentModel.Type] {
         [Entry.self, Budget.self]
     }
@@ -45,7 +84,12 @@ enum ModelContainerFactory {
         URL.applicationSupportDirectory.appending(path: "default.store", directoryHint: .notDirectory)
     }
 
-    /// 端末に保存する保存先を開く。開けなければ throw する（呼び出し側の `StoreHost` が再試行の画面を出す）。
+    /// 端末に保存する保存先を開く。開けなければ throw する（呼び出し側の `StoreHost` が再試行の画面を出すか、
+    /// iCloud と同期する保存先なら端末の中だけに戻して開き直す）。
+    ///
+    /// iCloud 同期のオンとオフで、同じファイル（`storeURL`）を使う。オンにした時点でこの端末にある記録が iCloud に
+    /// 上がり、オフに戻してもこの端末の記録はそのまま残る（別のファイルにすると、切り替えのたびに記録が見えなくなるか、
+    /// 写し替えが要る）。docs/design.md §5-3。
     static func makeContainer(cloudKitDatabase: CloudKitDatabase = .none) throws -> ModelContainer {
         try makeContainer(url: storeURL, cloudKitDatabase: cloudKitDatabase)
     }

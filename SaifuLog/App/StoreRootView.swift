@@ -19,6 +19,13 @@ struct StoreRootView<Content: View>: View {
             case .ready(let container):
                 content(container)
                     .modelContainer(container)
+                    // 保存先ごとに別の画面として作る。開き直した後に、前の保存先の画面の状態（ホームのモデルとその
+                    // ModelContext）を持ち越さないため（開き直しの間の画面の入れ替えがまとめて描かれると、同じ画面と
+                    // みなされて前の状態が残ることがあった。シミュレータの iOS 26.4 で確かめた）。
+                    .id(ObjectIdentifier(container))
+                    // 前の保存先の画面が本当に消えたかを、開き直し（`finishReopening`）が待てるように知らせる。
+                    .onAppear { host.contentDidAppear() }
+                    .onDisappear { host.contentDidDisappear() }
             case .unavailable:
                 StoreUnavailableView(failedRetryCount: host.failedRetryCount, retry: host.retry)
             case .reopening:
@@ -30,6 +37,21 @@ struct StoreRootView<Content: View>: View {
         }
         .onAppear { host.start() }
         .modifier(ProtectedDataObserver(host: host))
+        // iCloud と同期する保存先を開けず、端末の中だけに戻したとき（設定で切り替えた直後にも、起動したときにも起こる）。
+        // 黙って戻すと、同期しているつもりのまま別の端末の記録とそろわなくなるので、戻したことと理由を知らせる。
+        .alert(
+            "iCloud で同期できませんでした",
+            isPresented: showsICloudFallback,
+            presenting: host.iCloudFallback
+        ) { _ in
+            Button("OK", role: .cancel) { host.acknowledgeICloudFallback() }
+        } message: { failure in
+            Text("記録はこの iPhone の中だけに保存しています（「iCloud で同期」はオフに戻しました）。\(failure.reasonText) 設定からもう一度オンにできます。")
+        }
+    }
+
+    private var showsICloudFallback: Binding<Bool> {
+        Binding(get: { host.iCloudFallback != nil }, set: { if !$0 { host.acknowledgeICloudFallback() } })
     }
 }
 
