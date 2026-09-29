@@ -91,6 +91,14 @@
     家族の今月の合計を出す。予算・まとめ・質問・ふりかえり・レシート・声は「自分」だけ）、⑥ は `EditEntryModel.Target` で家計の記録も直す。v1 は家計を 1 つ
     だけ。購入の状態で入口を絞っていない。CKSyncEngine と共有は差し替えてテストし、実機 2 台・2 アカウントでの確かめはまだ（`docs/design.md` §5-5・§15 の 15）。
     CHANGELOG の利用者向けの「追加」には、隠している間は書かない）。
+    App Store の掲載情報の下書き（`docs/app-store/`。日本語と英語の名前・サブタイトル・説明・キーワードと文字数、審査メモ、App のプライバシー
+    （データの収集なし）と年齢制限（4+）の回答。App Store Connect への入力は所有者が確かめてから）と、サポート URL のページ（`docs/support.md`）。
+    スクリーンショットは撮影用のデモ（`SaifuLog/ScreenshotDemo/`。**DEBUG のビルドだけ**で、`#if DEBUG` の中。起動引数
+    `-SaifuLogScreenshotDemo <画面>` と `-SaifuLogScreenshotPremium purchased|free` で、メモリの上の架空の記録・専用の UserDefaults の領域・
+    決まった AI の一言とレシートと書き起こしと価格の表示で撮る画面を開き、初回の案内と診断のボタンと家計の共有を出さない）を
+    `scripts/app-store-screenshots.sh` が 6.9 インチのシミュレータで日本語と英語で撮る（`docs/app-store/screenshots/`。透過の層は
+    `scripts/screenshot-image.swift` で外す）。Release のアーカイブに入っていないことは `make archive` が印 `SaifuLog-ScreenshotDemo-v1`
+    （`release.mk` の `RELEASE_SCREENSHOT_DEMO_MARKER`）で確かめる。組み立ては `ScreenshotDemoTests`。
     保存先を開けないときは落とさず、ロック中なら解除を待って開き直し、それ以外は再試行の画面を出す（`StoreHost`）。
     保存先のデータ保護は NSFileProtectionComplete（ロック中は読めないようにする。実機での確認はまだ。
     release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
@@ -226,7 +234,8 @@ docs: add privacy policy
   予算の額）や端末の名前を入れない（テストで確かめている）。プライバシーマニフェストで理由の申告が要る API
   （ファイルの日時・空き容量・起動からの時間など）は使わない（社内テスト用のビルドもアップロードで検査される）。
   DEBUG のビルド（Xcode の Run の既定）でもホームの帯に診断のボタンが出るので、App Store 用のスクリーンショットは
-  Scheme の Run を Release にして撮る（`docs/release-flow.md` の「一度だけの準備」の 5）。
+  診断のボタンを出さない撮影用のデモ（`SaifuLog/ScreenshotDemo/`）で `./scripts/app-store-screenshots.sh` が撮る
+  （`docs/app-store/README.md`、`docs/release-flow.md` の「一度だけの準備」の 5）。
 - `Packages/SaifuLogCore/` — 純粋なロジック（金額・日付の読み取り、キーワード辞書による解析、
   割り勘や合計・残りの計算など）とそのテスト。**FoundationModels / SwiftData / SwiftUI を入れない。**
   CI の macOS ランナー上で `swift test` を回すため、platforms は `.iOS(.v26), .macOS(.v14)` に保つ。
