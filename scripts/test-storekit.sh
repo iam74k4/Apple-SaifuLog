@@ -77,6 +77,26 @@ if passed == 0:
 '
 }
 
+# xcodebuild から宛先のシミュレータが見えるまで待つ（最大 2 分）。
+# CI では、iOS 26.2 のランタイムを入れた直後に xcodebuild が新しいシミュレータをまだ知らず、
+# 「Unable to find a device matching the provided destination specifier」で 1 件も動かずに落ちたことがある
+# （同じイメージ・同じ手順の直前の実行は通っていた）。見えないまま時間切れになっても、そのまま進めて xcodebuild のエラーを出す。
+wait_for_destination() {
+  local udid
+  udid=$(printf '%s\n' "$destination" | sed -n 's/.*id=\([0-9A-Fa-f-]*\).*/\1/p')
+  [ -n "$udid" ] || return 0
+  local tries=0
+  while [ "$tries" -lt 12 ]; do
+    if xcodebuild -project SaifuLog.xcodeproj -scheme SaifuLog -showdestinations 2>/dev/null | grep -q "id:${udid}"; then
+      return 0
+    fi
+    tries=$((tries + 1))
+    echo "宛先のシミュレータ（${udid}）がまだ xcodebuild から見えません。10 秒待ちます（${tries}/12）。" >&2
+    sleep 10
+  done
+  echo "::warning::宛先のシミュレータ（${udid}）が 2 分待っても xcodebuild から見えませんでした。" >&2
+}
+
 # 落ちたテストの識別子（例: StoreKitPurchaseTests/purchaseNotAllowed()）を 1 行ずつ書く。
 failed_tests() {
   xcrun xcresulttool get test-results tests --path "$1" --compact | python3 -c '
@@ -94,13 +114,29 @@ for node in json.load(sys.stdin).get("testNodes", []):
 '
 }
 
+wait_for_destination
 status=0
 run_tests "$result" -only-testing:SaifuLogTests/StoreKitPurchaseTests || status=$?
 [ -d "$result" ] || exit 1
 
 summary_code=0
 summarize "" "$result" || summary_code=$?
-if [ "$summary_code" -ne 0 ]; then
+# 1 件も動かなかった（宛先が見つからないなど、テストより前で止まった）ときは、宛先が見えるのを待って全体を 1 回動かし直す。
+# 動いたうえで 1 件も通らなかったとき（全部落ちた）は、下の「落ちたものだけを動かし直す」に任せる。
+if [ "$summary_code" -eq 3 ] && [ -z "$(failed_tests "$result")" ]; then
+  echo "::warning::購入のテストが 1 件も動きませんでした。宛先のシミュレータが見えるのを待って、全体を 1 回動かし直します。"
+  wait_for_destination
+  status=0
+  run_tests "$result" -only-testing:SaifuLogTests/StoreKitPurchaseTests || status=$?
+  [ -d "$result" ] || exit 1
+  summary_code=0
+  summarize "（動かし直し）" "$result" || summary_code=$?
+fi
+if [ "$summary_code" -eq 2 ]; then
+  exit 1
+fi
+if [ "$summary_code" -eq 3 ] && [ -z "$(failed_tests "$result")" ]; then
+  echo "::error::購入のテストが 1 件も動きませんでした（動かし直しても同じ）。" >&2
   exit 1
 fi
 if [ "$status" -eq 0 ]; then
