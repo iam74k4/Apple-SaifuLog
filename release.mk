@@ -203,6 +203,25 @@ RELEASE_HOUSEHOLD_CHECK = \
 		echo "家計の共有: 無効（App Store 向け）"; \
 	fi
 
+# 撮影用のデモ（App Store のスクリーンショットを撮るための、DEBUG のビルドだけの仕組み）が入ったアプリにだけある文字列。
+# SaifuLog/ScreenshotDemo/ScreenshotDemo.swift の marker と同じ値にする（変えるときは両方。scripts/app-store-screenshots.sh は
+# ここから読み、Debug のアプリに印があることを確かめてから撮る）。撮影用のデモは架空の記録に差し替えて画面を開く仕組みなので、
+# Release のビルド（App Store へ出すビルドも、TestFlight の社内テスト用のビルドも）には入れない。
+RELEASE_SCREENSHOT_DEMO_MARKER := SaifuLog-ScreenshotDemo-v1
+
+# 撮影用のデモが入っていないかを、アーカイブのアプリで確かめるシェルの文（archive・export-ipa・upload のレシピで使う）。
+# 診断画面と違い、INTERNAL_BUILD によらず、どのアーカイブにも入っていてはいけない。
+RELEASE_SCREENSHOT_DEMO_CHECK = \
+	app=$$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:ApplicationPath" "$(RELEASE_ARCHIVE)/Info.plist" 2>/dev/null); \
+	grep -r -a -F -q "$(RELEASE_SCREENSHOT_DEMO_MARKER)" "$(RELEASE_ARCHIVE)/Products/$$app"; \
+	case $$? in \
+		0) echo "error: このアーカイブのアプリには撮影用のデモ（DEBUG のビルドだけの仕組み）が入っています（$(RELEASE_SCREENSHOT_DEMO_MARKER) が見つかった）。Release のビルドには入れないため止めます。"; \
+		   echo "       SaifuLog/ScreenshotDemo/ のコードと、それを呼ぶ場所（SaifuLogApp・AppRootView・HomeView・PurchaseManager・PremiumSheet・MonthlyReportView）が \#if DEBUG の外に出ていないか、Release の構成で DEBUG の条件を足していないかを確かめてください。"; \
+		   exit 1 ;; \
+		1) echo "撮影用のデモ: 入っていない" ;; \
+		*) echo "error: $(RELEASE_ARCHIVE)/Products/$$app を読めず、撮影用のデモが入っていないかを確かめられませんでした。"; exit 1 ;; \
+	esac
+
 # 3 つとも揃っているときだけ API キーの認証フラグを付ける。
 RELEASE_AUTH = $(if $(and $(ASC_API_KEY_ID),$(ASC_API_ISSUER_ID),$(ASC_API_KEY_PATH)),-authenticationKeyPath "$(ASC_API_KEY_PATH)" -authenticationKeyID "$(ASC_API_KEY_ID)" -authenticationKeyIssuerID "$(ASC_API_ISSUER_ID)")
 
@@ -319,6 +338,8 @@ archive: release-args check-version release-auth generate
 	@$(RELEASE_INTERNAL_CHECK)
 	@# 家計の共有（実機で確かめる前の機能）も同じく、App Store へ出すビルドで無効になっているかを確かめる。
 	@$(RELEASE_HOUSEHOLD_CHECK)
+	@# 撮影用のデモ（DEBUG のビルドだけ）は、どのアーカイブにも入っていないことを確かめる。
+	@$(RELEASE_SCREENSHOT_DEMO_CHECK)
 
 # 送信せずに .ipa を書き出す。署名（クラウド管理の配布証明書）と API キーの権限が
 # 足りているかを、App Store Connect に何も残さずに確かめられる。
@@ -335,6 +356,7 @@ export-ipa: release-auth
 	@test -d "$(RELEASE_ARCHIVE)" || { echo "error: $(RELEASE_ARCHIVE) がありません。先に make archive を実行してください。"; exit 1; }
 	@$(RELEASE_INTERNAL_CHECK)
 	@$(RELEASE_HOUSEHOLD_CHECK)
+	@$(RELEASE_SCREENSHOT_DEMO_CHECK)
 	rm -rf "$(RELEASE_EXPORT_DIR)"
 	@mkdir -p "$(dir $(RELEASE_EXPORT_OPTIONS_LOCAL))"
 	cp "$(RELEASE_EXPORT_OPTIONS)" "$(RELEASE_EXPORT_OPTIONS_LOCAL)"
@@ -430,6 +452,7 @@ upload: release-auth
 	fi
 	@$(RELEASE_INTERNAL_CHECK)
 	@$(RELEASE_HOUSEHOLD_CHECK)
+	@$(RELEASE_SCREENSHOT_DEMO_CHECK)
 	@if [ -t 0 ] && [ -z "$$CI" ]; then \
 		build=$$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleVersion" "$(RELEASE_ARCHIVE)/Info.plist" 2>/dev/null); \
 		printf '%s' "ビルド $$build を App Store Connect へ送信します$(if $(filter YES,$(INTERNAL_BUILD)),（TestFlight の社内テスト専用）)。よろしいですか？ [y/N] "; \

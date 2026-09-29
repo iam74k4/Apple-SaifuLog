@@ -33,6 +33,11 @@ final class MonthlyReportModel {
     var editing: EditEntryModel?
     /// まとめの先頭に添える AI の一言（プレミアムと体験中で、AI が使える端末だけ）。
     let remark: RecapRemarkModel
+    #if DEBUG
+    /// まとめを下の端（カテゴリ別のグラフと金額の行）まで送るか。撮影用のデモ（`ScreenshotDemo`）が、月のまとめの
+    /// スクリーンショットを撮るときだけ使う（DEBUG のビルドだけ）。
+    var screenshotScrollsToBottom = false
+    #endif
 
     /// 月の区切りと日付の書き方の暦（ホームの画面の暦）。
     let calendar: Calendar

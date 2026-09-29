@@ -43,6 +43,17 @@ struct HomeView: View {
         _model = State(initialValue: model)
     }
 
+    #if DEBUG || INTERNAL_DIAGNOSTICS
+    /// 帯に診断のボタンを出すか。撮影用のデモ（DEBUG のビルドだけ）では出さない。
+    private var showsDiagnosticsButton: Bool {
+        #if DEBUG
+        ScreenshotDemo.current == nil
+        #else
+        true
+        #endif
+    }
+    #endif
+
     /// 支援技術（VoiceOver・スイッチコントロール）を使っているときは、「取り消す」を自動で引っ込めない。
     /// 8 秒では、バナーまでたどり着く前に消えてしまうため。次の記録を送るか、取り消すか、「閉じる」の操作で消える。
     private var keepsUndoBanner: Bool {
@@ -177,8 +188,9 @@ struct HomeView: View {
                 .sheet(isPresented: $showsDiagnostics) {
                     DiagnosticsView(model: DiagnosticsModel(context: modelContext, household: model.household))
                 }
-                // 帯の右上に診断のボタンを出させる（渡さなければ出ない）。
-                .environment(\.openDiagnostics, OpenDiagnosticsAction { showsDiagnostics = true })
+                // 帯の右上に診断のボタンを出させる（渡さなければ出ない）。撮影用のデモでは渡さない（App Store の
+                // スクリーンショットに、App Store 版には無い開発用のボタンを写さないため）。
+                .environment(\.openDiagnostics, showsDiagnosticsButton ? OpenDiagnosticsAction { showsDiagnostics = true } : nil)
                 #endif
                 .confirmationDialog(
                     "この記録を削除しますか？",

@@ -239,6 +239,35 @@ CloudKit のゾーンと同期し、ゾーンごと共有します（`docs/desig
 
 ---
 
+## App Store の掲載情報
+
+App Store に出す前の掲載情報とスクリーンショットの下書きを [`docs/app-store/`](docs/app-store/README.md) に置いています
+（App Store Connect への入力は、作者が中身を確かめてから行います）。
+
+| ファイル | 中身 |
+|---|---|
+| [`metadata.ja.md`](docs/app-store/metadata.ja.md)・[`metadata.en.md`](docs/app-store/metadata.en.md) | 名前・サブタイトル・プロモーション用テキスト・説明・キーワード・カテゴリ・著作権・URL（日本語と英語。文字数つき） |
+| [`review-notes.md`](docs/app-store/review-notes.md) | 審査メモ（アプリと課金アイテムごと） |
+| [`privacy-answers.md`](docs/app-store/privacy-answers.md) | App のプライバシーの回答（データの収集なし）と、機能ごとの根拠 |
+| [`age-rating.md`](docs/app-store/age-rating.md) | 年齢制限の回答（4+） |
+| `screenshots/ja/`・`screenshots/en/` | 6.9 インチ（1320 × 2868）のスクリーンショット |
+
+サポートのページ（問い合わせ先とよくある質問）は [`docs/support.md`](docs/support.md) です。
+
+スクリーンショットは次のコマンドで撮り直せます。Debug のビルドを撮影用の iPhone 17 Pro Max のシミュレータ（無ければ作ります）に入れ、
+状態バーを 9:41 にそろえ、日本語と英語の画面ごとに `docs/app-store/screenshots/<言語>/` へ保存します。
+
+```bash
+./scripts/app-store-screenshots.sh
+```
+
+画面は、DEBUG のビルドだけに入る撮影用のデモ（`SaifuLog/ScreenshotDemo/`）が、起動引数 `-SaifuLogScreenshotDemo <画面>` を受けて、
+メモリの上の架空の記録で開きます（手元の記録には触れず、診断画面のボタンなど開発用の表示も出しません）。App Store へ出すビルドには
+入っていないことを `make archive` が確かめます。撮った画像は 1 枚ずつ目で確かめてからコミットします（詳しくは
+[`docs/app-store/README.md`](docs/app-store/README.md)）。
+
+---
+
 ## 仕組み
 
 ひとこと入力の読み取りと保存、記録の直後の「直す」「取り消す」（下の 1〜4）と、予算の残り、月のまとめの合計・平均・割合の

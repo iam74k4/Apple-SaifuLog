@@ -22,6 +22,24 @@ struct LocalizationTests {
         #expect(english.localizedString(forKey: "・", value: nil, table: nil) == "·")
     }
 
+    /// 回答カードの期間の見出しは文字をつなげるだけなので（帯のように並べ方で空きが入らない）、英語の訳の区切りに空白が
+    /// 無いと「This Month·Sep 1–30」と詰まる。App Store の英語のスクリーンショットにも写る。
+    @Test("質問の回答カードの期間の見出しは、英語では中点の前後に空白を入れる（日本語は全角の中黒でつなげる）")
+    func questionPeriodSeparatorIsSpaced() throws {
+        let english = try Self.bundle(for: "en")
+        let format = english.localizedString(forKey: "%@・%@", value: nil, table: nil)
+
+        #expect(String(format: format, "This Month", "Sep 1–30") == "This Month · Sep 1–30")
+        // アプリのテストは日本語の画面で動く（スキームで ja に固定）。
+        let interval = try #require(ReportPeriod.thisMonth.interval(now: TestSupport.now, calendar: TestSupport.calendar))
+        let answer = LedgerAnswer(
+            question: LedgerQuestion(period: .thisMonth, metric: .categoryExpense, category: .cafe),
+            period: .thisMonth, interval: interval, recordCount: 1, value: .amount(1_000)
+        )
+        let range = QuestionTexts.dateRange(interval, calendar: TestSupport.calendar)
+        #expect(QuestionTexts.periodText(for: answer, calendar: TestSupport.calendar) == "今月・\(range)")
+    }
+
     /// CSV の見出しと値（種類・カテゴリ）は、コア（`LedgerCSVWriter`）が言語ごとに持つ。アプリの画面の言葉（String Catalog）と
     /// 食い違うと、画面では「Daily goods」なのに CSV では別の名前になるので、日本語は表のキー、英語は en の訳と照合する。
     @Test("CSV の見出し・種類・カテゴリは、画面の言葉と同じ")

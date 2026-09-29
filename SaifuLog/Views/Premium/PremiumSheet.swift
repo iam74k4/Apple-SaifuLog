@@ -40,6 +40,10 @@ struct PremiumSheet: View {
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            #if DEBUG
+            // 撮影用のデモで、体験の説明とボタンを写すときだけ下の端から開く。
+            .defaultScrollAnchor(model.screenshotScrollsToBottom ? .bottom : nil)
+            #endif
             .background(Theme.background)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

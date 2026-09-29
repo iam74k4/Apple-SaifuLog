@@ -22,6 +22,16 @@ struct SaifuLogApp: App {
     #endif
 
     init() {
+        #if DEBUG
+        if let demo = ScreenshotDemo.current {
+            // 撮影用のデモ（DEBUG のビルドだけ）。保存先はメモリの上の架空の記録、購入の状態は決めたもの、家族との共有は出さない。
+            // App Store の購入の記録（Transaction.updates）も読まない。
+            _storeHost = State(initialValue: demo.makeStoreHost())
+            _purchases = State(initialValue: demo.makePurchases())
+            _household = State(initialValue: HouseholdHost(isEnabled: false))
+            return
+        }
+        #endif
         let purchases = PurchaseManager()
         // 起動したらすぐ Transaction.updates の購読を始める（返金・失効・承認待ちの承認を取りこぼさないため）。
         // 購入の記録は保存先（SwiftData）ではなく StoreKit が持つので、保存先を開く最初の画面を待たない。
@@ -35,6 +45,10 @@ struct SaifuLogApp: App {
                 // 初回だけ案内（ようこそ → 予算を決める）を出し、それ以外はホーム。
                 AppRootView(container: container, storeHost: storeHost, purchases: purchases, household: household)
             }
+            #if DEBUG
+            // 撮影用のデモでは、画面の設定（@AppStorage）もデモの領域から読む（利用者の設定に触れない）。
+            .defaultAppStorage(ScreenshotDemo.current?.defaults ?? .standard)
+            #endif
         }
     }
 }
