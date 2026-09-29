@@ -4,7 +4,7 @@ import SaifuLogCore
 import SwiftData
 
 /// 「設定」（⑧）の状態と操作。プレミアム（⑨ を開く・購入の復元）、月の予算を開く、週の始まり、iCloud で同期、
-/// 記録の CSV 書き出し、このアプリについて。
+/// 家族と共有（家計の共有が有効なビルドだけ）、記録の CSV 書き出し、このアプリについて。
 ///
 /// 画面（`SettingsView`）から切り離し、保存先・設定の置き場所・時計・書き出し先を差し替えて SaifuLogTests で
 /// 確かめられるようにしている。CSV の中身はコア（`LedgerCSVWriter`）、ファイルの作成は `LedgerExporter` が受け持つ。
@@ -59,6 +59,14 @@ final class SettingsModel {
     /// オンにしようとしたら iCloud を使えなかった（案内のアラートを出す）。
     var iCloudAccountAlert: ICloudAccountStatus?
 
+    // MARK: 家族と共有
+
+    /// 「家族と共有」の節の状態と操作。家計の共有が有効で、家計の保存先を開けたときだけある（無ければ節を出さない）。
+    let household: HouseholdSettingsModel?
+
+    /// 「家族と共有」の節を出すか。
+    var showsHousehold: Bool { household != nil }
+
     /// 週の始まり。変えるとすぐ設定に書く（画面の根元が `@AppStorage` で読み、画面の暦に当てはめる）。
     var weekStart: WeekStart {
         get { storedWeekStart }
@@ -85,6 +93,7 @@ final class SettingsModel {
     ///   - purchases: プレミアムの購入と状態。アプリはホームから同じもの（`SaifuLogApp` の 1 つ）を渡す。渡さなければ
     ///     購入の無い状態（テストとプレビュー用）。
     ///   - storeHost: 保存先を開いたもの。「iCloud で同期」の切り替えを頼む。渡さなければ iCloud の節を出さない。
+    ///   - householdHost: 家計の共有を受け持つもの。有効で家計の保存先を開けているときだけ「家族と共有」の節を出す。
     ///   - accountStatus: iCloud のアカウントの状態の問い合わせ。テストでは CloudKit に問い合わせない値に差し替える
     ///     （iCloud の entitlement の無いテストのプロセスで `CKContainer` を作ると落ちるため）。
     ///   - defaults: 設定の置き場所。アプリは `UserDefaults.standard`（`AppSettings` の決まり）、テストは使い捨ての領域。
@@ -100,6 +109,7 @@ final class SettingsModel {
         budgetStore: BudgetStore? = nil,
         purchases: PurchaseManager? = nil,
         storeHost: StoreHost? = nil,
+        householdHost: HouseholdHost? = nil,
         accountStatus: @escaping @MainActor () async -> ICloudAccountStatus = { await ICloudAccountStatus.current() },
         defaults: UserDefaults = .standard,
         exporter: LedgerExporter? = nil,
@@ -112,6 +122,7 @@ final class SettingsModel {
         self.budgetStore = budgetStore ?? BudgetStore(context: context)
         self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
         self.storeHost = storeHost
+        self.household = householdHost.flatMap { $0.isAvailable ? HouseholdSettingsModel(host: $0) : nil }
         self.accountStatus = accountStatus
         self.isICloudSyncEnabled = storeHost?.cloudKitDatabase.isSyncEnabled ?? false
         self.defaults = defaults

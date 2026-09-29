@@ -47,7 +47,12 @@ struct EditEntrySheet: View {
                         if model.delete() { dismiss() }
                     }
                 } message: {
-                    Text("\(model.deletionSummary)の記録を削除します。この操作は取り消せません。")
+                    if model.isShared {
+                        // 家計の記録は、長押しの削除（ホーム）と同じく、家族の端末からも消えることを添える。
+                        Text("\(model.deletionSummary)の家計の記録を削除します。家族の端末からも消えます。この操作は取り消せません。")
+                    } else {
+                        Text("\(model.deletionSummary)の記録を削除します。この操作は取り消せません。")
+                    }
                 }
                 .confirmationDialog(
                     "直した内容を破棄しますか？",

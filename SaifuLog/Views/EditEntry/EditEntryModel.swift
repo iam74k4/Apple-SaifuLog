@@ -33,15 +33,14 @@ final class EditEntryModel: Identifiable {
     let source: EntrySource
     /// 削除の確認に出す「ランチ ¥850」。開いた時点の値で作る（直しかけの値ではなく、保存されている記録を指すため）。
     let deletionSummary: String
+    /// 家族と共有している家計の記録か（削除の確認に、家族の端末からも消えることを添える）。
+    let isShared: Bool
 
-    @ObservationIgnored private let entry: Entry
+    @ObservationIgnored private let target: Target
     @ObservationIgnored private let original: EntryEdits
-    @ObservationIgnored private let store: EntryStore
     @ObservationIgnored private let calendar: Calendar
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
-    @ObservationIgnored private let didSave: @MainActor (Entry) -> Void
-    @ObservationIgnored private let didDelete: @MainActor (PersistentIdentifier) -> Void
 
     /// - Parameters:
     ///   - calendar: 日付の区切り（今日より先か、日付を変えたか）と読み上げの日付の基準。画面の暦を渡す。
@@ -49,7 +48,7 @@ final class EditEntryModel: Identifiable {
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     ///   - didSave: 保存できたあとに呼ぶ（ホームが「取り消す」を片づける）。
     ///   - didDelete: 削除できたあとに、消した記録の ID を渡して呼ぶ（ホームが「取り消す」の対象から外す）。
-    init(
+    convenience init(
         entry: Entry,
         store: EntryStore,
         calendar: Calendar,
@@ -58,23 +57,47 @@ final class EditEntryModel: Identifiable {
         didSave: @escaping @MainActor (Entry) -> Void = { _ in },
         didDelete: @escaping @MainActor (PersistentIdentifier) -> Void = { _ in }
     ) {
-        let original = EntryEdits(entry)
-        self.entry = entry
+        // 消した記録の ID は、保存した後には読めないことがあるので先に取っておく。
+        let id = entry.persistentModelID
+        self.init(
+            target: Target(
+                original: EntryEdits(entry),
+                originalText: entry.originalText,
+                source: entry.source,
+                deletionSummary: entry.summaryText,
+                update: { try store.update(entry, with: $0) },
+                delete: { try store.delete([entry]) },
+                didSave: { didSave(entry) },
+                didDelete: { didDelete(id) }
+            ),
+            calendar: calendar,
+            now: now,
+            announce: announce
+        )
+    }
+
+    /// 直す記録を、保存先を問わずに受け取る（家計の記録を直すときに使う。`HouseholdHost.editTarget`）。
+    init(
+        target: Target,
+        calendar: Calendar,
+        now: @escaping () -> Date = { .now },
+        announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
+    ) {
+        let original = target.original
+        self.target = target
         self.original = original
-        self.store = store
         self.calendar = calendar
         self.now = now
         self.announce = announce
-        self.didSave = didSave
-        self.didDelete = didDelete
         self.amountText = EntryAmountInput.text(for: original.amount)
         self.memo = original.memo
         self.category = original.category
         self.isIncome = original.isIncome
         self.day = original.spentAt
-        self.originalText = entry.originalText
-        self.source = entry.source
-        self.deletionSummary = entry.summaryText
+        self.originalText = target.originalText
+        self.source = target.source
+        self.deletionSummary = target.deletionSummary
+        self.isShared = target.isShared
     }
 
     // MARK: - 入力の確かめ
@@ -138,29 +161,27 @@ final class EditEntryModel: Identifiable {
     func save() -> Bool {
         guard let edits, edits != original else { return false }
         do {
-            try store.update(entry, with: edits)
+            try target.update(edits)
         } catch {
             failure = .save
             return false
         }
         announce(String(localized: "直しました: \(spokenSummary(edits))"))
-        didSave(entry)
+        target.didSave()
         return true
     }
 
     /// 記録を削除する（確認のあと）。削除できたら true（呼び出し側がシートを閉じる）。
     @discardableResult
     func delete() -> Bool {
-        // 消した記録の ID は、保存した後には読めないことがあるので先に取っておく。
-        let id = entry.persistentModelID
         do {
-            try store.delete([entry])
+            try target.delete()
         } catch {
             failure = .delete
             return false
         }
         announce(String(localized: "削除しました: \(deletionSummary)"))
-        didDelete(id)
+        target.didDelete()
         return true
     }
 
@@ -192,6 +213,30 @@ final class EditEntryModel: Identifiable {
     }
 
     // MARK: - 型
+
+    /// 直す記録と、その保存先への書き込み（自分の記録か家計の記録か）。
+    ///
+    /// シートは記録のモデルを直接持たず、開いた時点の値と書き込み方だけを受け取る。自分の記録（`EntryStore`）と家計の記録
+    /// （`HouseholdHost`。書き込んだら同期にも知らせる）で、同じシートを使うため。
+    struct Target {
+        /// 開いた時点の値。
+        let original: EntryEdits
+        /// 送った文（家計の記録には無いので空）。
+        let originalText: String
+        let source: EntrySource
+        /// 削除の確認に出す「ランチ ¥850」。
+        let deletionSummary: String
+        /// 家族と共有している家計の記録か（削除すると家族の端末からも消えるので、確認でそう伝える）。自分の記録は false。
+        var isShared = false
+        /// 直した値を書き込む。書き込めなければ直す前の値に戻して throw する。
+        let update: @MainActor (EntryEdits) throws -> Void
+        /// 記録を消す。消せなければ throw する。
+        let delete: @MainActor () throws -> Void
+        /// 保存できたあとに呼ぶ（ホームが「取り消す」を片づける）。
+        let didSave: @MainActor () -> Void
+        /// 削除できたあとに呼ぶ（ホームが「取り消す」の対象から外す）。
+        let didDelete: @MainActor () -> Void
+    }
 
     /// 書き込みの失敗。シートを閉じずに知らせ、もう一度押せるようにする。
     enum Failure: Equatable {

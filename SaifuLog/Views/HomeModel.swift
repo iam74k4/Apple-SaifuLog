@@ -5,7 +5,11 @@ import SwiftData
 import SwiftUI
 
 /// ホームの状態と操作（送信・家計への質問・レシートの読み取り・声の入力・取り消し・直す・削除・予算を決める画面と月のまとめと設定と
-/// プレミアムの出し入れ・先週のふりかえりのカード）。
+/// プレミアムの出し入れ・先週のふりかえりのカード・「自分／家族」の切り替え）。
+///
+/// 家族と家計を共有しているとき（家計の共有が有効なビルドだけ）は、帯の「自分／家族」で記録先を切り替える。「家族」のときは、
+/// 入力欄で記録したものを家計の保存先（`HouseholdHost`）に入れ、直す・取り消す・削除も家計の記録に効く。家計への質問・レシート・
+/// 声の入力・月のまとめ・ふりかえりは v1 では「自分」だけ（docs/design.md §9 の家族との共有の決め事）。
 ///
 /// 画面（`HomeView`）から切り離し、解析器・時計・読み上げを差し替えて SaifuLogTests で確かめられるようにしている。
 /// 画面は、ここの値を表示し、操作をここへ渡すだけにする。
@@ -28,6 +32,22 @@ final class HomeModel {
     private(set) var isParsing = false
     /// 直前に記録したもの。記録の直後に「取り消す」を出すため。
     private(set) var justRecorded: [Entry] = []
+    /// 直前に家計へ記録したもの（「家族」のとき）。記録の直後に「取り消す」を出すため。
+    private(set) var justRecordedHousehold: [HouseholdEntry] = []
+    /// 記録先（「自分」か「家族」か）。家計に入っているときだけ「家族」を選べる（`showsLedgerSwitch`）。
+    ///
+    /// 切り替えたら「取り消す」を引っ込める（切り替えた後に、前の記録先の記録を取り消すと、どちらの記録が消えたか分からないため）。
+    var ledgerScope: LedgerScope = .personal {
+        didSet {
+            guard ledgerScope != oldValue else { return }
+            justRecorded = []
+            justRecordedHousehold = []
+        }
+    }
+    /// 家計の記録の削除の確認を待っているもの。
+    var pendingHouseholdDeletion: PendingHouseholdDeletion?
+    /// 「家族」のときに、質問や読めない文を送った（家計には記録しない）ことの知らせ。
+    var householdInputAlert: HouseholdInputAlert?
     var showsNoAmountAlert = false
     var storeFailure: StoreFailure?
     var pendingDeletion: PendingDeletion?
@@ -47,6 +67,8 @@ final class HomeModel {
     var weeklyRecapDetail: WeeklyRecapModel?
     /// プレミアムの購入と状態（アプリで 1 つ）。カテゴリ別の予算を出すかの判定と、設定・プレミアムのシートに渡す。
     let purchases: PurchaseManager
+    /// 家計の共有（アプリで 1 つ）。無ければ（テスト・家計の共有が無効なビルド）「自分／家族」の切り替えを出さない。
+    let household: HouseholdHost?
     /// 今日。「今月」の範囲と、日付に年を添えるかの基準にする。
     ///
     /// 描画のたびに `.now` を読むだけだと、アプリを開いたまま（または裏に置いたまま）月をまたいだとき、
@@ -93,6 +115,8 @@ final class HomeModel {
     @ObservationIgnored private var presentsPremiumAfterReceipt = false
     /// 直前にレシートから記録したときに数えた無料の 1 回（数えた月と、記録した記録）。取り消したら戻す。
     @ObservationIgnored private var receiptQuotaCharge: (month: QuotaMonth, ids: [PersistentIdentifier])?
+    /// 直前に家計へ記録したときに送った文。家計の記録は送った文を持たないので、取り消したときに入力欄へ戻すために取っておく。
+    @ObservationIgnored private var householdRecordedText: String?
 
     /// - Parameters:
     ///   - budgetStore: 予算の読み書き。渡さなければ記録と同じ保存先（`store` の ModelContext）を使う。
@@ -100,6 +124,7 @@ final class HomeModel {
     ///     記録し終えるのを待ってもらうため。
     ///   - purchases: プレミアムの購入と状態。アプリは `SaifuLogApp` の 1 つを渡す。渡さなければ購入の無い状態（テスト用）。
     ///   - storeHost: 保存先を開いたもの（設定の「iCloud で同期」の切り替え先）。アプリは `SaifuLogApp` の 1 つを渡す。
+    ///   - household: 家計の共有（「自分／家族」の切り替えと、家計への記録）。アプリは `SaifuLogApp` の 1 つを渡す。
     ///   - defaults: 設定の置き場所（体験の終わりの案内を出したか、無料で質問した回数）。アプリは `UserDefaults.standard`、
     ///     テストは使い捨ての領域。
     ///   - quotaStore: 無料で使った回数の読み書き。渡さなければ `defaults` と `now` で作る。
@@ -118,6 +143,7 @@ final class HomeModel {
         pendingWrites: PendingStoreWrites = PendingStoreWrites(),
         purchases: PurchaseManager? = nil,
         storeHost: StoreHost? = nil,
+        household: HouseholdHost? = nil,
         defaults: UserDefaults = .standard,
         quotaStore: QuotaStore? = nil,
         makeParser: @escaping (Date, Calendar) -> any EntryParsing = { EntryParserFactory.makeParser(now: $0, calendar: $1) },
@@ -133,6 +159,7 @@ final class HomeModel {
         self.budgetStore = budgetStore ?? BudgetStore(context: store.context)
         self.pendingWrites = pendingWrites
         self.storeHost = storeHost
+        self.household = household
         self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
         self.defaults = defaults
         self.quotaStore = quotaStore ?? QuotaStore(defaults: defaults, now: now)
@@ -151,9 +178,12 @@ final class HomeModel {
 
     convenience init(
         context: ModelContext, pendingWrites: PendingStoreWrites = PendingStoreWrites(), purchases: PurchaseManager,
-        storeHost: StoreHost? = nil
+        storeHost: StoreHost? = nil, household: HouseholdHost? = nil
     ) {
-        self.init(store: EntryStore(context: context), pendingWrites: pendingWrites, purchases: purchases, storeHost: storeHost)
+        self.init(
+            store: EntryStore(context: context), pendingWrites: pendingWrites, purchases: purchases, storeHost: storeHost,
+            household: household
+        )
     }
 
     /// ホームの上にほかの画面・シート・確認を出しているか。出している間は、体験の終わりの案内を重ねず、声の入力を止める
@@ -163,9 +193,36 @@ final class HomeModel {
             || weeklyRecapDetail != nil || receiptResult != nil || receiptCapture != nil || showsReceiptSourceChoice
     }
 
-    /// 直前の記録を取り消せるか（「取り消す」のバナーと入力欄の VoiceOver の操作を出すか）。
+    /// 直前の記録を取り消せるか（「取り消す」のバナーと入力欄の VoiceOver の操作を出すか）。いまの記録先の記録だけを数える。
     var canUndo: Bool {
-        !justRecorded.isEmpty
+        isHouseholdActive ? !justRecordedHousehold.isEmpty : !justRecorded.isEmpty
+    }
+
+    /// 「取り消す」のバナーと入力欄の VoiceOver の「直す」の対象（いまの記録先の、直前に記録したもの）。
+    var recordedItems: [RecordedItem] {
+        if isHouseholdActive {
+            justRecordedHousehold.map { RecordedItem(id: AnyHashable($0.id), summaryText: $0.summaryText) }
+        } else {
+            justRecorded.map { RecordedItem(id: AnyHashable($0.persistentModelID), summaryText: $0.summaryText) }
+        }
+    }
+
+    // MARK: - 自分／家族
+
+    /// 帯に「自分／家族」の切り替えを出すか（家計に入っているときだけ）。
+    var showsLedgerSwitch: Bool {
+        household?.hasHousehold == true
+    }
+
+    /// いま「家族」（家計）に記録しているか。家計から抜けた・消えたときは「自分」に戻る。
+    var isHouseholdActive: Bool {
+        ledgerScope == .household && showsLedgerSwitch
+    }
+
+    /// 家計に入っているかが変わったとき（抜けた・消えた・入った）に呼ぶ。家計が無くなったら「自分」に戻す（次に家計に入ったときに、
+    /// 前の「家族」のまま始まらないように）。
+    func householdAvailabilityDidChange() {
+        if !showsLedgerSwitch { ledgerScope = .personal }
     }
 
     /// 「取り消す」のバナーを時間で引っ込めてよいか（画面の 8 秒のタイマーを動かすか）。
@@ -201,6 +258,10 @@ final class HomeModel {
         // 前の記録が消え、前の文が入力欄に戻る。それを送り直したり、いま送った文の記録だけが残ったりして、
         // 取り消したつもりのものと違う記録が残るため。質問を送ったときも同じにする（送るたびに引っ込める、と揃える）。
         justRecorded = []
+        justRecordedHousehold = []
+        if isHouseholdActive {
+            return sendToHousehold(text, source: source, sentAt: sentAt, calendar: calendar)
+        }
         switch InputIntentClassifier.classify(text, now: sentAt, calendar: calendar) {
         case .record:
             return record(text, source: source, sentAt: sentAt, calendar: calendar)
@@ -247,6 +308,63 @@ final class HomeModel {
             }
             justRecorded = recorded
             announceRecorded(recorded, today: sentAt, calendar: calendar)
+        }
+    }
+
+    // MARK: - 家族（家計）への記録
+
+    /// 「家族」のときの送信。記録なら家計の記録として保存する。質問と、記録か質問か分からない文は、家計には記録せず、送った文を
+    /// 入力欄に戻して知らせる（家計への質問は v1 では出さない。答えを自分の記録で出すと、家族の記録の答えと取り違えるため）。
+    private func sendToHousehold(_ text: String, source: EntrySource, sentAt: Date, calendar: Calendar) -> Task<Void, Never> {
+        switch InputIntentClassifier.classify(text, now: sentAt, calendar: calendar) {
+        case .record:
+            return recordToHousehold(text, source: source, sentAt: sentAt, calendar: calendar)
+        case .question:
+            restoreDraft(text, source: source)
+            householdInputAlert = .question
+            announce(String(localized: "家族の家計では、まだ質問できません"))
+        case .unclear:
+            restoreDraft(text, source: source)
+            householdInputAlert = .unclear
+            announce(String(localized: "記録か質問か分かりませんでした"))
+        }
+        return Task {}
+    }
+
+    /// 家計の記録として読み取って保存する（記録した人は、家計の自分の表示名）。
+    ///
+    /// 家計の保存先は自分の記録の保存先とは別で、iCloud 同期の切り替えで開き直さないので、`pendingWrites` には数えない。
+    private func recordToHousehold(_ text: String, source: EntrySource, sentAt: Date, calendar: Calendar) -> Task<Void, Never> {
+        isParsing = true
+        let parser = makeParser(sentAt, calendar)
+        return Task {
+            defer { isParsing = false }
+            let parsed = (try? await parser.parse(text)) ?? []
+            guard !parsed.isEmpty else {
+                restoreDraft(text, source: source)
+                showsNoAmountAlert = true
+                return
+            }
+            // 読み取りを待つ間に「自分」へ切り替えた・家計から抜けた・家計が消えたときは、どちらにも記録しない（家計に書くつもりの
+            // 文を自分の記録にしないため）。送った文を入力欄に戻し、いまの記録先で送り直せるようにする。
+            guard let household, isHouseholdActive else {
+                restoreDraft(text, source: source)
+                return
+            }
+            let recorded: [HouseholdEntry]
+            do {
+                recorded = try household.record(parsed, sentAt: sentAt, calendar: calendar)
+            } catch {
+                restoreDraft(text, source: source)
+                storeFailure = .record
+                return
+            }
+            justRecordedHousehold = recorded
+            householdRecordedText = text
+            announceRecorded(
+                recorded.map { (kind: $0.kindText, amount: $0.amount, spentAt: $0.spentAt) }, toHousehold: true,
+                today: sentAt, calendar: calendar
+            )
         }
     }
 
@@ -357,16 +475,28 @@ final class HomeModel {
     /// 今日でない日付に記録したときは日付も読む（「昨日」の読み違いや、未来の日付に気づけるように）。
     /// 今日かどうかは、記録の日付を決めたのと同じ送った瞬間（`today`）で見る。
     private func announceRecorded(_ recorded: [Entry], today: Date, calendar: Calendar) {
+        announceRecorded(
+            recorded.map { (kind: $0.kindText, amount: $0.amount, spentAt: $0.spentAt) }, toHousehold: false,
+            today: today, calendar: calendar
+        )
+    }
+
+    /// 記録の読み上げ（自分の記録と家計の記録で共通）。家計に記録したときは、家計に記録したことが分かる文にする
+    /// （「自分／家族」を取り違えて記録したことに、読み上げで気づけるように）。
+    private func announceRecorded(
+        _ recorded: [(kind: String, amount: Int, spentAt: Date)], toHousehold: Bool, today: Date, calendar: Calendar
+    ) {
         let items = recorded.map { entry in
-            var item = "\(entry.kindText) \(YenFormatter.string(from: entry.amount))"
+            var item = "\(entry.kind) \(YenFormatter.string(from: entry.amount))"
             if !calendar.isDate(entry.spentAt, inSameDayAs: today) {
-                let format: Date.FormatStyle = entry.showsYear(today: today, calendar: calendar)
-                    ? .dateTime.year().month().day() : .dateTime.month().day()
+                let format: Date.FormatStyle = calendar.isDate(entry.spentAt, equalTo: today, toGranularity: .year)
+                    ? .dateTime.month().day() : .dateTime.year().month().day()
                 item += " \(entry.spentAt.formatted(format))"
             }
             return item
         }
-        announce(String(localized: "記録しました: \(items.formatted(.list(type: .and)))"))
+        let list = items.formatted(.list(type: .and))
+        announce(toHousehold ? String(localized: "家族の家計に記録しました: \(list)") : String(localized: "記録しました: \(list)"))
     }
 
     // MARK: - レシート
@@ -377,7 +507,9 @@ final class HomeModel {
     /// 購入の事実を読み終える前は、プレミアムでも無料に見えるので、読み終えるのを待ってから決める（家計への質問と同じ）。
     @discardableResult
     func requestReceiptScan(calendar: Calendar) -> Task<Void, Never> {
-        Task {
+        // レシートは v1 では「自分」だけ（「家族」のときはカメラのボタンを出さない）。
+        guard !isHouseholdActive else { return Task {} }
+        return Task {
             if !purchases.hasLoadedPurchases {
                 await purchases.refreshPurchases()
             }
@@ -528,6 +660,10 @@ final class HomeModel {
     /// レシートから記録したものは、入力欄に何も戻さない（元の文は「レシート: 店名 合計 ¥…」の要約で、送り直すと合計の 1 件を
     /// ひとこと入力として記録してしまうため）。その回に数えた無料の 1 回は戻す（取り消した記録は数えない決め事。docs/design.md §6）。
     func undoLastRecord() {
+        if isHouseholdActive {
+            undoLastHouseholdRecord()
+            return
+        }
         let targets = justRecorded
         guard !targets.isEmpty else { return }
         // 消した記録の値は、保存した後には読めない。読み上げと入力欄に戻す文は先に取っておく。
@@ -552,9 +688,28 @@ final class HomeModel {
         announce(String(localized: "取り消しました: \(items.formatted(.list(type: .and)))"))
     }
 
+    /// 直前に家計へ記録したものを取り消す（「家族」のとき）。送った文を入力欄に戻す。
+    private func undoLastHouseholdRecord() {
+        let targets = justRecordedHousehold
+        guard let household, !targets.isEmpty else { return }
+        let items = targets.map { "\($0.kindText) \(YenFormatter.string(from: $0.amount))" }
+        do {
+            try household.delete(targets)
+        } catch {
+            storeFailure = .undo
+            return
+        }
+        justRecordedHousehold = []
+        // 自分の記録と同じく、送った文を入力欄に戻して、その場で直して送り直せるようにする。
+        if let text = householdRecordedText { restoreDraft(text) }
+        householdRecordedText = nil
+        announce(String(localized: "取り消しました: \(items.formatted(.list(type: .and)))"))
+    }
+
     /// 「取り消す」のバナーを引っ込める（時間切れ・「閉じる」の操作）。記録はそのまま残る。
     func dismissUndo() {
         justRecorded = []
+        justRecordedHousehold = []
     }
 
     // MARK: - 削除
@@ -577,6 +732,54 @@ final class HomeModel {
         // 直前に記録したものを消したら、「取り消す」の対象からも外す（消えた記録を取り消そうとしないように）。
         justRecorded.removeAll { $0.persistentModelID == id }
         announce(String(localized: "削除しました: \(pending.summary)"))
+    }
+
+    // MARK: - 家計の記録の直す・削除
+
+    /// 家計の記録の削除の確認を出す。
+    func requestHouseholdDelete(_ entry: HouseholdEntry) {
+        pendingHouseholdDeletion = PendingHouseholdDeletion(entry: entry, summary: entry.summaryText)
+    }
+
+    /// 確認のあとで家計の記録を削除する（ほかの参加者の記録も消せる。家族の全員が読み書きできる共有のため）。
+    func deleteHouseholdEntry(_ pending: PendingHouseholdDeletion) {
+        pendingHouseholdDeletion = nil
+        guard let household else { return }
+        let id = pending.entry.id
+        do {
+            try household.delete([pending.entry])
+        } catch {
+            storeFailure = .delete
+            return
+        }
+        justRecordedHousehold.removeAll { $0.id == id }
+        announce(String(localized: "削除しました: \(pending.summary)"))
+    }
+
+    /// 家計の記録の「直す」のシートを出す（ほかの参加者の記録も直せる）。
+    func presentHouseholdEdit(_ entry: HouseholdEntry, calendar: Calendar) {
+        guard let household else { return }
+        let id = entry.id
+        let target = household.editTarget(
+            for: entry,
+            didSave: { [weak self] in
+                // 直前に記録したものを直したら「取り消す」を引っ込める（自分の記録と同じ）。
+                if self?.justRecordedHousehold.contains(where: { $0.id == id }) == true { self?.justRecordedHousehold = [] }
+            },
+            didDelete: { [weak self] in self?.justRecordedHousehold.removeAll { $0.id == id } }
+        )
+        editing = EditEntryModel(target: target, calendar: calendar, now: now, announce: announce)
+    }
+
+    /// 「取り消す」のバナーと入力欄の VoiceOver の「直す」から、直前に記録したものを直す。
+    func presentEdit(_ item: RecordedItem, calendar: Calendar) {
+        if isHouseholdActive {
+            guard let entry = justRecordedHousehold.first(where: { AnyHashable($0.id) == item.id }) else { return }
+            presentHouseholdEdit(entry, calendar: calendar)
+        } else {
+            guard let entry = justRecorded.first(where: { AnyHashable($0.persistentModelID) == item.id }) else { return }
+            presentEdit(entry, calendar: calendar)
+        }
     }
 
     // MARK: - 直す
@@ -650,8 +853,8 @@ final class HomeModel {
     /// （`storeHost`）も渡す。渡さないと、設定の「iCloud で同期」の節が黙って消える（テストで確かめている）。
     func presentSettings() {
         settings = SettingsModel(
-            context: store.context, budgetStore: budgetStore, purchases: purchases, storeHost: storeHost, defaults: defaults,
-            now: now, announce: announce
+            context: store.context, budgetStore: budgetStore, purchases: purchases, storeHost: storeHost,
+            householdHost: household, defaults: defaults, now: now, announce: announce
         )
     }
 
@@ -756,6 +959,28 @@ final class HomeModel {
     struct PendingDeletion {
         let entry: Entry
         let summary: String
+    }
+
+    /// 削除の確認を待っている家計の記録。
+    struct PendingHouseholdDeletion {
+        let entry: HouseholdEntry
+        let summary: String
+    }
+
+    /// 記録先。
+    enum LedgerScope: Hashable {
+        /// 自分の記録（default.store）。
+        case personal
+        /// 家族と共有している家計（household.store）。
+        case household
+    }
+
+    /// 「家族」のときに家計へ記録しなかった理由。
+    enum HouseholdInputAlert: Equatable {
+        /// 質問を送った（家計への質問は v1 では出さない）。
+        case question
+        /// 記録か質問か分からなかった。
+        case unclear
     }
 
     /// 保存先への書き込みの失敗。利用者に知らせ、記録したつもり・消したつもりにさせない。

@@ -56,6 +56,17 @@
         }
       }
     },
+    "%@の家計の記録を削除します。家族の端末からも消えます。この操作は取り消せません。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計の記録を削除するとき（ホームの長押し・⑥ の「この記録を削除」）の確認の本文。%@ は「ランチ ¥850」のような品目と金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This deletes the household entry %@. It will also disappear from your family’s devices. This can’t be undone."
+          }
+        }
+      }
+    },
     "%@の支出" : {
       "comment" : "家計への質問の回答カードの見出し。%@ はカテゴリの名前（「カフェ」）。そのカテゴリの支出の合計を答えたとき",
       "localizations" : {
@@ -322,6 +333,17 @@
         }
       }
     },
+    "Apple アカウントの暗号化したデータがリセットされたため、家族との共有が消えました。この iPhone の家計の記録を iCloud に保存し直しています。家族をもう一度招待してください。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計を作った人の暗号化したデータがリセットされて共有が消えたときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Because the encrypted data of your Apple Account was reset, sharing with your family ended. The household entries on this iPhone are being saved to iCloud again. Please invite your family again."
+          }
+        }
+      }
+    },
     "CSV ファイルを書き出す" : {
       "comment" : "設定の「記録を書き出す」のボタン。選んだ期間の記録を CSV ファイルにして共有の画面を出す",
       "localizations" : {
@@ -476,6 +498,17 @@
         }
       }
     },
+    "iCloud のアカウントが変わったため、この iPhone から家計の記録を消しました。自分の記録はそのまま残っています。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。iCloud からサインアウトした・アカウントを替えたときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Because your iCloud account changed, the household entries were removed from this iPhone. Your own entries are still here."
+          }
+        }
+      }
+    },
     "iCloud の状態を確かめられませんでした。インターネットにつながっているかを確かめて、もう一度お試しください。" : {
       "comment" : "設定で iCloud 同期をオンにしようとしたら、iCloud のアカウントの状態を確かめられなかったときの案内",
       "localizations" : {
@@ -520,6 +553,17 @@
         }
       }
     },
+    "「ランチ 850」のように、品目と金額を入れてください。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。「家族」のときに記録か質問か分からない文を送ったときのアラートの本文。例の「ランチ 850」は訳さない（入力は日本語）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter an item and an amount, like “ランチ 850”."
+          }
+        }
+      }
+    },
     "「ランチ 850」のように、金額の数字を入れてください。" : {
       "comment" : "入力に金額が無かったときのアラートの本文。例の「ランチ 850」は訳さない（解析が日本語の入力を前提にしているため）",
       "localizations" : {
@@ -538,6 +582,61 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Not Now"
+          }
+        }
+      }
+    },
+    "あなたが作った家計" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。設定の「家族と共有」の行の補足。自分が持ち主の家計",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A household you created"
+          }
+        }
+      }
+    },
+    "あなたの名前" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計を作る・名前を直すシートの入力欄の名前と見出し。家族に見える「記録した人」の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your name"
+          }
+        }
+      }
+    },
+    "あなたの名前: %@" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。設定の「家族と共有」の行の補足。%@ は家族に見える自分の表示名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your name: %@"
+          }
+        }
+      }
+    },
+    "あなたの名前が未設定です（押して決めてください）" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。設定の「家族と共有」の行の補足。表示名がまだ無いとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your name isn’t set (tap to set it)"
+          }
+        }
+      }
+    },
+    "あなたの名前を入れると押せます" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計を作る・名前を直すシートの「作成」「保存」のボタンが押せないときの VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter your name to continue."
           }
         }
       }
@@ -707,6 +806,28 @@
         }
       }
     },
+    "この iPhone から家計の記録が消えます。家族の家計の記録はそのまま残ります。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。「家計から抜ける」の確認の本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The household entries will be removed from this iPhone. Your family’s household entries will stay as they are."
+          }
+        }
+      }
+    },
+    "この iPhone から家計の記録を消しました。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計から抜けたときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The household entries were removed from this iPhone."
+          }
+        }
+      }
+    },
     "この iPhone では AI が文を読みます" : {
       "comment" : "ようこその画面。端末内の AI が使えるときの見出し",
       "localizations" : {
@@ -762,6 +883,17 @@
         }
       }
     },
+    "この iPhone の中だけの名前で、家族には見えません。空欄なら「家族の家計」になります。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。招待されて入った人が家計の名前を直すシートの「家計の名前」の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This name is only on this iPhone, and your family doesn’t see it. If left blank, it’s “Family Household”."
+          }
+        }
+      }
+    },
     "この iPhone の記録は残り、これからはこの iPhone の中だけに保存します。iCloud に保存した記録は iCloud に残り、ほかの端末とはそろわなくなります。\n\n切り替えると記録を開き直します。" : {
       "comment" : "設定の「iCloud で同期」をオフにする前の確認のアラートの本文",
       "localizations" : {
@@ -802,6 +934,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This item can't be purchased from the App Store in your country or region right now. Please try again later."
+          }
+        }
+      }
+    },
+    "この家計には、もう入っています。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。同じ家計の招待をもう一度開いたときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You’re already in this household."
+          }
+        }
+      }
+    },
+    "この招待は受け入れられません" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。ほかのアプリや形の違う招待を開いたときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can’t Accept This Invitation"
           }
         }
       }
@@ -1071,6 +1225,17 @@
         }
       }
     },
+    "ほかの家計に入っています" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計に入っているときに別の家計の招待を開いたときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Already in Another Household"
+          }
+        }
+      }
+    },
     "まとめて1件で記録" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。レシートの合計を 1 件の記録にする選択肢",
       "localizations" : {
@@ -1148,6 +1313,17 @@
         }
       }
     },
+    "もう入っている家計です" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。同じ家計の招待をもう一度開いたときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Already in This Household"
+          }
+        }
+      }
+    },
     "アカウントの状態" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。iCloud のアカウントの状態の項目名",
       "localizations" : {
@@ -1166,6 +1342,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "App"
+          }
+        }
+      }
+    },
+    "インターネットにつながっているか、iCloud にサインインしているかを確かめて、もう一度お試しください。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。共有の画面を開けなかったときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check that you’re connected to the internet and signed in to iCloud, then try again."
+          }
+        }
+      }
+    },
+    "インターネットにつながっているか、iCloud にサインインしているかを確かめて、招待のリンクをもう一度開いてください。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。招待を受け入れられなかったときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check that you’re connected to the internet and signed in to iCloud, then open the invitation link again."
+          }
+        }
+      }
+    },
+    "インターネットにつながっているかを確かめて、もう一度お試しください。この iPhone の家計の記録は残っています。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計から抜けられなかったときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check that you’re connected to the internet, then try again. The household entries on this iPhone are still here."
           }
         }
       }
@@ -1354,6 +1563,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SaifuLog Premium"
+          }
+        }
+      }
+    },
+    "サイフログの家計の招待ではないか、形の違う招待です。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。受け入れられない招待を開いたときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This isn’t a SaifuLog household invitation, or it’s a different kind of invitation."
           }
         }
       }
@@ -1578,6 +1798,17 @@
         }
       }
     },
+    "ホームの上の「家族」に切り替えると、家族の記録が見られ、家計に記録できます。家族に見える「あなたの名前」は、設定の「家族と共有」で確かめて変えられます。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。招待を受け入れて家計に入ったときのアラートの本文。「家族」はホームの帯の切り替えの名前（Family）、「あなたの名前」は名前のシートの欄（Your name）、「家族と共有」は設定の節（Share with Family）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch to “Family” at the top of Home to see your family’s entries and record to the household. You can check and change “Your name,” which your family sees, in Settings under “Share with Family.”"
+          }
+        }
+      }
+    },
     "ホームの入力欄から「ランチ 850」のように送ると、ここに何にいくら使ったかが出ます。" : {
       "comment" : "月のまとめで、今月に記録が無いときの案内。「ランチ 850」は入力の例で、訳さない（解析が日本語の入力を前提にしているため）",
       "localizations" : {
@@ -1750,6 +1981,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Just send a line like these in the field below."
+          }
+        }
+      }
+    },
+    "下の入力欄に送ると、家族と共有している家計に記録します。家族が記録したものも、ここに並びます。自分の記録は帯の「自分」に切り替えると見られます。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。ホームの「家族」で家計の記録がまだ無いときの案内。「自分」は帯の切り替えの名前（Me）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send an entry from the field below to record it to the household you share with your family. Entries your family records also appear here. Switch to “Me” at the top to see your own entries."
           }
         }
       }
@@ -2196,6 +2438,17 @@
         }
       }
     },
+    "作成" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計を作るシートの右上のボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create"
+          }
+        }
+      }
+    },
     "使えるか" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。端末内 AI や音声の書き起こしが使えるか（使えなければ理由）の項目名",
       "localizations" : {
@@ -2240,6 +2493,17 @@
         }
       }
     },
+    "例: はなこ" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計を作るシートの「あなたの名前」の入力欄の例",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "e.g. Hanako"
+          }
+        }
+      }
+    },
     "価格を読み込めませんでした。インターネットの接続を確かめて、もう一度お試しください。" : {
       "comment" : "プレミアムのシート（⑨）。価格を読み込めなかったとき",
       "localizations" : {
@@ -2269,6 +2533,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Save"
+          }
+        }
+      }
+    },
+    "保存できませんでした" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計の変更を保存できなかったときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Save"
           }
         }
       }
@@ -2516,6 +2791,17 @@
         }
       }
     },
+    "入れる家計は 1 つだけです。設定の「家族と共有」で、いまの家計から抜ける（作った家計なら削除する）と、受け入れられます。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計に入っているときに別の家計の招待を開いたときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can be in only one household. To accept this invitation, leave your current household in Settings > Share with Family (or delete it if you created it)."
+          }
+        }
+      }
+    },
     "入力例: %@" : {
       "comment" : "ようこその画面の入力の例（VoiceOver）。%@ は日本語の入力の例（訳さない）",
       "localizations" : {
@@ -2534,6 +2820,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Choose an app or place to send it to on the share sheet."
+          }
+        }
+      }
+    },
+    "共有の画面を開けませんでした" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。招待・参加している人の画面を開けなかったときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Open Sharing"
+          }
+        }
+      }
+    },
+    "共有をやめられませんでした" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。持ち主が「共有をやめる」を確かめた後、サーバーで共有を消せなかったときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Stop Sharing"
+          }
+        }
+      }
+    },
+    "共有をやめる" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。設定の「家族と共有」の持ち主の行と、その確認のボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Sharing"
           }
         }
       }
@@ -2736,6 +3055,17 @@
         }
       }
     },
+    "参加している人" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。設定の「家族と共有」の参加者の行。押すと家計に参加している人の一覧を開く",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Participants"
+          }
+        }
+      }
+    },
     "収入" : {
       "comment" : "収入の記録の種別。直すシートの種類の選択肢",
       "localizations" : {
@@ -2897,6 +3227,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sync"
+          }
+        }
+      }
+    },
+    "名前なし" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。ホームの家計の記録の吹き出しで、記録した人の名前が空のときの表示",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No name"
           }
         }
       }
@@ -3121,6 +3462,380 @@
         }
       }
     },
+    "家族" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。ホームの帯の「自分／家族」の切り替えの、家計の側",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Family"
+          }
+        }
+      }
+    },
+    "家族: ランチ 850" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。ホームの入力欄の例（「家族」のとき、アクセシビリティサイズの文字）。入力欄の幅に収まるよう短くする。例の「ランチ 850」は訳さない",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Family: ランチ 850"
+          }
+        }
+      }
+    },
+    "家族との共有をやめました" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。共有をやめたときのアラートの題名と読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopped Sharing with Family"
+          }
+        }
+      }
+    },
+    "家族との共有をやめますか？" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。「共有をやめる」の確認の題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Sharing with Family?"
+          }
+        }
+      }
+    },
+    "家族と共有" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。設定の節の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share with Family"
+          }
+        }
+      }
+    },
+    "家族に記録（ランチ 850）" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。ホームの入力欄の例（「家族」のとき）。入力欄の幅に収まるよう短くする。例の「ランチ 850」は訳さない",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To family (ランチ 850)"
+          }
+        }
+      }
+    },
+    "家族の今月の支出" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。ホームの帯の見出し（「家族」のとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Family Spending This Month"
+          }
+        }
+      }
+    },
+    "家族の家計" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計の名前が空のときの名前。家計を作るシートの入力欄の例",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Family Household"
+          }
+        }
+      }
+    },
+    "家族の家計では、まだ質問できません" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。「家族」のときに質問を送ったときの VoiceOver の読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can’t ask about the family household yet"
+          }
+        }
+      }
+    },
+    "家族の家計では質問できません" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。「家族」のときに質問を送ったときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can’t Ask in Family Household"
+          }
+        }
+      }
+    },
+    "家族の家計に記録" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。ホームの入力欄の名前（「家族」のとき。VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record to family household"
+          }
+        }
+      }
+    },
+    "家族の家計に記録しました: %@" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計に記録したときの VoiceOver の読み上げ。%@ は「食費 ¥850」のような種別と金額の並び",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded to family household: %@"
+          }
+        }
+      }
+    },
+    "家族の家計への質問は、まだできません。帯の「自分」に切り替えると、自分の記録について聞けます。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。「家族」のときに質問を送ったときのアラートの本文。「自分」は帯の切り替えの名前（Me）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can’t ask about the family household yet. Switch to “Me” at the top to ask about your own entries."
+          }
+        }
+      }
+    },
+    "家族の端末からも、家計の記録が消えます。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計を削除したときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The household entries will also disappear from your family’s devices."
+          }
+        }
+      }
+    },
+    "家族は、まだこの家計を見られます。インターネットにつながっているか、iCloud にサインインしているかを確かめて、もう一度お試しください。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。共有をやめられなかったときのアラートの本文。共有が続いていることを伝える",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your family can still see this household. Check that you’re connected to the internet and signed in to iCloud, then try again."
+          }
+        }
+      }
+    },
+    "家族はこの家計を見られなくなりました。この iPhone の家計の記録は残っています。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。共有をやめたときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your family can no longer see this household. The household entries on this iPhone are still here."
+          }
+        }
+      }
+    },
+    "家族は家計を見られなくなり、家族の iPhone から家計の記録が消えます。この iPhone の家計の記録は残り、もう一度招待できます。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。「共有をやめる」の確認の本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your family won’t be able to see the household, and its entries will disappear from their iPhones. The household entries on this iPhone will stay, and you can invite them again."
+          }
+        }
+      }
+    },
+    "家族を招待・管理" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。設定の「家族と共有」の持ち主の行。押すと招待の画面を開く",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite & Manage Family"
+          }
+        }
+      }
+    },
+    "家計から抜けました" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計から抜けたときのアラートの題名と読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Left the Household"
+          }
+        }
+      }
+    },
+    "家計から抜けますか？" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。「家計から抜ける」の確認の題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave the Household?"
+          }
+        }
+      }
+    },
+    "家計から抜けられませんでした" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計から抜けられなかったときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Leave the Household"
+          }
+        }
+      }
+    },
+    "家計から抜ける" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。設定の「家族と共有」の参加者の行と、その確認のボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave Household"
+          }
+        }
+      }
+    },
+    "家計が iCloud から削除されました（ほかの端末で削除したときなど）。この iPhone から家計の記録を消しました。自分の記録はそのまま残っています。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。持ち主の家計のゾーンが消えたときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The household was deleted from iCloud (for example, on another device). The household entries were removed from this iPhone. Your own entries are still here."
+          }
+        }
+      }
+    },
+    "家計が共有されなくなりました" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。同期で家計が消えたときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Household No Longer Shared"
+          }
+        }
+      }
+    },
+    "家計での立場" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。診断画面の項目名（owner / participant / none）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Household role"
+          }
+        }
+      }
+    },
+    "家計に入りました" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。招待を受け入れたときのアラートの題名と読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Joined the Household"
+          }
+        }
+      }
+    },
+    "家計に参加している人の一覧を開きます" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。設定の「参加している人」の行の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the list of people in the household"
+          }
+        }
+      }
+    },
+    "家計の保存先" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。診断画面の項目名（家計の保存先を開けたか）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Household store"
+          }
+        }
+      }
+    },
+    "家計の名前" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計を作る・名前を直すシートの入力欄の名前・見出し・題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Household Name"
+          }
+        }
+      }
+    },
+    "家計の名前とあなたの名前を決めます" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。設定の「家計を作って家族を招待する」の行の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the household name and your name"
+          }
+        }
+      }
+    },
+    "家計の名前とあなたの名前を直します" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。設定の「家族と共有」の家計の行の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit the household name and your name"
+          }
+        }
+      }
+    },
+    "家計の記録の件数" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。診断画面の項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Household entries"
+          }
+        }
+      }
+    },
+    "家計の記録を、あなたと家族のすべての端末と iCloud から削除します。この操作は取り消せません。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。「家計を削除」の確認の本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This deletes the household entries from all of your and your family’s devices and from iCloud. This can’t be undone."
+          }
+        }
+      }
+    },
+    "家計の記録を、招待した家族と iCloud（Apple）でそろえます。家族は家計の記録を見て、足し、直し、削除できます。自分の記録は共有しません。金額・メモ・カテゴリ・記録した人の名前などは暗号化して保存し、開発者は中身を見られません。家計の名前は招待に出すため、暗号化せずに共有の情報として保存します。この機能はテスト中で、App Store 版にはまだありません。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。設定の「家族と共有」の節の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keeps household entries in sync with the family members you invite, through iCloud (Apple). Your family can see, add, edit, and delete household entries. Your own entries aren’t shared. Amounts, memos, categories, the names of who recorded them, and more are stored encrypted, and the developer can’t see them. The household name appears in invitations, so it’s stored with the share without this encryption. This feature is in testing and isn’t in the App Store version yet."
+          }
+        }
+      }
+    },
     "家計への質問" : {
       "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の行（近日の機能）",
       "localizations" : {
@@ -3128,6 +3843,83 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Questions About Your Spending"
+          }
+        }
+      }
+    },
+    "家計を作った人が共有をやめたか、家計を削除しました。この iPhone から家計の記録を消しました。自分の記録はそのまま残っています。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。参加者から見て共有が消えたときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The person who created the household stopped sharing or deleted it. The household entries were removed from this iPhone. Your own entries are still here."
+          }
+        }
+      }
+    },
+    "家計を作って家族を招待する" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。設定の「家族と共有」の行（家計が無いとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create a Household & Invite Family"
+          }
+        }
+      }
+    },
+    "家計を作りました" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計を作ったときの VoiceOver の読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Created the household"
+          }
+        }
+      }
+    },
+    "家計を作る" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計を作るシートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create Household"
+          }
+        }
+      }
+    },
+    "家計を削除" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。設定の「家族と共有」の持ち主の行と、その確認のボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Household"
+          }
+        }
+      }
+    },
+    "家計を削除しました" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計を削除したときのアラートの題名と読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleted the Household"
+          }
+        }
+      }
+    },
+    "家計を削除しますか？" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。「家計を削除」の確認の題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete the Household?"
           }
         }
       }
@@ -3187,6 +3979,17 @@
         }
       }
     },
+    "必須です。家計に記録したとき、「記録した人」として家族に見えます。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計を作る・名前を直すシートの「あなたの名前」の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Required. Your family sees this as “recorded by” on entries you add to the household."
+          }
+        }
+      }
+    },
     "思い出した支出は、「%@」のように日付を付けて記録できます。" : {
       "comment" : "先週のふりかえり。記録が無かった週の案内。%@ は日付を付けた入力の例（日本語のまま）",
       "localizations" : {
@@ -3227,6 +4030,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Once it's approved, Premium will turn on automatically."
+          }
+        }
+      }
+    },
+    "招待されて入った家計" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。設定の「家族と共有」の行の補足。自分が参加者の家計",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A household you were invited to"
+          }
+        }
+      }
+    },
+    "招待の画面にも出ます。空欄なら「家族の家計」になります。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計を作るシートの「家計の名前」の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This also appears on the invitation. If left blank, it’s “Family Household”."
+          }
+        }
+      }
+    },
+    "招待を受け入れられませんでした" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。招待を受け入れられなかったときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Accept the Invitation"
+          }
+        }
+      }
+    },
+    "招待を送る画面を開きます" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。設定の「家族を招待・管理」の行の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the screen for sending invitations"
           }
         }
       }
@@ -3699,6 +4546,17 @@
         }
       }
     },
+    "次に「家族を招待・管理」を開いたときに、招待の画面の名前も変わります。すでに入っている家族の iPhone の家計の名前は変わりません。空欄なら「家族の家計」になります。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計を作った人が家計の名前を直すシートの「家計の名前」の注記。「家族を招待・管理」は設定の行（Invite & Manage Family）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The name on the invitation screen changes the next time you open “Invite & Manage Family.” It doesn’t change the household name on the iPhones of family members who already joined. If left blank, it’s “Family Household”."
+          }
+        }
+      }
+    },
     "次のように聞いてみてください。答えられる期間は、今日・昨日・今週・先週・今月・先月・今年と、「直近7日」のような日数です。" : {
       "comment" : "家計への質問の回答カード。質問を読めなかったときの説明。下に質問の例（日本語のまま）を出す。例の「直近7日」は訳さない",
       "localizations" : {
@@ -4098,6 +4956,28 @@
         }
       }
     },
+    "自分" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。ホームの帯の「自分／家族」の切り替えの、自分の記録の側",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Me"
+          }
+        }
+      }
+    },
+    "表示名を決めたか" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。診断画面の項目名（名前そのものは出さない）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Display name set"
+          }
+        }
+      }
+    },
     "計算しています…" : {
       "comment" : "家計への質問の回答カード。答えを計算している間",
       "localizations" : {
@@ -4175,6 +5055,17 @@
         }
       }
     },
+    "記録する先と、表示する記録を切り替えます" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。ホームの帯の「自分／家族」の切り替えの VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switches where entries are recorded and which entries are shown"
+          }
+        }
+      }
+    },
     "記録できませんでした" : {
       "comment" : "記録を保存できなかったときのアラートの見出し",
       "localizations" : {
@@ -4182,6 +5073,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t record"
+          }
+        }
+      }
+    },
+    "記録として読めませんでした" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。「家族」のときに記録か質問か分からない文を送ったときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Read as an Entry"
           }
         }
       }
@@ -4386,6 +5288,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t open your records"
+          }
+        }
+      }
+    },
+    "記録先" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。ホームの帯の「自分／家族」の切り替えの名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record to"
           }
         }
       }

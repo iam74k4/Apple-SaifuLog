@@ -21,11 +21,13 @@ struct InputBar: View {
     /// 直前の記録を取り消す。記録の直後（「取り消す」のバナーが出ている間）だけ渡す。
     var undo: (() -> Void)?
     /// 直前に記録したもの（VoiceOver の操作の「直す」の対象）。バナーが出ていなければ空。
-    var recorded: [Entry] = []
+    var recorded: [RecordedItem] = []
     /// 「直す」のシートを出す。
-    var edit: (Entry) -> Void = { _ in }
+    var edit: (RecordedItem) -> Void = { _ in }
     /// 声の入力。渡さなければマイクのボタンを出さない。
     var voice: VoiceInputModel?
+    /// 家族の家計に記録しているか（ホームの帯の「家族」）。入力欄の名前と例で、家計に記録することを示す。
+    var targetsHousehold = false
 
     @FocusState private var isFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -68,7 +70,7 @@ struct InputBar: View {
             }
             // 1 行の入力欄にする。複数行にすると Return が改行になり、チャットのように送れないため。
             TextField(text: $text, prompt: prompt) {
-                Text("記録や質問")
+                fieldLabel
             }
             .foregroundStyle(Theme.ink)
             .focused($isFocused)
@@ -78,13 +80,13 @@ struct InputBar: View {
                 // Return で送るとキーボードが閉じる。続けて記録できるよう、入力欄にとどまる。
                 isFocused = true
             }
-            // 記録も質問も同じ入力欄に打つ（記録か質問かはアプリが見分ける）。
-            .accessibilityLabel("記録や質問")
+            // 記録も質問も同じ入力欄に打つ（記録か質問かはアプリが見分ける）。家族の家計のときは記録だけ。
+            .accessibilityLabel(fieldLabel)
             // 送信の後、VoiceOver のフォーカスは入力欄に戻る。バナーまで移らずに直す・取り消すができるようにする
             // （読み上げで読み違いに気づいたら、その場で直せるように）。複数件なら 1 件ずつ出す。
             .accessibilityActions {
-                ForEach(recorded) { entry in
-                    Button("直す: \(entry.summaryText)") { edit(entry) }
+                ForEach(recorded) { item in
+                    Button("直す: \(item.summaryText)") { edit(item) }
                 }
                 if let undo {
                     Button("直前の記録を取り消す", action: undo)
@@ -159,8 +161,21 @@ struct InputBar: View {
     ///
     /// 色は補足の文字と同じにする。システムの既定の薄い灰色は、ガラスの地の上で 3:1 に届かないため。
     private var prompt: Text {
-        (dynamicTypeSize.isAccessibilitySize ? Text(verbatim: "ランチ 850") : Text("ランチ 850 のように入力"))
-            .foregroundStyle(Theme.inkSecondary)
+        let text = if targetsHousehold {
+            // 「自分／家族」を取り違えて記録しないよう、家計に記録することを例の文でも示す。アクセシビリティサイズでも
+            // 「家族」の印だけは残す（例だけにすると、「自分」のときと見分けがつかないため）。
+            dynamicTypeSize.isAccessibilitySize ? Text("家族: ランチ 850") : Text("家族に記録（ランチ 850）")
+        } else if dynamicTypeSize.isAccessibilitySize {
+            Text(verbatim: "ランチ 850")
+        } else {
+            Text("ランチ 850 のように入力")
+        }
+        return text.foregroundStyle(Theme.inkSecondary)
+    }
+
+    /// 入力欄の名前（VoiceOver が読む）。
+    private var fieldLabel: Text {
+        targetsHousehold ? Text("家族の家計に記録") : Text("記録や質問")
     }
 }
 
