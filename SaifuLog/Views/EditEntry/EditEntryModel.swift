@@ -27,7 +27,10 @@ final class EditEntryModel: Identifiable {
     var showsDiscardConfirmation = false
 
     /// 送った文（ひとこと入力の元の文）。読み違いを見比べられるよう、シートの上に出す。無ければ空。
+    /// レシートから記録したものは、店名と合計の要約（「レシート: 店名 合計 ¥…」）。
     let originalText: String
+    /// どこから記録したか（元の文の見出しを「送った文」と「読み取ったレシート」で分ける）。
+    let source: EntrySource
     /// 削除の確認に出す「ランチ ¥850」。開いた時点の値で作る（直しかけの値ではなく、保存されている記録を指すため）。
     let deletionSummary: String
 
@@ -70,6 +73,7 @@ final class EditEntryModel: Identifiable {
         self.isIncome = original.isIncome
         self.day = original.spentAt
         self.originalText = entry.originalText
+        self.source = entry.source
         self.deletionSummary = entry.summaryText
     }
 

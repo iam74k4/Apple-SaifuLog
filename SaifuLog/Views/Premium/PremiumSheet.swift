@@ -5,7 +5,7 @@ import SwiftUI
 /// ⑨ プレミアム。下から出すシート（用が済めば閉じる一時的な画面のため）。入口は設定（⑧）と、無料体験が終わった後の
 /// 最初の起動（一度だけ）。
 ///
-/// 無料との違い（まだ出していない機能は「近日」と書く）、価格（App Store の表示のまま）、買い切り・ファミリー共有、
+/// 無料との違い（まだ出していない機能があれば「近日」と書く）、価格（App Store の表示のまま）、買い切り・ファミリー共有、
 /// 無料体験（まだ体験していないときだけ。体験は無料で、終わっても自動で課金されないこと）、購入の復元、利用規約と
 /// プライバシーポリシーを出す。状態と操作は `PremiumSheetModel`（購入そのものは `PurchaseManager`）。
 ///
@@ -119,7 +119,7 @@ struct PremiumSheet: View {
             }
             .padding(.horizontal, 16)
             .background(Theme.surface, in: .rect(cornerRadius: 16))
-            Text("ひとこと入力と AI の文章の読み取り、CSV 書き出しは、無料のまま回数の制限なく使えます。広告はありません。「近日」の機能は、これからのアップデートで加えます。")
+            Text("ひとこと入力と AI の文章の読み取り、CSV 書き出しは、無料のまま回数の制限なく使えます。広告はありません。")
                 .font(.footnote)
                 .foregroundStyle(Theme.inkSecondary)
         }
@@ -314,11 +314,10 @@ enum PremiumFeature: CaseIterable, Identifiable {
 
     var id: Self { self }
 
-    /// まだ出していない機能か（「近日」と書く。まだできないことを、できるように書かないため）。
+    /// まだ出していない機能か（「近日」と書く。まだできないことを、できるように書かないため）。いまはすべて出している。
     var isComingSoon: Bool {
         switch self {
-        case .receiptScan: true
-        case .question, .categoryBudget, .recapAI: false
+        case .receiptScan, .question, .categoryBudget, .recapAI: false
         }
     }
 }
@@ -426,7 +425,9 @@ private struct PremiumFeatureRow: View {
         case .categoryBudget: Text("食費・交通など、カテゴリごとにも月の予算を決められます。使った額との比べの表示は近日対応です。")
         // AI の使えない端末では、プレミアムでも一言は付かない。買ってから気づくことが無いよう、ここで書いておく。
         case .recapAI: Text("先週のふりかえりと月のまとめに、端末内の AI が一言を添えます（Apple Intelligence に対応した iPhone のみ。数字はどちらもアプリが計算します）。")
-        case .receiptScan, .question: nil
+        // 読み取った後に確かめてから記録すること、数えるのは記録したときだけであることを添える（無料の 5 回の数え方が分かるように）。
+        case .receiptScan: Text("撮るか写真から選ぶと、品目ごとに仕分けて記録できます。数えるのは記録したときだけです。")
+        case .question: nil
         }
     }
 

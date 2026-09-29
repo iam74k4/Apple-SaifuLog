@@ -67,6 +67,9 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.finance
+        # レシートを撮る書類カメラ（VisionKit）のためのカメラの利用目的。言語ごとの文は SaifuLog/Resources/InfoPlist.xcstrings
+        # （ja / en）が上書きする。写真から選ぶ方は PhotosPicker（アプリの外で動く）なので、写真のライブラリの利用目的は要らない。
+        INFOPLIST_KEY_NSCameraUsageDescription: レシートを撮って記録するためにカメラを使います。写真は端末の中で読み取り、保存も送信もしません。
         # 独自の暗号化は使っていない（使うとしても OS 標準のものだけ）。宣言しておくと、
         # 提出のたびに App Store Connect で輸出規制の質問に答えずに済む。
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO

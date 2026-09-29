@@ -82,7 +82,7 @@ enum DiagnosticsProbe {
             }
         }
         var supportsVision: Bool?
-        // 画像の入力（レシートの読み取りで使う予定）は、iOS 27 からしか調べられない。
+        // 画像の入力（レシートの読み取りで使う。`FoundationModelsReceiptItemRefiner.supportsImageInput`）は、iOS 27 からしか調べられない。
         if #available(iOS 27, *) {
             supportsVision = model.capabilities.contains(.vision)
         }
