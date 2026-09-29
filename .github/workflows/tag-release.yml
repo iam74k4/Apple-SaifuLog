@@ -39,9 +39,10 @@ name: tag-release
 # 鍵と書き込みの権限を同じジョブに置くと、そのジョブで動く依存の 1 つが乗っ取られただけで、
 # Admin 権限の鍵とリポジトリへの書き込みの両方を一度に取られるため。
 #
-# 注意: cron はこのリポジトリの既定ブランチ（main）にあるファイルで動く。
-# このワークフローを直したら main に入るまで反映されない（develop へマージ
-# しただけでは、次のリリースで main に入るまで古い定義のまま動く）。
+# 注意: cron はこのリポジトリの既定ブランチ（develop）にあるファイルで動く。既定を develop にしたのは、
+# release.yml の手動実行（develop からの mode=testflight など）に、既定ブランチにワークフローがあることが要るため
+# （docs/release-flow.md の「既定のブランチ」）。動く定義は develop のものだが、判定に読むのは常に main の中身
+# （下の checkout の ref: main）。main にまだリリースの中身が無い（初めてのリリースの前）ときは何もしない。
 
 on:
   schedule:
@@ -108,6 +109,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # 初めてのリリースの前は、main に scripts も Config も無い（最初のコミットだけ）。
+          # 配信された版もタグを打つものも無いので、何もせずに終える（3 時間おきの cron が毎回落ちないように）。
+          if [ ! -f scripts/check-version.sh ] || [ ! -f Config/Base.xcconfig ]; then
+            echo "done=true" >> "$GITHUB_OUTPUT"
+            echo "main にまだリリースの中身がありません（初めてのリリースの前）。何もしません。"
+            exit 0
+          fi
           # ubuntu には PlistBuddy も xcodebuild も無いので、Config/Base.xcconfig を
           # sed / grep で読む。読み方は scripts/check-version.sh（POSIX sh）の 1 か所に
           # 寄せていて、build.yml / release.yml と同じ値になる。

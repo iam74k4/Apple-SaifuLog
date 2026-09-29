@@ -229,11 +229,20 @@ git checkout -b develop
 git push -u origin develop
 ```
 
-**既定のブランチは `main` のままにする。** tag-release.yml の cron は既定ブランチにある
-定義で動く。既定を develop にすると、まだ main へ入れていない（リリースを通っていない）tag-release.yml が、
-App Store Connect の鍵とタグを打つ権限を持って 3 時間おきに動く（Environment `release` は develop からの実行も
-許すので、弾かれずにそのまま動く）。その代わり、PR を作るときは base が
-`develop` になっているかを毎回確かめる（Dependabot の PR は設定で develop 宛てにしてある）。
+**既定のブランチは `develop` にする**（2026-09-29 に `main` から替えた）。GitHub は手動実行（workflow_dispatch）を、
+既定ブランチにワークフローのファイルがあるときにしか受け付けない。`main` を既定にしたままだと、初めてのリリースで
+`main` に入るまで release.yml が無く、develop からの `mode=testflight`（TestFlight の社内テスト）も
+`mode=export`（署名つきアーカイブの確認）も走らせられない（`workflow release.yml not found on the default branch`）。
+
+その代わりに受け入れていること:
+- tag-release.yml の cron は既定ブランチにある定義で動くので、まだ main へ入れていない（リリースを通っていない）
+  develop の tag-release.yml が、App Store Connect の鍵を持って 3 時間おきに動く（Environment `release` は
+  develop からの実行も許す）。守りは develop の Ruleset（直接 push できず、PR と `build` が必須。承認は 0 人）だけに
+  なるので、`.github/workflows/` を変える PR は中身を見てからマージする。判定に読むのは常に main の中身
+  （`ref: main`）で、main にまだリリースの中身が無いうちは何もせずに終わる。
+- 初めてのリリースの前に cron を止めておきたいときは、Actions → tag-release → 「…」→ Disable workflow で止め、
+  初めて main へマージするときに有効に戻す（止めていても手動実行はできる）。
+- PR の base は既定で develop になる。main へは release の PR（develop → main）だけを出す。
 
 main と develop の保護は **Ruleset** で行う（Settings → Rules → Rulesets →
 New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分ける。** 許すマージの方法
@@ -786,10 +795,9 @@ actions と Python の依存は Dependabot が月に一度 develop 宛てに PR 
 
 ### cron の注意
 
-`tag-release.yml` の `schedule` は、**このリポジトリの既定ブランチ（`main`）に
-あるファイル**で動く。ワークフローを直したら、main に入るまで反映されない。
-develop へマージしただけでは、次のリリースで main に入るまで古い定義のまま動く。
-cron の時刻は UTC。
+`tag-release.yml` の `schedule` は、**このリポジトリの既定ブランチ（`develop`）に
+あるファイル**で動く。ワークフローを直して develop へマージすると、次の cron からその定義で動く
+（判定に読む中身は常に main。「既定のブランチ」を参照）。cron の時刻は UTC。
 
 また GitHub は、60 日間まったく動きの無いリポジトリで scheduled workflow を
 自動的に止める。長く触っていない状態でリリースしたときは、Actions タブで
