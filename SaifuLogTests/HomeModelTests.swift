@@ -751,7 +751,9 @@ struct HomeModelTests {
         await fixture.send("スーパー2480、ドラッグ1200")
         fixture.model.requestRecordedEdit(calendar: TestSupport.calendar)
         #expect(fixture.model.showsRecordedItemChoice)
-        let supermarket = try #require(try fixture.entries().last { $0.amount == 2_480 })
+        // 直前の記録から取る。時計を止めているので、1 回目に送った「スーパー」と記録した日時が同じで、保存先を記録した日時で
+        // 並べても、どちらが後に来るかは決まらないため。
+        let supermarket = try #require(fixture.model.justRecorded.first { $0.amount == 2_480 })
         fixture.model.requestDelete(supermarket)
         fixture.model.delete(try #require(fixture.model.pendingDeletion))
         #expect(fixture.model.recordedItems.count == 1)
