@@ -183,9 +183,9 @@ extension ReceiptLineScanner {
         if digitsStart > 0, [".", ":", "/", ","].contains(chars[digitsStart - 1]) { return noAmount }
         skipSpaces()
         var spaceBefore = i < digitsStart
-        // OCR は「¥」を中点の「·」（U+00B7）と読むことがある（「洗剤 ·398」）。数字にすぐ続き、前が数字でない「·」だけを「¥」と
-        // みなす。空白を挟んだ「·」は品名までのつなぎの点かもしれず、数字に挟まれた「·」（「1·5」）は小数点や時刻の読み違いかも
-        // しれないので、「¥」の手がかりにはしない（品名の端に残った「·」は `cleanedName` が除く）。
+        // OCR は「¥」を中点の「·」（U+00B7）と読むことがある（「洗剤 ·398」）。数字の直前（空白を挟まない）にあり、前が数字でない
+        // 「·」だけを「¥」とみなす。空白を挟んだ「·」は品名までのつなぎの点かもしれず、数字に挟まれた「·」（「1·5」）は小数点や
+        // 時刻の読み違いかもしれないので、「¥」の手がかりにはしない（品名の端に残った「·」は `cleanedName` が除く）。
         let isMisreadYen = !spaceBefore && i > 0 && chars[i - 1] == "·" && !(i >= 2 && chars[i - 2].isASCIIDigit)
         if i > 0, chars[i - 1] == "¥" || chars[i - 1] == "\\" || isMisreadYen {
             hasYenMark = true
