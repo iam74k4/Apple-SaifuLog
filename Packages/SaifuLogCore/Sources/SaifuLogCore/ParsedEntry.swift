@@ -107,8 +107,9 @@ public struct ParsedEntry: Sendable, Hashable {
         }
     }
 
-    /// 1 回の送信で読んだ複数件の、記録した日時の間隔（秒）。
-    static let orderingStep: TimeInterval = 0.001
+    /// 1 回の送信で読んだ複数件の、記録した日時の間隔（秒）。くり返しの記録を一度に何件か記録するときも同じ間隔にする
+    /// （タイムラインで 1 つの返事にまとまるように。`TimelineSend`）。
+    public static let orderingStep: TimeInterval = 0.001
 }
 
 /// 保存する 1 件の日時。
