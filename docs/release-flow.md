@@ -286,10 +286,10 @@ New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分
 プレミアム（⑨。`docs/design.md` §6・§9）の課金アイテムは App Store Connect に登録済み。**製品 ID は変えない**（アプリのコアの
 `PremiumProduct` と `Config/SaifuLog.storekit` に同じ値を書いている。変えると買った人がプレミアムを使えなくなる）。
 
-| 製品 ID | 種類 | 価格 | ファミリー共有 | 表示名（ja） |
+| 製品 ID | 種類 | 価格 | ファミリー共有 | 表示名（ja / en） |
 |---|---|---|---|---|
-| `com.iam74k4.SaifuLog.premium` | 非消耗型 | ¥1,800（日本基準） | オン | サイフログ プレミアム |
-| `com.iam74k4.SaifuLog.trial14` | 非消耗型 | ¥0 | オフ | 14日間の無料体験 |
+| `com.iam74k4.SaifuLog.premium` | 非消耗型 | ¥1,800（日本基準） | オン | サイフログ プレミアム / SaifuLog Premium |
+| `com.iam74k4.SaifuLog.trial14` | 非消耗型 | ¥0 | オフ | 14日間の無料体験 / 14-day Trial |
 
 App ID の In-App Purchase の Capability は、明示的な App ID なら最初から有効（エンタイトルメントのファイルに足すものは無い）。
 
@@ -315,7 +315,8 @@ App ID の In-App Purchase の Capability は、明示的な App ID なら最初
    体験は 0 円で始められること・マイクの用途など）も同じファイルにある。上のとおり出すかは見直し中なので、決め事を変えたら
    審査メモも合わせて書き直してから出す。
 3. 表示名と説明（ja と en）。アプリの中の表示（`Config/SaifuLog.storekit` のローカライズ）と食い違わないようにする。体験の英語の
-   表示名とガイドライン 3.1.1 の名前の決まり（「XX-day Trial」）は `app-store/review-notes.md` に書いた。
+   表示名は、ガイドライン 3.1.1 の名前の決まり（「XX-day Trial」）に合わせた「14-day Trial」（`app-store/review-notes.md`）。
+   App Store Connect の英語のローカライズを直すのは所有者の作業（[`app-store/README.md`](app-store/README.md) の「App Store Connect で所有者がすること」）。
 4. 審査の前に、Sandbox のテスター（ユーザとアクセス → Sandbox）で実機に TestFlight のビルドを入れ、購入・体験・復元を一通り試す
    （`docs/design.md` §15 の「これから」）。
 

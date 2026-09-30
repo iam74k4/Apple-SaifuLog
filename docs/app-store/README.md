@@ -18,6 +18,15 @@ App Store に出す前の掲載情報・審査用の資料・スクリーンシ�
 掲載情報にも審査メモにもスクリーンショットにも入れない。機能を足したり料金を変えたりしたら、README・`docs/design.md`・
 `PRIVACY.md` と一緒にここも直す。
 
+## App Store Connect で所有者がすること
+
+ここのファイルを直しても App Store Connect は変わらない。リポジトリの側で変えたもののうち、App Store Connect の側でも
+所有者が直すものを並べる（済んだら行を消す）。
+
+| いつ | どこで | すること |
+|---|---|---|
+| 課金アイテムを審査に出す前 | 収益化 → App 内課金 → 14日間の無料体験（`com.iam74k4.SaifuLog.trial14`）→ App Store のローカライズ → 英語（米国） | 表示名を「14-Day Free Trial」から **「14-day Trial」** に替える（ガイドライン 3.1.1 の「XX-day Trial」の形。`Config/SaifuLog.storekit` の en と同じ）。説明は `Config/SaifuLog.storekit` の en のまま（「Try every Premium feature free for 14 days. You won't be charged when it ends.」）。日本語の表示名「14日間の無料体験」は替えない。英語のローカライズがまだ無ければ、この表示名と説明で足す |
+
 ## スクリーンショット
 
 | ファイル | 写っているもの | 使い道 |
