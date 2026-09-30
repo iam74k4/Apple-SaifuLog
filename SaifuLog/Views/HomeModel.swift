@@ -16,8 +16,21 @@ import SwiftUI
 @MainActor
 @Observable
 final class HomeModel {
-    /// タイムラインに一度に読み込む件数。
-    static let timelinePageSize = 200
+    /// タイムラインに一度に読み込む件数（さかのぼるときは「前の記録を表示」で同じ件数ずつ足す）。
+    ///
+    /// タイムラインは読み込んだ行をすべて測る（大きな文字で空に見えた不具合を直すため。`HomeView` の `TimelineScrollView`）ので、
+    /// 開くときの手間が件数に比例する。テストのウィンドウにホームを置いて測ると（iPhone 17 Pro の iOS 26.4 のシミュレータ・標準の文字・
+    /// 撮影用のデモの記録）、最初に並べ終えるまでが 200 件で 0.9 秒ほど、100 件で 0.5 秒ほどだった（LazyVStack では 100〜500 件で 0.1 秒ほど）。
+    /// 1 日に 3〜6 件つける人で 2〜4 週間ほどが入る 100 件にする（実機での重さは docs/design.md §15 の 17 で確かめる）。
+    static let timelinePageSize = 100
+    /// タイムラインに読み込む件数の上限（「前の記録を表示」で足せるのはここまで）。
+    ///
+    /// 読み込んだ行は、開くときだけでなく、記録を足したり消したりしたとき・iCloud の同期で取り込んだとき・前面に戻って `today` を
+    /// 読み直したときにも、すべて描き直す。その手間も件数に比例し、上と同じ測り方で `today` の読み直しが 100 件で 0.09 秒・300 件で
+    /// 0.2 秒・500 件で 0.33 秒・1,000 件で 0.66 秒ほど、1 ページ足すのが 300 件から 0.2 秒・500 件から 0.34 秒ほどかかった。
+    /// 上限が無いと、何度も読み足した後は操作のたびに引っかかるので、0.2 秒ほどに収まる 300 件で止める。それより前の記録は、
+    /// 月のまとめのカテゴリの一覧と設定の CSV の書き出しで見てもらう（上限に届いたら、タイムラインの上にそう案内する）。
+    static let timelineMaxLimit = 300
 
     /// 入力欄の文。
     var draft = "" {
@@ -75,8 +88,10 @@ final class HomeModel {
     /// 描き直しが起きずに前の月の合計が「今月」として出続ける。前面に戻ったときと日付が変わったときに
     /// `refreshToday()` で更新する。
     private(set) var today: Date
-    /// タイムラインに読み込む件数。上の「前の記録を表示」で増やす。
+    /// タイムラインに読み込む件数。上の「前の記録を表示」で増やす（`timelineMaxLimit` まで）。
     private(set) var timelineLimit = HomeModel.timelinePageSize
+    /// 「前の記録を表示」でさらに読み込めるか（読み込む件数が上限に届いていなければ）。
+    var canShowMoreTimeline: Bool { timelineLimit < Self.timelineMaxLimit }
     /// この起動の間に送った質問とその返事。タイムラインに記録の吹き出しと同じ流れ（送った順）で出す。
     ///
     /// 質問は記録ではないので保存しない（アプリを開き直すと消える。docs/design.md §9 の質問の決め事）。
@@ -948,9 +963,9 @@ final class HomeModel {
         purchases.clockDidChange()
     }
 
-    /// タイムラインにさらに前の記録を読み込む。
+    /// タイムラインにさらに前の記録を読み込む（上限の `timelineMaxLimit` を超えては読み込まない）。
     func showMoreTimeline() {
-        timelineLimit += Self.timelinePageSize
+        timelineLimit = min(timelineLimit + Self.timelinePageSize, Self.timelineMaxLimit)
     }
 
     // MARK: - 型

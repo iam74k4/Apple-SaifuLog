@@ -262,7 +262,8 @@ final class ScreenshotDemo {
     ///
     /// ふりかえりのカードは、AI の一言まで書き終えてからホームを出す。ホームが出た後にカードが出たり伸びたりすると、タイムラインが
     /// 下端まで送られずに途中で止まった（シミュレータの iOS 26.4 で見た。一言の無いカードはタイムラインの途中で止まり、一言が後から
-    /// 付いたカードは下の端が入力欄に隠れた）。スクリーンショットには、カードが下端に出そろった形を写す。
+    /// 付いたカードは下の端が入力欄に隠れた）。スクリーンショットには、カードが下端に出そろった形を写す。タイムラインを VStack にして
+    /// 途中で止まる不具合を直した後も（`HomeView` の `TimelineScrollView`）、一言を書き終えた形を写すために残す。
     func prepare(_ home: HomeModel, calendar: Calendar) async {
         guard screen == .recap else { return }
         home.showWeeklyRecapIfDue(calendar: calendar)

@@ -285,7 +285,10 @@ struct HomeView: View {
                 header
                     // 合計は画面の上に常に出ている帯なので、文字の大きさに上限を設ける。最大の文字サイズの
                     // ままだと、下の入力欄と合わせて画面の半分以上を占め、タイムラインがほとんど見えなくなるため。
-                    .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+                    // 上限は入力欄（`InputBar`）と同じ AX1。AX2 では「1日あたり ¥… ・のこり N 日」が 2 行に分かれ、
+                    // AX5 で帯（上の安全領域を含む）が画面の 3 分の 1 を超えた。AX1 なら 1 行に収まり、帯が 50pt ほど
+                    // 低くなる（iPhone 17 Pro のシミュレータ）。
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 bottomBar
@@ -307,6 +310,7 @@ struct HomeView: View {
             HouseholdTimeline(
                 zoneName: household.zoneName,
                 limit: model.timelineLimit,
+                canShowMore: model.canShowMoreTimeline,
                 today: model.today,
                 showMore: { model.showMoreTimeline() },
                 edit: { model.presentHouseholdEdit($0, calendar: calendar) },
@@ -316,6 +320,7 @@ struct HomeView: View {
         } else {
             EntryTimeline(
                 limit: model.timelineLimit,
+                canShowMore: model.canShowMoreTimeline,
                 today: model.today,
                 questions: model.questions,
                 weeklyRecap: model.weeklyRecap,
@@ -504,9 +509,12 @@ private extension HomeModel.StoreFailure {
 /// （出したときはいちばん下で、開いたときに見える。その後に記録すると、その上に流れていく）。
 ///
 /// 全期間を読むと、記録が増えるほど開くのも描き直すのも遅くなる。読み込む件数は `limit` で区切り、
-/// さかのぼりたいときは上の「前の記録を表示」で増やす。
+/// さかのぼりたいときは上の「前の記録を表示」で増やす（行はすべて測るので、件数を区切る意味は大きい。`TimelineScrollView`）。
+/// 増やせるのは `HomeModel.timelineMaxLimit` まで（`TimelineOlderRecords`）。
 private struct EntryTimeline: View {
     let limit: Int
+    /// 「前の記録を表示」でさらに読み込めるか（読み込む件数が上限に届いていなければ）。
+    let canShowMore: Bool
     let today: Date
     let questions: [QuestionExchange]
     let weeklyRecap: WeeklyRecapModel?
@@ -523,6 +531,7 @@ private struct EntryTimeline: View {
 
     init(
         limit: Int,
+        canShowMore: Bool,
         today: Date,
         questions: [QuestionExchange],
         weeklyRecap: WeeklyRecapModel?,
@@ -536,6 +545,7 @@ private struct EntryTimeline: View {
         dismissWeeklyRecap: @escaping () -> Void
     ) {
         self.limit = limit
+        self.canShowMore = canShowMore
         self.today = today
         self.questions = questions
         self.weeklyRecap = weeklyRecap
@@ -588,39 +598,34 @@ private struct EntryTimeline: View {
 
     var body: some View {
         ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    if recentEntries.isEmpty && questions.isEmpty && weeklyRecap == nil {
-                        EmptyTimelineView()
-                    }
-                    // 読み込んだ件数が上限に届いていれば、まだ前の記録があるかもしれない。
-                    if recentEntries.count >= limit {
-                        Button("前の記録を表示", action: showMore)
-                            .font(.subheadline)
-                            .frame(minHeight: 44)
-                    }
-                    ForEach(items) { item in
-                        switch item {
-                        case .entry(let entry):
-                            EntryBubble(entry: entry, today: today, edit: { edit(entry) }, requestDelete: { requestDelete(entry) })
-                                .id(item.id)
-                        case .question(let exchange):
-                            QuestionExchangeView(
-                                exchange: exchange, openReport: openReport, setBudget: setBudget, openPremium: openPremium
-                            )
+            TimelineScrollView {
+                if recentEntries.isEmpty && questions.isEmpty && weeklyRecap == nil {
+                    EmptyTimelineView()
+                }
+                // 読み込んだ件数が上限に届いていれば、まだ前の記録があるかもしれない。
+                if recentEntries.count >= limit {
+                    TimelineOlderRecords(canShowMore: canShowMore, isHousehold: false, showMore: showMore)
+                }
+                ForEach(items) { item in
+                    switch item {
+                    case .entry(let entry):
+                        EntryBubble(entry: entry, today: today, edit: { edit(entry) }, requestDelete: { requestDelete(entry) })
                             .id(item.id)
-                        case .weeklyRecap(let recap):
-                            WeeklyRecapCard(model: recap, open: openWeeklyRecap, dismiss: dismissWeeklyRecap, setBudget: setBudget)
-                                .id(item.id)
-                                .transition(.opacity)
-                        }
+                            .reportsTimelineFrame(.row(entry.persistentModelID))
+                    case .question(let exchange):
+                        QuestionExchangeView(
+                            exchange: exchange, openReport: openReport, setBudget: setBudget, openPremium: openPremium
+                        )
+                        .id(item.id)
+                        .reportsTimelineFrame(.row(exchange.id))
+                    case .weeklyRecap(let recap):
+                        WeeklyRecapCard(model: recap, open: openWeeklyRecap, dismiss: dismissWeeklyRecap, setBudget: setBudget)
+                            .id(item.id)
+                            .reportsTimelineFrame(.row(recap.id))
+                            .transition(.opacity)
                     }
                 }
-                .padding()
             }
-            // 下端に合わせておくと、前の記録を読み足しても見ている位置がずれない。
-            .defaultScrollAnchor(.bottom)
-            .scrollDismissesKeyboard(.interactively)
             .onChange(of: recentEntries.first?.persistentModelID) { _, id in
                 guard let id else { return }
                 withAnimation { proxy.scrollTo(ItemID.entry(id), anchor: .bottom) }
@@ -646,6 +651,8 @@ private struct EntryTimeline: View {
 /// 家計の保存先（household.store）を読むので、呼び出し側が家計の保存先を環境に渡す（`.modelContainer`）。
 private struct HouseholdTimeline: View {
     let limit: Int
+    /// 「前の記録を表示」でさらに読み込めるか（読み込む件数が上限に届いていなければ）。
+    let canShowMore: Bool
     let today: Date
     let showMore: () -> Void
     let edit: (HouseholdEntry) -> Void
@@ -656,12 +663,14 @@ private struct HouseholdTimeline: View {
     init(
         zoneName: String,
         limit: Int,
+        canShowMore: Bool,
         today: Date,
         showMore: @escaping () -> Void,
         edit: @escaping (HouseholdEntry) -> Void,
         requestDelete: @escaping (HouseholdEntry) -> Void
     ) {
         self.limit = limit
+        self.canShowMore = canShowMore
         self.today = today
         self.showMore = showMore
         self.edit = edit
@@ -671,32 +680,140 @@ private struct HouseholdTimeline: View {
 
     var body: some View {
         ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    if recentEntries.isEmpty {
-                        HouseholdEmptyTimelineView()
-                    }
-                    if recentEntries.count >= limit {
-                        Button("前の記録を表示", action: showMore)
-                            .font(.subheadline)
-                            .frame(minHeight: 44)
-                    }
-                    ForEach(recentEntries.reversed()) { entry in
-                        EntryBubble(
-                            entry: entry, today: today, edit: { edit(entry) }, requestDelete: { requestDelete(entry) },
-                            recorderName: entry.recorderName
-                        )
-                        .id(entry.id)
-                    }
+            TimelineScrollView {
+                if recentEntries.isEmpty {
+                    HouseholdEmptyTimelineView()
                 }
-                .padding()
+                if recentEntries.count >= limit {
+                    TimelineOlderRecords(canShowMore: canShowMore, isHousehold: true, showMore: showMore)
+                }
+                ForEach(recentEntries.reversed()) { entry in
+                    EntryBubble(
+                        entry: entry, today: today, edit: { edit(entry) }, requestDelete: { requestDelete(entry) },
+                        recorderName: entry.recorderName
+                    )
+                    .id(entry.id)
+                    .reportsTimelineFrame(.row(entry.id))
+                }
             }
-            .defaultScrollAnchor(.bottom)
-            .scrollDismissesKeyboard(.interactively)
             .onChange(of: recentEntries.first?.id) { _, id in
                 guard let id else { return }
                 withAnimation { proxy.scrollTo(id, anchor: .bottom) }
             }
+        }
+    }
+}
+
+/// タイムラインの上の端（読み込んだ件数が上限に届いていて、まだ前の記録があるかもしれないとき）。
+///
+/// 読み込む件数を増やせるうちは「前の記録を表示」を出す。上限（`HomeModel.timelineMaxLimit`）に届いたら、代わりにそれより前の
+/// 記録の見方を案内する。タイムラインは読み込んだ行をすべて描き直すので、上限なしに読み足すと、記録を足すたび・前面に戻るたびに
+/// 引っかかるようになるため（`TimelineScrollView`）。
+private struct TimelineOlderRecords: View {
+    let canShowMore: Bool
+    /// 家計の記録のタイムラインか。家計の記録は月のまとめにも CSV の書き出しにも出ない（v1 は「自分」だけ）ので、ほかで見られるとは
+    /// 案内しない。
+    let isHousehold: Bool
+    let showMore: () -> Void
+
+    var body: some View {
+        if canShowMore {
+            Button("前の記録を表示", action: showMore)
+                .font(.subheadline)
+                .frame(minHeight: 44)
+        } else {
+            Group {
+                if isHousehold {
+                    Text("ホームに出せるのは、新しく記録した方から \(HomeModel.timelineMaxLimit) 件までです。")
+                } else {
+                    Text("ホームに出せるのは、新しく記録した方から \(HomeModel.timelineMaxLimit) 件までです。それより前の記録は、月のまとめのカテゴリの一覧と、設定の「記録を書き出す」で見られます。")
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(Theme.inkSecondary)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+        }
+    }
+}
+
+/// タイムラインのスクロール（自分の記録と家計の記録で共通）。下端から開き、いちばん新しいものを入力欄のすぐ上に出す。
+///
+/// 行は LazyVStack ではなく VStack に並べる。LazyVStack は、まだ描いていない行の高さを、そのとき描いている行から見積もる。
+/// タイムラインの行は高さがそろわない（長い品目の割り勘の吹き出し・回答カード・ふりかえりのカード）ので、描く行が替わるたびに
+/// 全体の高さの見積もりが大きく揺れる。下端に合わせる（`defaultScrollAnchor(.bottom)`）と、揺れるたびに位置も同じだけ動いて
+/// 描く行がまた替わり、見える範囲に行が 1 つも無い位置で止まることがあった。開いたときにタイムラインが空に見えた不具合で、
+/// 見える行が少なく見積もりが数行で決まる大きな文字で起きた（シミュレータで、見積もりが 1 万 pt ほど揺れ、行を描かないまま
+/// 止まるのを確かめた。どの文字の大きさで起きるかは記録の中身と画面の幅で変わる）。途中で止まって、いちばん下の行が入力欄に
+/// 隠れることもあった（先週のふりかえりのカード）。VStack はすべての行を測るので全体の高さが正しく、下端に正しく合う。
+///
+/// すべての行を測るぶん開くときの手間は件数に比例するので、読み込む件数を `HomeModel.timelinePageSize` で区切る。
+/// 読み込んだ行は、記録の追加・削除や同期の取り込み、前面に戻ったときにもすべて描き直すので、「前の記録を表示」で読み足せる件数にも
+/// 上限（`HomeModel.timelineMaxLimit`）を設ける。
+/// 下端に合わせておくのは、前の記録を読み足しても見ている位置をずらさないためでもある。
+private struct TimelineScrollView<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                content
+            }
+            .padding()
+        }
+        .defaultScrollAnchor(.bottom)
+        .scrollDismissesKeyboard(.interactively)
+        // スクロールの枠は帯と入力欄の間（安全領域の中）に置かれるので、枠の位置が行の見える範囲になる。
+        .reportsTimelineFrame(.viewport)
+    }
+}
+
+/// タイムラインの行と見える範囲のどれか（`timelineFrameObserver` に知らせるときの名前）。
+enum TimelineFrameKey: Hashable {
+    /// 行の見える範囲（帯と入力欄の間）。
+    case viewport
+    /// 行。記録は `persistentModelID`、家計の記録・質問・ふりかえりは `id`。
+    case row(AnyHashable)
+}
+
+/// タイムラインの行と見える範囲が描かれた位置（ウィンドウの座標）を受け取るもの。
+struct TimelineFrameObserver {
+    let report: @MainActor (TimelineFrameKey, CGRect) -> Void
+}
+
+extension EnvironmentValues {
+    /// タイムラインの行と見える範囲が描かれた位置を知らせる先。テストだけが渡し、アプリでは nil（行に何も付けない）。
+    ///
+    /// 大きな文字でタイムラインが空に見えた不具合（`TimelineScrollView`）の再発を、実際のホーム（ナビゲーションと帯と入力欄の
+    /// 中のスクロール）のまま、いちばん新しい行が見える範囲の下端に描かれたかで確かめるため（`HomeTimelineLayoutTests`）。
+    @Entry var timelineFrameObserver: TimelineFrameObserver? = nil
+}
+
+private extension View {
+    /// 描かれた位置を `timelineFrameObserver` に知らせる（受け取る先が無ければ何も付けない）。
+    func reportsTimelineFrame(_ key: TimelineFrameKey) -> some View {
+        modifier(TimelineFrameReporter(key: key))
+    }
+}
+
+private struct TimelineFrameReporter: ViewModifier {
+    let key: TimelineFrameKey
+    @Environment(\.timelineFrameObserver) private var observer
+
+    func body(content: Content) -> some View {
+        if let observer {
+            content
+                .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { frame in
+                    observer.report(key, frame)
+                }
+                // 描かなくなった行は位置を消す（`.null`）。いまの VStack では起きないが、遅延して描くスタックに戻したときに、
+                // 見える範囲を外れて描いていない行を、前に描いた位置のまま「見えている」と数えないように。
+                .onDisappear {
+                    observer.report(key, .null)
+                }
+        } else {
+            content
         }
     }
 }
