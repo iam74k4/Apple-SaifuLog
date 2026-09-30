@@ -139,6 +139,10 @@
     コアの `RecurringSchedule`・`RecurringMonth`（西暦で数える）。⑧ の「毎月の記録」の「くり返しの記録」（`Views/Recurring/` の `RecurringListView`・
     `RecurringListModel`、足す・直すシートは `RecurringEditorSheet`・`RecurringEditorModel`）と、返事の行の長押しの「毎月くり返す」（その記録の月の次の
     月から）。自分の記録だけ。無料。`docs/design.md` §9）。
+    Siri・ショートカット（`SaifuLog/Intents/`。App Intents の 5 つの操作（ひとことで記録・家計に質問・レシートを読み取る・声で入力・入力欄を
+    開く）と App Shortcuts（言い方の英語は `Resources/AppShortcuts.xcstrings`）。どれもアプリを開いてから行う（`openAppWhenRun`）。頼みは
+    `QuickActionInbox` に置き、ホームが出たら `HomeModel.performPendingQuickAction` が行う（読み取りの間・ほかの画面・ロック中は待つ）。
+    署名の無いビルドではショートカットから実行できないので、シミュレータでは ad hoc 署名で確かめる。ウィジェットは未決（§13））。
     よく使うひとこと（入力欄の上に、直近 90 日のよく記録する品目を「品目 ¥金額」のボタンで並べ、押すと入力欄に入る。送信は利用者。
     候補はコアの `QuickPhrases`、画面は `QuickPhraseBar`、`HomeModel.quickPhrases`）。
     アプリのロック（⑧ の「セキュリティ」の「Face ID でロック」。既定はオフで `AppSettings.appLockEnabled`。起動と裏から戻ったときに
@@ -150,7 +154,7 @@
     release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
     main で `mode=export` の照合が通るかの確認はまだ。`docs/design.md` §5-4）。
   - **未実装:** 週のふりかえりの通知・家族との共有の提供（試作は機能フラグで隠している）・
-    金額が読めないときの聞き返し・CSV の読み込み。
+    金額が読めないときの聞き返し・CSV の読み込み・ウィジェット（未決。`docs/design.md` §13）。
   - 実機での確認の手段: release.yml の手動実行 `mode=testflight` で、develop のビルドを診断画面入りで TestFlight の
     社内テスト専用に送れるようにした（審査には出ない。Environment `release` の配備ブランチは `main` と `develop`）。
     実際に TestFlight で入れての確認はまだ（`docs/release-flow.md` の「TestFlight で実機に入れる（社内テスト）」）。
