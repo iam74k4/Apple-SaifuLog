@@ -34,6 +34,28 @@
         }
       }
     },
+    "%@ を%lld人で割り勘。" : {
+      "comment" : "ホームの返事の行の下の文（割り勘で、立て替えた額が無いとき）。%1$@ は総額、%2$lld は人数（2 以上）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ split %2$lld ways."
+          }
+        }
+      }
+    },
+    "%@ を%lld人で割り勘。立て替えた %@ はメモに残しました。" : {
+      "comment" : "ホームの返事の行の下の文（割り勘）。%1$@ は総額、%2$lld は人数（2 以上）、%3$@ はほかの人の分として立て替えた額（あとで返ってくる額）。メモ（直す画面のメモの欄）には「焼肉（4人で割り勘・総額 ¥12,000・立替 ¥9,000）」のように書いてある",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ split %2$lld ways. The %3$@ you paid for the others is noted in the memo."
+          }
+        }
+      }
+    },
     "%@ オーバー" : {
       "comment" : "予算を超えた額（ホームの上の帯・月のまとめの予算の欄とカテゴリの行と、その VoiceOver の読み上げ）。%@ は「¥12,000」のような金額。注意の色とアイコンを添えて出す",
       "localizations" : {
@@ -168,6 +190,17 @@
         }
       }
     },
+    "%lld人で割り勘の1人分として記録しました。" : {
+      "comment" : "ホームの返事の行の下の文。「1人3000」のように 1 人分として書かれた額を、割らずにそのまま記録したとき。%lld は割り勘の人数（2 以上）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded as your share of a %lld-way split."
+          }
+        }
+      }
+    },
     "14日間、プレミアムの機能をすべて無料で使えます。体験は無料で、終わっても自動で課金されることはありません（続けて使うときだけ、プレミアムを購入してください）。体験が終わると、プレミアムの機能は使えなくなります（記録や決めた予算は消えません）。体験は1つの Apple アカウントにつき1回です。始めるときに App Store の確認が出ます（0円）。" : {
       "comment" : "プレミアムのシート（⑨）。無料体験の説明（審査ガイドライン 3.1.1: 期間・終わった後に使えなくなるもの・料金がかからないこと）",
       "localizations" : {
@@ -241,6 +274,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "less than 1 percent"
+          }
+        }
+      }
+    },
+    "1人分として記録しました。" : {
+      "comment" : "ホームの返事の行の下の文。「ひとり3000」のように 1 人分として書かれた額を、割らずにそのまま記録したとき（割り勘の人数は書かれていない）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded as one person’s share."
           }
         }
       }

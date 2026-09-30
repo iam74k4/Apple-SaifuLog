@@ -114,9 +114,9 @@ struct SentTextBubble: View {
 ///
 /// 見出しに「記録しました」（2 件以上なら件数も）を出し、直前の送信なら右に「取り消す」を出す。「取り消す」は時間では
 /// 引っ込めない（次の文を送る・取り消す・その記録を直す・記録先を切り替える・開き直すまで。`HomeModel.canUndo`）。記録ごとに
-/// 1 行（`RecordedReplyRow`）を並べ、行を押すと ⑥ 直すを開く。
+/// 1 行（`RecordedReplyRow`）を並べ、行を押すと ⑥ 直すを開く。割り勘などの説明の文は、その記録の行の下に添える（`RecordedReplyRow`）。
 ///
-/// 記録ごとの縦の並びにしてあるので、あとで記録ごとの一言や選択肢（カテゴリを選ぶボタンなど）を行の下に足せる。
+/// 記録ごとの縦の並びにしてあるので、あとで記録ごとの選択肢（カテゴリを選ぶボタンなど）を行の下に足せる。
 struct RecordedReplyCard: View {
     let send: EntrySend
     /// 今日。日付に年を添えるかの基準にする。
@@ -229,6 +229,10 @@ private struct RecordedReplyHeader: View {
 ///
 /// 品目と金額は、1 行に収まるときだけ横に並べ、収まらなければ金額を品目の下の行の右の端に置く（`SplitRowLayout`。金額は桁の
 /// 途中で折り返さず、収まらなければ縮める）。アクセシビリティサイズの文字では、左の印を省いて中身に幅を使わせる。
+///
+/// 解析がメモに説明を書き足した記録（割り勘・1 人分の額。コアの `EntryMemoNote`）は、品目（「焼肉」）だけを見出しにし、説明を
+/// 行の下の文にする（「¥12,000 を4人で割り勘。立て替えた ¥9,000 はメモに残しました。」`ReplyTexts.note(for:)`）。メモそのものは
+/// 変えない（⑥ のメモの欄と CSV には説明が書かれたまま）。メモを直した記録は、書き足した形でなくなるので、メモをそのまま見出しにする。
 struct RecordedReplyRow: View {
     let entry: Entry
     /// 送った日時。使った日がこの日と違うときだけ、日付を添える（「昨日 焼肉…」の昨日）。
@@ -250,18 +254,10 @@ struct RecordedReplyRow: View {
     }
 
     var body: some View {
-        Button(action: edit) {
-            ReplyRowLayout(hasLeadingTile: showsTile, spacing: 12, displayScale: displayScale) {
-                if showsTile {
-                    tile
-                }
-                content
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Theme.inkSecondary)
-                    .accessibilityHidden(true)
-            }
-            .contentShape(.rect)
+        let text = Self.text(of: entry)
+        return Button(action: edit) {
+            label(item: text.item, note: text.note)
+                .contentShape(.rect)
         }
         // 文字の色は行の中で決めているので、tint に染めない形にする（押している間は薄くなる）。
         .buttonStyle(.plain)
@@ -278,14 +274,53 @@ struct RecordedReplyRow: View {
         .accessibilityAction(named: "削除", requestDelete)
     }
 
-    private var content: some View {
-        let memo = entry.memo
+    /// 見出しにする品目と、行の下に添える説明の文（解析が説明を書き足していない記録・メモや金額を直した記録は nil）。
+    static func text(of entry: Entry) -> (item: String, note: String?) {
+        guard let note = EntryMemoNote(memo: entry.memo, amount: entry.amount, isIncome: entry.isIncome) else {
+            return (entry.memo, nil)
+        }
+        return (note.item, ReplyTexts.note(for: note))
+    }
+
+    /// 行の中身。説明を書き足した記録は、行の下に説明の文を置く（カードの左の端から。印の下も使い、文に幅を使わせる）。
+    /// たいていの記録は説明を持たないので、そのときは行を並べる入れ物（`LeadingStack`）を挟まない（行はすべて測るため）。
+    @ViewBuilder
+    private func label(item: String, note: String?) -> some View {
+        if let note {
+            LeadingStack(spacing: 6) {
+                row(title: item)
+                Text(verbatim: note)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.inkSecondary)
+            }
+        } else {
+            row(title: item)
+        }
+    }
+
+    /// カテゴリの印・品目と金額と種別・「›」の行。
+    ///
+    /// - Parameter title: 品目（説明を書き足した記録は、説明を除いた品目）。空なら種別を見出しにする。
+    private func row(title: String) -> some View {
+        ReplyRowLayout(hasLeadingTile: showsTile, spacing: 12, displayScale: displayScale) {
+            if showsTile {
+                tile
+            }
+            content(title: title)
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.inkSecondary)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private func content(title: String) -> some View {
         // 品目が無いときは見出しが種別なので、下の行に種別は繰り返さない（同じ語が 2 回出て、VoiceOver でも 2 回読まれるため）。
-        let kind = memo.isEmpty ? nil : entry.kindText
+        let kind = title.isEmpty ? nil : entry.kindText
         let date = dateText
         return LeadingStack(spacing: 2) {
-            SplitRowLayout(spacing: 8, stackedSpacing: 2, alwaysStacks: memo.contains(where: \.isNewline)) {
-                Text(verbatim: memo.isEmpty ? entry.kindText : memo)
+            SplitRowLayout(spacing: 8, stackedSpacing: 2, alwaysStacks: title.contains(where: \.isNewline)) {
+                Text(verbatim: title.isEmpty ? entry.kindText : title)
                     .font(.body.weight(.semibold))
                     .foregroundStyle(Theme.ink)
                 Text(verbatim: amountText)

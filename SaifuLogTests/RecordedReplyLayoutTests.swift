@@ -81,6 +81,32 @@ struct RecordedReplyLayoutTests {
         #expect(withUndo.height == withoutUndo.height)
     }
 
+    /// 割り勘の記録は、品目（「焼肉」）だけを見出しにし、説明を文にして行の下に添える。見出しが短くなるので、金額は品目と同じ行に
+    /// 並ぶ（長いメモのまま見出しにすると、金額が品目の下の行に落ちる）。メモか金額を直した記録は、メモをそのまま見出しにする。
+    @Test("割り勘の記録は品目だけを見出しにして説明の文を行の下に添え、直した記録はメモのまま")
+    func splitRowShowsItemAndNote() throws {
+        let context = try TestSupport.makeContext()
+        let split = TestSupport.entry(amount: 3_000, memo: Self.longMemo)
+        let plain = TestSupport.entry(amount: 3_000, memo: "焼肉", createdAt: TestSupport.now.addingTimeInterval(60))
+        // 金額だけを直した記録（説明の額と合わない）。
+        let edited = TestSupport.entry(amount: 3_500, memo: Self.longMemo, createdAt: TestSupport.now.addingTimeInterval(120))
+        for entry in [split, plain, edited] { context.insert(entry) }
+        try context.save()
+
+        #expect(RecordedReplyRow.text(of: split).item == "焼肉")
+        #expect(RecordedReplyRow.text(of: split).note == "¥12,000 を4人で割り勘。立て替えた ¥9,000 はメモに残しました。")
+        #expect(RecordedReplyRow.text(of: plain).item == "焼肉")
+        #expect(RecordedReplyRow.text(of: plain).note == nil)
+        #expect(RecordedReplyRow.text(of: edited).item == Self.longMemo)
+        #expect(RecordedReplyRow.text(of: edited).note == nil)
+
+        let sends = EntrySend.sends(from: [split, plain, edited])
+        #expect(sends.count == 3)
+        let heights = sends.map { Self.size(of: Self.card($0, canUndo: false), width: 370).height }
+        // 説明の文の分だけ、品目だけの記録のカードより高い。
+        #expect(heights[0] > heights[1])
+    }
+
     // MARK: - 部品
 
     private static func card(_ send: EntrySend, canUndo: Bool) -> some View {
