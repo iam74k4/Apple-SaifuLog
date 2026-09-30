@@ -44,7 +44,10 @@
     家計への質問（ひとこと入力と同じ入力欄。記録か質問かはコアの `InputIntentClassifier` が決め、誤って記録しないことを優先し、
     決められない文は記録せずに書き直しを案内する。端末内 AI は `SaifuLog/AI/FoundationModelsQuestionAnswerer` のツール呼び出しで期間・知りたいこと・
     カテゴリを選択肢から選ぶだけで、数字はコアの `LedgerQuestionAnswerer` が計算し、AI の一言の数字はコアの `AnswerSentenceCheck` で照合する。
-    AI が使えないときはコアの `QuestionParser`。答えはホームのタイムラインの回答カード（`SaifuLog/Views/Question/`）で、保存しない。無料は月 10 回で、
+    AI が使えないときはコアの `QuestionParser`。答えはホームのタイムラインの回答カード（`SaifuLog/Views/Question/`）で、保存しない。
+    金額と件数の答えには前の期間との比べ（途中の期間は前の期間の同じところまで。コアの `LedgerComparison`。AI に渡す文にも書く）、今月・先月の
+    金額には 6 か月の推移（`LedgerTrend`、`AnswerTrendChart`）、いちばん新しい答えには続けて聞ける質問のボタン（`QuestionFollowUp`。質問の読み取りが
+    同じ質問に読める日本語の文を送る。`HomeModel.askFollowUp`）。無料は月 10 回で、
     答えを出せたときだけ数え、使い切ったら ⑨ への案内。実機でのモデルの答え方の確認はまだ）。
     週のふりかえり（週が替わって最初に開いたときだけ、ホームのタイムラインの出した日時の位置に「先週のふりかえり」のカードを出し、出した日時を
     `AppSettings.weeklyRecapShownAt` に書いて同じ週にはもう出さない（閉じても開き直しても）。記録を始める前の週には出さない。定型文（先週の支出と
