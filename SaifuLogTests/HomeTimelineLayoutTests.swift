@@ -18,6 +18,10 @@ import UIKit
 /// 並べた画面で起きるため（タイムラインを LazyVStack に戻すと、この置き方で AX1 の記録と、標準から AX5 まで（AX4 を除く）の
 /// ふりかえりのカードが落ちることを確かめた）。
 ///
+/// 開いた後に足した行（送った記録・質問の回答カード・開いたまま出たふりかえりのカード）も、開いたときと同じく下の余白を残して
+/// 下の端に出ることを確かめる。行の id まで送っていたときは余白が隠れ、動きを付けて送ると、同じときに見える範囲の高さが変わった分
+/// だけ下端からずれた（`HomeView` の `TimelineScrollView`）。
+///
 /// 画面を画像にして目で見るときは、環境変数 `SAIFULOG_TIMELINE_SNAPSHOTS` に書き出す先のフォルダを渡す（xcodebuild には
 /// `TEST_RUNNER_SAIFULOG_TIMELINE_SNAPSHOTS=…` で渡す）。`SAIFULOG_TIMELINE_SNAPSHOT_STYLE=dark` でダークにする。
 /// 家計の共有は署名の無いビルドのアプリでは始まらないので、家計のタイムラインはこの書き出しで見る。
@@ -86,6 +90,91 @@ struct HomeTimelineLayoutTests {
         let frames = try await fixture.host(size: size, name: "household")
 
         try Self.expectAtTheBottom(frames, key: .row(newest), size: size)
+    }
+
+    /// 開いた後に送ったものを確かめる文字の大きさ（標準・AX1・AX5）。
+    nonisolated static let sendSizes: [UIContentSizeCategory] = [
+        .large, .accessibilityMedium, .accessibilityExtraExtraExtraLarge,
+    ]
+
+    /// 開いた後に送った記録も、開いたときと同じく下の余白（16pt）を残した下の端に出る。行の id まで送ると、行の下の端が
+    /// 見える範囲の下の端にそろい、余白が見える範囲の外に隠れた（中身が画面より高いときだけ。`HomeView` の `TimelineScrollView`）。
+    /// 送った後は「取り消す」のバナーで見える範囲が縮むので、その形のまま確かめる。
+    @Test("開いた後に記録を送ると、送った記録が下の余白を残して下の端に見える", arguments: sendSizes)
+    func sentEntryIsAtTheBottom(size: UIContentSizeCategory) async throws {
+        let fixture = try TimelineFixture()
+        try fixture.insertDemoLedger()
+        fixture.markWeeklyRecapShown()
+        let before = try #require(try fixture.newestEntry()).persistentModelID
+
+        let frames = try await fixture.host(size: size, name: "sent") { opened in
+            try Self.expectTallerThanViewport(opened, size: size)
+            return try await fixture.send("コンビニ 650")
+        }
+
+        let sent = try #require(try fixture.newestEntry())
+        #expect(sent.persistentModelID != before)
+        #expect(fixture.model.canUndo, "送った後に「取り消す」のバナーが出ていません（\(size.rawValue)）")
+        try Self.expectAtTheBottom(frames, key: .row(sent.persistentModelID), size: size)
+    }
+
+    /// 開いた後に送った質問の回答カードも、下の余白を残した下の端に出る（送ったときと、答えが出てカードが伸びたときに送る）。
+    @Test("開いた後に質問を送ると、回答カードが下の余白を残して下の端に見える", arguments: sendSizes)
+    func askedAnswerCardIsAtTheBottom(size: UIContentSizeCategory) async throws {
+        let fixture = try TimelineFixture()
+        try fixture.insertDemoLedger()
+        fixture.markWeeklyRecapShown()
+
+        let frames = try await fixture.host(size: size, name: "asked") { opened in
+            try Self.expectTallerThanViewport(opened, size: size)
+            fixture.model.draft = "今月カフェいくら?"
+            await fixture.model.send(calendar: TestSupport.calendar)?.value
+            return .row(try #require(fixture.model.questions.last).id)
+        }
+
+        let exchange = try #require(fixture.model.questions.last)
+        // 前提: 答えが出ている（読めない質問の案内ではない）。
+        guard case .answered = exchange.state else {
+            Issue.record("質問に答えられていません: \(exchange.state)")
+            return
+        }
+        try Self.expectAtTheBottom(frames, key: .row(exchange.id), size: size)
+    }
+
+    /// 開いたまま週が替わってふりかえりのカードが出たときも、下の余白を残して下の端に出る。同じときに見える範囲の高さが変わっても
+    /// （ここでは入力欄の上に声の入力の知らせを出す。送った記録と一緒に出る「取り消す」のバナーと同じく、見える範囲が縮む）。
+    /// 動きを付けて送っていたときは、変わった分が下端に合わせ直されず、AX1 と AX5 ではカードが見える範囲の下に 400pt 以上隠れた。
+    @Test("開いたままふりかえりのカードが出ると、見える範囲が同時に縮んでも、カードが下の余白を残して下の端に見える", arguments: sendSizes)
+    func weeklyRecapShownWhileOpenIsAtTheBottom(size: UIContentSizeCategory) async throws {
+        let fixture = try TimelineFixture()
+        try fixture.insertDemoLedger()
+        // 開いたときは今週もう出したことにして、開いた後に週が替わったとして出す。
+        fixture.markWeeklyRecapShown()
+
+        let frames = try await fixture.host(size: size, name: "recap-while-open") { opened in
+            try Self.expectTallerThanViewport(opened, size: size)
+            #expect(fixture.model.weeklyRecap == nil)
+            fixture.defaults.set(nil, for: AppSettings.weeklyRecapShownAt)
+            fixture.model.showWeeklyRecapIfDue(calendar: TestSupport.calendar)
+            fixture.model.voice.notice = .nothingHeard
+            return .row(try #require(fixture.model.weeklyRecap).id)
+        }
+
+        let recap = try #require(fixture.model.weeklyRecap)
+        // 前提: 知らせが出たまま（画面が 5 秒で引っ込める）。
+        #expect(fixture.model.voice.notice == .nothingHeard)
+        try Self.expectAtTheBottom(frames, key: .row(recap.id), size: size)
+    }
+
+    /// 前提: 中身が画面より高い（見える範囲より上に行がある）。行の id まで送ったときに下の余白が隠れたのは、この形のときだけ。
+    private static func expectTallerThanViewport(
+        _ frames: [TimelineFrameKey: CGRect], size: UIContentSizeCategory
+    ) throws {
+        let viewport = try #require(frames[.viewport], "タイムラインの見える範囲が描かれていません（\(size.rawValue)）")
+        let hasRowAbove = frames.contains { key, frame in
+            if case .row = key { !frame.isNull && frame.maxY < viewport.minY } else { false }
+        }
+        #expect(hasRowAbove, "中身が画面より高くありません（\(size.rawValue)）")
     }
 
     /// 行が見える範囲に描かれ、その下の端が見える範囲の下の端（タイムラインの余白の分だけ上）にある。行が見える範囲より
@@ -173,8 +262,24 @@ private final class TimelineFixture {
         return newest?.id
     }
 
+    /// 入力欄から記録を送り（送信のボタンと同じ `HomeModel.send`）、保存し終えるまで待つ。送った記録の行を返す。
+    func send(_ text: String) async throws -> TimelineFrameKey {
+        model.draft = text
+        await model.send(calendar: TestSupport.calendar)?.value
+        let entry = try #require(try newestEntry())
+        #expect(entry.originalText == text, "送った文が記録されていません")
+        return .row(entry.persistentModelID)
+    }
+
     /// ホームを文字の大きさ `size` でウィンドウに置き、行の位置が落ち着くまで待って、描かれた位置を返す（落ち着かなければ投げる）。
-    func host(size: UIContentSizeCategory, name: String) async throws -> [TimelineFrameKey: CGRect] {
+    ///
+    /// `then` を渡すと、落ち着いたところで、その時点の位置を渡して呼ぶ（記録を送るなど、開いた後の操作）。返した行が描かれ、
+    /// 位置がまた落ち着くまで待ってから返す。
+    func host(
+        size: UIContentSizeCategory,
+        name: String,
+        then action: (@MainActor ([TimelineFrameKey: CGRect]) async throws -> TimelineFrameKey)? = nil
+    ) async throws -> [TimelineFrameKey: CGRect] {
         let recorder = FrameRecorder()
         let root = HomeView(model: model)
             .modelContainer(context.container)
@@ -199,6 +304,10 @@ private final class TimelineFixture {
         }
 
         try await recorder.waitUntilSettled("\(name)・\(size.rawValue)")
+        if let action {
+            let key = try await action(recorder.frames)
+            try await recorder.waitUntilSettled("\(name)・\(size.rawValue)・操作の後", drawing: key)
+        }
         if let folder = ProcessInfo.processInfo.environment["SAIFULOG_TIMELINE_SNAPSHOTS"] {
             let styleName = style == .dark ? "dark" : "light"
             try Self.snapshot(window, to: URL(fileURLWithPath: folder).appending(path: "\(name)-\(size.rawValue)-\(styleName).png"))
@@ -221,13 +330,14 @@ private final class TimelineFixture {
 private final class FrameRecorder {
     var frames: [TimelineFrameKey: CGRect] = [:]
 
-    /// 見える範囲が描かれ、位置が 0.3 秒のあいだ変わらなくなるまで待つ（最大 5 秒）。下端に合わせる動きや、帯の高さが決まるまでの
-    /// 並べ直しが済んでから確かめるため。
+    /// 見える範囲（と `key` の行）が描かれ、位置が 0.3 秒のあいだ変わらなくなるまで待つ（最大 5 秒）。下端に合わせる動きや、
+    /// 帯の高さが決まるまでの並べ直しが済んでから確かめるため。開いた後の操作で足した行は `key` に渡す（足した行が描かれる前の、
+    /// 操作の前のまま動かない位置で返らないように）。
     ///
     /// 5 秒たっても落ち着かなければ `TimelineDidNotSettle` を投げて、そこで失敗にする。この不具合は見積もりが揺れて位置が動き続ける
     /// ものなので、落ち着かないまま確かめると、動いている途中にたまたま条件を満たした位置で通ったり、下の端に無いと別の理由で
     /// 落ちたりして、位置が落ち着かなかったこと自体が分からなくなるため。
-    func waitUntilSettled(_ label: String) async throws {
+    func waitUntilSettled(_ label: String, drawing key: TimelineFrameKey = .viewport) async throws {
         var last = frames
         var stableSince = Date.now
         let deadline = Date.now.addingTimeInterval(5)
@@ -236,11 +346,15 @@ private final class FrameRecorder {
             if frames != last {
                 last = frames
                 stableSince = .now
-            } else if frames[.viewport] != nil, Date.now.timeIntervalSince(stableSince) >= 0.3 {
+            } else if isDrawn(.viewport), isDrawn(key), Date.now.timeIntervalSince(stableSince) >= 0.3 {
                 return
             }
         }
         throw TimelineDidNotSettle(label: label, viewport: frames[.viewport])
+    }
+
+    private func isDrawn(_ key: TimelineFrameKey) -> Bool {
+        frames[key].map { !$0.isNull } ?? false
     }
 }
 

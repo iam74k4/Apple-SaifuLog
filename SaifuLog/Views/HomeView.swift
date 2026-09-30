@@ -331,7 +331,8 @@ struct HomeView: View {
                 setBudget: { model.presentBudgetSetup() },
                 openPremium: { model.presentPremium() },
                 openWeeklyRecap: { model.presentWeeklyRecapDetail() },
-                dismissWeeklyRecap: { model.dismissWeeklyRecap() }
+                // 閉じたときは、上の行がカードのあった所へ下りてくる動きを付ける（出したときは付けない。`TimelineScrollView`）。
+                dismissWeeklyRecap: { withAnimation { model.dismissWeeklyRecap() } }
             )
         }
     }
@@ -610,37 +611,38 @@ private struct EntryTimeline: View {
                     switch item {
                     case .entry(let entry):
                         EntryBubble(entry: entry, today: today, edit: { edit(entry) }, requestDelete: { requestDelete(entry) })
-                            .id(item.id)
                             .reportsTimelineFrame(.row(entry.persistentModelID))
                     case .question(let exchange):
                         QuestionExchangeView(
                             exchange: exchange, openReport: openReport, setBudget: setBudget, openPremium: openPremium
                         )
-                        .id(item.id)
                         .reportsTimelineFrame(.row(exchange.id))
                     case .weeklyRecap(let recap):
                         WeeklyRecapCard(model: recap, open: openWeeklyRecap, dismiss: dismissWeeklyRecap, setBudget: setBudget)
-                            .id(item.id)
                             .reportsTimelineFrame(.row(recap.id))
-                            .transition(.opacity)
+                            // 出し入れの動き（薄く出て消える）はカードにだけ付ける。タイムライン全体に `animation(_:value:)` を
+                            // 付けていたときは、カードを出すたびにほかの行とスクロールの位置まで動きになり、その間に見える範囲の
+                            // 高さが変わると（開いた直後の帯の高さが決まるまでなど）、下端からずれて止まった（`TimelineScrollView`）。
+                            .transition(.opacity.animation(.default))
                     }
                 }
             }
+            // 送る先はどれも、いちばん下の行ではなく中身の下端で、動きを付けない（`scrollToTimelineBottom`）。
+            // 記録を足した（いちばん新しい記録が替わった）ら、下端まで送る。
             .onChange(of: recentEntries.first?.persistentModelID) { _, id in
-                guard let id else { return }
-                withAnimation { proxy.scrollTo(ItemID.entry(id), anchor: .bottom) }
+                guard id != nil else { return }
+                proxy.scrollToTimelineBottom()
             }
-            // 質問を送ったときと、返事が届いた（カードが伸びた）ときに、いちばん下の質問まで送る。
+            // 質問を送ったときと、返事が届いた（カードが伸びた）ときに、下端まで送る。
             .onChange(of: questions.last) { _, exchange in
-                guard let exchange else { return }
-                withAnimation { proxy.scrollTo(ItemID.question(exchange.id), anchor: .bottom) }
+                guard exchange != nil else { return }
+                proxy.scrollToTimelineBottom()
             }
-            // 開いたまま週が替わってふりかえりのカードが出たら、そこまで送る（開いたときは下端から開くので、そのまま見える）。
+            // 開いたまま週が替わってふりかえりのカードが出たら、下端まで送る（開いたときは下端から開くので、そのまま見える）。
             .onChange(of: weeklyRecap?.id) { _, id in
-                guard let id else { return }
-                withAnimation { proxy.scrollTo(ItemID.weeklyRecap(id), anchor: .bottom) }
+                guard id != nil else { return }
+                proxy.scrollToTimelineBottom()
             }
-            .animation(.default, value: weeklyRecap?.id)
         }
     }
 }
@@ -692,13 +694,13 @@ private struct HouseholdTimeline: View {
                         entry: entry, today: today, edit: { edit(entry) }, requestDelete: { requestDelete(entry) },
                         recorderName: entry.recorderName
                     )
-                    .id(entry.id)
                     .reportsTimelineFrame(.row(entry.id))
                 }
             }
+            // いちばん新しい家計の記録が替わったら、下端まで送る（行ではなく中身の下端で、動きを付けない。`scrollToTimelineBottom`）。
             .onChange(of: recentEntries.first?.id) { _, id in
-                guard let id else { return }
-                withAnimation { proxy.scrollTo(id, anchor: .bottom) }
+                guard id != nil else { return }
+                proxy.scrollToTimelineBottom()
             }
         }
     }
@@ -751,20 +753,58 @@ private struct TimelineOlderRecords: View {
 /// すべての行を測るぶん開くときの手間は件数に比例するので、読み込む件数を `HomeModel.timelinePageSize` で区切る。
 /// 読み込んだ行は、記録の追加・削除や同期の取り込み、前面に戻ったときにもすべて描き直すので、「前の記録を表示」で読み足せる件数にも
 /// 上限（`HomeModel.timelineMaxLimit`）を設ける。
+///
+/// 開いた後にいちばん新しいものを足したとき（記録・質問・ふりかえりのカード）は、中身の本当の下端に置いた目印
+/// （`TimelineBottomMarker`）まで、動きを付けずに送る（`ScrollViewProxy.scrollToTimelineBottom`）。
+/// - 行の id で下端に合わせると、行の下の端が見える範囲の下の端にそろい、その下の余白（`padding()` の 16pt）が見える範囲の外に
+///   隠れた（中身が画面より高いときだけ。開いたときと「取り消す」のバナーが引っ込んだ後は余白が見えるので、送った直後だけ行が
+///   入力欄に寄って見えた）。目印は `defaultScrollAnchor(.bottom)` と同じ位置を指すので、二つの合わせ方が食い違わない。
+/// - 動きを付けると、送り先の位置が送り始めたときの見える範囲の高さで決まり、動いている間はその位置に向かい続ける。同じときに
+///   見える範囲の高さが変わると（送った記録と一緒に出る「取り消す」のバナーなど）、`defaultScrollAnchor(.bottom)` が下端に合わせ直す
+///   分が打ち消され、変わった分だけ下端からずれて止まった（シミュレータの iOS 26.4 で、送った記録が見える範囲の下に 36〜129pt
+///   はみ出し、声の入力の知らせと同時に出たふりかえりのカードは AX1 と AX5 で 400pt 以上下に隠れた）。動きなしで下端に着けば、
+///   その後の高さの変化は `defaultScrollAnchor(.bottom)` が下端に合わせ続ける。
 private struct TimelineScrollView<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 12) {
-                content
+            VStack(spacing: 0) {
+                VStack(spacing: 12) {
+                    content
+                }
+                .padding()
+                // 行の間隔（12pt）の外に置き、高さも 0 にして、中身の高さを変えない。
+                Color.clear
+                    .frame(height: 0)
+                    .id(TimelineBottomMarker.id)
+                    .accessibilityHidden(true)
             }
-            .padding()
         }
         .defaultScrollAnchor(.bottom)
         .scrollDismissesKeyboard(.interactively)
         // スクロールの枠は帯と入力欄の間（安全領域の中）に置かれるので、枠の位置が行の見える範囲になる。
         .reportsTimelineFrame(.viewport)
+    }
+}
+
+/// タイムラインの中身の下端の目印の id（`TimelineScrollView`）。いちばん新しいものまで送るときの行き先。
+///
+/// いちばん新しいもの（記録・質問・ふりかえりのカード）はいつもいちばん下に並ぶので、下端まで送れば見える。
+private enum TimelineBottomMarker: Hashable {
+    case id
+}
+
+private extension ScrollViewProxy {
+    /// タイムラインの中身の下端（`TimelineBottomMarker`）まで、動きを付けずに送る（理由は `TimelineScrollView`）。
+    ///
+    /// 呼んだときの変更に動きが付いていても（`withAnimation` の中や、周りの `animation(_:value:)`）、送る位置の変化は動きにしない。
+    func scrollToTimelineBottom() {
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            scrollTo(TimelineBottomMarker.id, anchor: .bottom)
+        }
     }
 }
 
