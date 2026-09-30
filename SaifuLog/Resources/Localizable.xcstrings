@@ -278,6 +278,17 @@
         }
       }
     },
+    "%@（%@ に払った）" : {
+      "comment" : "ホームの返事で、Apple Pay の支払いとの重なりを聞くときの支払いの文。%1$@ は支払いの品目（店名）と金額（「スターバックス ¥450」）、%2$@ は払った時刻",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (paid at %2$@)"
+          }
+        }
+      }
+    },
     "%lld か月の推移: %@" : {
       "comment" : "家計への質問の回答カードの推移の棒を VoiceOver で読むときの文。%lld は月の数、%@ は月と金額の一覧",
       "localizations" : {
@@ -741,6 +752,17 @@
         }
       }
     },
+    "Apple Pay の支払いと同じですか？" : {
+      "comment" : "ホームの返事の行の下で、いま記録したものが前に記録した Apple Pay の支払いと同じ買い物かを聞く見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Is this the same as an Apple Pay payment?"
+          }
+        }
+      }
+    },
     "Apple Pay の支払いを記録しました: %@" : {
       "comment" : "Apple Pay の支払いを記録したときに VoiceOver で読み上げる内容。%@ は記録したものの一覧",
       "localizations" : {
@@ -752,6 +774,17 @@
         }
       }
     },
+    "Apple Pay の支払いを記録しました: %@。カテゴリと、前の記録と同じかを選べます" : {
+      "comment" : "Apple Pay の支払いを記録し、返事でカテゴリと、前の記録と同じ買い物かを聞くときに VoiceOver で読み上げる内容。%@ は記録したものの一覧",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded Apple Pay payments: %@. You can choose a category and check whether it matches an earlier record."
+          }
+        }
+      }
+    },
     "Apple Pay の支払いを記録しました: %@。カテゴリを選べます" : {
       "comment" : "Apple Pay の支払いを記録し、カテゴリを聞き返すときに VoiceOver で読み上げる内容。%@ は記録したものの一覧",
       "localizations" : {
@@ -759,6 +792,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Recorded Apple Pay payments: %@. You can choose a category"
+          }
+        }
+      }
+    },
+    "Apple Pay の支払いを記録しました: %@。前の記録と同じか選べます" : {
+      "comment" : "Apple Pay の支払いを記録し、返事で前の記録と同じ買い物かを聞くときに VoiceOver で読み上げる内容。%@ は記録したものの一覧",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded Apple Pay payments: %@. You can check whether it matches an earlier record."
           }
         }
       }
@@ -787,6 +831,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Apple Pay の支払い"
+          }
+        }
+      }
+    },
+    "Apple Pay の記録を消しました: %@" : {
+      "comment" : "ホームの返事の重なりの聞き返しで、Apple Pay の支払いの記録を消したときに VoiceOver で読み上げる内容。%@ は消した記録（「スターバックス ¥450」）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removed the Apple Pay record: %@"
+          }
+        }
+      }
+    },
+    "Apple Pay の記録を消す" : {
+      "comment" : "ホームの返事の重なりの聞き返しのボタン。前に記録した Apple Pay の支払いの記録を消し、いま記録したものを残す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove Apple Pay Record"
           }
         }
       }
@@ -1567,6 +1633,17 @@
         }
       }
     },
+    "この Apple Pay の支払いの記録を消し、前の記録を残します" : {
+      "comment" : "ホームの返事の重なりの聞き返しの「この記録を消す」の VoiceOver のヒント",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removes this Apple Pay payment record and keeps the earlier record."
+          }
+        }
+      }
+    },
     "この Apple アカウントで購入したプレミアムは見つかりませんでした。購入したときの Apple アカウントでサインインしているか、お確かめください。" : {
       "comment" : "購入の復元で、プレミアムの購入が無かったときのアラートの本文",
       "localizations" : {
@@ -1909,6 +1986,17 @@
         }
       }
     },
+    "この記録を消す" : {
+      "comment" : "ホームの返事の重なりの聞き返しのボタン（Apple Pay の支払いの行の下）。いま記録した Apple Pay の支払いの記録を消し、前の記録を残す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove This Record"
+          }
+        }
+      }
+    },
     "この質問を送ります" : {
       "comment" : "家計への質問の回答カードの、続けて聞く質問のボタンの VoiceOver の説明",
       "localizations" : {
@@ -2060,6 +2148,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "In months without that day, it’s recorded on the last day of the month."
+          }
+        }
+      }
+    },
+    "どちらの記録も残しました" : {
+      "comment" : "ホームの返事の重なりの聞き返しで「別の支払い」を選んだときに VoiceOver で読み上げる内容",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kept both records"
+          }
+        }
+      }
+    },
+    "どちらの記録も残します" : {
+      "comment" : "ホームの返事の重なりの聞き返しの「別の支払い」の VoiceOver のヒント",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keeps both records."
           }
         }
       }
@@ -4644,6 +4754,17 @@
         }
       }
     },
+    "別の支払い" : {
+      "comment" : "ホームの返事の重なりの聞き返しのボタン。Apple Pay の支払いと、いま記録したものは別の買い物なので、どちらも残す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Different Payment"
+          }
+        }
+      }
+    },
     "利用規約（Apple の標準 EULA）" : {
       "comment" : "プレミアムのシート（⑨）。Apple の標準の利用規約へのリンク（Safari で開く）",
       "localizations" : {
@@ -4688,6 +4809,17 @@
         }
       }
     },
+    "前に記録した Apple Pay の支払いを消し、いま記録したものを残します" : {
+      "comment" : "ホームの返事の重なりの聞き返しの「Apple Pay の記録を消す」の VoiceOver のヒント",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removes the earlier Apple Pay payment record and keeps what you just recorded."
+          }
+        }
+      }
+    },
     "前の月" : {
       "comment" : "月のまとめの月送りのボタン（VoiceOver のラベル）。記録のある最初の月より前には戻れない",
       "localizations" : {
@@ -4695,6 +4827,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Previous Month"
+          }
+        }
+      }
+    },
+    "前の記録と同じ支払いですか？" : {
+      "comment" : "ホームの返事の Apple Pay の支払いの行の下で、その支払いが前に記録したもの（打った文・レシート）と同じ買い物かを聞く見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Is this the same payment as an earlier record?"
           }
         }
       }
@@ -4931,6 +5074,17 @@
         }
       }
     },
+    "合計 %@ は Apple Pay の支払いと同じですか？" : {
+      "comment" : "ホームの返事の最後の行の下で、いま記録したもの（レシート・まとめて払った買い物）の合計が、前に記録した Apple Pay の支払いと同じ買い物かを聞く見出し。%@ は合計の金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Is the total of %@ the same as an Apple Pay payment?"
+          }
+        }
+      }
+    },
     "合計が合いません" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。合計が合わないまま記録するかの確認の見出し",
       "localizations" : {
@@ -4982,6 +5136,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t read the total. The items’ total will be recorded."
+          }
+        }
+      }
+    },
+    "同じなら、Apple Pay の記録を消すと 2 回数えずに済みます。" : {
+      "comment" : "ホームの返事の重なりの聞き返しの説明（いま記録したものの下）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If so, remove the Apple Pay record so it isn’t counted twice."
+          }
+        }
+      }
+    },
+    "同じなら、この Apple Pay の記録を消すと 2 回数えずに済みます。" : {
+      "comment" : "ホームの返事の重なりの聞き返しの説明（Apple Pay の支払いの行の下）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If so, remove this Apple Pay record so it isn’t counted twice."
           }
         }
       }
@@ -7499,6 +7675,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Recorded: %@"
+          }
+        }
+      }
+    },
+    "記録しました: %@。Apple Pay の支払いと同じか選べます" : {
+      "comment" : "記録し、返事で前に記録した Apple Pay の支払いと同じ買い物かを聞くときに VoiceOver で読み上げる内容。%@ は記録したものの一覧",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded: %@. You can check whether it matches an Apple Pay payment."
+          }
+        }
+      }
+    },
+    "記録しました: %@。カテゴリと、Apple Pay の支払いと同じかを選べます" : {
+      "comment" : "記録し、返事でカテゴリと、前に記録した Apple Pay の支払いと同じ買い物かを聞くときに VoiceOver で読み上げる内容。%@ は記録したものの一覧",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded: %@. You can choose a category and check whether it matches an Apple Pay payment."
           }
         }
       }
