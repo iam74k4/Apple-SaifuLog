@@ -672,11 +672,20 @@ struct ICloudSyncTests {
 
         let all: [ICloudAccountStatus] = [
             .available, .noAccount, .restricted, .temporarilyUnavailable, .couldNotDetermine, .failed(domain: "x", code: 1),
+            .missingEntitlement,
         ]
         #expect(all.filter(\.isAvailable) == [.available])
         #expect(all.filter { $0.guidanceText == nil } == [.available])
         #expect(all.filter { $0.pausedText == nil } == [.available])
         #expect(Set(all.map(\.diagnosticName)).count == all.count)
+    }
+
+    /// 署名の無いビルド（iCloud の entitlement が無い）では、CloudKit に問い合わせずに `missingEntitlement` を返す。
+    /// `CKContainer` を作るとプロセスが止まるため（診断画面を開いたときに落ちていた）。このテストのプロセスも署名が無いので、
+    /// 問い合わせていれば止まる。
+    @Test func accountStatusWithoutEntitlementDoesNotAskCloudKit() async {
+        #expect(await ICloudAccountStatus.current(canUseCloudKit: false) == .missingEntitlement)
+        #expect(ICloudAccountStatus.missingEntitlement.isAvailable == false)
     }
 
     /// サインインしていても、iCloud Drive やこのアプリの iCloud がオフだと「サインインしていない」になることがあるので、

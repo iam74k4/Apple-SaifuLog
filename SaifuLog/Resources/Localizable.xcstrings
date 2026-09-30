@@ -938,6 +938,28 @@
         }
       }
     },
+    "このビルドのアプリでは iCloud を使えないため、この iPhone の中だけに保存しています（署名していない開発用のビルドのため）。" : {
+      "comment" : "設定の「iCloud で同期」がオンなのに、アプリが iCloud の権限を持たない（署名していない開発用のビルド）ときに、節の中に出す案内",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This build can’t use iCloud, so your records are saved only on this iPhone. It’s an unsigned development build."
+          }
+        }
+      }
+    },
+    "このビルドのアプリでは iCloud を使えません（署名していない開発用のビルドのため）。" : {
+      "comment" : "設定の「iCloud で同期」をオンにしようとしたが、アプリが iCloud の権限を持たない（署名していない開発用のビルド）ときのアラートの文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This build of the app can’t use iCloud because it’s an unsigned development build."
+          }
+        }
+      }
+    },
     "この国や地域の App Store では、いま購入できません。時間をおいて、もう一度お試しください。" : {
       "comment" : "購入に失敗したときのアラートの本文（この地域で買えない）",
       "localizations" : {

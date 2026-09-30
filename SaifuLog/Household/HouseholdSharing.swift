@@ -35,7 +35,8 @@ enum HouseholdSharing {
     /// iCloud の entitlement を持たず、CKContainer を作るとプロセスが止まる（SIGTRAP。iOS 26.4 のシミュレータで確かめた）。家計の
     /// 同期は起動したときに CKSyncEngine を作るので、使えないビルドでは家計の共有を始めない（`HouseholdHost.start`）。entitlement
     /// そのものは iOS の公開の API で読めないので、署名の印（`_CodeSignature/CodeResources`）の有無で見分ける。このアプリの署名した
-    /// ビルドは、どれも iCloud の entitlement を持つ（`project.yml` の entitlements）。
+    /// ビルドは、どれも iCloud の entitlement を持つ（`project.yml` の entitlements）。iCloud のアカウントの問い合わせ
+    /// （`ICloudAccountStatus.current`。診断画面と設定の iCloud 同期）も、これが false なら CloudKit に問い合わせない。
     static var canUseCloudKit: Bool {
         let signature = Bundle.main.bundleURL.appending(path: "_CodeSignature/CodeResources")
         return FileManager.default.fileExists(atPath: signature.path(percentEncoded: false))
