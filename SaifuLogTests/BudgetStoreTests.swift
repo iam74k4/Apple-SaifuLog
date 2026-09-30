@@ -160,7 +160,9 @@ struct BudgetStoreTests {
 /// ホームの帯に出す数字（今月の合計と予算の進み）。保存先から読んだ記録と予算で確かめる。
 @MainActor
 struct MonthSummaryFiguresTests {
-    static func figures(context: ModelContext, today: Date) throws -> (summary: MonthlySummary, budget: BudgetStatus?) {
+    static func figures(
+        context: ModelContext, today: Date
+    ) throws -> (summary: MonthlySummary, budget: BudgetStatus?, pace: SummaryHeader.Pace?) {
         let records = try context.fetch(Entry.monthDescriptor(containing: today, calendar: TestSupport.calendar))
         let budgets = try context.fetch(FetchDescriptor<Budget>())
         return MonthSummaryHeader.figures(records: records, budgets: budgets, today: today, calendar: TestSupport.calendar)
@@ -189,6 +191,8 @@ struct MonthSummaryFiguresTests {
         #expect(budget.remaining == 93_000)
         #expect(budget.remainingDays == 3)
         #expect(budget.dailyAllowance == 31_000)
+        // 今日までの目安は月のまとめと同じ（予算を 30 日で日割りした 28 日分）。今日までに使った額はそれより 83,000 円少ない。
+        #expect(figures.pace == SummaryHeader.Pace(amount: 140_000, beyond: -83_000))
     }
 
     @Test func noBudgetShowsOnlyTotals() throws {
@@ -201,6 +205,7 @@ struct MonthSummaryFiguresTests {
 
         #expect(figures.summary.expense == 850)
         #expect(figures.budget == nil)
+        #expect(figures.pace == nil)
     }
 
     /// 月が変わったら、前の月の支出を持ち越さない（残りの日数も新しい月で数える）。

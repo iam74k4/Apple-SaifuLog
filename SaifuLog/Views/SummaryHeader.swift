@@ -26,6 +26,14 @@ struct SummaryHeader: View {
     var ledgerScope: Binding<HomeModel.LedgerScope>?
     /// 家族の家計の今月の合計か（見出しを「家族の今月の支出」にする）。
     var isHousehold = false
+    /// 今日までの日割りの目安（月のまとめと同じ `MonthlyReport.budgetPace`・`spentBeyondPace`）。予算を決めていないときは nil。
+    var pace: Pace?
+
+    /// 今日までの日割りの目安と、今日までに使った額がそれより多い額（少なければ負）。
+    struct Pace: Equatable {
+        let amount: Int
+        let beyond: Int
+    }
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     #if DEBUG || INTERNAL_DIAGNOSTICS
@@ -59,6 +67,7 @@ struct SummaryHeader: View {
         .accessibilityElement(children: .contain)
         .animation(.default, value: summary)
         .animation(.default, value: budget)
+        .animation(.default, value: pace)
     }
 
     /// 見出し（予算の有無と超えたかで変わる）。
@@ -259,8 +268,45 @@ struct SummaryHeader: View {
         detailRow(budget)
             .font(.footnote)
             .foregroundStyle(Theme.inkSecondary)
-        BudgetProgressBar(fraction: budget.spentFraction, isOver: budget.isOver)
-            .padding(.vertical, 4)
+        // バーに今日までの目安の印を立てる（月のまとめの予算の欄と同じ）。印より右まで塗られていれば、目安より多く使っている。
+        BudgetProgressBar(
+            fraction: budget.spentFraction,
+            isOver: budget.isOver,
+            paceFraction: pace.map { min(max(Double($0.amount) / Double(budget.budget), 0), 1) }
+        )
+        .padding(.vertical, 4)
+        // 超えていないときは、目安と比べた一言も添える（超えたら上の「オーバー」で足りる）。
+        if let pace, !budget.isOver {
+            paceText(pace.beyond)
+                .font(.footnote)
+                .foregroundStyle(Theme.inkSecondary)
+                .lineLimit(2)
+                .contentTransition(.numericText())
+        }
+    }
+
+    /// 今日までの目安と比べた一言（月のまとめの予算の欄と同じ文）。多い・少ないは矢印だけでなく語でも伝える。
+    @ViewBuilder
+    private func paceText(_ beyond: Int) -> some View {
+        let amount = YenFormatter.string(from: abs(beyond))
+        switch beyond {
+        case 1...:
+            Label { Text("今日までの目安より \(amount) 多い") } icon: { Image(systemName: "arrow.up.right").accessibilityHidden(true) }
+        case ..<0:
+            Label { Text("今日までの目安より \(amount) 少ない") } icon: { Image(systemName: "arrow.down.right").accessibilityHidden(true) }
+        default:
+            Label { Text("今日までの目安どおり") } icon: { Image(systemName: "equal").accessibilityHidden(true) }
+        }
+    }
+
+    /// 読み上げる目安の一言。
+    private func spokenPace(_ beyond: Int) -> String {
+        let amount = YenFormatter.string(from: abs(beyond))
+        return switch beyond {
+        case 1...: String(localized: "今日までの目安より \(amount) 多い")
+        case ..<0: String(localized: "今日までの目安より \(amount) 少ない")
+        default: String(localized: "今日までの目安どおり")
+        }
     }
 
     /// 「1日あたり ¥… ・のこり N 日」（超えたら「予算 ¥… ・のこり N 日」）。アクセシビリティサイズの文字で
@@ -339,6 +385,7 @@ struct SummaryHeader: View {
             items.append(String(localized: "のこり \(budget.remainingDays) 日"))
             items.append(String(localized: "予算 \(YenFormatter.string(from: budget.budget))"))
             items.append(String(localized: "使った額 \(YenFormatter.string(from: budget.spent))"))
+            if let pace, !budget.isOver { items.append(spokenPace(pace.beyond)) }
         } else {
             items.append(YenFormatter.string(from: summary.expense))
         }
@@ -476,7 +523,8 @@ struct MonthSummaryHeader: View {
             editBudget: editBudget,
             openReport: openReport,
             openSettings: openSettings,
-            ledgerScope: ledgerScope
+            ledgerScope: ledgerScope,
+            pace: figures.pace
         )
     }
 
@@ -484,15 +532,24 @@ struct MonthSummaryHeader: View {
     ///
     /// 月の集計（`LedgerSummary`）は 1 回だけ行い、合計と予算の進みの両方に使う（同じ記録から別々に数えて、
     /// 合計と予算の「使った額」が食い違わないように）。
+    ///
+    /// 今日までの目安は、月のまとめと同じ計算（`MonthlyReport`）で出す（帯とまとめの目安を食い違わせないため）。
     static func figures(
         records: [Entry], budgets: [Budget], today: Date, calendar: Calendar
-    ) -> (summary: MonthlySummary, budget: BudgetStatus?) {
+    ) -> (summary: MonthlySummary, budget: BudgetStatus?, pace: SummaryHeader.Pace?) {
         guard let month = ReportPeriod.thisMonth.interval(now: today, calendar: calendar) else {
-            return (MonthlySummary(), nil)
+            return (MonthlySummary(), nil, nil)
         }
         let ledger = LedgerSummary(records: records, interval: month, calendar: calendar)
-        let budget = BudgetStatus(budget: BudgetPlan.resolve(budgets).total, summary: ledger, now: today, calendar: calendar)
-        return (MonthlySummary(ledger), budget)
+        let total = BudgetPlan.resolve(budgets).total
+        let budget = BudgetStatus(budget: total, summary: ledger, now: today, calendar: calendar)
+        var pace: SummaryHeader.Pace?
+        if budget != nil,
+           let report = MonthlyReport(records: records, month: today, now: today, budget: total, calendar: calendar),
+           let amount = report.budgetPace, let beyond = report.spentBeyondPace {
+            pace = SummaryHeader.Pace(amount: amount, beyond: beyond)
+        }
+        return (MonthlySummary(ledger), budget, pace)
     }
 }
 

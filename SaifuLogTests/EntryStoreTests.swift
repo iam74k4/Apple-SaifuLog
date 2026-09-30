@@ -102,7 +102,7 @@ struct EntryStoreTests {
         let coffee = TestSupport.entry(amount: 400, category: .cafe, memo: "コーヒー")
         try store.insert([lunch, coffee])
         try BudgetStore(context: context).setAmount(100_000, for: .total)
-        func figures() throws -> (summary: MonthlySummary, budget: BudgetStatus?) {
+        func figures() throws -> (summary: MonthlySummary, budget: BudgetStatus?, pace: SummaryHeader.Pace?) {
             let records = try context.fetch(Entry.monthDescriptor(containing: TestSupport.now, calendar: TestSupport.calendar))
             let budgets = try context.fetch(FetchDescriptor<Budget>())
             return MonthSummaryHeader.figures(records: records, budgets: budgets, today: TestSupport.now, calendar: TestSupport.calendar)
