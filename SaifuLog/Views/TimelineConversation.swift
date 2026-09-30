@@ -133,6 +133,8 @@ struct RecordedReplyCard: View {
     var showsStatus = false
     /// カテゴリを聞き返している記録（`HomeModel.categoryQuestionIDs`）。その記録の行の下にカテゴリのボタンを出す。
     var askingCategory: Set<PersistentIdentifier> = []
+    /// Apple Pay の支払いとの重なりを聞き返している記録（`HomeModel.paymentOverlaps`）。その記録の行の下に聞き返しを出す。
+    var overlaps: [PersistentIdentifier: PaymentOverlapQuestion] = [:]
     let undo: () -> Void
     let edit: (Entry) -> Void
     /// 削除を求める（確認は呼び出し側で出す）。
@@ -143,6 +145,10 @@ struct RecordedReplyCard: View {
     var createCategory: (Entry) -> Void = { _ in }
     /// その記録の中身で、くり返しの記録を作る画面を開く（長押しの「毎月くり返す」）。
     var makeRecurring: (Entry) -> Void = { _ in }
+    /// 重なりの聞き返しの「Apple Pay の記録を消す」（聞き返しを出している記録の ID を渡す）。
+    var removeOverlap: (PersistentIdentifier) -> Void = { _ in }
+    /// 重なりの聞き返しの「別の支払い」（聞き返しを出している記録の ID を渡す）。
+    var keepOverlap: (PersistentIdentifier) -> Void = { _ in }
 
     @Environment(\.calendar) private var calendar
 
@@ -171,8 +177,9 @@ struct RecordedReplyCard: View {
         .leadingReply()
     }
 
-    /// 記録 1 件の行。カテゴリを聞き返している記録は、行の下にカテゴリのボタンを添える（聞き返すのは直前の送信だけなので、
-    /// たいていの行は入れ物を挟まない。行はすべて測るため）。
+    /// 記録 1 件の行。Apple Pay の支払いとの重なりやカテゴリを聞き返している記録は、行の下に聞き返しを添える（聞き返すのは
+    /// 直前の送信だけなので、たいていの行は入れ物を挟まない。行はすべて測るため）。重なりを先に聞く（同じ支払いなら、どちらかの
+    /// 記録が消えるため）。
     @ViewBuilder
     private func row(_ entry: Entry) -> some View {
         let recorded = RecordedReplyRow(
@@ -180,7 +187,17 @@ struct RecordedReplyCard: View {
             // くり返しの記録から記録したものは、もうくり返しているので出さない。
             makeRecurring: entry.source == .recurring ? nil : { makeRecurring(entry) }
         )
-        if askingCategory.contains(entry.persistentModelID) {
+        let id = entry.persistentModelID
+        let asksCategory = askingCategory.contains(id)
+        if let overlap = overlaps[id] {
+            LeadingStack(spacing: 10) {
+                recorded
+                PaymentOverlapView(question: overlap, remove: { removeOverlap(id) }, keep: { keepOverlap(id) })
+                if asksCategory {
+                    CategoryQuestionView(entry: entry, choose: { chooseCategory(entry, $0) }, create: { createCategory(entry) })
+                }
+            }
+        } else if asksCategory {
             LeadingStack(spacing: 10) {
                 recorded
                 CategoryQuestionView(entry: entry, choose: { chooseCategory(entry, $0) }, create: { createCategory(entry) })
@@ -188,6 +205,90 @@ struct RecordedReplyCard: View {
         } else {
             recorded
         }
+    }
+}
+
+/// 返事の行の下の、Apple Pay の支払いの記録との重なりの聞き返し（`HomeModel.paymentOverlaps`。コアの `PaymentOverlap`）。
+///
+/// 同じ買い物を Apple Pay の支払い（払うと自動で記録される）と、打った文やレシートの両方で記録すると、支出を 2 回数える。
+/// 使った日と金額が同じときだけ聞き、支払いの記録を消すのは「Apple Pay の記録を消す」を選んだときだけにする（同じ日に同じ額を
+/// 別々に払うこともあるため）。消すのは Apple Pay の側（打った記録は品目とカテゴリを選んで書いたもので、レシートは内訳が
+/// あるため）。「別の支払い」を選ぶか、選ばずに次を送れば、どちらの記録も残る。
+struct PaymentOverlapView: View {
+    let question: PaymentOverlapQuestion
+    let remove: () -> Void
+    let keep: () -> Void
+
+    var body: some View {
+        LeadingStack(spacing: 6) {
+            title
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.ink)
+            Text(verbatim: question.counterpart)
+                .font(.subheadline)
+                .foregroundStyle(Theme.ink)
+            hint
+                .font(.caption)
+                .foregroundStyle(Theme.inkSecondary)
+            // 2 つのボタンは 1 行に収まれば横に並べ、収まらなければ（大きな文字）縦に積む。
+            AdaptiveRowLayout(stacksWhenNeeded: true, spacing: 8, stackAlignment: .leading) {
+                chip(label: removeLabel, isPrimary: true, hint: removeHint, action: remove)
+                chip(label: Text("別の支払い"), isPrimary: false, hint: Text("どちらの記録も残します"), action: keep)
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var title: Text {
+        switch question.kind {
+        case .earlierPayment(let total?): Text("合計 \(YenFormatter.string(from: total)) は Apple Pay の支払いと同じですか？")
+        case .earlierPayment(nil): Text("Apple Pay の支払いと同じですか？")
+        case .earlierRecord: Text("前の記録と同じ支払いですか？")
+        }
+    }
+
+    private var hint: Text {
+        switch question.kind {
+        case .earlierPayment: Text("同じなら、Apple Pay の記録を消すと 2 回数えずに済みます。")
+        case .earlierRecord: Text("同じなら、この Apple Pay の記録を消すと 2 回数えずに済みます。")
+        }
+    }
+
+    private var removeLabel: Text {
+        switch question.kind {
+        case .earlierPayment: Text("Apple Pay の記録を消す")
+        case .earlierRecord: Text("この記録を消す")
+        }
+    }
+
+    private var removeHint: Text {
+        switch question.kind {
+        case .earlierPayment: Text("前に記録した Apple Pay の支払いを消し、いま記録したものを残します")
+        case .earlierRecord: Text("この Apple Pay の支払いの記録を消し、前の記録を残します")
+        }
+    }
+
+    /// 聞き返しのボタン（カテゴリの聞き返しのボタンと同じ形）。消すほうは文字を強調の色にする（どちらを選ぶと何が起きるかを、
+    /// 形ではなく語で伝え、よく選ぶほうを見つけやすくする）。
+    private func chip(label: Text, isPrimary: Bool, hint: Text, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            label
+                .font(isPrimary ? .subheadline.weight(.semibold) : .subheadline)
+                .foregroundStyle(isPrimary ? Theme.accentText : Theme.ink)
+                .lineLimit(1)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 36)
+                .background {
+                    Capsule()
+                        .fill(Theme.background)
+                        .stroke(Theme.track, lineWidth: 1)
+                }
+                // 見た目は 36pt の高さにし、押せる範囲は上下の余白まで広げて 44pt にする（カテゴリのボタンと同じ）。
+                .padding(.vertical, 4)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(hint)
     }
 }
 

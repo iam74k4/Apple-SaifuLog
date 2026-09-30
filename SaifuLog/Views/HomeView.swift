@@ -352,6 +352,7 @@ struct HomeView: View {
                 weeklyRecap: model.weeklyRecap,
                 undoableEntryIDs: Set(model.justRecorded.map(\.persistentModelID)),
                 askingCategory: model.categoryQuestionIDs,
+                paymentOverlaps: model.paymentOverlaps,
                 showMore: { model.showMoreTimeline() },
                 undo: { model.undoLastRecord() },
                 edit: { model.presentEdit($0, calendar: calendar) },
@@ -359,6 +360,8 @@ struct HomeView: View {
                 chooseCategory: { model.chooseCategory($1, for: $0) },
                 createCategory: { model.presentCategoryCreation(for: $0) },
                 makeRecurring: { model.presentRecurringCreation(from: $0, calendar: calendar) },
+                removeOverlap: { model.removeOverlappingPayment(for: $0) },
+                keepOverlap: { model.keepOverlappingPayment(for: $0) },
                 fillDraft: { model.draft = $0 },
                 openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
                 setBudget: { model.presentBudgetSetup() },
@@ -557,6 +560,8 @@ private struct EntryTimeline: View {
     let undoableEntryIDs: Set<PersistentIdentifier>
     /// カテゴリを聞き返している記録。その記録の行の下にカテゴリのボタンを出す。
     let askingCategory: Set<PersistentIdentifier>
+    /// Apple Pay の支払いとの重なりを聞き返している記録。その記録の行の下に聞き返しを出す。
+    let paymentOverlaps: [PersistentIdentifier: PaymentOverlapQuestion]
     let showMore: () -> Void
     let undo: () -> Void
     let edit: (Entry) -> Void
@@ -566,6 +571,10 @@ private struct EntryTimeline: View {
     let createCategory: (Entry) -> Void
     /// その記録の中身で、くり返しの記録を作る画面を開く（長押しの「毎月くり返す」）。
     let makeRecurring: (Entry) -> Void
+    /// 重なりの聞き返しの「Apple Pay の記録を消す」。
+    let removeOverlap: (PersistentIdentifier) -> Void
+    /// 重なりの聞き返しの「別の支払い」。
+    let keepOverlap: (PersistentIdentifier) -> Void
     /// 記録が無いときの案内の入力の例を、入力欄に入れる。
     let fillDraft: (String) -> Void
     let openReport: (Date) -> Void
@@ -587,6 +596,7 @@ private struct EntryTimeline: View {
         weeklyRecap: WeeklyRecapModel?,
         undoableEntryIDs: Set<PersistentIdentifier>,
         askingCategory: Set<PersistentIdentifier>,
+        paymentOverlaps: [PersistentIdentifier: PaymentOverlapQuestion],
         showMore: @escaping () -> Void,
         undo: @escaping () -> Void,
         edit: @escaping (Entry) -> Void,
@@ -594,6 +604,8 @@ private struct EntryTimeline: View {
         chooseCategory: @escaping (Entry, EntryCategory) -> Void,
         createCategory: @escaping (Entry) -> Void,
         makeRecurring: @escaping (Entry) -> Void,
+        removeOverlap: @escaping (PersistentIdentifier) -> Void,
+        keepOverlap: @escaping (PersistentIdentifier) -> Void,
         fillDraft: @escaping (String) -> Void,
         openReport: @escaping (Date) -> Void,
         setBudget: @escaping () -> Void,
@@ -609,6 +621,7 @@ private struct EntryTimeline: View {
         self.weeklyRecap = weeklyRecap
         self.undoableEntryIDs = undoableEntryIDs
         self.askingCategory = askingCategory
+        self.paymentOverlaps = paymentOverlaps
         self.showMore = showMore
         self.undo = undo
         self.edit = edit
@@ -616,6 +629,8 @@ private struct EntryTimeline: View {
         self.chooseCategory = chooseCategory
         self.createCategory = createCategory
         self.makeRecurring = makeRecurring
+        self.removeOverlap = removeOverlap
+        self.keepOverlap = keepOverlap
         self.fillDraft = fillDraft
         self.openReport = openReport
         self.setBudget = setBudget
@@ -714,13 +729,14 @@ private struct EntryTimeline: View {
                     case .sentText(let send):
                         SentTextBubble(send: send)
                     case .reply(let send):
-                        // 直前の送信の返事にだけ、「取り消す」と今月の状況の一行を出す（同じ間。`ReplyStatusLine`）。
+                        // 直前の送信の返事にだけ、「取り消す」と今月の状況の一行と聞き返しを出す（同じ間。`ReplyStatusLine`）。
                         let isLatest = canUndo(send)
                         RecordedReplyCard(
                             send: send, today: today, canUndo: isLatest, showsStatus: isLatest,
-                            askingCategory: isLatest ? askingCategory : [], undo: undo, edit: edit,
-                            requestDelete: requestDelete, chooseCategory: chooseCategory, createCategory: createCategory,
-                            makeRecurring: makeRecurring
+                            askingCategory: isLatest ? askingCategory : [], overlaps: isLatest ? paymentOverlaps : [:],
+                            undo: undo, edit: edit, requestDelete: requestDelete, chooseCategory: chooseCategory,
+                            createCategory: createCategory, makeRecurring: makeRecurring, removeOverlap: removeOverlap,
+                            keepOverlap: keepOverlap
                         )
                         // 送信のいちばん下（返事のカード）の位置を知らせる。
                         .reportsTimelineFrame(.row(send.id))
