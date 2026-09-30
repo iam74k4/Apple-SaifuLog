@@ -1,4 +1,3 @@
-import Charts
 import SaifuLogCore
 import SwiftData
 import SwiftUI
@@ -322,7 +321,7 @@ struct ReportRow: View {
 
 // MARK: - カテゴリ別の内訳
 
-/// カテゴリ別の支出。横棒グラフ（アクセシビリティサイズの文字では出さない）と、押すとその期間の記録の一覧へ進む行。
+/// カテゴリ別の支出。割合を 1 本の横棒で塗り分けた帯（`BreakdownCompositionBar`）と、押すとその期間の記録の一覧へ進む行。
 /// 先週のふりかえりの内訳でも使う（期間の言葉だけ差し替える）。カテゴリ別の予算の進みは月のまとめだけが渡す（予算は月の
 /// ものなので、週の内訳には渡さない）。
 struct BreakdownCard: View {
@@ -337,8 +336,6 @@ struct BreakdownCard: View {
     var rowHint: LocalizedStringResource = "この月の記録の一覧を開きます"
     let select: (EntryCategory) -> Void
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("カテゴリ別の支出")
@@ -347,8 +344,8 @@ struct BreakdownCard: View {
             if breakdown.isEmpty {
                 Text(emptyText)
                     .foregroundStyle(Theme.inkSecondary)
-            } else if !dynamicTypeSize.isAccessibilitySize {
-                BreakdownChart(items: breakdown.items)
+            } else {
+                BreakdownCompositionBar(items: breakdown.items)
             }
             if !breakdown.isEmpty || !budgetedCategoriesWithoutExpense.isEmpty {
                 VStack(spacing: 0) {
@@ -384,42 +381,57 @@ struct BreakdownCard: View {
     }
 }
 
-/// カテゴリ別の横棒グラフ。棒はカテゴリの色（Theme）で塗り、多い順に上から並べる。
+/// カテゴリ別の支出の割合を、1 本の横棒の塗り分けで見せる（多い順に左から。色はカテゴリの色）。
 ///
-/// VoiceOver では棒ごとに「食費」「¥12,300 42%」と読ませる（オーディオグラフでも同じ値をたどれる）。
-private struct BreakdownChart: View {
+/// 以前はカテゴリごとの横棒グラフ（Swift Charts）だったが、下の行と同じ並び・同じ値を繰り返して画面の縦を取り、行まで
+/// 送らないと金額が見えなかったので、1 本にまとめた。金額と割合は下の行に文字で出すので、帯は目安として添えるだけにし、
+/// VoiceOver では読ませない（行が同じ内容を読む）。
+struct BreakdownCompositionBar: View {
     let items: [CategoryBreakdown.Item]
 
     @Environment(\.categoryCatalog) private var catalog
-    @ScaledMetric(relativeTo: .body) private var rowHeight = 30
+    @ScaledMetric(relativeTo: .body) private var height = 14
+
+    /// 塗り分けの間の隙間と、小さな割合のカテゴリにも残す最低の幅。
+    nonisolated static let gap: CGFloat = 2
+    nonisolated static let minimumWidth: CGFloat = 4
 
     var body: some View {
-        Chart(items) { item in
-            BarMark(
-                x: .value("金額", item.amount),
-                y: .value("カテゴリ", item.category.rawValue)
-            )
-            .foregroundStyle(catalog.color(for: item.category))
-            .cornerRadius(4)
-            .accessibilityLabel(catalog.label(for: item.category))
-            .accessibilityValue(Text(verbatim: item.spokenValue))
-        }
-        // 並びは内訳の順（多い順）に固定する。
-        .chartYScale(domain: items.map(\.category.rawValue))
-        .chartYAxis {
-            AxisMarks { value in
-                AxisValueLabel {
-                    if let rawValue = value.as(String.self), let category = EntryCategory(rawValue: rawValue) {
-                        catalog.label(for: category)
-                            .font(.caption)
-                            .foregroundStyle(Theme.ink)
-                    }
+        GeometryReader { proxy in
+            let widths = Self.widths(for: items.map(\.amount), in: proxy.size.width)
+            HStack(spacing: Self.gap) {
+                ForEach(Array(items.enumerated()), id: \.element.category) { index, item in
+                    Rectangle()
+                        .fill(catalog.color(for: item.category))
+                        .frame(width: widths[index])
                 }
             }
         }
-        // 金額の目盛りは出さない（金額と割合は下の行に文字で出す）。
-        .chartXAxis(.hidden)
-        .frame(height: rowHeight * CGFloat(items.count))
+        .frame(height: height)
+        .clipShape(.capsule)
+        .accessibilityHidden(true)
+    }
+
+    /// 幅を金額の比で配る。間の隙間を除いた幅に収め、0 円でない項目は最低の幅を残す（1% 未満のカテゴリも見えるように。
+    /// 最低の幅に上げた分は、ほかの項目から比で引く）。
+    /// 画面に依存しない計算なので、どのスレッドからも呼べるようにする（テストから呼ぶ）。
+    nonisolated static func widths(for amounts: [Int], in total: CGFloat) -> [CGFloat] {
+        let sum = amounts.reduce(0, +)
+        let available = total - gap * CGFloat(max(amounts.count - 1, 0))
+        guard sum > 0, available > 0 else { return amounts.map { _ in 0 } }
+        var widths = amounts.map { available * CGFloat($0) / CGFloat(sum) }
+        let small = Set(widths.indices.filter { amounts[$0] > 0 && widths[$0] < minimumWidth })
+        guard !small.isEmpty, small.count < widths.count else { return widths }
+        let raised = small.reduce(CGFloat(0)) { $0 + (minimumWidth - widths[$1]) }
+        let others = widths.indices.filter { !small.contains($0) }.reduce(CGFloat(0)) { $0 + widths[$1] }
+        for index in widths.indices {
+            if small.contains(index) {
+                widths[index] = minimumWidth
+            } else if others > 0 {
+                widths[index] -= raised * widths[index] / others
+            }
+        }
+        return widths
     }
 }
 
