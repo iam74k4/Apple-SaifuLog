@@ -143,6 +143,12 @@
     開く）と App Shortcuts（言い方の英語は `Resources/AppShortcuts.xcstrings`）。どれもアプリを開いてから行う（`openAppWhenRun`）。頼みは
     `QuickActionInbox` に置き、ホームが出たら `HomeModel.performPendingQuickAction` が行う（読み取りの間・ほかの画面・ロック中は待つ）。
     署名の無いビルドではショートカットから実行できないので、シミュレータでは ad hoc 署名で確かめる。ウィジェットは未決（§13））。
+    Apple Pay の支払いの自動記録（ショートカットの「取引」のオートメーションで `RecordPaymentIntent`（アプリを開かない）が金額と店名を受け取り、
+    `PaymentInbox`（Application Support/PaymentInbox、保護は `completeUntilFirstUserAuthentication`。記録の保存先の Complete の唯一の例外。
+    `docs/design.md` §5-4）に置く。ホームが出たとき・前面に戻ったとき・受け取ったときに `HomeModel.importCapturedPayments` が記録にし、
+    返事「Apple Pay の支払い」と「取り消す」。入力元 `.wallet`、印 `wallet/<ID>` で 2 回記録しない。金額はウォレットの値のまま（円だけ）、
+    品目とカテゴリはコアの `PaymentCapture`（店名の辞書はレシートと同じ）。⑧ の「自動で記録」の「Apple Pay の支払い」（`WalletCaptureView`）に
+    作り方。実機での確認はまだ）。
     よく使うひとこと（入力欄の上に、直近 90 日のよく記録する品目を「品目 ¥金額」のボタンで並べ、押すと入力欄に入る。送信は利用者。
     候補はコアの `QuickPhrases`、画面は `QuickPhraseBar`、`HomeModel.quickPhrases`）。
     アプリのロック（⑧ の「セキュリティ」の「Face ID でロック」。既定はオフで `AppSettings.appLockEnabled`。起動と裏から戻ったときに

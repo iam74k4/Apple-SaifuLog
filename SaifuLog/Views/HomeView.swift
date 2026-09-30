@@ -179,6 +179,8 @@ struct HomeView: View {
                     pending: quickActions.pending, isParsing: model.isParsing, isLocked: appLock?.isLocked,
                     deliver: deliverQuickActions
                 ))
+                // アプリを開いている間に Apple Pay の支払いを受け取ったら、すぐ記録にする。
+                .onReceive(NotificationCenter.default.publisher(for: PaymentInbox.didReceive)) { _ in deliverQuickActions() }
                 // この端末で声の入力を使えるか（マイクのボタンを出すか）を調べる。前面に戻ったときにも調べ直す（下の scenePhase）。
                 .task {
                     await model.voice.refreshAvailability()
@@ -271,6 +273,8 @@ struct HomeView: View {
                     case .active:
                         model.refreshToday()
                         model.recordDueRecurringEntries(calendar: calendar)
+                        // 裏にいる間に受け取った Apple Pay の支払いを記録にする（くり返しの記録の後。返事は後のものが残る）。
+                        deliverQuickActions()
                         model.refreshQuickPhrases()
                         // 状態が変わらなくても、前面に戻ったときには確かめる（ほかの画面を閉じた後で出せるように）。
                         model.presentPremiumIfTrialEnded()
@@ -442,6 +446,8 @@ struct HomeView: View {
             model.receive(action)
         }
         guard appLock?.isLocked != true else { return }
+        // Apple Pay の支払いの受け箱も、ここで記録にする（ロックを解いた後・読み取りが終わった後にも見るため）。
+        model.importCapturedPayments(calendar: calendar)
         model.performPendingQuickAction(calendar: calendar)
     }
 

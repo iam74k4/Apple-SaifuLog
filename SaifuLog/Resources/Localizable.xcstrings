@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "ja",
   "strings" : {
+    "${merchant} の ${amount} を記録" : {
+      "comment" : "ショートカットの「支払いを記録」の操作の要約。${merchant} は店名、${amount} は金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record ${amount} at ${merchant}"
+          }
+        }
+      }
+    },
     "%@ で購入する" : {
       "comment" : "プレミアムのシート（⑨）。買い切りの購入のボタン。%@ は App Store の価格の表示（「¥1,800」）",
       "localizations" : {
@@ -52,6 +63,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ split %2$lld ways. The %3$@ you paid for the others is noted in the memo."
+          }
+        }
+      }
+    },
+    "%@ を受け取りました。サイフログを開くと記録します。" : {
+      "comment" : "ショートカットの「支払いを記録」の後に出す言葉。%@ は金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Received %@. It will be recorded when you open SaifuLog."
           }
         }
       }
@@ -653,6 +675,122 @@
         }
       }
     },
+    "Apple Pay で払うと、金額と店名をサイフログが受け取り、次に開いたときに記録して返事でお知らせします。銀行やカードのログインは要らず、受け取った支払いはこの iPhone の中にだけ置きます。" : {
+      "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の画面の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When you pay with Apple Pay, SaifuLog receives the amount and merchant, records it the next time you open the app, and tells you in a reply. No bank or card login is needed, and received payments stay on this iPhone."
+          }
+        }
+      }
+    },
+    "Apple Pay で払ったときに自動で記録する方法を開きます" : {
+      "comment" : "設定の「Apple Pay の支払い」の行の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens how to record Apple Pay payments automatically"
+          }
+        }
+      }
+    },
+    "Apple Pay で払ったときのオートメーションで使います。金額と店名を受け取り、次にサイフログを開いたときに記録します。" : {
+      "comment" : "ショートカットの「支払いを記録」の操作の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use this in an automation that runs when you pay with Apple Pay. It receives the amount and merchant and records them the next time you open SaifuLog."
+          }
+        }
+      }
+    },
+    "Apple Pay の支払い" : {
+      "comment" : "ホームの返事の見出し。Apple Pay の支払いから 1 件を記録したとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Pay payment"
+          }
+        }
+      }
+    },
+    "Apple Pay の支払いから記録したものを消します" : {
+      "comment" : "Apple Pay の支払いの返事の「取り消す」の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deletes the entries recorded from Apple Pay payments"
+          }
+        }
+      }
+    },
+    "Apple Pay の支払いから記録しました。品目はお店の名前です。" : {
+      "comment" : "直すシート（⑥）の上の注記。Apple Pay の支払いから記録したものを開いたとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded from an Apple Pay payment. The item is the merchant name."
+          }
+        }
+      }
+    },
+    "Apple Pay の支払いを記録しました: %@" : {
+      "comment" : "Apple Pay の支払いを記録したときに VoiceOver で読み上げる内容。%@ は記録したものの一覧",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded Apple Pay payments: %@"
+          }
+        }
+      }
+    },
+    "Apple Pay の支払いを記録しました: %@。カテゴリを選べます" : {
+      "comment" : "Apple Pay の支払いを記録し、カテゴリを聞き返すときに VoiceOver で読み上げる内容。%@ は記録したものの一覧",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded Apple Pay payments: %@. You can choose a category"
+          }
+        }
+      }
+    },
+    "Apple Pay の支払い（%lld件）" : {
+      "comment" : "ホームの返事の見出し。Apple Pay の支払いから 2 件以上を記録したとき。%lld は件数",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Pay payments (%lld)"
+          }
+        }
+      }
+    },
+    "Apple Pay の支払い（設定）" : {
+      "comment" : "設定の行と画面の題名。Apple Pay で払ったときに、ショートカットのオートメーションで金額と店名をサイフログに渡して記録する",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Pay Payments"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Pay の支払い"
+          }
+        }
+      }
+    },
     "Apple アカウントの暗号化したデータがリセットされたため、家族との共有が消えました。この iPhone の家計の記録を iCloud に保存し直しています。家族をもう一度招待してください。" : {
       "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計を作った人の暗号化したデータがリセットされて共有が消えたときのアラートの本文",
       "localizations" : {
@@ -961,6 +1099,28 @@
         }
       }
     },
+    "「ショートカット」App の「オートメーション」で「＋」を押し、「取引」を選びます。" : {
+      "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の手順 1",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In the Shortcuts app, go to Automation, tap +, and choose Transaction."
+          }
+        }
+      }
+    },
+    "「ショートカット」App を開く" : {
+      "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の画面の、ショートカット App を開くボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the Shortcuts App"
+          }
+        }
+      }
+    },
     "「ランチ 850」のようなひとことを送って記録します。アプリを開いて、記録した内容を返事で見せます。" : {
       "comment" : "Siri・ショートカットの操作「ひとことで記録」の説明",
       "localizations" : {
@@ -1005,6 +1165,17 @@
         }
       }
     },
+    "「新規の空のオートメーション」から「アクションを追加」を押し、「サイフログ」の「支払いを記録」を選びます。" : {
+      "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の手順 3",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose New Blank Automation, tap Add Action, and choose SaifuLog’s Record Payment."
+          }
+        }
+      }
+    },
     "「衣服 3000」のようにカテゴリの名前を書いて送ると、そのカテゴリで記録します。%lld 個まで作れます。" : {
       "comment" : "設定の「カテゴリ」の、作ったカテゴリの節の注記。%lld は作れる数",
       "localizations" : {
@@ -1023,6 +1194,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send the name with an amount, like “Clothing 3000”, to record it in this category."
+          }
+        }
+      }
+    },
+    "「金額」に「ショートカットの入力」の「金額」を、「店名」に「加盟店」を入れて、「完了」を押します。" : {
+      "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の手順 4",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set Amount to the Shortcut Input’s Amount and Merchant to Merchant, then tap Done."
           }
         }
       }
@@ -2356,6 +2538,28 @@
         }
       }
     },
+    "オートメーションの作り方" : {
+      "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の画面の節の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setting Up the Automation"
+          }
+        }
+      }
+    },
+    "オートメーションを作るために、ショートカット App を開きます" : {
+      "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の画面の、ショートカット App を開くボタンの VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the Shortcuts app to create the automation"
+          }
+        }
+      }
+    },
     "カテゴリ" : {
       "comment" : "直すシートのカテゴリの欄の見出し",
       "localizations" : {
@@ -2788,6 +2992,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dumbbell"
+          }
+        }
+      }
+    },
+    "データの扱い" : {
+      "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の画面の節の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How Data Is Handled"
           }
         }
       }
@@ -4352,6 +4567,28 @@
         }
       }
     },
+    "円のほかの通貨の支払いは記録しません。" : {
+      "comment" : "ショートカットの「支払いを記録」で、円のほかの通貨を受け取ったときの知らせ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payments in currencies other than yen aren’t recorded."
+          }
+        }
+      }
+    },
+    "円のほかの通貨の支払いは記録しません。カテゴリはお店の名前で決め、分からないお店は返事で聞き返します（一度選べば、次からそのカテゴリで記録します）。違っていたら、返事の「取り消す」で消せます。" : {
+      "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の画面の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payments in currencies other than yen aren’t recorded. The category is chosen from the merchant name; for unknown merchants, the reply asks you (once you choose, it’s used from then on). If something is wrong, remove it with Undo in the reply."
+          }
+        }
+      }
+    },
     "再読み込み" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。値を読み直すボタン",
       "localizations" : {
@@ -4645,6 +4882,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t undo"
+          }
+        }
+      }
+    },
+    "受け取った支払いが %lld 件あります。ホームに戻ると記録します。" : {
+      "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の画面。受け取って、まだ記録していない支払いの数。%lld は件数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld payment received. It will be recorded when you go back to Home."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld payments received. They will be recorded when you go back to Home."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "受け取った支払い（金額・店名・日時）は、記録にするまで、この iPhone の中の小さなファイルに置きます。iPhone がロックされていても受け取れるよう、このファイルだけは、iPhone を起動して最初にロックを解いた後から読める保護にしています。記録にしたら消します。" : {
+      "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の画面の、データの扱いの説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Received payments (amount, merchant, and time) are kept in a small file on this iPhone until they’re recorded. So payments can be received while the iPhone is locked, only this file uses protection that makes it readable after you first unlock the iPhone following a restart. It’s deleted once the payments are recorded."
           }
         }
       }
@@ -5584,13 +5855,13 @@
         }
       }
     },
-    "家賃・サブスク・給料のように毎月同じ記録を、決めた日に自動で記録します。" : {
-      "comment" : "設定の「毎月の記録」の節の注記",
+    "家賃・サブスク・給料のように毎月同じ記録と、Apple Pay の支払いを、アプリが記録してホームの返事でお知らせします。" : {
+      "comment" : "設定の「自動で記録」の節の注記",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Records entries that repeat every month, such as rent, subscriptions, or salary, on the day you choose."
+            "value" : "SaifuLog records entries that repeat every month, such as rent, subscriptions, or salary, and Apple Pay payments, and tells you in a reply on Home."
           }
         }
       }
@@ -5877,6 +6148,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Total spending"
+          }
+        }
+      }
+    },
+    "支払いを受け取れませんでした。もう一度お試しください。" : {
+      "comment" : "ショートカットの「支払いを記録」で、受け取れなかったときの知らせ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t receive the payment. Please try again."
+          }
+        }
+      }
+    },
+    "支払いを記録" : {
+      "comment" : "ショートカットの操作の名前。Apple Pay で払ったときのオートメーションで、金額と店名を受け取る",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record Payment"
           }
         }
       }
@@ -6514,17 +6807,6 @@
         }
       }
     },
-    "毎月の記録" : {
-      "comment" : "設定の節の見出し（くり返しの記録）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Monthly Entries"
-          }
-        }
-      }
-    },
     "毎月同じ記録の一覧を開きます" : {
       "comment" : "設定の「くり返しの記録」の行の VoiceOver の説明",
       "localizations" : {
@@ -7012,6 +7294,17 @@
         }
       }
     },
+    "自動で記録" : {
+      "comment" : "設定の節の見出し（くり返しの記録と Apple Pay の支払い）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic Entries"
+          }
+        }
+      }
+    },
     "色" : {
       "comment" : "カテゴリを作る・直すシートの、色の見出し",
       "localizations" : {
@@ -7177,6 +7470,17 @@
         }
       }
     },
+    "記録したいカードを選び、「すぐに実行」にして「次へ」を押します。" : {
+      "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の手順 2",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the cards to record, select Run Immediately, and tap Next."
+          }
+        }
+      }
+    },
     "記録しました" : {
       "comment" : "ホームのタイムラインの、送信へのアプリの返事のカードの見出し（1 件を記録したとき）。家計のタイムラインの記録の直後の行にも使う",
       "localizations" : {
@@ -7294,6 +7598,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "It’s recorded the first time you open the app on or after the day."
+          }
+        }
+      }
+    },
+    "記録できない金額です。" : {
+      "comment" : "ショートカットの「支払いを記録」で、記録できない金額を受け取ったときの知らせ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This amount can’t be recorded."
           }
         }
       }

@@ -14,8 +14,8 @@ App Store Connect の「英語（米国）」のローカライズに入れる�
 |---|---|---|
 | アプリ名 | 30 文字 | 8 文字 |
 | サブタイトル | 30 文字 | 18 文字 |
-| プロモーション用テキスト | 170 文字 | 133 文字 |
-| 説明 | 4,000 文字 | 3,879 文字（改行を含む） |
+| プロモーション用テキスト | 170 文字 | 169 文字 |
+| 説明 | 4,000 文字 | 3,979 文字（改行を含む） |
 | キーワード | 100 バイト | 90 バイト |
 | 著作権 | — | 14 文字 |
 
@@ -42,67 +42,71 @@ Budget in one line
 ## プロモーション用テキスト
 
 ```text
-Log spending by sending one line like “ランチ 850.” Your text, receipts, and voice are read on your iPhone. There’s no developer server.
+Log spending by sending one line like “ランチ 850,” or just by paying with Apple Pay. Text, receipts, and voice are read on your iPhone. No developer server, no bank login.
 ```
 
 ## 説明
 
 ```text
-Send one line like “ランチ 850” and it’s logged. SaifuLog is a budget book you keep the way you send a chat message.
+Send one line like “ランチ 850” and it’s logged, the way you send a chat message. Paying with Apple Pay can log spending for you.
 
 SaifuLog reads entries written in Japanese and records amounts in yen. The interface is also available in English.
 
-Your text, receipts, and voice are all read on your iPhone. There is no developer server, and your records are never sent to the developer.
+Text, receipts, and voice are read on your iPhone. There is no developer server, records are never sent to the developer, and no bank or card login is needed.
+
+LOG BY PAYING (APPLE PAY)
+• Set up a Shortcuts automation once. When you pay with Apple Pay, SaifuLog receives the amount and merchant and records it the next time you open the app. Settings shows how.
+• The category comes from the merchant name. For unknown merchants SaifuLog asks once and remembers. Undo right away if something’s wrong.
 
 ONE-LINE ENTRY
-• Send “ランチ 850,” “昨日 焼肉12000 4人で割り勘” (yesterday, yakiniku ¥12,000 split four ways), or “給料 25万,” and SaifuLog records the date, category, and amount.
-• It understands several entries in one line, dates like “昨日” (yesterday) or “9/26,” bill splitting, and discounts.
-• On iPhone models that support Apple Intelligence, on-device AI reads your text. Otherwise a keyword dictionary reads it, so you can always record without AI.
+• Send “ランチ 850,” “昨日 焼肉12000 4人で割り勘” (yesterday, yakiniku ¥12,000 split four ways), or “給料 25万,” and SaifuLog records the date, category, and amount. Several entries in one line, dates, and discounts work too.
+• On iPhone models that support Apple Intelligence, on-device AI reads your text; otherwise a keyword dictionary does, so you can always record.
 • Splits, totals, and what’s left are calculated by the app, not by the AI.
-• Right after each entry you can Edit or Undo. Tap an entry any time to edit it, or touch and hold to delete it.
+• Edit or Undo right after each entry, or touch and hold an entry to delete it.
+• When a category isn’t clear, the reply asks and remembers your choice. Create your own categories such as rent or clothing.
+• Items you log often appear as buttons above the entry field.
 
-RECEIPTS
-• Take a photo or choose one (screenshots too). SaifuLog reads the store, date, items, and total, and sorts each item into a category.
-• It checks the items against the receipt total so you can confirm before recording.
-• Images are read on your iPhone and are never saved or sent.
+AUTOMATIC MONTHLY ENTRIES
+• Rent, subscriptions, or salary can be recorded automatically each month.
 
-VOICE INPUT
-• Tap the microphone and speak. Your words are transcribed on your iPhone and placed in the entry field, and you send it yourself.
-• Your voice is never saved or sent. The Japanese speech model may need to be downloaded the first time. On iPhone models without Japanese transcription, the microphone button doesn’t appear.
+SIRI AND SHORTCUTS
+• Say “Record in SaifuLog” to Siri. Questions, receipts, and voice input also work from Siri, Shortcuts, and the Action button.
+
+RECEIPTS AND VOICE
+• Photograph a receipt or pick a screenshot. SaifuLog reads the store, date, items, and total, sorts items into categories, and checks them against the total. Images are never saved or sent.
+• Speak into the microphone and your words are transcribed on your iPhone into the entry field. You send it yourself.
 
 QUESTIONS ABOUT YOUR SPENDING
-• In the same field, ask things like “今月カフェいくら?” (how much on cafés this month?).
-• The app calculates the numbers from your records and shows the period and how many entries the answer is based on.
+• Ask in the same field, like “今月カフェいくら?” (how much on cafés this month?). The app calculates the answer, compares it with the previous period, shows a six-month trend, and suggests follow-up questions.
 
 BUDGET AND REVIEWS
-• Set a monthly budget to see what’s left this month and how much you can spend per day.
-• The monthly summary shows spending, income, balance, daily average, the change from last month, and a chart by category.
-• With Premium, you can also set a budget for each category, such as food or cafés, and see what you’ve spent, your budget, and what’s left (or how much you’re over) in the monthly summary.
-• The first time you open the app in a new week, Last Week in Review sums up last week’s spending and top categories.
+• A monthly budget shows what’s left, a daily allowance, and whether you’re above or below today’s target.
+• The monthly summary shows spending, income, balance, daily average, and spending by category.
+• Each new week, Last Week in Review sums up last week’s spending.
 
-EXPORT AND SYNC
-• Export your records as a CSV file that spreadsheet apps open correctly.
-• Turn on Sync with iCloud in Settings to keep records and budgets the same on your iPhone devices with the same Apple Account (off by default). The developer can’t see your iCloud data.
-
-PRIVACY
-• Records are stored on your iPhone (and in your own iCloud if you turn on sync).
+EXPORT, SYNC, AND PRIVACY
+• Export your records as a CSV file.
+• Sync with iCloud keeps records and budgets the same on your devices (off by default). The developer can’t see your iCloud data.
+• Lock the app with Face ID, Touch ID, or your passcode.
 • No analytics, no ads, no tracking. The developer receives no data from the app.
 
 PRICING
-• Free to download, with no ads. One-line entry (including AI reading), voice input, budgets, summaries, CSV export, and iCloud sync are free with no limits.
+• Free to download, with no ads. One-line entry (including AI reading), Apple Pay logging, recurring entries, voice input, budgets, summaries, CSV export, and iCloud sync are free with no limits.
 • Free includes 5 receipt scans a month (only scans you record count) and 10 questions a month.
-• Premium is a one-time purchase of ¥1,800 in Japan, not a subscription. It removes the limits on receipts and questions, adds a short on-device AI note to your reviews (on iPhone models that support Apple Intelligence), and lets you set budgets by category and compare them with your spending in the monthly summary. Family Sharing is supported.
+• Premium is a one-time purchase of ¥1,800 in Japan, not a subscription. It removes the limits on receipts and questions, adds a short on-device AI note to your reviews (on iPhone models that support Apple Intelligence), and adds budgets by category. Family Sharing is supported.
 • Try Premium free for 14 days (once per Apple Account). You won’t be charged when the trial ends.
 
 REQUIREMENTS
 • iPhone with iOS 26 or later.
 • On-device AI features need an iPhone that supports Apple Intelligence, with Apple Intelligence turned on and its model downloaded.
+• Apple Pay logging needs a Shortcuts automation and records payments in yen only.
 • Entries are read as Japanese text, and amounts are in yen.
 
 Privacy Policy: https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md
 ```
 
-- **カテゴリ別の予算:** 決められることと、月のまとめで使った額と比べられることを書く。ホームの帯や質問の答えに出るようには書かない（日本語と同じ）。
+- **カテゴリ別の予算:** 字数（上限 4,000 文字）のため「adds budgets by category」とだけ書く。ホームの帯や質問の答えに出るようには書かない（日本語と同じ）。
+- **字数:** 機能を足したときに上限を超えたので、各節を短くまとめた（2026-10-01）。足すときは、ほかの節を詰めて 4,000 文字に収める。
 - **価格:** 「¥1,800 in Japan」と国を添える。配信は日本だけにした（`../release-flow.md` の「一度だけの準備」の 5）。ほかの国や地域にも出すなら、
   価格はその国の App Store の表示になるので、この行を見直す（アプリは円だけを扱う。円以外の通貨は `docs/design.md` §13 で未決）。
 - **例文:** 入力の例は日本語のまま書き、意味を英語で括弧に添える（アプリの画面の例も日本語のまま出している）。

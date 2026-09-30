@@ -132,6 +132,18 @@ Apple のサーバーへも送信しません**（この書き起こしは端末
 iOS が管理し、ほかのアプリと共有されます）。このダウンロードに声や記録は含まれません。モバイル回線かどうかの確認のために
 回線の種類をアプリの中で調べますが、その結果を保存したり送信したりはしません。
 
+### Apple Pay の支払いの自動記録（任意）
+
+利用者が「ショートカット」App で、Apple Pay で払ったときのオートメーション（「取引」）を作り、本アプリの「支払いを記録」を使うようにした
+場合だけ、払った金額と店名（加盟店の名前）が、Apple のショートカットの仕組みを通って本アプリに渡されます。本アプリは、金融機関や
+カード会社とはつながらず、ログインの情報も預かりません。
+
+受け取った支払い（金額・店名・受け取った日時）は、次に本アプリを開いて記録にするまで、お使いの iPhone の中の本アプリ専用の小さな
+ファイルに置きます。iPhone がロックされたままでも受け取れるよう、このファイルだけは、iPhone を起動して最初にロックを解いた後から
+読み書きできる保護（iOS のデータ保護の「最初のユーザ認証まで保護」）にしています（家計の記録の保存先は、ロック中は読めない保護のまま
+です）。記録にしたら、このファイルから消します。記録にした後は、上の「入力した家計の記録」と同じく扱います。**受け取った支払いを
+開発者や第三者へ送信することはありません。** オートメーションはいつでも「ショートカット」App で消せます。
+
 ### Siri・ショートカット
 
 Siri・ショートカット・Spotlight・アクションボタンから本アプリの操作（「ひとことで記録」「家計に質問」など）を使うと、話したり入れたりした文が、
@@ -407,6 +419,19 @@ If the Japanese model used for transcription is not on your iPhone, the app down
 (the model is managed by iOS and shared with other apps). This download does not include your voice or your records. To tell
 whether you are on cellular data, the app checks the type of network connection on the device; the result is neither stored nor
 sent.
+
+### Automatic Recording of Apple Pay Payments (Optional)
+
+Only if you create an automation in the Shortcuts app that runs when you pay with Apple Pay (a Transaction automation) and uses the app's
+Record Payment action, the amount and merchant name are passed to the app through Apple's Shortcuts. The app does not connect to banks or
+card companies and never holds your login information.
+
+Received payments (amount, merchant, and when they were received) are kept in a small file reserved for the app on your iPhone until you
+next open the app and they are recorded. So payments can be received while your iPhone is locked, only this file uses the iOS data
+protection class that makes it readable after you first unlock your iPhone following a restart (the store for your records keeps the
+protection that makes it unreadable while locked). The payments are removed from this file once recorded, after which they are handled as
+described in Your Records above. **Received payments are never sent to the developer or to any third party.** You can delete the automation
+in the Shortcuts app at any time.
 
 ### Siri and Shortcuts
 

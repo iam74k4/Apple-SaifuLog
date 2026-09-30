@@ -75,6 +75,9 @@ final class SettingsModel {
     /// 「くり返しの記録」（毎月同じ記録の一覧。足す・直す・やめる）の状態と操作。
     let recurringList: RecurringListModel
 
+    /// 「Apple Pay の支払い」（オートメーションの作り方と、受け取った支払いの数）。
+    let walletCapture = WalletCaptureModel()
+
     /// 「家族と共有」の節を出すか。
     var showsHousehold: Bool { household != nil }
 
