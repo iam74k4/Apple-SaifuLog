@@ -1241,4 +1241,20 @@ struct HomeModelTests {
 
         #expect(fixture.model.timelineLimit == HomeModel.timelinePageSize * 2)
     }
+
+    /// 読み足せるのは上限まで（タイムラインは読み込んだ行をすべて描き直すので、件数に比例して重くなるため）。上限に届いたら
+    /// 「前の記録を表示」の代わりに案内を出す（`canShowMoreTimeline` が false）。
+    @Test func showMoreTimelineStopsAtMaxLimit() throws {
+        let fixture = try Fixture()
+        // 前提: 上限は 1 ページより多い（開いたときは読み足せる）。
+        #expect(HomeModel.timelineMaxLimit > HomeModel.timelinePageSize)
+        #expect(fixture.model.canShowMoreTimeline)
+
+        for _ in 0..<(HomeModel.timelineMaxLimit / HomeModel.timelinePageSize + 2) {
+            fixture.model.showMoreTimeline()
+        }
+
+        #expect(fixture.model.timelineLimit == HomeModel.timelineMaxLimit)
+        #expect(!fixture.model.canShowMoreTimeline)
+    }
 }

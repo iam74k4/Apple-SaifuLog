@@ -1831,6 +1831,28 @@
         }
       }
     },
+    "ホームに出せるのは、新しく記録した方から %lld 件までです。" : {
+      "comment" : "ホームのタイムラインの上の端。家計の記録を読み込む件数の上限に届き、「前の記録を表示」の代わりに出す案内。%lld は上限の件数",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home shows up to the %lld most recently recorded entries."
+          }
+        }
+      }
+    },
+    "ホームに出せるのは、新しく記録した方から %lld 件までです。それより前の記録は、月のまとめのカテゴリの一覧と、設定の「記録を書き出す」で見られます。" : {
+      "comment" : "ホームのタイムラインの上の端。記録を読み込む件数の上限に届き、「前の記録を表示」の代わりに出す案内。%lld は上限の件数",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home shows up to the %lld most recently recorded entries. Find earlier ones in the category lists of the Monthly Summary, or under Export Entries in Settings."
+          }
+        }
+      }
+    },
     "ホームの上の「家族」に切り替えると、家族の記録が見られ、家計に記録できます。家族に見える「あなたの名前」は、設定の「家族と共有」で確かめて変えられます。" : {
       "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。招待を受け入れて家計に入ったときのアラートの本文。「家族」はホームの帯の切り替えの名前（Family）、「あなたの名前」は名前のシートの欄（Your name）、「家族と共有」は設定の節（Share with Family）",
       "localizations" : {

@@ -86,7 +86,7 @@ struct ScreenshotDemoTests {
         TestSupport.date(2027, 3, 1, hour: 10),
     ]
 
-    @Test("記録は先月の 1 日からデモの「いま」（撮影の月の 15 日の 20:30）まで、毎日あり、タイムラインの 1 回の読み込み（200 件）に収まる", arguments: shootingDays)
+    @Test("記録は先月の 1 日からデモの「いま」（撮影の月の 15 日の 20:30）まで、毎日ある", arguments: shootingDays)
     func recordsCoverLastMonthThroughToday(day: Date) throws {
         let calendar = TestSupport.calendar
         let now = ScreenshotDemo.pinnedNow(on: day, calendar: calendar)
@@ -94,8 +94,9 @@ struct ScreenshotDemoTests {
         let start = try #require(ScreenshotDemoLedger.startDate(now: now, calendar: calendar))
         #expect(start == ReportPeriod.lastMonth.interval(now: now, calendar: calendar)?.start)
 
+        // タイムラインの 1 回の読み込み（`HomeModel.timelinePageSize`）に収まらないことがある（いちばん上に「前の記録を表示」が出る）が、
+        // スクリーンショットに写るのは下の端の直近の記録だけなので、件数は決めない。
         #expect(!records.isEmpty)
-        #expect(records.count < HomeModel.timelinePageSize)
         for record in records {
             #expect(record.spentAt >= start && record.spentAt <= now)
             #expect(record.createdAt >= record.spentAt && record.createdAt <= now)
