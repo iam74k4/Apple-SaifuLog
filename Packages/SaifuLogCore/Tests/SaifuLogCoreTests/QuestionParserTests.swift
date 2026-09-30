@@ -52,6 +52,9 @@ struct QuestionParserTests {
         "今年初めからカフェいくら?",
         "今年頭から外食いくら?",
         "今年の年初から外食いくら?",
+        "年の初めから外食いくら?",
+        "今年の初めからカフェいくら?",
+        "年の始め以降の支出",
     ])
     func sinceYearStart(text: String) {
         #expect(Self.question(text)?.period == .thisYear, "\(text)")
@@ -184,11 +187,15 @@ struct QuestionParserTests {
         "年初の外食いくら?",
         "年明けの支出",
         "今年初めの外食いくら?",
+        "年の初めの支出",
+        "今年の初めの外食いくら?",
+        "年が明けたら外食いくら?",
         "年末年始から外食いくら?",
         // 「年」の前に漢字が付いた言い回しは、別の年のこと。
         "去年初めから外食いくら?",
         "昨年頭からの支出",
         "毎年初めからの支出",
+        "毎年の初めからの支出",
     ])
     func unsupported(text: String) {
         #expect(Self.question(text) == nil, "\(text)")
