@@ -80,7 +80,7 @@ final class HomeModel {
     private(set) var weeklyRecap: WeeklyRecapModel?
     /// 先週のふりかえりの内訳（カードから横に進む画面）。中身はカードと同じもの。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
     var weeklyRecapDetail: WeeklyRecapModel?
-    /// プレミアムの購入と状態（アプリで 1 つ）。カテゴリ別の予算を出すかの判定と、設定・プレミアムのシートに渡す。
+    /// プレミアムの購入と状態（アプリで 1 つ）。カテゴリ別の予算（予算の画面の欄と月のまとめの進み）を出すかの判定と、設定・プレミアムのシートに渡す。
     let purchases: PurchaseManager
     /// 家計の共有（アプリで 1 つ）。無ければ（テスト・家計の共有が無効なビルド）「自分／家族」の切り替えを出さない。
     let household: HouseholdHost?
@@ -855,6 +855,8 @@ final class HomeModel {
             calendar: calendar,
             month: month,
             remark: RecapRemarkModel(purchases: purchases, makeWriter: makeRemarkWriter),
+            // カテゴリ別の予算の進み（プレミアムと体験中だけ）。
+            purchases: purchases,
             now: now,
             announce: announce,
             didSave: { [weak self] entry in self?.finishEditing(entry) },

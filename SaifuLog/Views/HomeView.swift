@@ -751,7 +751,6 @@ private struct TimelineOlderRecords: View {
 /// すべての行を測るぶん開くときの手間は件数に比例するので、読み込む件数を `HomeModel.timelinePageSize` で区切る。
 /// 読み込んだ行は、記録の追加・削除や同期の取り込み、前面に戻ったときにもすべて描き直すので、「前の記録を表示」で読み足せる件数にも
 /// 上限（`HomeModel.timelineMaxLimit`）を設ける。
-/// 下端に合わせておくのは、前の記録を読み足しても見ている位置をずらさないためでもある。
 private struct TimelineScrollView<Content: View>: View {
     @ViewBuilder let content: Content
 

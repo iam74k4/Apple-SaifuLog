@@ -70,7 +70,7 @@ public enum QuestionMetric: Hashable, Sendable, CaseIterable {
     /// いちばん多く使ったカテゴリ。
     case topCategory
 
-    /// 予算の指標か。予算は月の全体の予算だけを数える（カテゴリ別の予算の進みは、まだどこにも出さない決め事のため）。
+    /// 予算の指標か。予算は月の全体の予算だけを数える（カテゴリ別の予算の進みは月のまとめにだけ出す決め事のため。docs/design.md §6-1）。
     public var isBudget: Bool {
         self == .remainingBudget || self == .dailyAllowance
     }

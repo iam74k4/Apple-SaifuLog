@@ -15,7 +15,7 @@ App Store Connect の「英語（米国）」のローカライズに入れる�
 | アプリ名 | 30 文字 | 8 文字 |
 | サブタイトル | 30 文字 | 18 文字 |
 | プロモーション用テキスト | 170 文字 | 133 文字 |
-| 説明 | 4,000 文字 | 3,630 文字（改行を含む） |
+| 説明 | 4,000 文字 | 3,879 文字（改行を含む） |
 | キーワード | 100 バイト | 90 バイト |
 | 著作権 | — | 14 文字 |
 
@@ -77,6 +77,7 @@ QUESTIONS ABOUT YOUR SPENDING
 BUDGET AND REVIEWS
 • Set a monthly budget to see what’s left this month and how much you can spend per day.
 • The monthly summary shows spending, income, balance, daily average, the change from last month, and a chart by category.
+• With Premium, you can also set a budget for each category, such as food or cafés, and see what you’ve spent, your budget, and what’s left (or how much you’re over) in the monthly summary.
 • The first time you open the app in a new week, Last Week in Review sums up last week’s spending and top categories.
 
 EXPORT AND SYNC
@@ -90,7 +91,7 @@ PRIVACY
 PRICING
 • Free to download, with no ads. One-line entry (including AI reading), voice input, budgets, summaries, CSV export, and iCloud sync are free with no limits.
 • Free includes 5 receipt scans a month (only scans you record count) and 10 questions a month.
-• Premium is a one-time purchase of ¥1,800 in Japan, not a subscription. It removes the limits on receipts and questions, adds a short on-device AI note to your reviews (on iPhone models that support Apple Intelligence), and lets you set budgets by category. Family Sharing is supported.
+• Premium is a one-time purchase of ¥1,800 in Japan, not a subscription. It removes the limits on receipts and questions, adds a short on-device AI note to your reviews (on iPhone models that support Apple Intelligence), and lets you set budgets by category and compare them with your spending in the monthly summary. Family Sharing is supported.
 • Try Premium free for 14 days (once per Apple Account). You won’t be charged when the trial ends.
 
 REQUIREMENTS
@@ -101,10 +102,13 @@ REQUIREMENTS
 Privacy Policy: https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md
 ```
 
-- **カテゴリ別の予算:** 「lets you set budgets by category」とだけ書き、使った額と比べられるようには書かない（日本語と同じ）。
-- **価格:** 「¥1,800 in Japan」と国を添える。ほかの国や地域で配信するなら、価格はその国の App Store の表示になる。配信する国を
-  決めたら、この行を見直す（アプリは円だけを扱う。円以外の通貨は `docs/design.md` §13 で未決）。
+- **カテゴリ別の予算:** 決められることと、月のまとめで使った額と比べられることを書く。ホームの帯や質問の答えに出るようには書かない（日本語と同じ）。
+- **価格:** 「¥1,800 in Japan」と国を添える。配信は日本だけにした（`../release-flow.md` の「一度だけの準備」の 5）。ほかの国や地域にも出すなら、
+  価格はその国の App Store の表示になるので、この行を見直す（アプリは円だけを扱う。円以外の通貨は `docs/design.md` §13 で未決）。
 - **例文:** 入力の例は日本語のまま書き、意味を英語で括弧に添える（アプリの画面の例も日本語のまま出している）。
+- **体験の名前:** 説明の文では「Try Premium free for 14 days」と書く。課金アイテムそのものの英語の表示名（App Store の購入の確認に
+  出る名前）は、ガイドライン 3.1.1 の形の「14-day Trial」で、説明とは別に App Store Connect の課金アイテムの英語のローカライズに入れる
+  （`Config/SaifuLog.storekit` と同じ。[`review-notes.md`](review-notes.md) の「課金アイテムの審査メモ」。App Store Connect に入力済み）。
 
 ## キーワード
 

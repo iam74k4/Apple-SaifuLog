@@ -35,14 +35,16 @@ struct StoreKitConfigurationTests {
         #expect(premium["familyShareable"] as? Bool == true)
         #expect(premium["displayPrice"] as? String == "1800")
         #expect(Self.displayName(premium, locale: "ja") == "サイフログ プレミアム")
-        #expect(Self.displayName(premium, locale: "en_US") != nil)
+        #expect(Self.displayName(premium, locale: "en_US") == "SaifuLog Premium")
 
         let trial = try Self.product(.trial14)
         #expect(trial["type"] as? String == "NonConsumable")
         #expect(trial["familyShareable"] as? Bool == false)
         #expect(trial["displayPrice"] as? String == "0")
         #expect(Self.displayName(trial, locale: "ja") == "14日間の無料体験")
-        #expect(Self.displayName(trial, locale: "en_US") != nil)
+        // 審査ガイドライン 3.1.1 は、価格 0 の非消耗型の体験に「XX-day Trial」の形の名前を求める。英語の表示名がこの形から
+        // 外れると差し戻されるおそれがあり、App Store Connect の側と食い違っても手元の購入では気づけないため、値で決める。
+        #expect(Self.displayName(trial, locale: "en_US") == "14-day Trial")
 
         let settings = try #require(configuration["settings"] as? [String: Any])
         #expect(settings["_storefront"] as? String == "JPN")

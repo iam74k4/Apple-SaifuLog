@@ -108,8 +108,8 @@ struct BudgetSetupView: View {
             Text("カテゴリ別の予算")
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
-            // 決めた額はまだどの画面の数字にも使わない（使った額との比べは近日）。できるように読ませないため、そのことも書く。
-            Text("カテゴリごとにも上限を決められます。空欄のカテゴリは予算なしになります。使った額との比べの表示は近日対応です。")
+            // 決めた額がどこに出るか（月のまとめのカテゴリの行）も書く。ホームの帯は全体の予算だけなので、帯に出ると思わせないため。
+            Text("カテゴリごとにも上限を決められます。空欄のカテゴリは予算なしになります。使った額との比べは、月のまとめのカテゴリの行に出ます。")
                 .font(.footnote)
                 .foregroundStyle(Theme.inkSecondary)
             VStack(spacing: 0) {

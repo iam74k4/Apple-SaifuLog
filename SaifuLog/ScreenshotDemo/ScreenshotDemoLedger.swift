@@ -3,7 +3,8 @@ import Foundation
 import SaifuLogCore
 import SwiftData
 
-/// 撮影用のデモの家計。架空の一人暮らしの人の記録（食費・カフェ・日用品・交通・娯楽・光熱・通信・医療と給料）と、月の予算。
+/// 撮影用のデモの家計。架空の一人暮らしの人の記録（食費・カフェ・日用品・交通・娯楽・光熱・通信・医療と給料）と、月の予算
+/// （全体と、カテゴリ別の食費・カフェ）。
 ///
 /// 記録は先月の 1 日からデモの「いま」（撮影の月の 15 日）まで、毎日つける。スクリーンショットに出るのは直近の 2 週間ほどだが、
 /// 先月の分まで作るのは、月のまとめの前の月との差と、先週のふりかえりの前の週との差（前の週は先月にかかることがある）と、
@@ -26,6 +27,9 @@ enum ScreenshotDemoLedger {
     /// 月の全体の予算。月の支出（12 万円前後）より少し多くし、帯に「今月あと ¥…」が出て、予算の目安の提案（予算との差が
     /// 2 割以上のときだけ出る）が出ない額にする。
     static let monthlyBudget = 130_000
+    /// カテゴリ別の予算（プレミアム。月のまとめのカテゴリの行に進みが出る）。デモの「いま」（月の 15 日）の今月はどちらも予算の内で、
+    /// 月まるごとの前の月は食費が予算を超える額にする（ストアの画像は今月の予算の内の形で、前の月へ戻ると超えた出方も確かめられる）。
+    static let categoryBudgets: [EntryCategory: Int] = [.food: 60_000, .cafe: 12_000]
     /// 割り勘の記録の元の文（ようこその例と同じ書き方）。
     static let splitBillText = "昨日 焼肉12000 4人で割り勘"
 
@@ -70,7 +74,8 @@ enum ScreenshotDemoLedger {
         return records
     }
 
-    /// デモの記録と月の予算を保存先に入れる。予算は記録を始める前に決めたことにする（月のまとめで、先月にも予算の進みを出すため）。
+    /// デモの記録と月の予算を保存先に入れる。予算（全体とカテゴリ別）は記録を始める前に決めたことにする（月のまとめで、先月にも
+    /// 予算の進みを出すため）。
     static func insert(into context: ModelContext, now: Date, calendar: Calendar) throws {
         for record in records(now: now, calendar: calendar) {
             context.insert(Entry(
@@ -81,6 +86,9 @@ enum ScreenshotDemoLedger {
         let start = startDate(now: now, calendar: calendar) ?? now
         let decidedAt = calendar.date(byAdding: .day, value: -1, to: start) ?? start
         context.insert(Budget(scope: .total, amount: monthlyBudget, updatedAt: decidedAt))
+        for (category, amount) in categoryBudgets {
+            context.insert(Budget(scope: .category(category), amount: amount, updatedAt: decidedAt))
+        }
         try context.save()
     }
 

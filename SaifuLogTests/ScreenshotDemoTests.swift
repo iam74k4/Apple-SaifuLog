@@ -138,7 +138,7 @@ struct ScreenshotDemoTests {
         #expect(calendar.date(byAdding: .day, value: -1, to: recordedDay) == calendar.startOfDay(for: split.spentAt))
     }
 
-    @Test("数字がスクリーンショットに向く: 先週と今月は食費がいちばん多く、今月は予算の内で、予算の目安の提案は出ない", arguments: shootingDays)
+    @Test("数字がスクリーンショットに向く: 先週と今月は食費がいちばん多く、今月は予算の内（カテゴリ別の予算も）で、予算の目安の提案は出ない", arguments: shootingDays)
     func figuresSuitScreenshots(day: Date) throws {
         let calendar = TestSupport.calendar
         let demo = try Self.makeDemo(.recap, on: day)
@@ -148,7 +148,9 @@ struct ScreenshotDemoTests {
         let context = container.mainContext
         let entries = try context.fetch(FetchDescriptor<Entry>())
         let budget = ScreenshotDemoLedger.monthlyBudget
-        #expect(try BudgetStore(context: context).plan().total == budget)
+        let plan = try BudgetStore(context: context).plan()
+        #expect(plan.total == budget)
+        #expect(plan.byCategory == ScreenshotDemoLedger.categoryBudgets)
 
         // 先週のふりかえり: 先週も前の週も支出があり（前の週との差を出せる）、食費がいちばん多い。
         let recap = try #require(WeeklyRecap(records: entries, now: demo.now, budget: budget, calendar: calendar))
@@ -164,6 +166,22 @@ struct ScreenshotDemoTests {
         // 帯は「今月あと ¥…」（予算を超えていない）。
         #expect(monthSummary.expense < budget)
 
+        // 月のまとめのカテゴリの行: 今月はカテゴリ別の予算の内で、月まるごとの前の月は食費が予算を超える（前の月へ戻ると、
+        // 超えた出方も確かめられる）。
+        let budgets = try context.fetch(FetchDescriptor<Budget>())
+        let report = try #require(MonthlyReport(
+            records: entries, month: demo.now, now: demo.now, categoryBudgets: BudgetPlan.categoryDecisions(in: budgets),
+            calendar: calendar
+        ))
+        #expect(Set(report.categoryBudgets.keys) == Set(ScreenshotDemoLedger.categoryBudgets.keys))
+        #expect(report.categoryBudgets.values.allSatisfy { !$0.isOver && $0.spent > 0 })
+        let lastMonth = try #require(ReportPeriod.lastMonth.interval(now: demo.now, calendar: calendar))
+        let previous = try #require(MonthlyReport(
+            records: entries, month: lastMonth.start, now: demo.now,
+            categoryBudgets: BudgetPlan.categoryDecisions(in: budgets), calendar: calendar
+        ))
+        #expect(previous.categoryBudgets[.food]?.isOver == true)
+
         // 予算の目安の提案（予算との差が 2 割以上のときだけ）は、ふりかえりのカードに出さない。
         if let suggestion = BudgetSuggestion(records: entries, now: demo.now, calendar: calendar) {
             #expect(!suggestion.differsNotably(from: budget))
@@ -178,7 +196,7 @@ struct ScreenshotDemoTests {
 
     /// 月の最後の日に撮ったときに、帯と月のまとめの「1日あたり」が「残り」と同じ額になり、「今日までの目安」が予算と同じ額に
     /// なっていた（ストアの画像に向かない）。デモの「いま」を月の半ばに置いたので、月末に撮っても月の半ばの数字になる。
-    @Test("どの月の月末に撮っても、今月は予算の内で、1日あたりは残りより十分少なく、予算の目安の提案は出ない（2 月のような短い月の後も）", arguments: monthEnds)
+    @Test("どの月の月末に撮っても、今月は予算の内（カテゴリ別の予算も）で、1日あたりは残りより十分少なく、予算の目安の提案は出ない（2 月のような短い月の後も）", arguments: monthEnds)
     func budgetFitsEveryMonth(day: Date) throws {
         let calendar = TestSupport.calendar
         let now = ScreenshotDemo.pinnedNow(on: day, calendar: calendar)
@@ -188,8 +206,13 @@ struct ScreenshotDemoTests {
         }
         let budget = ScreenshotDemoLedger.monthlyBudget
         let thisMonth = try #require(ReportPeriod.thisMonth.interval(now: now, calendar: calendar))
-        let spent = LedgerSummary(records: records, interval: thisMonth, calendar: calendar).expense
+        let summary = LedgerSummary(records: records, interval: thisMonth, calendar: calendar)
+        let spent = summary.expense
         #expect(spent < budget)
+        // 月のまとめのカテゴリの行も、今月は予算の内（ストアの画像に超えた形を写さない）。
+        for (category, amount) in ScreenshotDemoLedger.categoryBudgets {
+            #expect(summary.expense(in: category) < amount, "\(category) \(summary.expense(in: category))")
+        }
         // 帯と月のまとめの「1日あたり」「のこり N 日」。
         let status = try #require(BudgetStatus(budget: budget, spent: spent, now: now, month: thisMonth, calendar: calendar))
         #expect(status.remainingDays >= 14)
@@ -364,7 +387,7 @@ struct ScreenshotDemoTests {
         home.voice.cancel()
     }
 
-    @Test("月のまとめの画面: 今月を下の端（カテゴリ別のグラフと金額の行）から開き、日本語の画面では照合を通る一言を添える")
+    @Test("月のまとめの画面: 今月を下の端（カテゴリ別のグラフと金額の行）から開き、カテゴリ別の予算の進みを出し、日本語の画面では照合を通る一言を添える")
     func reportScreenOpensMonthWithRemark() async throws {
         let (demo, home) = try Self.makeHome(.report, uiLanguage: "ja")
         defer { Self.removeDefaults(of: demo) }
@@ -374,6 +397,11 @@ struct ScreenshotDemoTests {
         #expect(report.month == ReportPeriod.thisMonth.interval(now: demo.now, calendar: demo.calendar))
         #expect(report.screenshotScrollsToBottom)
         #expect(report.report?.breakdown.isEmpty == false)
+        // 購入済みのデモなので、カテゴリの行に予算の進みを出す（食費とカフェ。どちらも支出があり、予算の内）。
+        await Self.waitUntil { report.showsCategoryBudgets }
+        #expect(Set(report.categoryBudgets.keys) == Set(ScreenshotDemoLedger.categoryBudgets.keys))
+        #expect(report.budgetedCategoriesWithoutExpense.isEmpty)
+        #expect(report.categoryBudgets.values.allSatisfy { !$0.isOver })
         await report.remark.currentTask?.value
         guard case .written(let sentence) = report.remark.state else {
             Issue.record("一言がありません: \(report.remark.state)")

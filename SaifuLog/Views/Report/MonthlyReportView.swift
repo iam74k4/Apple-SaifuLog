@@ -8,6 +8,7 @@ import UIKit
 ///
 /// 上に月送り（前の月・次の月）、その下に AI の一言（プレミアムと体験中で、AI が使える端末だけ）、月の支出・収入・収支・
 /// 1 日あたりの平均・前の月との差、予算の進み（予算を当てはめる月だけ）、カテゴリ別の内訳（横棒グラフと行）を並べる。
+/// カテゴリ別の予算を決めたカテゴリの行には、その予算の進み（プレミアムと体験中で、予算を当てはめる月だけ）を添える。
 /// 行を押すと、その月のそのカテゴリの記録の一覧へ進む。
 ///
 /// 状態と操作は `MonthlyReportModel` が持ち、数字の計算はコア（`MonthlyReport`）が受け持つ。ここは表示と、文字の大きさに
@@ -86,7 +87,12 @@ struct MonthlyReportView: View {
                 if let budget = report.budget {
                     BudgetCard(report: report, budget: budget)
                 }
-                BreakdownCard(breakdown: report.breakdown, select: { model.showEntries(in: $0) })
+                BreakdownCard(
+                    breakdown: report.breakdown,
+                    categoryBudgets: model.categoryBudgets,
+                    budgetedCategoriesWithoutExpense: model.budgetedCategoriesWithoutExpense,
+                    select: { model.showEntries(in: $0) }
+                )
             }
         }
     }
@@ -317,9 +323,14 @@ struct ReportRow: View {
 // MARK: - カテゴリ別の内訳
 
 /// カテゴリ別の支出。横棒グラフ（アクセシビリティサイズの文字では出さない）と、押すとその期間の記録の一覧へ進む行。
-/// 先週のふりかえりの内訳でも使う（期間の言葉だけ差し替える）。
+/// 先週のふりかえりの内訳でも使う（期間の言葉だけ差し替える）。カテゴリ別の予算の進みは月のまとめだけが渡す（予算は月の
+/// ものなので、週の内訳には渡さない）。
 struct BreakdownCard: View {
     let breakdown: CategoryBreakdown
+    /// カテゴリ別の予算の進み。渡したカテゴリの行に、使った額と予算・バー・残りか超えた額を添える。
+    var categoryBudgets: [EntryCategory: BudgetStatus] = [:]
+    /// 予算の進みを出すカテゴリのうち、支出の無いもの。内訳の行の後ろに ¥0 の行として並べる（グラフには足さない）。
+    var budgetedCategoriesWithoutExpense: [EntryCategory] = []
     /// 支出が無いときの案内。
     var emptyText: LocalizedStringResource = "この月の支出の記録はありません"
     /// 行を押したときに開くものの説明（VoiceOver）。
@@ -336,21 +347,40 @@ struct BreakdownCard: View {
             if breakdown.isEmpty {
                 Text(emptyText)
                     .foregroundStyle(Theme.inkSecondary)
-            } else {
-                if !dynamicTypeSize.isAccessibilitySize {
-                    BreakdownChart(items: breakdown.items)
-                }
+            } else if !dynamicTypeSize.isAccessibilitySize {
+                BreakdownChart(items: breakdown.items)
+            }
+            if !breakdown.isEmpty || !budgetedCategoriesWithoutExpense.isEmpty {
                 VStack(spacing: 0) {
-                    ForEach(breakdown.items) { item in
-                        if item.category != breakdown.items.first?.category {
+                    ForEach(rows) { row in
+                        if row.id != rows.first?.id {
                             Divider()
                         }
-                        BreakdownRow(item: item, hint: rowHint, action: { select(item.category) })
+                        BreakdownRow(
+                            category: row.id,
+                            item: row.item,
+                            budget: categoryBudgets[row.id],
+                            hint: rowHint,
+                            // 支出の無い行は押せなくする（開いても記録の一覧は空のため）。
+                            action: row.item == nil ? nil : { select(row.id) }
+                        )
                     }
                 }
             }
         }
         .reportCard()
+    }
+
+    /// 並べる行: 内訳の行（支出の多い順）の後ろに、支出の無い予算のカテゴリ（定義順）。
+    private var rows: [Row] {
+        breakdown.items.map { Row(id: $0.category, item: $0) }
+            + budgetedCategoriesWithoutExpense.map { Row(id: $0, item: nil) }
+    }
+
+    private struct Row: Identifiable {
+        let id: EntryCategory
+        /// 内訳の行。支出の無い予算のカテゴリでは nil。
+        let item: CategoryBreakdown.Item?
     }
 }
 
@@ -393,20 +423,44 @@ private struct BreakdownChart: View {
 }
 
 /// 内訳の 1 行。カテゴリの色と記号の丸・名前・金額・割合。押すとその期間のそのカテゴリの記録の一覧へ進む。
+/// カテゴリ別の予算があれば、その下に予算の進み（`CategoryBudgetProgress`）を添える。
 private struct BreakdownRow: View {
-    let item: CategoryBreakdown.Item
+    let category: EntryCategory
+    /// 内訳の行。支出の無い予算のカテゴリでは nil（金額は ¥0 で、割合は出さない）。
+    let item: CategoryBreakdown.Item?
+    /// そのカテゴリの予算の進み。予算が無いか、出さないときは nil。
+    let budget: BudgetStatus?
     let hint: LocalizedStringResource
-    let action: () -> Void
+    /// 押したとき。nil なら押せない行にする（支出の無い予算のカテゴリ）。
+    let action: (() -> Void)?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                // アクセシビリティサイズの文字では丸を省き、名前と金額に幅を使わせる（名前は常に出る）。
-                if !dynamicTypeSize.isAccessibilitySize {
-                    CategoryIcon(category: item.category)
-                }
+        if let action {
+            Button(action: action) {
+                content
+            }
+            // 文字の色は行の中で決めているので、tint に染めない形にする（押している間は薄くなる）。
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text(category.label))
+            .accessibilityValue(Text(verbatim: spokenValue))
+            .accessibilityHint(Text(hint))
+        } else {
+            content
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(category.label))
+                .accessibilityValue(Text(verbatim: spokenValue))
+        }
+    }
+
+    private var content: some View {
+        HStack(spacing: 12) {
+            // アクセシビリティサイズの文字では丸を省き、名前と金額に幅を使わせる（名前は常に出る）。
+            if !dynamicTypeSize.isAccessibilitySize {
+                CategoryIcon(category: category)
+            }
+            VStack(alignment: .leading, spacing: 8) {
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         name
@@ -418,38 +472,201 @@ private struct BreakdownRow: View {
                         figures
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Theme.inkSecondary)
-                    .accessibilityHidden(true)
+                if let budget {
+                    CategoryBudgetProgress(budget: budget)
+                }
             }
-            .padding(.vertical, 10)
-            .frame(minHeight: 44)
-            .contentShape(.rect)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // 押せない行にも同じ幅を空けておき、金額の右端をほかの行とそろえる。
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Theme.inkSecondary)
+                .opacity(action == nil ? 0 : 1)
+                .accessibilityHidden(true)
         }
-        // 文字の色は行の中で決めているので、tint に染めない形にする（押している間は薄くなる）。
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(item.category.label))
-        .accessibilityValue(Text(verbatim: item.spokenValue))
-        .accessibilityHint(Text(hint))
+        .padding(.vertical, 10)
+        .frame(minHeight: 44)
+        .contentShape(.rect)
     }
 
     private var name: some View {
-        Text(item.category.label)
+        Text(category.label)
             .foregroundStyle(Theme.ink)
     }
 
     private var figures: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(verbatim: YenFormatter.string(from: item.amount))
+            Text(verbatim: YenFormatter.string(from: item?.amount ?? 0))
                 .foregroundStyle(Theme.ink)
-            Text(verbatim: item.percentText)
-                .foregroundStyle(Theme.inkSecondary)
+            if let item {
+                Text(verbatim: item.percentText)
+                    .foregroundStyle(Theme.inkSecondary)
+            }
         }
         .monospacedDigit()
         .lineLimit(1)
         .minimumScaleFactor(0.5)
+    }
+
+    /// VoiceOver で読む値。金額と割合（支出の無い行は金額だけ）に、予算の進み（「予算 ¥…、使った額 ¥…、残り ¥…」）を足す。
+    /// 予算の進みのバーは読ませないので、進みは文で伝える。区切りは言語に合わせる（ホームの帯の読み上げと同じ）。
+    private var spokenValue: String {
+        var items = [item?.spokenValue ?? YenFormatter.string(from: 0)]
+        if let budget {
+            items += budget.spokenProgress
+        }
+        return items.formatted(.list(type: .and))
+    }
+}
+
+/// カテゴリの行に添える予算の進み。使った割合のバー（山吹。超えたら注意の色で満たす）と、「使った額 / 予算」、残りか超えた額。
+///
+/// 超えたことは、注意の色だけでなくアイコンと「オーバー」の語でも伝える（全体の予算のカードと同じ）。バーと文は VoiceOver では
+/// 読ませず、行の読み上げ（`BudgetStatus.spokenProgress`）で伝える。金額は桁の途中で改行させない。
+private struct CategoryBudgetProgress: View {
+    let budget: BudgetStatus
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            BudgetProgressBar(fraction: budget.spentFraction, isOver: budget.isOver)
+            // アクセシビリティサイズの文字では、「/」の後で改行して金額を 1 行ずつにし、残りか超えた額もその下に置く（1 行に
+            // 並べると金額が縮みすぎるため）。それより小さい文字では、1 行に収まらなければ縦に積む。
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 2) {
+                    amountLine("\(spent) /")
+                    amountLine(limit)
+                    status
+                }
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        amountLine("\(spent) / \(limit)")
+                        Spacer(minLength: 8)
+                        status
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        amountLine("\(spent) / \(limit)")
+                        status
+                    }
+                }
+            }
+        }
+        .font(.footnote)
+        .accessibilityHidden(true)
+    }
+
+    private var spent: String {
+        YenFormatter.string(from: budget.spent)
+    }
+
+    private var limit: String {
+        YenFormatter.string(from: budget.budget)
+    }
+
+    /// 金額の文字の 1 行。桁の途中で折らず、収まらなければ縮める。
+    private func amountLine(_ text: String) -> some View {
+        Text(verbatim: text)
+            .monospacedDigit()
+            .foregroundStyle(Theme.inkSecondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+    }
+
+    @ViewBuilder
+    private var status: some View {
+        if budget.isOver {
+            Group {
+                // アクセシビリティサイズの文字では、アイコンを文の上に置き、文に行の幅をすべて使わせる（横に並べると、アイコンに
+                // 幅を取られて文が縮み、行のほかの金額まで小さくなった。シミュレータの AX5 で確かめた）。
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 2) {
+                        overIcon
+                        overTextStacked
+                    }
+                } else {
+                    Label { overText } icon: { overIcon }
+                }
+            }
+            .fontWeight(.semibold)
+            .foregroundStyle(Theme.danger)
+        } else {
+            Text("残り \(YenFormatter.string(from: budget.remaining))")
+                .foregroundStyle(Theme.inkSecondary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+        }
+    }
+
+    private var overIcon: some View {
+        Image(systemName: "exclamationmark.triangle.fill")
+    }
+
+    /// 「¥2,300 オーバー」の文（訳したもの）。
+    private var overString: String {
+        String(localized: "\(YenFormatter.string(from: budget.overspent)) オーバー")
+    }
+
+    /// 「¥2,300 オーバー」。金額は桁の途中で改行させず（全体の予算のカードの「オーバー」と同じ）、収まらなければ縮める。
+    private var overText: some View {
+        Text(verbatim: overString)
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+    }
+
+    /// アクセシビリティサイズの文字の「¥2,300 オーバー」。1 行に収まらなければ、金額と語を 2 行に分ける。
+    ///
+    /// 1 行のまま縮めると、日本語の文は大きく縮んで読みにくく、折り返しに任せると「オー」「バー」のように語の途中で折れた
+    /// （シミュレータの AX5 で確かめた）。分けられない文（訳で金額が語の後ろに来るなど）は 1 行のまま縮める。
+    @ViewBuilder
+    private var overTextStacked: some View {
+        let text = overString
+        if let lines = BudgetOverText.lines(text, amount: YenFormatter.string(from: budget.overspent)) {
+            ViewThatFits(in: .horizontal) {
+                Text(verbatim: text)
+                    .monospacedDigit()
+                    .fixedSize()
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(verbatim: lines.amount)
+                    Text(verbatim: lines.rest)
+                }
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+            }
+        } else {
+            overText
+        }
+    }
+}
+
+/// 予算を超えた額の文（「¥2,300 オーバー」）の分け方。
+enum BudgetOverText {
+    /// 訳した文を、金額まで（「¥2,300」）と残りの語（「オーバー」「over」）の 2 行に分ける。文の中に金額が無いか、金額の前か
+    /// 後ろに何も無ければ（訳で語順が変わったときなど）nil。
+    static func lines(_ text: String, amount: String) -> (amount: String, rest: String)? {
+        guard let range = text.range(of: amount) else { return nil }
+        let head = text[..<range.upperBound].trimmingCharacters(in: .whitespaces)
+        let rest = text[range.upperBound...].trimmingCharacters(in: .whitespaces)
+        guard !head.isEmpty, !rest.isEmpty else { return nil }
+        return (head, rest)
+    }
+}
+
+extension BudgetStatus {
+    /// VoiceOver で読む予算の進み（「予算 ¥40,000」「使った額 ¥12,300」「残り ¥27,700」か「¥2,300 オーバー」）。
+    /// 並べ方は呼び出し側が言語に合わせて決める（`formatted(.list(type: .and))`）。
+    var spokenProgress: [String] {
+        [
+            String(localized: "予算 \(YenFormatter.string(from: budget))"),
+            String(localized: "使った額 \(YenFormatter.string(from: spent))"),
+            isOver
+                ? String(localized: "\(YenFormatter.string(from: overspent)) オーバー")
+                : String(localized: "残り \(YenFormatter.string(from: remaining))"),
+        ]
     }
 }
 
@@ -551,5 +768,33 @@ extension View {
             MonthlyReportView(model: MonthlyReportModel(store: EntryStore(context: context), calendar: .current))
         }
         .modelContainer(container)
+    }
+}
+
+#Preview("カテゴリ別の予算（プレミアム）") {
+    if let container = try? ModelContainerFactory.makeInMemoryContainer() {
+        let context = container.mainContext
+        let _ = [
+            Entry(amount: 12_300, isIncome: false, category: .food, memo: "スーパー", spentAt: .now, source: .text, originalText: ""),
+            Entry(amount: 4_800, isIncome: false, category: .cafe, memo: "", spentAt: .now, source: .text, originalText: ""),
+            Entry(amount: 3_200, isIncome: false, category: .transport, memo: "", spentAt: .now, source: .text, originalText: ""),
+        ].forEach { context.insert($0) }
+        let _ = [
+            Budget(scope: .category(.food), amount: 40_000, updatedAt: .now),
+            Budget(scope: .category(.cafe), amount: 4_000, updatedAt: .now),
+            Budget(scope: .category(.medical), amount: 5_000, updatedAt: .now),
+        ].forEach { context.insert($0) }
+        let purchases = PurchaseManager(
+            loadPurchases: { [VerifiedPurchase(transactionID: 1, purchase: PremiumPurchase(product: .premium, purchaseDate: .now))] },
+            loadProducts: { _ in [] },
+            sync: {}
+        )
+        NavigationStack {
+            MonthlyReportView(model: MonthlyReportModel(
+                store: EntryStore(context: context), calendar: .current, purchases: purchases
+            ))
+        }
+        .modelContainer(container)
+        .task { await purchases.refreshPurchases() }
     }
 }

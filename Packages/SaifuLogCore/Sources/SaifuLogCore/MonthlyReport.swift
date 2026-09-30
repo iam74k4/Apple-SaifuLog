@@ -19,6 +19,10 @@ import Foundation
 /// - 予算の進みは、いまの予算をその額に決めた日時（`BudgetPlan.decidedAt`）を含む月と、それより後の月にだけ出す。
 ///   予算は月ごとに持たないので、それより前の月の予算がいくらだったかは分からない（いまの額で比べると、違う予算で
 ///   「超えた」「余った」と出してしまう）。決めた日時が分からなければ今月だけに出す。先の月には出さない。
+/// - カテゴリ別の予算の進み（`categoryBudgets`）も、全体の予算と同じ決まりで、カテゴリごとにその予算を決めた日時から
+///   当てはめる月を決める。使った額はその月のそのカテゴリの支出（先の日付の記録も含めた月まるごと。全体の予算の使った額と
+///   同じ）。支出の無いカテゴリにも、予算があれば ¥0 の進みを出す（予算を決めたカテゴリが行ごと消えると、予算が効いて
+///   いないように見えるため）。日割りの目安は全体の予算だけに出す。
 /// - 日割りの目安（今日までに使う額の目安）は、今月だけ出す。予算 × 1 日から今日までの日数 ÷ 月の日数（切り捨て）。
 ///   今日を含めるのは、予算の残りの日数（`BudgetStatus.remainingDays`）が今日を含めているのと合わせるため。
 public struct MonthlyReport: Sendable, Hashable {
@@ -49,6 +53,10 @@ public struct MonthlyReport: Sendable, Hashable {
     public let budget: BudgetStatus?
     /// 今日までの日割りの予算の目安。今月で、予算の進みを出すときだけ。
     public let budgetPace: Int?
+    /// カテゴリ別の予算の進み。予算を決めてあり、この月に当てはめる（上の決め事）カテゴリだけ。支出の無いカテゴリも入る。
+    ///
+    /// カテゴリ別の予算はプレミアムの機能だが、出すかどうか（無料に戻った人に出さない）はアプリが決める（ここでは数えるだけ）。
+    public let categoryBudgets: [EntryCategory: BudgetStatus]
 
     /// `anchor` を含む月のまとめを作る。
     ///
@@ -58,6 +66,8 @@ public struct MonthlyReport: Sendable, Hashable {
     ///   - now: 今日の日時。今月かどうか、平均の日数、予算の残りの日数の基準。
     ///   - budget: いまの月の全体の予算。nil か 0 以下なら予算なし。
     ///   - budgetDecidedAt: その予算を決めた日時（`BudgetPlan.decidedAt`）。この日時を含む月から後にだけ当てはめる。
+    ///   - categoryBudgets: カテゴリ別の予算と、それぞれを決めた日時（`BudgetPlan.categoryDecisions`）。全体の予算と同じく、
+    ///     決めた日時を含む月から後にだけ当てはめる。
     ///   - calendar: 月の区切りの暦（ホームと同じ、利用者が選んだ暦）。
     /// - Returns: 暦で月を区切れなければ nil。
     public init?<Records: Sequence>(
@@ -66,6 +76,7 @@ public struct MonthlyReport: Sendable, Hashable {
         now: Date,
         budget: Int? = nil,
         budgetDecidedAt: Date? = nil,
+        categoryBudgets: [EntryCategory: BudgetDecision] = [:],
         calendar: Calendar
     ) where Records.Element: LedgerRecord {
         guard let month = ReportPeriod.thisMonth.interval(now: anchor, calendar: calendar),
@@ -98,17 +109,32 @@ public struct MonthlyReport: Sendable, Hashable {
         self.expenseThroughToday = LedgerSummary(records: records, interval: throughToday, calendar: calendar).expense
         self.averagingDays = Self.averagingDays(summary: summary, throughToday: throughToday, timing: timing, calendar: calendar)
 
-        let applies = switch timing {
-        case .current: true
-        case .past: budgetDecidedAt.map { $0 < month.end } ?? false
-        case .future: false
-        }
-        let status = applies ? BudgetStatus(budget: budget, summary: summary, now: now, calendar: calendar) : nil
+        let status = Self.applies(decidedAt: budgetDecidedAt, to: month, timing: timing)
+            ? BudgetStatus(budget: budget, summary: summary, now: now, calendar: calendar) : nil
         self.budget = status
         self.budgetPace = if let status, timing == .current, summary.dayCount > 0 {
             status.budget * averagingDays / summary.dayCount
         } else {
             nil
+        }
+        var categoryStatuses: [EntryCategory: BudgetStatus] = [:]
+        for (category, decision) in categoryBudgets
+        where Self.applies(decidedAt: decision.decidedAt, to: month, timing: timing) {
+            // 額が 0 以下なら BudgetStatus が nil を返し、入れない（設定なし）。
+            categoryStatuses[category] = BudgetStatus(
+                budget: decision.amount, scope: .category(category), summary: summary, now: now, calendar: calendar
+            )
+        }
+        self.categoryBudgets = categoryStatuses
+    }
+
+    /// その日時に決めた予算を、この月に当てはめるか（上の決め事）。今月はいつも、過ぎた月は決めた日時がその月の終わりより
+    /// 前なら（決めた月も含む）、先の月は当てはめない。決めた日時が分からなければ今月だけ。
+    static func applies(decidedAt: Date?, to month: DateInterval, timing: Timing) -> Bool {
+        switch timing {
+        case .current: true
+        case .past: decidedAt.map { $0 < month.end } ?? false
+        case .future: false
         }
     }
 
@@ -148,6 +174,14 @@ public struct MonthlyReport: Sendable, Hashable {
     /// いない日の支出（払う予定の家賃など）を比べないため。予算は全体の予算だけなので、支出の合計で比べてよい。
     public var spentBeyondPace: Int? {
         budgetPace.map { expenseThroughToday - $0 }
+    }
+
+    /// カテゴリ別の予算の進みを出すカテゴリのうち、この月に支出の無いもの（カテゴリの定義順）。
+    ///
+    /// 内訳（`breakdown`）は支出のあるカテゴリだけの行なので、画面はこれを内訳の行の後ろに ¥0 の行として足す。並びを定義順に
+    /// 決めておくのは、辞書の並びに任せると開くたびに行の順が入れ替わるため（内訳と同じ理由）。
+    public var budgetedCategoriesWithoutExpense: [EntryCategory] {
+        EntryCategory.allCases.filter { categoryBudgets[$0] != nil && breakdown.item(for: $0) == nil }
     }
 
     /// 目安の日数: 終わった月はその月の日数、今月は 1 日から今日まで（今日を含む）、先の月は 0。
