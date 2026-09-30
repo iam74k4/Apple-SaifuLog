@@ -35,7 +35,7 @@
       }
     },
     "%@ オーバー" : {
-      "comment" : "ホームの上の帯。今月の予算を超えた額。%@ は「¥12,000」のような金額。注意の色とアイコンを添えて出す",
+      "comment" : "予算を超えた額（ホームの上の帯・月のまとめの予算の欄とカテゴリの行と、その VoiceOver の読み上げ）。%@ は「¥12,000」のような金額。注意の色とアイコンを添えて出す",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1445,13 +1445,13 @@
         }
       }
     },
-    "カテゴリごとにも上限を決められます。空欄のカテゴリは予算なしになります。使った額との比べの表示は近日対応です。" : {
+    "カテゴリごとにも上限を決められます。空欄のカテゴリは予算なしになります。使った額との比べは、月のまとめのカテゴリの行に出ます。" : {
       "comment" : "予算を決める画面のカテゴリ別の予算の説明（プレミアムの機能）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You can also set a limit for each category. Categories left blank have no budget. Comparing them with your spending is coming soon."
+            "value" : "You can also set a limit for each category. Categories left blank have no budget. The monthly summary shows your spending against each one in its category row."
           }
         }
       }
@@ -2019,7 +2019,7 @@
       }
     },
     "予算 %@" : {
-      "comment" : "ホームの上の帯（予算を超えたとき）と VoiceOver の読み上げ。%@ は「¥150,000」のような月の予算",
+      "comment" : "ホームの上の帯（予算を超えたとき）と VoiceOver の読み上げ、月のまとめのカテゴリの行の予算の VoiceOver の読み上げ。%@ は「¥150,000」のような予算",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2483,7 +2483,7 @@
       }
     },
     "使った額 %@" : {
-      "comment" : "ホームの上の帯の VoiceOver の読み上げ。今月の予算の対象の支出。%@ は「¥57,000」のような金額",
+      "comment" : "ホームの上の帯と、月のまとめのカテゴリの行の予算の VoiceOver の読み上げ。予算の対象の支出。%@ は「¥57,000」のような金額",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4601,6 +4601,17 @@
         }
       }
     },
+    "残り %@" : {
+      "comment" : "月のまとめのカテゴリの行の予算の進み（プレミアム）と、その VoiceOver の読み上げ。予算から使った額を引いた額。%@ は「¥27,700」のような金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ left"
+          }
+        }
+      }
+    },
     "準備しています…" : {
       "comment" : "声の入力を始めている間に、入力欄の代わりに出す文",
       "localizations" : {
@@ -5882,13 +5893,13 @@
         }
       }
     },
-    "食費・交通など、カテゴリごとにも月の予算を決められます。使った額との比べの表示は近日対応です。" : {
+    "食費・交通など、カテゴリごとにも月の予算を決められ、月のまとめで使った額と比べられます。" : {
       "comment" : "プレミアムのシート（⑨）。カテゴリ別の予算の行の補足",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Set monthly budgets for each category too, such as Food and Transport. Comparing them with your spending is coming soon."
+            "value" : "Set monthly budgets for each category too, such as Food and Transport, and compare them with your spending in the monthly summary."
           }
         }
       }

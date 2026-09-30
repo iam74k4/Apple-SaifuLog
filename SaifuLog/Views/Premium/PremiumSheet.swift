@@ -426,7 +426,7 @@ private struct PremiumFeatureRow: View {
 
     private var note: Text? {
         switch feature {
-        case .categoryBudget: Text("食費・交通など、カテゴリごとにも月の予算を決められます。使った額との比べの表示は近日対応です。")
+        case .categoryBudget: Text("食費・交通など、カテゴリごとにも月の予算を決められ、月のまとめで使った額と比べられます。")
         // AI の使えない端末では、プレミアムでも一言は付かない。買ってから気づくことが無いよう、ここで書いておく。
         case .recapAI: Text("先週のふりかえりと月のまとめに、端末内の AI が一言を添えます（Apple Intelligence に対応した iPhone のみ。数字はどちらもアプリが計算します）。")
         // 読み取った後に確かめてから記録すること、数えるのは記録したときだけであることを添える（無料の 5 回の数え方が分かるように）。

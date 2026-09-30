@@ -7,10 +7,12 @@ import Testing
 struct MonthlyReportTests {
     static func report(
         _ records: [TestRecord], month anchor: Date = Fixture.date(2026, 9, 1), now: Date = Fixture.now,
-        budget: Int? = nil, budgetDecidedAt: Date? = nil, calendar: Calendar = Fixture.calendar
+        budget: Int? = nil, budgetDecidedAt: Date? = nil, categoryBudgets: [EntryCategory: BudgetDecision] = [:],
+        calendar: Calendar = Fixture.calendar
     ) throws -> MonthlyReport {
         try #require(MonthlyReport(
-            records: records, month: anchor, now: now, budget: budget, budgetDecidedAt: budgetDecidedAt, calendar: calendar
+            records: records, month: anchor, now: now, budget: budget, budgetDecidedAt: budgetDecidedAt,
+            categoryBudgets: categoryBudgets, calendar: calendar
         ))
     }
 
@@ -283,6 +285,160 @@ struct MonthlyReportTests {
         #expect(report.dailyAverage == 0)
         #expect(report.budget == nil)
         #expect(report.budgetPace == nil)
+    }
+
+    // MARK: - カテゴリ別の予算
+
+    /// 9 月（今月）の記録: 食費 ¥38,500（うち 9/30 の先の日付 ¥2,000）、カフェ ¥6,200、交通 ¥1,200、食費の収入（返金）¥500。
+    static let categoryRecords = [
+        TestRecord(amount: 5_000, category: .food, spentAt: Fixture.date(2026, 8, 31, hour: 23, minute: 59)),
+        TestRecord(amount: 36_500, category: .food, spentAt: Fixture.date(2026, 9, 3)),
+        TestRecord(amount: 2_000, category: .food, spentAt: Fixture.date(2026, 9, 30, hour: 12)),
+        TestRecord(amount: 500, isIncome: true, category: .food, spentAt: Fixture.date(2026, 9, 5)),
+        TestRecord(amount: 6_200, category: .cafe, spentAt: Fixture.date(2026, 9, 10)),
+        TestRecord(amount: 1_200, category: .transport, spentAt: Fixture.date(2026, 9, 12)),
+    ]
+
+    /// 使った額はそのカテゴリの月まるごとの支出（先の日付の記録も含め、収入（返金）は差し引かない。全体の予算と同じ）。
+    @Test("カテゴリ別の予算の進みは、その月のそのカテゴリの支出で数え、超えたら超えた額を出す")
+    func categoryBudgetProgress() throws {
+        let decidedAt = Fixture.date(2026, 9, 1, hour: 9)
+        let report = try Self.report(Self.categoryRecords, categoryBudgets: [
+            .food: BudgetDecision(amount: 40_000, decidedAt: decidedAt),
+            .cafe: BudgetDecision(amount: 5_000, decidedAt: decidedAt),
+        ])
+
+        let food = try #require(report.categoryBudgets[.food])
+        #expect(food.budget == 40_000)
+        #expect(food.spent == 38_500)
+        #expect(food.remaining == 1_500)
+        #expect(!food.isOver)
+        #expect(food.spentFraction == 38_500.0 / 40_000.0)
+
+        let cafe = try #require(report.categoryBudgets[.cafe])
+        #expect(cafe.spent == 6_200)
+        #expect(cafe.isOver)
+        #expect(cafe.overspent == 1_200)
+        #expect(cafe.spentFraction == 1)
+
+        // 使った額は内訳の行の金額と同じ（行に並べて出すため）。
+        #expect(report.breakdown.item(for: .food)?.amount == food.spent)
+        #expect(report.breakdown.item(for: .cafe)?.amount == cafe.spent)
+        // カテゴリ別の予算は、全体の予算の進みと日割りの目安に効かない。
+        #expect(report.budget == nil)
+        #expect(report.budgetPace == nil)
+    }
+
+    @Test("ちょうど使い切ったカテゴリは超えていない（残り ¥0）")
+    func categoryBudgetExactlySpent() throws {
+        let report = try Self.report(Self.categoryRecords, categoryBudgets: [
+            .cafe: BudgetDecision(amount: 6_200, decidedAt: Fixture.date(2026, 9, 1)),
+        ])
+
+        let cafe = try #require(report.categoryBudgets[.cafe])
+        #expect(!cafe.isOver)
+        #expect(cafe.remaining == 0)
+        #expect(cafe.overspent == 0)
+    }
+
+    @Test("予算の無いカテゴリには進みを出さない（予算が 0 以下のカテゴリも）")
+    func categoriesWithoutBudget() throws {
+        let decidedAt = Fixture.date(2026, 9, 1)
+        let none = try Self.report(Self.categoryRecords)
+        #expect(none.categoryBudgets.isEmpty)
+        #expect(none.budgetedCategoriesWithoutExpense.isEmpty)
+
+        let report = try Self.report(Self.categoryRecords, categoryBudgets: [
+            .food: BudgetDecision(amount: 40_000, decidedAt: decidedAt),
+            .cafe: BudgetDecision(amount: 0, decidedAt: decidedAt),
+            .transport: BudgetDecision(amount: -1, decidedAt: decidedAt),
+        ])
+        #expect(Set(report.categoryBudgets.keys) == [.food])
+        #expect(report.categoryBudgets[.transport] == nil)
+        // 内訳の行は予算の有無にかかわらず同じ。
+        #expect(report.breakdown == none.breakdown)
+    }
+
+    /// 予算を決めたカテゴリが行ごと消えると、予算が効いていないように見える。支出の無いカテゴリも ¥0 の進みを出し、
+    /// 内訳の行の後ろに定義順で並べる。
+    @Test("支出の無いカテゴリも、予算があれば ¥0 の進みを出し、定義順に並べる（収入だけのカテゴリも支出は無い）")
+    func budgetedCategoriesWithoutExpense() throws {
+        let decidedAt = Fixture.date(2026, 9, 1)
+        let report = try Self.report(Self.categoryRecords + [
+            TestRecord(amount: 3_000, isIncome: true, category: .medical, spentAt: Fixture.date(2026, 9, 8)),
+        ], categoryBudgets: [
+            .medical: BudgetDecision(amount: 5_000, decidedAt: decidedAt),
+            .food: BudgetDecision(amount: 40_000, decidedAt: decidedAt),
+            .daily: BudgetDecision(amount: 8_000, decidedAt: decidedAt),
+        ])
+
+        #expect(report.budgetedCategoriesWithoutExpense == [.daily, .medical])
+        let daily = try #require(report.categoryBudgets[.daily])
+        #expect(daily.spent == 0)
+        #expect(daily.remaining == 8_000)
+        #expect(daily.spentFraction == 0)
+        #expect(report.categoryBudgets[.medical]?.spent == 0)
+    }
+
+    /// 全体の予算と同じ決まり: 決めた月（途中で決めても）から後の過ぎた月と今月にだけ、カテゴリごとに決めた日時で当てはめる。
+    @Test("過ぎた月には、そのカテゴリの予算を決めた月とそれより後の月にだけ進みを出す", arguments: [
+        (Fixture.date(2026, 7, 15), true),
+        (Fixture.date(2026, 8, 1), true),
+        (Fixture.date(2026, 8, 31, hour: 23, minute: 59), true),
+        (Fixture.date(2026, 9, 1), false),
+        (Fixture.date(2026, 9, 20), false),
+    ])
+    func categoryBudgetOfPastMonth(decidedAt: Date, applies: Bool) throws {
+        let records = [
+            TestRecord(amount: 45_000, category: .food, spentAt: Fixture.date(2026, 8, 20)),
+            TestRecord(amount: 3_000, category: .cafe, spentAt: Fixture.date(2026, 8, 21)),
+        ]
+
+        let report = try Self.report(records, month: Fixture.date(2026, 8, 1), categoryBudgets: [
+            .food: BudgetDecision(amount: 40_000, decidedAt: decidedAt),
+            // カフェは 7 月に決めていたので、8 月にも当てはめる（カテゴリごとに決めた日時で決める）。
+            .cafe: BudgetDecision(amount: 5_000, decidedAt: Fixture.date(2026, 7, 1)),
+        ])
+
+        #expect(report.timing == .past)
+        #expect((report.categoryBudgets[.food] != nil) == applies)
+        if applies {
+            #expect(report.categoryBudgets[.food]?.isOver == true)
+            #expect(report.categoryBudgets[.food]?.overspent == 5_000)
+        }
+        #expect(report.categoryBudgets[.cafe]?.remaining == 2_000)
+    }
+
+    @Test("決めた日時が分からなければ今月にだけ出し、先の月には出さない")
+    func categoryBudgetTiming() throws {
+        let unknown = [EntryCategory.food: BudgetDecision(amount: 40_000, decidedAt: nil)]
+        #expect(try Self.report(Self.categoryRecords, categoryBudgets: unknown).categoryBudgets[.food]?.spent == 38_500)
+        #expect(try Self.report(
+            Self.categoryRecords, month: Fixture.date(2026, 8, 1), categoryBudgets: unknown
+        ).categoryBudgets.isEmpty)
+
+        let future = try Self.report(
+            [TestRecord(amount: 80_000, category: .food, spentAt: Fixture.date(2026, 10, 1, hour: 9))],
+            month: Fixture.date(2026, 10, 15),
+            categoryBudgets: [.food: BudgetDecision(amount: 40_000, decidedAt: Fixture.date(2026, 9, 1))]
+        )
+        #expect(future.timing == .future)
+        #expect(future.categoryBudgets.isEmpty)
+        #expect(future.budgetedCategoriesWithoutExpense.isEmpty)
+    }
+
+    /// 全体の予算とカテゴリ別の予算は、それぞれ自分を決めた日時で当てはめる月を決める。
+    @Test("全体の予算とカテゴリ別の予算は、それぞれの決めた日時で当てはめる")
+    func totalAndCategoryDecidedSeparately() throws {
+        let records = [TestRecord(amount: 45_000, category: .food, spentAt: Fixture.date(2026, 8, 20))]
+
+        let report = try Self.report(
+            records, month: Fixture.date(2026, 8, 1), budget: 150_000, budgetDecidedAt: Fixture.date(2026, 9, 10),
+            categoryBudgets: [.food: BudgetDecision(amount: 40_000, decidedAt: Fixture.date(2026, 7, 1))]
+        )
+
+        #expect(report.budget == nil)
+        #expect(report.categoryBudgets[.food]?.overspent == 5_000)
     }
 
     // MARK: - 暦
