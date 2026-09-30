@@ -127,8 +127,8 @@ struct CategoryBreakdownTests {
             return Int(seed >> 40) % 50_000 + 1
         }
         for round in 0..<500 {
-            let count = round % EntryCategory.allCases.count + 1
-            let amounts = Dictionary(uniqueKeysWithValues: EntryCategory.allCases.prefix(count).map { ($0, next()) })
+            let count = round % EntryCategory.builtIns.count + 1
+            let amounts = Dictionary(uniqueKeysWithValues: EntryCategory.builtIns.prefix(count).map { ($0, next()) })
             let breakdown = Self.breakdown(amounts)
             let total = Double(amounts.values.reduce(0, +))
 

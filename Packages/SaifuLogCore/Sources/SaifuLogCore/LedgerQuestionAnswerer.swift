@@ -10,11 +10,17 @@ public struct QuestionLedger: Sendable, Hashable {
     public var budget: BudgetPlan
     /// いまの全体の予算をその額に決めた日時（`BudgetPlan.decidedAt`）。先月の予算の残りを出してよいかに使う。
     public var budgetDecidedAt: Date?
+    /// カテゴリの一覧。質問の文から作ったカテゴリの名前を読み、AI に渡す結果の文に名前を書くのに使う。
+    public var catalog: CategoryCatalog
 
-    public init(records: [LedgerRecordValue] = [], budget: BudgetPlan = BudgetPlan(), budgetDecidedAt: Date? = nil) {
+    public init(
+        records: [LedgerRecordValue] = [], budget: BudgetPlan = BudgetPlan(), budgetDecidedAt: Date? = nil,
+        catalog: CategoryCatalog = .builtIn
+    ) {
         self.records = records
         self.budget = budget
         self.budgetDecidedAt = budgetDecidedAt
+        self.catalog = catalog
     }
 
     /// 質問で答えうる期間（今日〜今年と、直近 N 日のいちばん長いもの）をすべて覆う範囲。終わりの時刻は含まない。

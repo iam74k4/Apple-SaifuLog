@@ -176,12 +176,14 @@ public struct MonthlyReport: Sendable, Hashable {
         budgetPace.map { expenseThroughToday - $0 }
     }
 
-    /// カテゴリ別の予算の進みを出すカテゴリのうち、この月に支出の無いもの（カテゴリの定義順）。
+    /// カテゴリ別の予算の進みを出すカテゴリのうち、この月に支出の無いもの（カテゴリの定義順。`EntryCategory.areInStandardOrder`）。
     ///
     /// 内訳（`breakdown`）は支出のあるカテゴリだけの行なので、画面はこれを内訳の行の後ろに ¥0 の行として足す。並びを定義順に
     /// 決めておくのは、辞書の並びに任せると開くたびに行の順が入れ替わるため（内訳と同じ理由）。
     public var budgetedCategoriesWithoutExpense: [EntryCategory] {
-        EntryCategory.allCases.filter { categoryBudgets[$0] != nil && breakdown.item(for: $0) == nil }
+        categoryBudgets.keys
+            .filter { breakdown.item(for: $0) == nil }
+            .sorted(by: EntryCategory.areInStandardOrder)
     }
 
     /// 目安の日数: 終わった月はその月の日数、今月は 1 日から今日まで（今日を含む）、先の月は 0。

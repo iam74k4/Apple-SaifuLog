@@ -33,7 +33,7 @@ struct BudgetPlanTests {
     func scopeRawValues() {
         #expect(BudgetScope.total.rawValue == "total")
         #expect(BudgetScope(rawValue: "total") == .total)
-        for category in EntryCategory.allCases {
+        for category in EntryCategory.builtIns {
             #expect(BudgetScope.category(category).rawValue == category.rawValue)
             #expect(BudgetScope(rawValue: category.rawValue) == .category(category))
         }
@@ -42,7 +42,7 @@ struct BudgetPlanTests {
     /// カテゴリの rawValue が "total" と重なると、そのカテゴリの予算が全体の予算として読まれてしまう。
     @Test("全体の rawValue はどのカテゴリの rawValue とも重ならない")
     func totalDoesNotCollideWithCategories() {
-        #expect(!EntryCategory.allCases.map(\.rawValue).contains(BudgetScope.totalRawValue))
+        #expect(!EntryCategory.builtIns.map(\.rawValue).contains(BudgetScope.totalRawValue))
     }
 
     @Test("知らない対象は読まない", arguments: ["", "Total", "rent", "食費"])

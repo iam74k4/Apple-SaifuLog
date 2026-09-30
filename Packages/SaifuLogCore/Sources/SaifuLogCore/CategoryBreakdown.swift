@@ -7,8 +7,8 @@ import Foundation
 ///
 /// 決め事:
 /// - 0 円（以下）のカテゴリは出さない。記録の無いカテゴリを 0% の行として並べても、読む手間が増えるだけのため。
-/// - 並びは金額の多い順。同じ額ならカテゴリの定義順（`EntryCategory.allCases` の順）。辞書の並びに任せると、
-///   開くたびに同じ額の行の順が入れ替わるため。
+/// - 並びは金額の多い順。同じ額ならカテゴリの定義順（`EntryCategory.areInStandardOrder`。組み込みの順、作ったカテゴリ、「その他」）。
+///   辞書の並びに任せると、開くたびに同じ額の行の順が入れ替わるため。
 /// - 割合は最大剰余法で整数の % に丸め、合計をちょうど 100 にする。1 つずつ四捨五入すると、33.3% が 3 つで
 ///   99%、16.7% が 6 つで 102% のように合計が 100 にならず、「計算が合っていない」と読まれるため。
 ///   端数の大きい行から 1 ずつ足し、端数が同じなら上の行（並びの順）から足す。
@@ -39,11 +39,10 @@ public struct CategoryBreakdown: Sendable, Hashable {
 
     /// カテゴリ別の合計から内訳を作る。
     public init(expenseByCategory: [EntryCategory: Int]) {
-        let order = Dictionary(uniqueKeysWithValues: EntryCategory.allCases.enumerated().map { ($1, $0) })
         let sorted = expenseByCategory
             .filter { $0.value > 0 }
             .sorted { a, b in
-                a.value != b.value ? a.value > b.value : order[a.key, default: 0] < order[b.key, default: 0]
+                a.value != b.value ? a.value > b.value : EntryCategory.areInStandardOrder(a.key, b.key)
             }
         let total = sorted.reduce(0) { $0 + $1.value }
         self.total = total

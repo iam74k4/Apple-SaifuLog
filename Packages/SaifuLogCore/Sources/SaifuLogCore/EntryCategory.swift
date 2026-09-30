@@ -1,13 +1,18 @@
 import Foundation
 
-/// 支出のカテゴリ（v1 は 8 種で固定）。
+/// 支出のカテゴリ。組み込みの 8 種と、利用者が作ったカテゴリ（`custom`。docs/design.md §8）。
 ///
 /// rawValue は保存に使うので、表示名を変えても rawValue は変えないこと。
-/// 変えると保存済みの記録がすべて「その他」に落ちる。
+/// 変えると保存済みの記録がすべて「その他」に落ちる。作ったカテゴリの rawValue は「custom:」と ID（`CategoryCatalog` の
+/// `CustomCategoryInfo.id`。UUID の小文字の文字列）で、名前は持たない（名前を変えても記録を書き換えずに済むように）。
+///
+/// 作ったカテゴリの名前・記号・色は、カテゴリの一覧（`CategoryCatalog`）から引く。この型だけで決まる表示名・記号・
+/// キーワードは組み込みのものだけで、作ったカテゴリには「その他」と同じものを返す（一覧を渡し忘れても落ちないように）。
+/// AI の選択肢とキーワード辞書は組み込みの 8 種だけ（`builtIns`）。
 ///
 /// 型名を `Category` にしないのは、Objective-C ランタイムの `Category` とぶつかり、
 /// Foundation や SwiftUI を import したアプリ側で「ambiguous for type lookup」になるため。
-public enum EntryCategory: String, CaseIterable, Codable, Sendable, Identifiable {
+public enum EntryCategory: Hashable, Sendable, Identifiable {
     case food
     case daily
     case transport
@@ -16,10 +21,48 @@ public enum EntryCategory: String, CaseIterable, Codable, Sendable, Identifiable
     case utilities
     case medical
     case other
+    /// 利用者が作ったカテゴリ。値は ID（`CustomCategoryInfo.id`）。
+    case custom(String)
+
+    /// 組み込みのカテゴリ（定義の順。「その他」が最後）。AI の選択肢・キーワード辞書・並びの基準に使う。
+    public static let builtIns: [EntryCategory] = [
+        .food, .daily, .transport, .cafe, .entertainment, .utilities, .medical, .other,
+    ]
+
+    /// 作ったカテゴリの rawValue の頭。
+    public static let customPrefix = "custom:"
 
     public var id: String { rawValue }
 
-    /// 日本語の表示名。AI への指示とルールベース解析でもこの名前を使う。
+    /// 利用者が作ったカテゴリか。
+    public var isCustom: Bool {
+        customID != nil
+    }
+
+    /// 作ったカテゴリの ID。組み込みのカテゴリは nil。
+    public var customID: String? {
+        if case .custom(let id) = self { return id }
+        return nil
+    }
+
+    /// 並びの基準（組み込みは定義の順、作ったカテゴリは「その他」の前に ID の順）。同じ額の行の順を、開くたびに変えないために使う
+    /// （`CategoryBreakdown`）。画面の並びは、利用者が決めた順（`CategoryCatalog.all`）にする。
+    public static func areInStandardOrder(_ lhs: EntryCategory, _ rhs: EntryCategory) -> Bool {
+        let left = lhs.standardRank
+        let right = rhs.standardRank
+        if left.rank != right.rank { return left.rank < right.rank }
+        return left.id < right.id
+    }
+
+    private var standardRank: (rank: Int, id: String) {
+        switch self {
+        case .custom(let id): (EntryCategory.builtIns.count - 1, id)
+        case .other: (EntryCategory.builtIns.count, "")
+        default: (EntryCategory.builtIns.firstIndex(of: self) ?? 0, "")
+        }
+    }
+
+    /// 日本語の表示名。AI への指示とルールベース解析でもこの名前を使う。作ったカテゴリは「その他」（名前は `CategoryCatalog` から引く）。
     public var displayName: String {
         switch self {
         case .food: "食費"
@@ -29,11 +72,11 @@ public enum EntryCategory: String, CaseIterable, Codable, Sendable, Identifiable
         case .entertainment: "娯楽"
         case .utilities: "光熱・通信"
         case .medical: "医療"
-        case .other: "その他"
+        case .other, .custom: "その他"
         }
     }
 
-    /// SF Symbols の名前。
+    /// SF Symbols の名前。作ったカテゴリは「その他」と同じ（記号は `CategoryCatalog` から引く）。
     public var symbolName: String {
         switch self {
         case .food: "fork.knife"
@@ -43,16 +86,19 @@ public enum EntryCategory: String, CaseIterable, Codable, Sendable, Identifiable
         case .entertainment: "ticket"
         case .utilities: "bolt"
         case .medical: "cross.case"
-        case .other: "tag"
+        case .other, .custom: "tag"
         }
     }
 
     /// ルールベース解析で使うキーワード。ひらがなはカタカナに寄せて照合するので、どちらで書いてもよい。
+    /// 作ったカテゴリには無い（作ったカテゴリには、文の中の名前と修正の記憶で当てる。`CategoryMemory`）。
     ///
     /// 1 文字の語は他の語の一部に当たりやすい（「本」は「日本」「2本」にも当たる）ため、
     /// 誤爆しにくいものだけにしている。
     public var keywords: [String] {
         switch self {
+        case .custom:
+            []
         case .food:
             [
                 "食費", "ランチ", "昼食", "昼ごはん", "昼飯", "朝食", "朝ごはん", "夕食", "夕飯", "晩ごはん",
@@ -99,9 +145,9 @@ public enum EntryCategory: String, CaseIterable, Codable, Sendable, Identifiable
         }
     }
 
-    /// 表示名から引く（AI の出力をカテゴリに戻すときに使う）。
+    /// 組み込みのカテゴリの表示名から引く（AI の出力をカテゴリに戻すときに使う）。
     public init?(displayName: String) {
-        guard let match = Self.allCases.first(where: { $0.displayName == displayName }) else { return nil }
+        guard let match = Self.builtIns.first(where: { $0.displayName == displayName }) else { return nil }
         self = match
     }
 
@@ -126,7 +172,7 @@ public enum EntryCategory: String, CaseIterable, Codable, Sendable, Identifiable
     private static func bestMatch(in text: String, includingDisplayNames: Bool) -> EntryCategory? {
         let haystack = KeywordMatcher.fold(text)
         var best: (category: EntryCategory, length: Int, position: Int)?
-        for category in allCases {
+        for category in builtIns {
             for keyword in category.keywords + (includingDisplayNames ? [category.displayName] : []) {
                 let needle = KeywordMatcher.fold(keyword)
                 guard let range = haystack.range(of: needle) else { continue }
@@ -140,5 +186,57 @@ public enum EntryCategory: String, CaseIterable, Codable, Sendable, Identifiable
             }
         }
         return best?.category
+    }
+}
+
+extension EntryCategory: RawRepresentable {
+    /// 保存した値から戻す。知らない値（空の ID の作ったカテゴリを含む）は nil。
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "food": self = .food
+        case "daily": self = .daily
+        case "transport": self = .transport
+        case "cafe": self = .cafe
+        case "entertainment": self = .entertainment
+        case "utilities": self = .utilities
+        case "medical": self = .medical
+        case "other": self = .other
+        default:
+            guard rawValue.hasPrefix(Self.customPrefix) else { return nil }
+            let id = String(rawValue.dropFirst(Self.customPrefix.count))
+            guard !id.isEmpty else { return nil }
+            self = .custom(id)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .food: "food"
+        case .daily: "daily"
+        case .transport: "transport"
+        case .cafe: "cafe"
+        case .entertainment: "entertainment"
+        case .utilities: "utilities"
+        case .medical: "medical"
+        case .other: "other"
+        case .custom(let id): Self.customPrefix + id
+        }
+    }
+}
+
+extension EntryCategory: Codable {
+    /// rawValue の文字列で書く（組み込みのカテゴリは、列挙型の rawValue で書いていたときと同じ形）。
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        guard let category = EntryCategory(rawValue: rawValue) else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "知らないカテゴリ: \(rawValue)")
+        }
+        self = category
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
