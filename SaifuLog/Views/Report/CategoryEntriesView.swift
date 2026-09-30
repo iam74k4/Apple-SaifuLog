@@ -31,6 +31,8 @@ struct CategoryEntriesView<Model: CategoryEntriesSource>: View {
     @Bindable var model: Model
     let category: EntryCategory
 
+    @Environment(\.categoryCatalog) private var catalog
+
     var body: some View {
         let entries = model.entries(in: category)
         ScrollView {
@@ -60,7 +62,7 @@ struct CategoryEntriesView<Model: CategoryEntriesSource>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Theme.background)
-        .navigationTitle(Text(category.label))
+        .navigationTitle(catalog.label(for: category))
         .navigationBarTitleDisplayMode(.inline)
         // item で出す（閉じる間も中身を保つ。ホームの「直す」と同じ）。閉じると editing は nil に戻る。
         .sheet(item: $model.editing) { editing in
@@ -102,6 +104,8 @@ private struct CategoryEntryRow: View {
     let calendar: Calendar
     let edit: () -> Void
 
+    @Environment(\.categoryCatalog) private var catalog
+
     var body: some View {
         Button(action: edit) {
             ViewThatFits(in: .horizontal) {
@@ -128,7 +132,7 @@ private struct CategoryEntryRow: View {
         VStack(alignment: .leading, spacing: 2) {
             // 品目が無ければカテゴリ名（吹き出しの見出しと同じ）。
             if entry.memo.isEmpty {
-                Text(entry.category.label)
+                catalog.label(for: entry.category)
             } else {
                 Text(verbatim: entry.memo)
             }

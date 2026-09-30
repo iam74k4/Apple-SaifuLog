@@ -89,7 +89,7 @@ struct GeneratedEntry {
     @Guide(description: "入力に書かれている金額の部分を、書かれた文字のまま抜き出す。書かれていない単位や桁は足さない。計算や換算はしない")
     var amountText: String
 
-    @Guide(description: "支出のカテゴリ。収入のときは その他", .anyOf(EntryCategory.allCases.map(\.displayName)))
+    @Guide(description: "支出のカテゴリ。収入のときは その他", .anyOf(EntryCategory.builtIns.map(\.displayName)))
     var category: String
 
     @Guide(description: "給料・賞与などお金を受け取った記録なら true、お金を払った記録なら false")

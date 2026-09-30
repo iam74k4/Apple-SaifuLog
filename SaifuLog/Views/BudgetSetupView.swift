@@ -113,7 +113,7 @@ struct BudgetSetupView: View {
                 .font(.footnote)
                 .foregroundStyle(Theme.inkSecondary)
             VStack(spacing: 0) {
-                ForEach(EntryCategory.allCases) { category in
+                ForEach(model.categories) { category in
                     CategoryBudgetRow(
                         category: category,
                         text: categoryBinding(category),
@@ -121,7 +121,7 @@ struct BudgetSetupView: View {
                         field: .category(category)
                     )
                     .onChange(of: model.categoryTexts[category]) { model.normalizeCategoryText(category) }
-                    if category != EntryCategory.allCases.last {
+                    if category != model.categories.last {
                         Divider()
                     }
                 }
@@ -223,6 +223,7 @@ private struct CategoryBudgetRow<Field: Hashable>: View {
     var focus: FocusState<Field?>.Binding
     let field: Field
 
+    @Environment(\.categoryCatalog) private var catalog
     @ScaledMetric(relativeTo: .body) private var iconSize = 24
 
     var body: some View {
@@ -244,15 +245,15 @@ private struct CategoryBudgetRow<Field: Hashable>: View {
 
     private var name: some View {
         HStack(spacing: 8) {
-            Image(systemName: category.symbolName)
+            Image(systemName: catalog.symbolName(for: category))
                 .font(.system(size: iconSize * 0.5, weight: .semibold))
                 .foregroundStyle(Theme.onCategory)
                 .frame(width: iconSize, height: iconSize)
-                .background(Theme.color(for: category), in: .circle)
+                .background(catalog.color(for: category), in: .circle)
                 // 丸はダークでもライトの色で塗る（EntryBubble と同じ理由）。
                 .environment(\.colorScheme, .light)
                 .accessibilityHidden(true)
-            Text(category.label)
+            catalog.label(for: category)
                 .accessibilityHidden(true)
         }
     }
@@ -263,7 +264,7 @@ private struct CategoryBudgetRow<Field: Hashable>: View {
                 .foregroundStyle(Theme.inkSecondary)
                 .accessibilityHidden(true)
             TextField(text: $text, prompt: Text("予算なし").foregroundStyle(Theme.inkSecondary)) {
-                Text(category.label)
+                catalog.label(for: category)
             }
             .keyboardType(.numberPad)
             .multilineTextAlignment(.trailing)

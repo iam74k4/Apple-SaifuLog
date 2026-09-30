@@ -70,10 +70,17 @@ struct ThemeContrastTests {
 
     /// カテゴリの丸（ライトの色で塗る）に白い記号を載せたときに 4:1 以上。アイコンの基準の 3:1 より
     /// 余裕を持たせ、小さい記号でも見分けられるようにしている。
-    @Test(arguments: EntryCategory.allCases)
+    @Test(arguments: EntryCategory.builtIns)
     func whiteSymbolOnCategory(category: EntryCategory) {
         let ratio = Self.contrastRatio(Palette.onCategory.light, Palette.category(category).light)
         #expect(ratio >= 4, "\(category) が \(ratio):1")
+    }
+
+    /// 作ったカテゴリに選べる色も、組み込みのカテゴリと同じ基準（白い記号で 4:1 以上）。
+    @Test(arguments: Palette.customCategoryChoices.indices)
+    func whiteSymbolOnCustomCategory(index: Int) {
+        let ratio = Self.contrastRatio(Palette.onCategory.light, Palette.customCategoryChoices[index].light)
+        #expect(ratio >= 4, "\(index) 番の色が \(ratio):1")
     }
 
     /// 収入の丸（記録の吹き出しの右の印）も同じ基準。
@@ -82,13 +89,38 @@ struct ThemeContrastTests {
     }
 
     /// カテゴリの色を地の上に図形（グラフの棒など）として置いたときに 3:1 以上。ダークの値は文字にも使うので 4.5:1 以上。
-    @Test(arguments: EntryCategory.allCases)
+    @Test(arguments: EntryCategory.builtIns)
     func categoryOnBackground(category: EntryCategory) {
         let pair = Palette.category(category)
         for background in [Palette.background, Palette.surface] {
             #expect(Self.contrastRatio(pair.light, background.light) >= 3, "\(category)（ライト）")
             #expect(Self.contrastRatio(pair.dark, background.dark) >= 4.5, "\(category)（ダーク）")
         }
+    }
+
+    /// 作ったカテゴリに選べる色も、地の上で組み込みのカテゴリと同じ基準。
+    @Test(arguments: Palette.customCategoryChoices.indices)
+    func customCategoryOnBackground(index: Int) {
+        let pair = Palette.customCategoryChoices[index]
+        for background in [Palette.background, Palette.surface] {
+            #expect(Self.contrastRatio(pair.light, background.light) >= 3, "\(index) 番の色（ライト）")
+            #expect(Self.contrastRatio(pair.dark, background.dark) >= 4.5, "\(index) 番の色（ダーク）")
+        }
+    }
+
+    /// 作ったカテゴリは選んだ色で塗り、一覧に無い（ほかの端末で消した）カテゴリと範囲の外の色の番号は、決めた色に落ちる。
+    @Test func customCategoryColorsFollowCatalog() {
+        let catalog = CategoryCatalog(customs: [
+            CustomCategoryInfo(id: "a", name: "衣服", symbolName: "tshirt", colorIndex: 3),
+            CustomCategoryInfo(id: "b", name: "住居", symbolName: "house", colorIndex: 99),
+        ])
+
+        #expect(catalog.colorPair(for: .custom("a")) == Palette.customCategoryChoices[3])
+        #expect(catalog.colorPair(for: .custom("b")) == Palette.customCategoryChoices[0])
+        #expect(catalog.colorPair(for: .custom("gone")) == Palette.category(.other))
+        #expect(catalog.colorPair(for: .food) == Palette.category(.food))
+        #expect(catalog.symbolName(for: .custom("a")) == "tshirt")
+        #expect(catalog.symbolName(for: .custom("gone")) == EntryCategory.other.symbolName)
     }
 
     /// 画面が使う色（Theme）が、検査している値（Palette）と同じ色になるか。
@@ -106,7 +138,8 @@ struct ThemeContrastTests {
             ("track", Theme.track, Palette.track),
             ("income", Theme.income, Palette.income),
             ("onCategory", Theme.onCategory, Palette.onCategory),
-        ] + EntryCategory.allCases.map { ("\($0)", Theme.color(for: $0), Palette.category($0)) }
+        ] + EntryCategory.builtIns.map { ("\($0)", Theme.color(for: $0), Palette.category($0)) }
+            + Palette.customCategoryChoices.indices.map { ("custom \($0)", Palette.customCategory($0).color, Palette.customCategoryChoices[$0]) }
 
         for (name, color, pair) in tokens {
             let resolved = UIColor(color).resolvedColor(with: mode.traits)

@@ -136,6 +136,8 @@ struct RecordedReplyCard: View {
     let requestDelete: (Entry) -> Void
     /// 聞き返したカテゴリを選ぶ（「その他のまま」は `.other`）。
     var chooseCategory: (Entry, EntryCategory) -> Void = { _, _ in }
+    /// 聞き返した記録のために、カテゴリを作る画面を開く（作ったらその記録のカテゴリにする）。
+    var createCategory: (Entry) -> Void = { _ in }
 
     @Environment(\.calendar) private var calendar
 
@@ -174,7 +176,7 @@ struct RecordedReplyCard: View {
         if askingCategory.contains(entry.persistentModelID) {
             LeadingStack(spacing: 10) {
                 recorded
-                CategoryQuestionView(entry: entry, choose: { chooseCategory(entry, $0) })
+                CategoryQuestionView(entry: entry, choose: { chooseCategory(entry, $0) }, create: { createCategory(entry) })
             }
         } else {
             recorded
@@ -190,6 +192,10 @@ struct RecordedReplyCard: View {
 struct CategoryQuestionView: View {
     let entry: Entry
     let choose: (EntryCategory) -> Void
+    /// カテゴリを作る画面を開く（「＋ カテゴリを作る」。作れる数に届いていれば出さない）。
+    var create: (() -> Void)?
+
+    @Environment(\.categoryCatalog) private var catalog
 
     /// 覚える品目（割り勘などの説明を除いたメモ）。品目の無い記録（金額だけ）は覚えられないので、覚えることは書かない。
     private var item: String {
@@ -203,10 +209,14 @@ struct CategoryQuestionView: View {
                 .foregroundStyle(Theme.ink)
             ScrollView(.horizontal) {
                 HStack(spacing: 8) {
-                    ForEach(EntryCategory.allCases.filter { $0 != .other }) { category in
-                        chip(category: category, label: Text(category.label))
+                    ForEach(catalog.all.filter { $0 != .other }) { category in
+                        chip(category: category, label: catalog.label(for: category))
                     }
                     chip(category: .other, label: Text("その他のまま"))
+                    // デザイン案の「＋ 衣服を作る」。当てはまるカテゴリが無いときに、その場で作れるようにする。
+                    if let create, catalog.customs.count < CategoryCatalog.maximumCustomCount {
+                        createChip(create)
+                    }
                 }
             }
             .scrollIndicators(.hidden)
@@ -230,7 +240,7 @@ struct CategoryQuestionView: View {
         } label: {
             HStack(spacing: 6) {
                 Circle()
-                    .fill(Theme.color(for: category))
+                    .fill(catalog.color(for: category))
                     .frame(width: 8, height: 8)
                     .accessibilityHidden(true)
                 label
@@ -251,6 +261,32 @@ struct CategoryQuestionView: View {
         }
         .buttonStyle(.plain)
         .accessibilityHint(category == .other ? Text("この記録をその他のままにします") : Text("この記録のカテゴリにします"))
+    }
+
+    /// 「＋ カテゴリを作る」。ほかのボタンと形をそろえ、文字は強調の色にする（押すと画面が開くことを見分けられるように）。
+    private func createChip(_ create: @escaping () -> Void) -> some View {
+        Button(action: create) {
+            Label {
+                Text("カテゴリを作る")
+            } icon: {
+                Image(systemName: "plus")
+                    .font(.footnote.weight(.semibold))
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Theme.accentText)
+            .lineLimit(1)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 36)
+            .background {
+                Capsule()
+                    .fill(Theme.background)
+                    .stroke(Theme.track, lineWidth: 1)
+            }
+            .padding(.vertical, 4)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("新しいカテゴリを作って、この記録のカテゴリにします")
     }
 }
 
@@ -346,6 +382,7 @@ struct RecordedReplyRow: View {
     @Environment(\.calendar) private var calendar
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.categoryCatalog) private var catalog
     @ScaledMetric(relativeTo: .body) private var tileSize = 36
 
     private var showsTile: Bool {
@@ -415,11 +452,11 @@ struct RecordedReplyRow: View {
 
     private func content(title: String) -> some View {
         // 品目が無いときは見出しが種別なので、下の行に種別は繰り返さない（同じ語が 2 回出て、VoiceOver でも 2 回読まれるため）。
-        let kind = title.isEmpty ? nil : entry.kindText
+        let kind = title.isEmpty ? nil : entry.kindText(in: catalog)
         let date = dateText
         return LeadingStack(spacing: 2) {
             SplitRowLayout(spacing: 8, stackedSpacing: 2, alwaysStacks: title.contains(where: \.isNewline)) {
-                Text(verbatim: title.isEmpty ? entry.kindText : title)
+                Text(verbatim: title.isEmpty ? entry.kindText(in: catalog) : title)
                     .font(.body.weight(.semibold))
                     .foregroundStyle(Theme.ink)
                 Text(verbatim: amountText)
@@ -469,11 +506,13 @@ struct RecordedReplyRow: View {
 
     /// カテゴリの印（収入は円の印）。ダークでもライトの色（濃い色）で塗る（白い記号を読めるように。`Palette.category`）。
     private var tile: some View {
-        Image(systemName: entry.isIncome ? "yensign" : entry.category.symbolName)
+        Image(systemName: entry.isIncome ? "yensign" : catalog.symbolName(for: entry.category))
             .font(.system(size: tileSize * 0.45, weight: .semibold))
             .foregroundStyle(Theme.onCategory)
             .frame(width: tileSize, height: tileSize)
-            .background(entry.isIncome ? Theme.income : Theme.color(for: entry.category), in: .rect(cornerRadius: tileSize * 0.28))
+            .background(
+                entry.isIncome ? Theme.income : catalog.color(for: entry.category), in: .rect(cornerRadius: tileSize * 0.28)
+            )
             .environment(\.colorScheme, .light)
             .accessibilityHidden(true)
     }

@@ -66,7 +66,9 @@ struct LedgerExporter: Sendable {
         let records = LedgerCSVWriter.records(try context.fetch(descriptor), in: period, now: now, calendar: calendar)
         try Task.checkCancellation()
         guard !records.isEmpty else { return .empty }
-        let data = LedgerCSVWriter.data(records, language: language, timeZone: calendar.timeZone)
+        // 作ったカテゴリの名前で書く（読めなければ、組み込みのカテゴリの名前と「その他」で書く）。
+        let catalog = (try? context.fetch(FetchDescriptor<CustomCategory>())).map(CategoryCatalog.init(rows:)) ?? .builtIn
+        let data = LedgerCSVWriter.data(records, language: language, timeZone: calendar.timeZone, catalog: catalog)
         try Task.checkCancellation()
 
         let folder = directory.appending(path: UUID().uuidString, directoryHint: .isDirectory)

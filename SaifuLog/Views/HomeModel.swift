@@ -79,6 +79,8 @@ final class HomeModel {
     var budgetSetup: BudgetSetupModel?
     /// 「直す」のシートで直している記録の状態と操作。シートを出していなければ nil（シートを閉じると画面が nil に戻す）。
     var editing: EditEntryModel?
+    /// 返事の聞き返しから開いた「カテゴリを作る」のシート。出していなければ nil（閉じると画面が nil に戻す）。
+    var categoryEditor: CategoryEditorModel?
     /// 「月のまとめ」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
     var monthlyReport: MonthlyReportModel?
     /// 「設定」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
@@ -93,6 +95,8 @@ final class HomeModel {
     let purchases: PurchaseManager
     /// 家計の共有（アプリで 1 つ）。無ければ（テスト・家計の共有が無効なビルド）「自分／家族」の切り替えを出さない。
     let household: HouseholdHost?
+    /// いまのカテゴリの一覧（組み込みと作ったカテゴリ）。画面へは環境で渡し、記録に作ったカテゴリの名前を当てるのに使う。
+    let categories: CategoryCatalogModel
     /// 今日。「今月」の範囲と、日付に年を添えるかの基準にする。
     ///
     /// 描画のたびに `.now` を読むだけだと、アプリを開いたまま（または裏に置いたまま）月をまたいだとき、
@@ -149,6 +153,7 @@ final class HomeModel {
     /// - Parameters:
     ///   - budgetStore: 予算の読み書き。渡さなければ記録と同じ保存先（`store` の ModelContext）を使う。
     ///   - learnedCategories: 覚えたカテゴリの読み書き（修正の記憶）。渡さなければ記録と同じ保存先を使う。
+    ///   - categories: カテゴリの一覧（作ったカテゴリ）。渡さなければ記録と同じ保存先から読む。
     ///   - pendingWrites: 解析を待ってから記録する処理を数える先（`StoreHost.pendingWrites`）。保存先を開き直すとき、
     ///     記録し終えるのを待ってもらうため。
     ///   - purchases: プレミアムの購入と状態。アプリは `SaifuLogApp` の 1 つを渡す。渡さなければ購入の無い状態（テスト用）。
@@ -170,6 +175,7 @@ final class HomeModel {
         store: EntryStore,
         budgetStore: BudgetStore? = nil,
         learnedCategories: LearnedCategoryStore? = nil,
+        categories: CategoryCatalogModel? = nil,
         pendingWrites: PendingStoreWrites = PendingStoreWrites(),
         purchases: PurchaseManager? = nil,
         storeHost: StoreHost? = nil,
@@ -188,6 +194,7 @@ final class HomeModel {
         self.store = store
         self.budgetStore = budgetStore ?? BudgetStore(context: store.context)
         self.learnedCategories = learnedCategories ?? LearnedCategoryStore(context: store.context, now: now)
+        self.categories = categories ?? CategoryCatalogModel(store: CustomCategoryStore(context: store.context, now: now))
         self.pendingWrites = pendingWrites
         self.storeHost = storeHost
         self.household = household
@@ -220,7 +227,8 @@ final class HomeModel {
     /// ホームの上にほかの画面・シート・確認を出しているか。出している間は、体験の終わりの案内を重ねず、声の入力を止める
     /// （見えない入力欄に向けて聞き続けないように）。
     var isPresentingOtherScreen: Bool {
-        budgetSetup != nil || editing != nil || monthlyReport != nil || settings != nil || premiumSheet != nil
+        budgetSetup != nil || editing != nil || categoryEditor != nil || monthlyReport != nil || settings != nil
+            || premiumSheet != nil
             || weeklyRecapDetail != nil || receiptResult != nil || receiptCapture != nil || showsReceiptSourceChoice
     }
 
@@ -234,7 +242,9 @@ final class HomeModel {
         if isHouseholdActive {
             justRecordedHousehold.map { RecordedItem(id: AnyHashable($0.id), summaryText: $0.summaryText) }
         } else {
-            justRecorded.map { RecordedItem(id: AnyHashable($0.persistentModelID), summaryText: $0.summaryText) }
+            justRecorded.map {
+                RecordedItem(id: AnyHashable($0.persistentModelID), summaryText: $0.summaryText(in: categories.catalog))
+            }
         }
     }
 
@@ -284,7 +294,7 @@ final class HomeModel {
         if isHouseholdActive {
             return sendToHousehold(text, source: source, sentAt: sentAt, calendar: calendar)
         }
-        switch InputIntentClassifier.classify(text, now: sentAt, calendar: calendar) {
+        switch InputIntentClassifier.classify(text, now: sentAt, calendar: calendar, catalog: categories.catalog) {
         case .record:
             return record(text, source: source, sentAt: sentAt, calendar: calendar)
         case .question:
@@ -319,10 +329,13 @@ final class HomeModel {
                 showsNoAmountAlert = true
                 return
             }
-            // 覚えたカテゴリを、AI と辞書のどちらで読んだ記録にも当てる（修正の記憶）。覚えを読めなくても記録は止めない。
+            // 作ったカテゴリの名前と覚えたカテゴリを、AI と辞書のどちらで読んだ記録にも当てる（修正の記憶）。覚えを読めなくても
+            // 記録は止めない。
+            let catalog = categories.catalog
             let memory = (try? learnedCategories.memory()) ?? CategoryMemory()
             let recorded = Entry.records(
-                from: memory.applying(to: parsed), originalText: text, source: source, now: sentAt, calendar: calendar
+                from: memory.applying(to: parsed, catalog: catalog), originalText: text, source: source, now: sentAt,
+                calendar: calendar
             )
             do {
                 try store.insert(recorded)
@@ -335,7 +348,9 @@ final class HomeModel {
             justRecorded = recorded
             categoryQuestionIDs = Set(
                 recorded.filter {
-                    memory.asksCategory(memo: $0.memo, amount: $0.amount, category: $0.category, isIncome: $0.isIncome)
+                    memory.asksCategory(
+                        memo: $0.memo, amount: $0.amount, category: $0.category, isIncome: $0.isIncome, catalog: catalog
+                    )
                 }
                 .map(\.persistentModelID)
             )
@@ -349,7 +364,7 @@ final class HomeModel {
     /// 「家族」のときの送信。記録なら家計の記録として保存する。質問と、記録か質問か分からない文は、家計には記録せず、送った文を
     /// 入力欄に戻して知らせる（家計への質問は v1 では出さない。答えを自分の記録で出すと、家族の記録の答えと取り違えるため）。
     private func sendToHousehold(_ text: String, source: EntrySource, sentAt: Date, calendar: Calendar) -> Task<Void, Never> {
-        switch InputIntentClassifier.classify(text, now: sentAt, calendar: calendar) {
+        switch InputIntentClassifier.classify(text, now: sentAt, calendar: calendar, catalog: categories.catalog) {
         case .record:
             return recordToHousehold(text, source: source, sentAt: sentAt, calendar: calendar)
         case .question:
@@ -386,9 +401,15 @@ final class HomeModel {
             }
             let recorded: [HouseholdEntry]
             do {
-                // 覚えたカテゴリは家計の記録にも当てる（書いた人の言葉の覚えなので）。聞き返しは「自分」の返事だけ。
+                // 覚えたカテゴリは家計の記録にも当てる（書いた人の言葉の覚えなので）。聞き返しは「自分」の返事だけ。作ったカテゴリは
+                // 自分の一覧にしかなく、家族の端末では名前が分からないので、家計の記録では「その他」にする。
                 let memory = (try? learnedCategories.memory()) ?? CategoryMemory()
-                recorded = try household.record(memory.applying(to: parsed), sentAt: sentAt, calendar: calendar)
+                let entries = memory.applying(to: parsed, catalog: categories.catalog).map { entry in
+                    var shared = entry
+                    if shared.category.isCustom { shared.category = .other }
+                    return shared
+                }
+                recorded = try household.record(entries, sentAt: sentAt, calendar: calendar)
             } catch {
                 restoreDraft(text, source: source)
                 storeFailure = .record
@@ -448,7 +469,10 @@ final class HomeModel {
                 setQuestionState(.answered(answer, remark: remark, freeQuestionsLeft: freeQuestionsLeft), for: id)
                 // 画面にカードが出るだけでは VoiceOver の利用者に伝わらないので、答えを読み上げる。残りの回数が少ないときの
                 // 知らせも、カードの小さな行だけでは気づけないので一緒に読む。
-                announce(QuestionTexts.spoken(answer, remark: remark, freeQuestionsLeft: freeQuestionsLeft, calendar: calendar))
+                announce(QuestionTexts.spoken(
+                    answer, remark: remark, freeQuestionsLeft: freeQuestionsLeft, calendar: calendar,
+                    catalog: categories.catalog
+                ))
             case .unreadable:
                 setQuestionState(.unreadable, for: id)
                 // 書き直して送り直せるよう、送った文を入力欄に戻す（記録の「金額が見つかりませんでした」と同じ）。
@@ -511,8 +535,8 @@ final class HomeModel {
     /// 今日かどうかは、記録の日付を決めたのと同じ送った瞬間（`today`）で見る。
     private func announceRecorded(_ recorded: [Entry], today: Date, calendar: Calendar, asksCategory: Bool = false) {
         announceRecorded(
-            recorded.map { (kind: $0.kindText, amount: $0.amount, spentAt: $0.spentAt) }, toHousehold: false,
-            today: today, calendar: calendar, asksCategory: asksCategory
+            recorded.map { (kind: $0.kindText(in: categories.catalog), amount: $0.amount, spentAt: $0.spentAt) },
+            toHousehold: false, today: today, calendar: calendar, asksCategory: asksCategory
         )
     }
 
@@ -630,7 +654,8 @@ final class HomeModel {
             firstSkippedPage: skippedPageCount > 0 ? DocumentCameraView.maximumPages + 1 : nil,
             announce: announce,
             record: { [weak self] submission in self?.recordReceipt(submission, calendar: calendar) ?? .failed },
-            retake: { [weak self] in self?.retakeReceipt(source) }
+            retake: { [weak self] in self?.retakeReceipt(source) },
+            catalog: { [weak self] in self?.categories.catalog ?? .builtIn }
         )
         receiptResult = result
         let reader = receiptReader
@@ -709,7 +734,7 @@ final class HomeModel {
         let targets = justRecorded
         guard !targets.isEmpty else { return }
         // 消した記録の値は、保存した後には読めない。読み上げと入力欄に戻す文は先に取っておく。
-        let items = targets.map { "\($0.kindText) \(YenFormatter.string(from: $0.amount))" }
+        let items = targets.map { "\($0.kindText(in: categories.catalog)) \(YenFormatter.string(from: $0.amount))" }
         let originalText = targets.first?.originalText ?? ""
         let isReceipt = targets.allSatisfy { $0.source == .receipt }
         let restoredSource: EntrySource = targets.allSatisfy { $0.source == .voice } ? .voice : .text
@@ -753,7 +778,7 @@ final class HomeModel {
 
     /// 削除の確認を出す。確認の文は先に作っておく（消した後の記録の値は読めないため）。
     func requestDelete(_ entry: Entry) {
-        pendingDeletion = PendingDeletion(entry: entry, summary: entry.summaryText)
+        pendingDeletion = PendingDeletion(entry: entry, summary: entry.summaryText(in: categories.catalog))
     }
 
     /// 確認のあとで記録を削除する。
@@ -833,7 +858,8 @@ final class HomeModel {
             now: now,
             announce: announce,
             didSave: { [weak self] entry in self?.finishEditing(entry) },
-            didDelete: { [weak self] id in self?.forgetJustRecorded(id) }
+            didDelete: { [weak self] id in self?.forgetJustRecorded(id) },
+            catalog: categories.catalog
         )
     }
 
@@ -880,11 +906,27 @@ final class HomeModel {
         let item = CategoryMemory.item(ofMemo: entry.memo, amount: entry.amount, isIncome: entry.isIncome)
         let remembered = (try? learnedCategories.remember(item: item, category: category)) ?? false
         categoryQuestionIDs.remove(id)
-        let name = String(localized: category.label)
+        let name = categories.catalog.localizedName(for: category)
         announce(
             remembered
                 ? String(localized: "\(name)にしました。次から「\(item)」は\(name)にします")
                 : String(localized: "\(name)にしました")
+        )
+    }
+
+    /// 返事の聞き返しの「＋ カテゴリを作る」。作ったら、そのカテゴリを聞き返した記録のカテゴリにして覚える（`chooseCategory`）。
+    func presentCategoryCreation(for entry: Entry) {
+        guard categoryQuestionIDs.contains(entry.persistentModelID) else { return }
+        categoryEditor = CategoryEditorModel(
+            mode: .create,
+            store: CustomCategoryStore(context: store.context, now: now),
+            catalog: categories.catalog,
+            announce: announce,
+            didSave: { [weak self] category in
+                // 一覧を先に読み直す（選んだカテゴリの名前を読み上げ、返事の行に出すため）。
+                self?.categories.reload()
+                self?.chooseCategory(category, for: entry)
+            }
         )
     }
 
@@ -896,7 +938,8 @@ final class HomeModel {
     func presentBudgetSetup() {
         // カテゴリ別の予算はプレミアムと体験中だけ出す（開く時点の状態で決める）。
         budgetSetup = BudgetSetupModel(
-            store: budgetStore, showsCategoryBudgets: purchases.status.unlocksPremium, announce: announce
+            store: budgetStore, showsCategoryBudgets: purchases.status.unlocksPremium, catalog: categories.catalog,
+            announce: announce
         )
     }
 
@@ -932,7 +975,7 @@ final class HomeModel {
     /// （`storeHost`）も渡す。渡さないと、設定の「iCloud で同期」の節が黙って消える（テストで確かめている）。
     func presentSettings() {
         settings = SettingsModel(
-            context: store.context, budgetStore: budgetStore, purchases: purchases, storeHost: storeHost,
+            context: store.context, budgetStore: budgetStore, categories: categories, purchases: purchases, storeHost: storeHost,
             householdHost: household, defaults: defaults, now: now, announce: announce
         )
     }

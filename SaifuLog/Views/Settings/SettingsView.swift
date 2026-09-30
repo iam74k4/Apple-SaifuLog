@@ -118,9 +118,10 @@ struct SettingsView: View {
         }
         // 同期がオンのとき、iCloud をいまも使えるかを確かめる（使えなければ節の中に案内を出す）。
         .task { await model.refreshICloudAccountStatus() }
-        // iCloud で届いたほかの端末の変更（予算を変えた・カテゴリを覚えたなど）で、月の予算と覚えたカテゴリの行を読み直す。
+        // iCloud で届いたほかの端末の変更（予算を変えた・カテゴリを作った・覚えたなど）で、月の予算とカテゴリの行を読み直す。
         .onReceive(StoreChanges.remote) { _ in
             model.reloadBudget()
+            model.categoryList.reload()
             model.learnedCategories.reload()
         }
         // 家計の共有の知らせ（共有をやめた・抜けた・消えたなど）。設定の画面を出している間は、ホームの下からはアラートを
@@ -236,11 +237,31 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - 覚えたカテゴリ
+    // MARK: - カテゴリ
 
-    /// 修正の記憶（覚えたカテゴリ）の一覧へ進む行。覚えた言葉の数を出す。
+    /// カテゴリの一覧（作る・直す・削除する）と、修正の記憶（覚えたカテゴリ）の一覧へ進む行。それぞれ数を出す。
     private var learningSection: some View {
         Section {
+            NavigationLink {
+                CategoryListView(model: model.categoryList)
+                    .onAppear { model.categoryList.reload() }
+            } label: {
+                LabeledContent {
+                    // 記録の件数の「件」とは別のキーにする（英語ではカテゴリの数として訳すため）。
+                    Text(LocalizedStringResource(
+                        "%lld 件（カテゴリ）", defaultValue: "\(model.categoryList.catalog.all.count) 件",
+                        comment: "設定の「カテゴリ」の行の右に出す、カテゴリの数（はじめからあるものと作ったもの）。%lld は数"
+                    ))
+                        .foregroundStyle(Theme.inkSecondary)
+                        .monospacedDigit()
+                } label: {
+                    Text(.categoriesTitle)
+                        .foregroundStyle(Theme.ink)
+                }
+                .frame(minHeight: 44)
+            }
+            .accessibilityHint("カテゴリの一覧を開きます。カテゴリを作ったり直したりできます")
+            .listRowBackground(Theme.surface)
             NavigationLink {
                 LearnedCategoriesView(model: model.learnedCategories)
                     .onAppear { model.learnedCategories.reload() }
@@ -262,9 +283,10 @@ struct SettingsView: View {
             .accessibilityHint("覚えた言葉とカテゴリの一覧を開きます")
             .listRowBackground(Theme.surface)
         } header: {
-            sectionHeader("記録の読み取り")
+            Text(.categoriesTitle)
+                .foregroundStyle(Theme.inkSecondary)
         } footer: {
-            sectionFooter("記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。")
+            sectionFooter("家賃・服・美容など、カテゴリは作って増やせます。記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。")
         }
     }
 

@@ -24,11 +24,12 @@ enum QuestionTexts {
     static let fixedRemark: LocalizedStringResource = "数字はアプリが記録から計算しました。"
 
     /// 知りたいことの見出し（「カフェの支出」「収入の合計」）。
-    static func title(for question: LedgerQuestion) -> String {
+    /// - Parameter catalog: カテゴリの一覧（作ったカテゴリの名前を引く）。
+    static func title(for question: LedgerQuestion, catalog: CategoryCatalog = .builtIn) -> String {
         switch question.metric {
         case .expenseTotal: return String(localized: "支出の合計")
         case .categoryExpense:
-            let name = String(localized: (question.category ?? .other).label)
+            let name = catalog.localizedName(for: question.category ?? .other)
             return String(localized: "\(name)の支出", comment: "回答カードの見出し。%@ はカテゴリの名前（「カフェ」）")
         case .incomeTotal: return String(localized: "収入の合計")
         case .balance: return String(localized: "収支")
@@ -47,7 +48,7 @@ enum QuestionTexts {
                     comment: "家計への質問の回答カードの見出し。カテゴリを聞かれていない記録の件数（支出と収入）を答えたとき"
                 ))
             }
-            let name = String(localized: category.label)
+            let name = catalog.localizedName(for: category)
             return String(localized: "\(name)の件数", comment: "回答カードの見出し。%@ はカテゴリの名前（「カフェ」）")
         case .remainingBudget: return String(localized: "予算の残り")
         case .dailyAllowance: return String(localized: "1日あたりに使える額")
@@ -125,8 +126,14 @@ enum QuestionTexts {
 
     /// VoiceOver に読み上げる答え（期間・見出し・数字・件数・一言・無料の残りの回数）。
     /// - Parameter freeQuestionsLeft: 回答カードに出す無料の残りの回数（少ないときだけ。出さないなら nil）。
-    static func spoken(_ answer: LedgerAnswer, remark: QuestionRemark?, freeQuestionsLeft: Int? = nil, calendar: Calendar) -> String {
-        var parts = [String(localized: answer.period.label), title(for: answer.question), spokenValue(answer.value)]
+    static func spoken(
+        _ answer: LedgerAnswer, remark: QuestionRemark?, freeQuestionsLeft: Int? = nil, calendar: Calendar,
+        catalog: CategoryCatalog = .builtIn
+    ) -> String {
+        var parts = [
+            String(localized: answer.period.label), title(for: answer.question, catalog: catalog),
+            spokenValue(answer.value, catalog: catalog),
+        ]
         parts.append(recordCount(answer.recordCount))
         if case .ai(let sentence) = remark { parts.append(sentence) }
         if let freeQuestionsLeft { parts.append(self.freeQuestionsLeft(freeQuestionsLeft)) }
@@ -136,12 +143,12 @@ enum QuestionTexts {
     }
 
     /// 読み上げる数字（大きな数字に、いちばん多いカテゴリの名前や予算の残りの日数を添える）。
-    static func spokenValue(_ value: LedgerAnswer.Value) -> String {
+    static func spokenValue(_ value: LedgerAnswer.Value, catalog: CategoryCatalog = .builtIn) -> String {
         switch value {
         case .topCategory(let item?):
-            "\(String(localized: item.category.label)) \(item.spokenValue)"
+            "\(catalog.localizedName(for: item.category)) \(item.spokenValue)"
         case .breakdown(let breakdown):
-            ([headline(for: value)] + breakdown.items.map { "\(String(localized: $0.category.label)) \($0.spokenValue)" })
+            ([headline(for: value)] + breakdown.items.map { "\(catalog.localizedName(for: $0.category)) \($0.spokenValue)" })
                 .joined(separator: " ")
         case .dailyAllowance(let status) where !status.isOver:
             "\(headline(for: value)) \(String(localized: "のこり \(status.remainingDays) 日"))"

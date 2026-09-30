@@ -80,6 +80,10 @@ struct HomeView: View {
                 .sheet(item: $model.editing) { editing in
                     EditEntrySheet(model: editing)
                 }
+                // 返事の聞き返しから開く「カテゴリを作る」（上と同じく item で出す）。
+                .sheet(item: $model.categoryEditor) { editor in
+                    CategoryEditorSheet(model: editor)
+                }
                 // 月のまとめ（⑦）は横に進む。ホームへ戻ると monthlyReport は nil に戻る（item で出すのは、シートと同じく
                 // 戻る動きの間も中身を保つため）。
                 .navigationDestination(item: $model.monthlyReport) { report in
@@ -173,11 +177,13 @@ struct HomeView: View {
                 // 保存先に書き込まれたら、ふりかえりのカード（と内訳）の数字と、よく使うひとことの候補を読み直す（記録を足した・
                 // 直した・消したとき）。
                 .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { _ in
+                    model.categories.reload()
                     model.weeklyRecap?.reload()
                     model.refreshQuickPhrases()
                 }
                 // iCloud で届いたほかの端末の変更でも読み直す（didSave にならないため。帯とタイムラインは @Query が追う）。
                 .onReceive(StoreChanges.remote) { _ in
+                    model.categories.reload()
                     model.weeklyRecap?.reload()
                     model.refreshQuickPhrases()
                 }
@@ -262,6 +268,8 @@ struct HomeView: View {
                     model.showWeeklyRecapIfDue(calendar: calendar)
                 }
         }
+        // カテゴリの一覧（作ったカテゴリの名前・記号・色）を、ホームから開くすべての画面とシートに渡す。
+        .environment(\.categoryCatalog, model.categories.catalog)
         // 保存先の開き直しなどでホームの画面が片づけられるときは、声の入力をやめる（マイクを開いたままにしない）。
         .onDisappear {
             model.voice.cancel()
@@ -323,6 +331,7 @@ struct HomeView: View {
                 edit: { model.presentEdit($0, calendar: calendar) },
                 requestDelete: { model.requestDelete($0) },
                 chooseCategory: { model.chooseCategory($1, for: $0) },
+                createCategory: { model.presentCategoryCreation(for: $0) },
                 fillDraft: { model.draft = $0 },
                 openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
                 setBudget: { model.presentBudgetSetup() },
@@ -512,6 +521,8 @@ private struct EntryTimeline: View {
     let edit: (Entry) -> Void
     let requestDelete: (Entry) -> Void
     let chooseCategory: (Entry, EntryCategory) -> Void
+    /// 聞き返した記録のために、カテゴリを作る画面を開く。
+    let createCategory: (Entry) -> Void
     /// 記録が無いときの案内の入力の例を、入力欄に入れる。
     let fillDraft: (String) -> Void
     let openReport: (Date) -> Void
@@ -536,6 +547,7 @@ private struct EntryTimeline: View {
         edit: @escaping (Entry) -> Void,
         requestDelete: @escaping (Entry) -> Void,
         chooseCategory: @escaping (Entry, EntryCategory) -> Void,
+        createCategory: @escaping (Entry) -> Void,
         fillDraft: @escaping (String) -> Void,
         openReport: @escaping (Date) -> Void,
         setBudget: @escaping () -> Void,
@@ -555,6 +567,7 @@ private struct EntryTimeline: View {
         self.edit = edit
         self.requestDelete = requestDelete
         self.chooseCategory = chooseCategory
+        self.createCategory = createCategory
         self.fillDraft = fillDraft
         self.openReport = openReport
         self.setBudget = setBudget
@@ -657,7 +670,7 @@ private struct EntryTimeline: View {
                         RecordedReplyCard(
                             send: send, today: today, canUndo: isLatest, showsStatus: isLatest,
                             askingCategory: isLatest ? askingCategory : [], undo: undo, edit: edit,
-                            requestDelete: requestDelete, chooseCategory: chooseCategory
+                            requestDelete: requestDelete, chooseCategory: chooseCategory, createCategory: createCategory
                         )
                         // 送信のいちばん下（返事のカード）の位置を知らせる。
                         .reportsTimelineFrame(.row(send.id))

@@ -36,7 +36,9 @@ final class LearnedCategoriesModel {
     }
 
     /// 覚えたカテゴリを変える（次から、その言葉の記録を新しいカテゴリにする。前に記録したものは変えない）。
-    func change(_ rule: LearnedCategoryStore.Rule, to category: EntryCategory) {
+    ///
+    /// - Parameter name: 読み上げるカテゴリの名前（作ったカテゴリの名前は画面の一覧から引く）。渡さなければ組み込みの名前。
+    func change(_ rule: LearnedCategoryStore.Rule, to category: EntryCategory, named name: String? = nil) {
         guard rule.category != category else { return }
         do {
             try store.remember(item: rule.phrase, category: category)
@@ -45,7 +47,7 @@ final class LearnedCategoriesModel {
             return
         }
         reload()
-        announce(String(localized: "「\(rule.phrase)」を\(String(localized: category.label))にしました"))
+        announce(String(localized: "「\(rule.phrase)」を\(name ?? String(localized: category.label))にしました"))
     }
 
     /// 覚えた言葉を忘れる（次から、その言葉の記録はいつもどおり AI とキーワード辞書で読む）。

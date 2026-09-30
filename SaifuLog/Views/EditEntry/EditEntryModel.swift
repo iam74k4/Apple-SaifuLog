@@ -38,6 +38,8 @@ final class EditEntryModel: Identifiable {
 
     @ObservationIgnored private let target: Target
     @ObservationIgnored private let original: EntryEdits
+    /// カテゴリの一覧（読み上げに作ったカテゴリの名前を使う）。
+    @ObservationIgnored private let catalog: CategoryCatalog
     @ObservationIgnored private let calendar: Calendar
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
@@ -49,6 +51,7 @@ final class EditEntryModel: Identifiable {
     ///   - didSave: 保存できたあとに呼ぶ（ホームが「取り消す」を片づける）。
     ///   - didDelete: 削除できたあとに、消した記録の ID を渡して呼ぶ（ホームが「取り消す」の対象から外す）。
     ///   - learnedCategories: 直したカテゴリを覚える先（修正の記憶）。渡さなければ記録と同じ保存先に覚える。
+    ///   - catalog: カテゴリの一覧（削除の確認と読み上げに、作ったカテゴリの名前を使う）。
     convenience init(
         entry: Entry,
         store: EntryStore,
@@ -57,7 +60,8 @@ final class EditEntryModel: Identifiable {
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
         didSave: @escaping @MainActor (Entry) -> Void = { _ in },
         didDelete: @escaping @MainActor (PersistentIdentifier) -> Void = { _ in },
-        learnedCategories: LearnedCategoryStore? = nil
+        learnedCategories: LearnedCategoryStore? = nil,
+        catalog: CategoryCatalog = .builtIn
     ) {
         // 消した記録の ID は、保存した後には読めないことがあるので先に取っておく。
         let id = entry.persistentModelID
@@ -68,7 +72,7 @@ final class EditEntryModel: Identifiable {
                 original: original,
                 originalText: entry.originalText,
                 source: entry.source,
-                deletionSummary: entry.summaryText,
+                deletionSummary: entry.summaryText(in: catalog),
                 learnsCategory: true,
                 update: { edits in
                     try store.update(entry, with: edits)
@@ -80,6 +84,7 @@ final class EditEntryModel: Identifiable {
                 didSave: { didSave(entry) },
                 didDelete: { didDelete(id) }
             ),
+            catalog: catalog,
             calendar: calendar,
             now: now,
             announce: announce
@@ -89,6 +94,7 @@ final class EditEntryModel: Identifiable {
     /// 直す記録を、保存先を問わずに受け取る（家計の記録を直すときに使う。`HouseholdHost.editTarget`）。
     init(
         target: Target,
+        catalog: CategoryCatalog = .builtIn,
         calendar: Calendar,
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
@@ -96,6 +102,7 @@ final class EditEntryModel: Identifiable {
         let original = target.original
         self.target = target
         self.original = original
+        self.catalog = catalog
         self.calendar = calendar
         self.now = now
         self.announce = announce
@@ -219,7 +226,7 @@ final class EditEntryModel: Identifiable {
     /// シートを閉じると、直した記録の吹き出しは画面に残るが、VoiceOver はそこへ移らない。読み上げないと、
     /// 直したとおりに保存されたかが分からない。
     private func spokenSummary(_ edits: EntryEdits) -> String {
-        let kind = edits.isIncome ? String(localized: "収入") : String(localized: edits.category.label)
+        let kind = edits.isIncome ? String(localized: "収入") : catalog.localizedName(for: edits.category)
         var parts = edits.memo.isEmpty ? [kind] : [edits.memo, kind]
         parts.append(YenFormatter.string(from: edits.amount))
         let today = now()

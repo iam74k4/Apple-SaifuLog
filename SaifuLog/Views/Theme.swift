@@ -45,7 +45,7 @@ enum Theme {
     /// カテゴリの丸に載せる記号の色。
     static let onCategory = Palette.onCategory.color
 
-    /// カテゴリの色。
+    /// 組み込みのカテゴリの色（作ったカテゴリは「その他」の色。作ったカテゴリの色は `CategoryCatalog.color(for:)`）。
     static func color(for category: EntryCategory) -> Color {
         Palette.category(category).color
     }
@@ -86,6 +86,7 @@ enum Palette {
     /// 光熱・通信は、山吹と見分けにくい琥珀をやめて青緑にした。
     static func category(_ category: EntryCategory) -> ColorPair {
         switch category {
+        case .custom: ColorPair(light: 0x6E6E73, dark: 0xAEAEB2) // 作ったカテゴリの色は `customCategory(_:)`。一覧に無いときは「その他」の鼠
         case .food: ColorPair(light: 0xD9482B, dark: 0xFF7A5C) // 朱
         case .daily: ColorPair(light: 0x3E8E41, dark: 0x7BCB7E) // 緑
         case .transport: ColorPair(light: 0x1E6FD9, dark: 0x5AA9FF) // 藍
@@ -96,6 +97,60 @@ enum Palette {
         case .other: ColorPair(light: 0x6E6E73, dark: 0xAEAEB2) // 鼠
         }
     }
+
+    /// 作ったカテゴリに選べる色（`CustomCategory.colorIndex` の位置）。組み込みのカテゴリの色と同じ基準にする（ライトは白い記号を
+    /// 載せて 4:1 以上・地の上の図形として 3:1 以上、ダークは暗い地の上で 4.5:1 以上。`ThemeContrastTests`）。
+    /// 並びを変えると、作ったカテゴリの色が変わってしまうので、足すときは後ろに足す。
+    static let customCategoryChoices: [ColorPair] = [
+        ColorPair(light: 0x3949AB, dark: 0x9FA8FF), // 群青
+        ColorPair(light: 0xA8323E, dark: 0xFF8A95), // 蘇芳
+        ColorPair(light: 0x1B7F5A, dark: 0x5FD3A5), // 常盤
+        ColorPair(light: 0xA85400, dark: 0xFFB066), // 柿
+        ColorPair(light: 0x6A4CB0, dark: 0xB9A2FF), // 桔梗
+        ColorPair(light: 0x283E6B, dark: 0x8FB0E6), // 鉄紺
+        ColorPair(light: 0x5E6420, dark: 0xCDD27F), // 海松
+        ColorPair(light: 0xAD2F6B, dark: 0xFF8FC0), // 薔薇
+        ColorPair(light: 0x7A4B3A, dark: 0xD7A995), // 栗
+        ColorPair(light: 0x45413C, dark: 0xCFCAC3), // 墨
+    ]
+
+    /// 作ったカテゴリの色（番号が範囲の外なら 0 番。新しい版の端末で足した色が iCloud で届いたときなど）。
+    static func customCategory(_ index: Int) -> ColorPair {
+        customCategoryChoices.indices.contains(index) ? customCategoryChoices[index] : customCategoryChoices[0]
+    }
+}
+
+extension CategoryCatalog {
+    /// カテゴリの色の組（作ったカテゴリは選んだ色、組み込みは `Palette.category`）。
+    func colorPair(for category: EntryCategory) -> ColorPair {
+        info(for: category).map { Palette.customCategory($0.colorIndex) } ?? Palette.category(category)
+    }
+
+    /// カテゴリの色。
+    func color(for category: EntryCategory) -> Color {
+        colorPair(for: category).color
+    }
+
+    /// カテゴリの記号（SF Symbols）。
+    func symbolName(for category: EntryCategory) -> String {
+        info(for: category)?.symbolName ?? category.symbolName
+    }
+
+    /// 画面に出す名前（組み込みは訳した名前、作ったカテゴリは利用者が決めた名前のまま）。
+    func label(for category: EntryCategory) -> Text {
+        if let info = info(for: category) { return Text(verbatim: info.name) }
+        return Text(category.label)
+    }
+
+    /// 画面の言語の名前の文字列（読み上げと、文字列を組み立てるところで使う）。
+    func localizedName(for category: EntryCategory) -> String {
+        info(for: category)?.name ?? String(localized: category.label)
+    }
+}
+
+extension EnvironmentValues {
+    /// カテゴリの一覧（作ったカテゴリの名前・記号・色を引く）。ホーム（`HomeView`）が渡す。渡されていなければ組み込みの 8 種だけ。
+    @Entry var categoryCatalog: CategoryCatalog = .builtIn
 }
 
 extension Color {
@@ -123,6 +178,8 @@ extension EntryCategory {
     /// 表示用は String Catalog で英語に訳せるよう別に持つ。
     var label: LocalizedStringResource {
         switch self {
+        // 作ったカテゴリの名前は `CategoryCatalog.label(for:)` で引く（ここは一覧に無いときの「その他」）。
+        case .custom: "その他"
         case .food: "食費"
         case .daily: "日用品"
         case .transport: "交通"

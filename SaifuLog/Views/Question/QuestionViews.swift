@@ -103,6 +103,7 @@ private struct AnswerContent: View {
     let setBudget: () -> Void
 
     @Environment(\.calendar) private var calendar
+    @Environment(\.categoryCatalog) private var catalog
 
     /// その月の月のまとめへ進めるか（数えた期間が暦の月まるごとのとき）。
     private var opensReport: Bool {
@@ -159,7 +160,7 @@ private struct AnswerContent: View {
             }
             .font(.caption)
             .foregroundStyle(Theme.inkSecondary)
-            Text(verbatim: QuestionTexts.title(for: answer.question))
+            Text(verbatim: QuestionTexts.title(for: answer.question, catalog: catalog))
                 .font(.subheadline.weight(.semibold))
             headline
             details
@@ -226,7 +227,7 @@ private struct AnswerContent: View {
         case .topCategory(let item?):
             HStack(spacing: 8) {
                 CategoryIcon(category: item.category)
-                Text(item.category.label)
+                catalog.label(for: item.category)
                 Text(verbatim: item.percentText)
                     .foregroundStyle(Theme.inkSecondary)
                     .accessibilityLabel(Text(verbatim: item.spokenPercent))
@@ -295,6 +296,7 @@ struct BreakdownLine: View {
     let item: CategoryBreakdown.Item
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.categoryCatalog) private var catalog
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -323,12 +325,12 @@ struct BreakdownLine: View {
         }
         .font(.subheadline)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(item.category.label))
+        .accessibilityLabel(catalog.label(for: item.category))
         .accessibilityValue(Text(verbatim: item.spokenValue))
     }
 
     private var name: some View {
-        Text(item.category.label)
+        catalog.label(for: item.category)
     }
 
     private var amount: some View {

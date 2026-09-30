@@ -46,7 +46,7 @@ struct ModelContainerFactoryTests {
     @Test func schemaListsModelTypes() throws {
         let container = try ModelContainerFactory.makeInMemoryContainer()
 
-        #expect(Set(container.schema.entities.map(\.name)) == ["Entry", "Budget", "LearnedCategory"])
+        #expect(Set(container.schema.entities.map(\.name)) == ["Entry", "Budget", "LearnedCategory", "CustomCategory"])
     }
 
     /// 予算のモデルを足す前の保存先（記録のモデルだけ）を開いても、記録はそのまま読め、予算を書き込める。
@@ -105,6 +105,38 @@ struct ModelContainerFactoryTests {
         let learned = LearnedCategoryStore(context: context, now: { TestSupport.now })
         try learned.remember(item: "ユニクロ", category: .other)
         #expect(try learned.memory().rules == ["ユニクロ": .other])
+    }
+
+    /// 作ったカテゴリのモデルを足す前の保存先（記録・予算・覚えたカテゴリのモデル）を開いても、それまでの記録・予算・覚えは
+    /// そのまま読め、カテゴリを作れる（テーブルを足すだけの自動の移行）。
+    @Test func opensStoreCreatedBeforeCustomCategoryWasAdded() throws {
+        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appending(path: "default.store", directoryHint: .notDirectory)
+
+        do {
+            let previousSchema = Schema([Entry.self, Budget.self, LearnedCategory.self])
+            let previous = try ModelContainer(
+                for: previousSchema,
+                configurations: [ModelConfiguration(schema: previousSchema, url: url, cloudKitDatabase: .none)]
+            )
+            #expect(Set(previous.schema.entities.map(\.name)) == ["Entry", "Budget", "LearnedCategory"])
+            previous.mainContext.insert(TestSupport.entry(amount: 850))
+            previous.mainContext.insert(Budget(scope: .total, amount: 150_000, updatedAt: TestSupport.now))
+            try previous.mainContext.save()
+            try LearnedCategoryStore(context: previous.mainContext, now: { TestSupport.now }).remember(item: "ユニクロ", category: .daily)
+        }
+
+        let upgraded = try ModelContainerFactory.makeContainer(url: url, cloudKitDatabase: .none)
+        let context = upgraded.mainContext
+
+        #expect(try context.fetch(FetchDescriptor<Entry>()).map(\.amount) == [850])
+        #expect(try BudgetStore(context: context).plan().total == 150_000)
+        #expect(try LearnedCategoryStore(context: context).memory().rules == ["ユニクロ": .daily])
+        let categories = CustomCategoryStore(context: context, now: { TestSupport.now })
+        let clothes = try categories.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
+        #expect(try categories.catalog().name(of: clothes) == "衣服")
     }
 
     /// ファイルの保存先に書いた記録は、開き直しても残る。
@@ -172,7 +204,7 @@ struct ModelContainerFactoryTests {
     @Test func modelsSatisfyCloudKitConstraints() throws {
         let model = try #require(NSManagedObjectModel.makeManagedObjectModel(for: ModelContainerFactory.modelTypes))
 
-        #expect(Set(model.entities.compactMap(\.name)) == ["Entry", "Budget", "LearnedCategory"])
+        #expect(Set(model.entities.compactMap(\.name)) == ["Entry", "Budget", "LearnedCategory", "CustomCategory"])
         #expect(Self.cloudKitViolations(in: model).isEmpty, "\(Self.cloudKitViolations(in: model))")
         // SwiftData の Schema の側でも、一意の属性が無い。
         for entity in ModelContainerFactory.schema.entities {
@@ -208,6 +240,11 @@ struct ModelContainerFactoryTests {
             "LearnedCategory": [
                 "phrase": .stringAttributeType, "categoryRawValue": .stringAttributeType, "updatedAt": .dateAttributeType,
             ],
+            "CustomCategory": [
+                "categoryID": .stringAttributeType, "name": .stringAttributeType, "symbolName": .stringAttributeType,
+                "colorIndex": .integer64AttributeType, "sortOrder": .integer64AttributeType, "createdAt": .dateAttributeType,
+                "updatedAt": .dateAttributeType,
+            ],
         ]
 
         for (entityName, attributes) in expected {
@@ -229,13 +266,14 @@ struct ModelContainerFactoryTests {
     @Test func syncedAttributesAreCloudEncrypted() throws {
         let model = try #require(NSManagedObjectModel.makeManagedObjectModel(for: ModelContainerFactory.modelTypes))
 
-        #expect(Set(model.entities.compactMap(\.name)) == ["Entry", "Budget", "LearnedCategory"])
+        #expect(Set(model.entities.compactMap(\.name)) == ["Entry", "Budget", "LearnedCategory", "CustomCategory"])
         #expect(Self.unencryptedAttributes(in: model).isEmpty, "\(Self.unencryptedAttributes(in: model))")
         #expect(Self.unencryptedAttributes(in: ModelContainerFactory.schema).isEmpty, "\(Self.unencryptedAttributes(in: ModelContainerFactory.schema))")
         // 内容にあたる項目を名指しでも確かめる（検査の数え方を誤って、項目を見ずに空を返していないか）。
         let entry = try #require(model.entitiesByName["Entry"])
         let budget = try #require(model.entitiesByName["Budget"])
         let learned = try #require(model.entitiesByName["LearnedCategory"])
+        let custom = try #require(model.entitiesByName["CustomCategory"])
         for name in ["amount", "isIncome", "categoryRawValue", "memo", "spentAt", "createdAt", "sourceRawValue", "originalText"] {
             #expect(entry.attributesByName[name]?.allowsCloudEncryption == true, "Entry.\(name) が暗号化フィールドになっていません")
         }
@@ -244,6 +282,9 @@ struct ModelContainerFactoryTests {
         }
         for name in ["phrase", "categoryRawValue", "updatedAt"] {
             #expect(learned.attributesByName[name]?.allowsCloudEncryption == true, "LearnedCategory.\(name) が暗号化フィールドになっていません")
+        }
+        for name in ["categoryID", "name", "symbolName", "colorIndex", "sortOrder", "createdAt", "updatedAt"] {
+            #expect(custom.attributesByName[name]?.allowsCloudEncryption == true, "CustomCategory.\(name) が暗号化フィールドになっていません")
         }
     }
 

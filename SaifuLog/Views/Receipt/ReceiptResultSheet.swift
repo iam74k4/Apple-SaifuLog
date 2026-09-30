@@ -433,6 +433,7 @@ private struct ReceiptLineRow: View {
     let normalizeAmount: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.categoryCatalog) private var catalog
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -524,7 +525,7 @@ private struct ReceiptLineRow: View {
     private var spokenSummary: String {
         var parts = [displayName]
         if let amount = line.amount { parts.append(YenFormatter.string(from: amount)) }
-        if showsCategory { parts.append(String(localized: line.category.label)) }
+        if showsCategory { parts.append(catalog.localizedName(for: line.category)) }
         return parts.joined(separator: " ")
     }
 }
@@ -535,14 +536,16 @@ private struct ReceiptLineRow: View {
 private struct ReceiptCategoryMenu: View {
     @Binding var category: EntryCategory
 
+    @Environment(\.categoryCatalog) private var catalog
+
     var body: some View {
         Menu {
             Picker(selection: $category) {
-                ForEach(EntryCategory.allCases) { category in
+                ForEach(catalog.all) { category in
                     Label {
-                        Text(category.label)
+                        catalog.label(for: category)
                     } icon: {
-                        Image(systemName: category.symbolName)
+                        Image(systemName: catalog.symbolName(for: category))
                     }
                     .tag(category)
                 }
@@ -552,7 +555,7 @@ private struct ReceiptCategoryMenu: View {
         } label: {
             HStack(spacing: 8) {
                 CategoryIcon(category: category)
-                Text(category.label)
+                catalog.label(for: category)
                     .foregroundStyle(Theme.ink)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.up.chevron.down")
@@ -566,7 +569,7 @@ private struct ReceiptCategoryMenu: View {
             .contentShape(.rect(cornerRadius: 12))
         }
         .accessibilityLabel(Text("カテゴリ"))
-        .accessibilityValue(Text(category.label))
+        .accessibilityValue(catalog.label(for: category))
     }
 }
 
