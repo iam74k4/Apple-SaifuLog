@@ -136,6 +136,8 @@ final class HomeModel {
     @ObservationIgnored private let learnedCategories: LearnedCategoryStore
     /// くり返しの記録。記録する日を過ぎた月の分を記録する。
     @ObservationIgnored private let recurring: RecurringEntryStore
+    /// Apple Pay の支払いの受け箱（ショートカットのオートメーションから受け取ったもの）。アプリを開いたときに記録にする。
+    @ObservationIgnored private let paymentInbox: PaymentInbox
     /// くり返しの記録を記録するときの暦（時間帯と読み上げの日付）。画面から最後に渡された暦（設定の画面から足したときにも使う）。
     @ObservationIgnored private var recurringCalendar: Calendar = .autoupdatingCurrent
     @ObservationIgnored private let pendingWrites: PendingStoreWrites
@@ -165,6 +167,7 @@ final class HomeModel {
     ///   - learnedCategories: 覚えたカテゴリの読み書き（修正の記憶）。渡さなければ記録と同じ保存先を使う。
     ///   - categories: カテゴリの一覧（作ったカテゴリ）。渡さなければ記録と同じ保存先から読む。
     ///   - recurring: くり返しの記録の読み書き。渡さなければ記録と同じ保存先を使う。
+    ///   - paymentInbox: Apple Pay の支払いの受け箱。渡さなければアプリで 1 つのもの。テストで使い捨ての場所のものにする。
     ///   - pendingWrites: 解析を待ってから記録する処理を数える先（`StoreHost.pendingWrites`）。保存先を開き直すとき、
     ///     記録し終えるのを待ってもらうため。
     ///   - purchases: プレミアムの購入と状態。アプリは `SaifuLogApp` の 1 つを渡す。渡さなければ購入の無い状態（テスト用）。
@@ -188,6 +191,7 @@ final class HomeModel {
         learnedCategories: LearnedCategoryStore? = nil,
         categories: CategoryCatalogModel? = nil,
         recurring: RecurringEntryStore? = nil,
+        paymentInbox: PaymentInbox? = nil,
         pendingWrites: PendingStoreWrites = PendingStoreWrites(),
         purchases: PurchaseManager? = nil,
         storeHost: StoreHost? = nil,
@@ -208,6 +212,7 @@ final class HomeModel {
         self.learnedCategories = learnedCategories ?? LearnedCategoryStore(context: store.context, now: now)
         self.categories = categories ?? CategoryCatalogModel(store: CustomCategoryStore(context: store.context, now: now))
         self.recurring = recurring ?? RecurringEntryStore(context: store.context, now: now)
+        self.paymentInbox = paymentInbox ?? .shared
         self.pendingWrites = pendingWrites
         self.storeHost = storeHost
         self.household = household
@@ -777,8 +782,8 @@ final class HomeModel {
         // 消した記録の値は、保存した後には読めない。読み上げと入力欄に戻す文は先に取っておく。
         let items = targets.map { "\($0.kindText(in: categories.catalog)) \(YenFormatter.string(from: $0.amount))" }
         let originalText = targets.first?.originalText ?? ""
-        // レシートとくり返しの記録は打った文ではないので、入力欄に戻さない。
-        let restoresDraft = !targets.contains { $0.source == .receipt || $0.source == .recurring }
+        // レシート・くり返しの記録・Apple Pay の支払いは打った文ではないので、入力欄に戻さない。
+        let restoresDraft = !targets.contains { [.receipt, .recurring, .wallet].contains($0.source) }
         let restoredSource: EntrySource = targets.allSatisfy { $0.source == .voice } ? .voice : .text
         let ids = targets.map(\.persistentModelID)
         do {
@@ -1013,6 +1018,71 @@ final class HomeModel {
             pendingQuickAction = nil
             return voice.isActive ? Task {} : (voice.toggle() ?? Task {})
         }
+    }
+
+    // MARK: - Apple Pay の支払い
+
+    /// 受け箱の Apple Pay の支払いを記録にし、返事のカード（「Apple Pay の支払い」）と読み上げで知らせる（ホームが出たとき・前面に
+    /// 戻ったとき・アプリを開いている間に支払いを受け取ったとき）。記録したもの（使った日時の古い順）を返す。
+    ///
+    /// 金額はウォレットの値のまま、品目は店名、カテゴリは覚えたカテゴリ・店の名前の辞書・キーワード辞書で決め（`PaymentCapture`）、
+    /// 分からなければ返事で聞き返す（選ぶと店名を覚え、次からそのカテゴリにする）。直前の送信と同じく「取り消す」の対象にする。
+    /// 読み取りの間と「家族」のときは待つ（返事と「取り消す」を、いま見えているタイムラインに出すため）。同じ支払いの記録がもう
+    /// あれば（印が同じ）記録しない。書き込めなければ受け箱に残し、次に開いたときにもう一度記録する。
+    @discardableResult
+    func importCapturedPayments(calendar: Calendar) -> [Entry] {
+        guard !isParsing, !isHouseholdActive else { return [] }
+        let payments = paymentInbox.pending()
+        guard !payments.isEmpty else { return [] }
+        let existing = Set(
+            ((try? store.context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.recurrenceKey != "" }))) ?? [])
+                .map(\.recurrenceKey)
+        )
+        let catalog = categories.catalog
+        let memory = (try? learnedCategories.memory()) ?? CategoryMemory()
+        let recordedAt = now()
+        let fresh = payments
+            .filter { !existing.contains(PaymentCapture.occurrenceKey(paymentID: $0.id.uuidString)) }
+            .sorted { $0.paidAt < $1.paidAt }
+        // 記録した日時を 1 ミリ秒ずつずらす（ひとこと入力の複数件と同じ。タイムラインで 1 つの返事にまとまる）。
+        let recorded = fresh.enumerated().map { index, payment in
+            let memo = PaymentCapture.memo(fromMerchant: payment.merchant)
+            let entry = Entry(
+                amount: payment.amount, isIncome: false,
+                category: PaymentCapture.category(forMerchant: memo, amount: payment.amount, memory: memory, catalog: catalog),
+                memo: memo, spentAt: payment.paidAt,
+                createdAt: recordedAt.addingTimeInterval(Double(index) * ParsedEntry.orderingStep), source: .wallet, originalText: ""
+            )
+            entry.recurrenceKey = PaymentCapture.occurrenceKey(paymentID: payment.id.uuidString)
+            return entry
+        }
+        if !recorded.isEmpty {
+            do {
+                try store.insert(recorded)
+            } catch {
+                // 受け箱に残し、次に開いたときにもう一度記録する（受け取った支払いを失わないため）。
+                return []
+            }
+        }
+        // 記録したものと、もう記録してあったものを受け箱から消す（消せなくても、印で 2 回は記録しない）。
+        try? paymentInbox.remove(Set(payments.map(\.id)))
+        guard !recorded.isEmpty else { return [] }
+        justRecorded = recorded
+        receiptQuotaCharge = nil
+        categoryQuestionIDs = Set(
+            recorded.filter {
+                memory.asksCategory(memo: $0.memo, amount: $0.amount, category: $0.category, isIncome: false, catalog: catalog)
+            }
+            .map(\.persistentModelID)
+        )
+        let items = recorded.map { "\($0.kindText(in: catalog)) \(YenFormatter.string(from: $0.amount))" }
+        let list = items.formatted(.list(type: .and))
+        announce(
+            categoryQuestionIDs.isEmpty
+                ? String(localized: "Apple Pay の支払いを記録しました: \(list)")
+                : String(localized: "Apple Pay の支払いを記録しました: \(list)。カテゴリを選べます")
+        )
+        return recorded
     }
 
     // MARK: - くり返しの記録

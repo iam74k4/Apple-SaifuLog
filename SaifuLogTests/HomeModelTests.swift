@@ -32,6 +32,8 @@ struct HomeModelTests {
         let purchases: PurchaseManager
         /// レシートの読み取りの代わり（OCR が読んだ文字と、品名を整える AI）。既定は文字なし・AI なし。
         let receipt = ReceiptStub()
+        /// Apple Pay の支払いの受け箱（テストごとの使い捨ての場所）。
+        let paymentInbox: PaymentInbox
         private(set) var announcements: [String] = []
         private(set) var model: HomeModel!
 
@@ -39,10 +41,18 @@ struct HomeModelTests {
         ///   - purchases: プレミアムの状態。渡さなければ購入の無い状態（無料）。
         ///   - canUseDocumentCamera: 書類カメラを使えるか（シミュレータには無いので、決めて渡す）。
         ///   - voice: 声の入力（書き起こしを差し替えたもの）。渡さなければ HomeModel の既定（端末の書き起こし。テストでは使わない）。
-        init(purchases: PurchaseManager? = nil, canUseDocumentCamera: Bool = true, voice: VoiceInputModel? = nil) throws {
+        ///   - paymentInbox: Apple Pay の支払いの受け箱。渡さなければ使い捨ての場所のもの（アプリの受け箱に触れない）。
+        init(
+            purchases: PurchaseManager? = nil, canUseDocumentCamera: Bool = true, voice: VoiceInputModel? = nil,
+            paymentInbox: PaymentInbox? = nil
+        ) throws {
             context = try TestSupport.makeContext()
             defaults = try #require(UserDefaults(suiteName: suiteName))
             self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
+            // 保存の差し替え（下）が self を使うので、受け箱はその前に決める。
+            self.paymentInbox = paymentInbox ?? PaymentInbox(
+                directory: URL.temporaryDirectory.appending(path: "PaymentInbox-\(UUID().uuidString)", directoryHint: .isDirectory)
+            )
             var store = EntryStore(context: context)
             store.save = { [unowned self] context in
                 if failsSave { throw TestError() }
@@ -50,6 +60,7 @@ struct HomeModelTests {
             }
             model = HomeModel(
                 store: store,
+                paymentInbox: self.paymentInbox,
                 pendingWrites: pendingWrites,
                 purchases: self.purchases,
                 defaults: defaults,

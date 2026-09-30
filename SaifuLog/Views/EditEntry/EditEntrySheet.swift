@@ -80,6 +80,9 @@ struct EditEntrySheet: View {
                 if model.source == .recurring {
                     recurringNote
                 }
+                if model.source == .wallet {
+                    walletNote
+                }
                 amountSection
                 memoSection
                 kindSection
@@ -125,6 +128,17 @@ struct EditEntrySheet: View {
             Text("くり返しの記録から記録しました。ここで直しても、次の月からの記録は変わりません（設定の「くり返しの記録」で直せます）。")
         } icon: {
             Image(systemName: "arrow.triangle.2.circlepath")
+        }
+        .font(.footnote)
+        .foregroundStyle(Theme.inkSecondary)
+    }
+
+    /// Apple Pay の支払いから記録したものであること（打った文が無いので、送った文の代わりに出す）。
+    private var walletNote: some View {
+        Label {
+            Text("Apple Pay の支払いから記録しました。品目はお店の名前です。")
+        } icon: {
+            Image(systemName: "creditcard")
         }
         .font(.footnote)
         .foregroundStyle(Theme.inkSecondary)

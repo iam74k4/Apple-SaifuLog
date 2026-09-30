@@ -99,8 +99,9 @@ struct SentTextBubble: View {
         case .text: nil
         case .voice: "mic.fill"
         case .receipt: "receipt"
-        // くり返しの記録は打った文が無いので、ふつうは吹き出しを出さない（元の文が空）。
+        // くり返しの記録と Apple Pay の支払いは打った文が無いので、ふつうは吹き出しを出さない（元の文が空）。
         case .recurring: "arrow.triangle.2.circlepath"
+        case .wallet: "creditcard"
         }
     }
 
@@ -318,15 +319,25 @@ private struct RecordedReplyHeader: View {
         localized: "くり返しの記録（返事の見出し）", defaultValue: "くり返しの記録",
         comment: "ホームの返事の見出し。くり返しの記録から 1 件を記録したとき"
     )
-
-    private var isRecurring: Bool { source == .recurring }
+    private static let walletText = String(localized: "Apple Pay の支払い")
 
     private var titleText: String {
-        switch (isRecurring, count > 1) {
-        case (true, true): String(localized: "くり返しの記録（\(count)件）")
-        case (true, false): Self.recurringText
-        case (false, true): String(localized: "記録しました（\(count)件）")
-        case (false, false): Self.recordedText
+        switch (source, count > 1) {
+        case (.recurring, true): String(localized: "くり返しの記録（\(count)件）")
+        case (.recurring, false): Self.recurringText
+        case (.wallet, true): String(localized: "Apple Pay の支払い（\(count)件）")
+        case (.wallet, false): Self.walletText
+        case (_, true): String(localized: "記録しました（\(count)件）")
+        case (_, false): Self.recordedText
+        }
+    }
+
+    /// 見出しの前の印（打った記録はチェック、くり返しの記録はくり返しの記号、Apple Pay の支払いはカード）。
+    private var symbolName: String {
+        switch source {
+        case .recurring: "arrow.triangle.2.circlepath"
+        case .wallet: "creditcard"
+        case .text, .voice, .receipt: "checkmark"
         }
     }
 
@@ -357,7 +368,7 @@ private struct RecordedReplyHeader: View {
             .padding(.leading, showsCheck ? checkWidth + 4 : 0)
             .overlay(alignment: .leading) {
                 if showsCheck {
-                    Image(systemName: isRecurring ? "arrow.triangle.2.circlepath" : "checkmark")
+                    Image(systemName: symbolName)
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(Theme.accentText)
                         .frame(width: checkWidth)
@@ -383,6 +394,7 @@ private struct RecordedReplyHeader: View {
         switch source {
         case .receipt: Text("レシートから記録したものを消します")
         case .recurring: Text("くり返しの記録から記録したものを消します。その月の分はもう記録しません")
+        case .wallet: Text("Apple Pay の支払いから記録したものを消します")
         case .text, .voice: Text("記録を消して、送った文を入力欄に戻します")
         }
     }
