@@ -670,6 +670,99 @@ struct HomeModelTests {
         #expect(try fixture.entries().map(\.amount) == [850])
     }
 
+    // MARK: - バナーの「直す」
+
+    /// 1 件だけ記録したときのバナーの「直す」は、選ばせずにその記録のシートを開く。
+    @Test func bannerEditOfSingleRecordOpensSheet() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+
+        fixture.model.requestRecordedEdit(calendar: TestSupport.calendar)
+
+        #expect(!fixture.model.showsRecordedItemChoice)
+        #expect(fixture.model.editing?.memo == "ランチ")
+    }
+
+    /// 複数件を記録したときのバナーの「直す」は、シートを開かずにどれを直すかの確認を出す。確認を出している間は
+    /// 「取り消す」を時間で引っ込めず、やめたら（キャンセル。画面が false に戻す）数え直す。
+    ///
+    /// 以前は押すとすぐ開くメニューで、指を離したところの項目が選ばれて 1 件のシートが開くことがあり、メニューを開いている
+    /// 間もタイマーが数え続けて、バナーごとメニューが閉じることがあった。
+    @Test func bannerEditOfSeveralRecordsAsksWhichOne() async throws {
+        let fixture = try Fixture()
+        await fixture.send("スーパー2480、ドラッグ1200")
+        #expect(fixture.model.autoHidesUndo)
+
+        fixture.model.requestRecordedEdit(calendar: TestSupport.calendar)
+
+        #expect(fixture.model.showsRecordedItemChoice)
+        #expect(fixture.model.editing == nil)
+        #expect(fixture.model.recordedItems.map(\.summaryText) == ["スーパー ¥2,480", "ドラッグ ¥1,200"])
+        #expect(!fixture.model.autoHidesUndo)
+        // ほかの確認と同じく、声の入力を止め、体験の終わりの案内を重ねない。
+        #expect(fixture.model.isPresentingOtherScreen)
+
+        fixture.model.showsRecordedItemChoice = false
+
+        #expect(fixture.model.canUndo)
+        #expect(fixture.model.autoHidesUndo)
+    }
+
+    /// 確認で選んだものの「直す」のシートを開く（1 件目に限らない）。シートを出している間もタイマーは止めたままで、
+    /// 閉じたら数え直す。
+    @Test func choosingRecordedItemOpensItsEdit() async throws {
+        let fixture = try Fixture()
+        await fixture.send("スーパー2480、ドラッグ1200")
+        fixture.model.requestRecordedEdit(calendar: TestSupport.calendar)
+        let drug = try #require(fixture.model.recordedItems.last)
+
+        fixture.model.presentEdit(drug, calendar: TestSupport.calendar)
+
+        let editing = try #require(fixture.model.editing)
+        #expect(editing.memo == "ドラッグ")
+        #expect(editing.amountText == EntryAmountInput.text(for: 1_200))
+        #expect(!fixture.model.showsRecordedItemChoice)
+        #expect(!fixture.model.autoHidesUndo)
+
+        // シートを直さずに閉じると、画面が nil に戻す。
+        fixture.model.editing = nil
+
+        #expect(fixture.model.canUndo)
+        #expect(fixture.model.autoHidesUndo)
+    }
+
+    /// 選ぶ対象が 2 件を切ったら（引っ込めた・取り消した・消した）、確認も閉じたことにする。出したままの扱いで残ると、
+    /// タイマーが止まったままになり、次に記録したときに押していない確認が出るため。
+    @Test func recordedItemChoiceClosesWhenTargetsGo() async throws {
+        let fixture = try Fixture()
+
+        await fixture.send("スーパー2480、ドラッグ1200")
+        fixture.model.requestRecordedEdit(calendar: TestSupport.calendar)
+        #expect(fixture.model.showsRecordedItemChoice)
+        fixture.model.dismissUndo()
+        #expect(!fixture.model.showsRecordedItemChoice)
+
+        await fixture.send("スーパー2480、ドラッグ1200")
+        fixture.model.requestRecordedEdit(calendar: TestSupport.calendar)
+        #expect(fixture.model.showsRecordedItemChoice)
+        fixture.model.undoLastRecord()
+        #expect(!fixture.model.showsRecordedItemChoice)
+
+        await fixture.send("スーパー2480、ドラッグ1200")
+        fixture.model.requestRecordedEdit(calendar: TestSupport.calendar)
+        #expect(fixture.model.showsRecordedItemChoice)
+        let supermarket = try #require(try fixture.entries().last { $0.amount == 2_480 })
+        fixture.model.requestDelete(supermarket)
+        fixture.model.delete(try #require(fixture.model.pendingDeletion))
+        #expect(fixture.model.recordedItems.count == 1)
+        #expect(!fixture.model.showsRecordedItemChoice)
+
+        // 次に記録しても、確認はひとりでに出ない。
+        await fixture.send("コーヒー 400")
+        #expect(!fixture.model.showsRecordedItemChoice)
+        #expect(fixture.model.autoHidesUndo)
+    }
+
     // MARK: - 設定
 
     @Test func presentSettingsOpensSettings() throws {
