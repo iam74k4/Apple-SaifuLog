@@ -60,7 +60,7 @@ struct RecapRemarkModelTests {
         #expect(model.state == .written(Self.sentence(4)))
     }
 
-    /// 古い文の書き手が、新しい文の一言を出した後に失敗しても、新しい一言を消さない。
+    /// 古い文の書き手が、新しい文の一言を出した後に失敗しても、新しい一言を消さない。取り消した後の失敗なので、AI の記録にも残さない。
     @Test func staleFailureDoesNotClearNewRemark() async throws {
         let purchases = await TestSupport.purchases(Self.premium)
         let oldStarted = Gate(), oldRelease = Gate()
@@ -72,7 +72,8 @@ struct RecapRemarkModelTests {
             }
             return Self.sentence(4)
         }
-        let model = RecapRemarkModel(purchases: purchases, makeWriter: { writer })
+        let log = AIFallbackLog()
+        let model = RecapRemarkModel(purchases: purchases, makeWriter: { writer }, aiFallbackLog: log)
 
         let oldTask = try #require(model.update(facts: Self.facts(3)))
         await oldStarted.wait()
@@ -83,6 +84,24 @@ struct RecapRemarkModelTests {
         await oldTask.value
 
         #expect(model.state == .written(Self.sentence(4)))
+        #expect(log.snapshot == AIFallbackLog.Snapshot())
+    }
+
+    // MARK: - 書けなかったとき
+
+    /// モデルが失敗したら一言を添えず（定型文だけ）、失敗を AI の記録に残す（利用者には知らせない）。
+    @Test func failureIsRecordedWithoutRemark() async throws {
+        let purchases = await TestSupport.purchases(Self.premium)
+        let writer = StubRemarkWriter { _ in throw TestError() }
+        let log = AIFallbackLog()
+        let model = RecapRemarkModel(purchases: purchases, makeWriter: { writer }, aiFallbackLog: log)
+
+        await model.update(facts: Self.facts(3))?.value
+
+        #expect(model.state == .none)
+        #expect(log.snapshot.fallbacks == [.recap: 1])
+        #expect(log.snapshot.lastError?.feature == .recap)
+        #expect(log.snapshot.lastError?.error.type == String(reflecting: TestError.self))
     }
 
     // MARK: - プレミアムの状態

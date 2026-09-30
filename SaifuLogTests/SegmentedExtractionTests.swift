@@ -123,6 +123,40 @@ struct SegmentedExtractionTests {
         #expect(entries.map(\.amount) == [400])
     }
 
+    /// AI の答えが入力と合わずに捨てたときは、AI の記録に失敗として残す（型とケースの名前で、何が合わなかったか分かる）。
+    @Test func rejectedAIResultIsRecorded() async throws {
+        let model = FakeModel(["コーヒー 400": Self.answer("コーヒー", "4000", .cafe)])
+        let log = AIFallbackLog()
+        let parser = FallbackEntryParser(
+            primary: StubParser { try await parse($0, with: model) },
+            fallback: RuleBasedParser(),
+            onFallback: log.reporter(for: .entry)
+        )
+
+        _ = try await parser.parse("コーヒー 400")
+
+        #expect(log.snapshot.fallbacks == [.entry: 1])
+        #expect(log.snapshot.lastError?.error.type == "SaifuLogCore.ExtractedEntry.ResolveError.ungroundedAmount")
+    }
+
+    /// 金額の無い文は、モデルに渡さず、ルールベースでも読めない。AI が読み落としたのではないので、AI の記録に残さない
+    /// （残すと、AI が働いているかを確かめる診断画面の回数に、金額を書き忘れた文が混ざる）。
+    @Test func noAmountIsNotRecordedAsAIFallback() async throws {
+        let model = FakeModel([:])
+        let log = AIFallbackLog()
+        let parser = FallbackEntryParser(
+            primary: StubParser { try await parse($0, with: model) },
+            fallback: RuleBasedParser(),
+            onFallback: log.reporter(for: .entry)
+        )
+
+        let entries = try await parser.parse("ランチ")
+
+        #expect(entries.isEmpty)
+        #expect(await model.prompts.isEmpty)
+        #expect(log.snapshot == AIFallbackLog.Snapshot())
+    }
+
     /// 取り消された（画面を閉じたなど）あとは、残りの件をモデルに読ませない。
     @Test func cancellationStopsRemainingSegments() async {
         let model = FakeModel([

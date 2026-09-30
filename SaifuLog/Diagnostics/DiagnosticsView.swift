@@ -59,8 +59,19 @@ struct DiagnosticsView: View {
                                 Text(row.label)
                             }
                         }
+                        // 使えるかの行だけでは、使えると出るのに生成が毎回失敗する端末を見分けられないので、その場で試せるようにする。
+                        if section.id == DiagnosticsReport.foundationModelsSectionID {
+                            Button("生成を試す", systemImage: "sparkles") {
+                                Task { await model.runGenerationProbe() }
+                            }
+                            .disabled(model.generationProbe == .running)
+                        }
                     } header: {
                         Text(section.title)
+                    } footer: {
+                        if section.id == DiagnosticsReport.foundationModelsSectionID {
+                            Text("決まった短い文で、端末内 AI に 1 回だけ生成させます（最大 \(DiagnosticsProbe.generationTimeout.components.seconds) 秒）。記録の中身は渡しません。")
+                        }
                     }
                 }
                 Section {

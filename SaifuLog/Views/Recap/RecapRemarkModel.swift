@@ -30,6 +30,7 @@ final class RecapRemarkModel {
 
     @ObservationIgnored private let purchases: PurchaseManager?
     @ObservationIgnored private let makeWriter: () -> (any RecapRemarkWriting)?
+    @ObservationIgnored private let aiFallbackLog: AIFallbackLog
     /// いま画面に出している数字の文。
     @ObservationIgnored private var facts: String?
     /// 数字の文ごとの、書き終えた結果（照合を通った一言か、捨てた・書けなかったら nil）。
@@ -41,12 +42,15 @@ final class RecapRemarkModel {
     /// - Parameters:
     ///   - purchases: プレミアムの状態。nil なら一言を添えない（無料と同じ）。
     ///   - makeWriter: 一言を書くもの。書くたびに選ぶ（AI の使える・使えないは途中から変わるため）。AI が使えなければ nil を返す。
+    ///   - aiFallbackLog: 書けなかったときの失敗を残す先（利用者には知らせず、ログと診断画面にだけ出す）。テストで別の記録を渡す。
     init(
         purchases: PurchaseManager?,
-        makeWriter: @escaping () -> (any RecapRemarkWriting)? = { RecapRemarkWriterFactory.makeWriter() }
+        makeWriter: @escaping () -> (any RecapRemarkWriting)? = { RecapRemarkWriterFactory.makeWriter() },
+        aiFallbackLog: AIFallbackLog = .shared
     ) {
         self.purchases = purchases
         self.makeWriter = makeWriter
+        self.aiFallbackLog = aiFallbackLog
     }
 
     /// 出している数字の文を替える（読み込み直したとき）。文が変わったら一言を書き直し、同じなら何もしない。書く Task を返す（テストで待つ）。
@@ -95,7 +99,10 @@ final class RecapRemarkModel {
                 sentence = try await writer.remark(from: facts)
             } catch {
                 // 書けなかった（安全のための拒否・文脈の長さの超過など）。添えずにおき、結果は覚えない（決め直したときにまた試す）。
-                if !Task.isCancelled, self.facts == facts { state = .none }
+                // 取り消した（数字の文が替わった・決め直した）後の失敗は、取り消しによるものかもしれないので残さない。
+                guard !Task.isCancelled else { return }
+                aiFallbackLog.record(.failed(error), in: .recap)
+                if self.facts == facts { state = .none }
                 return
             }
             // 待っている間に数字の文が替わったり、取り消されたりしたら、古い一言は出さない（次の Task が決める）。

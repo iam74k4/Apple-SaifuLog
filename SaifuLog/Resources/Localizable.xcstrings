@@ -289,6 +289,17 @@
         }
       }
     },
+    "AI の結果を使わなかった回数（起動から）" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。アプリを起動してから、端末内 AI が失敗したか結果を返さず、キーワード辞書や定型文に切り替えた回数（機能ごとの内訳つき）の項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI fallbacks since launch"
+          }
+        }
+      }
+    },
     "App Store に接続できませんでした" : {
       "comment" : "購入・復元に失敗したときのアラートの見出し（通信の失敗）",
       "localizations" : {
@@ -4430,6 +4441,39 @@
         }
       }
     },
+    "最後のエラー" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。起動してから最後に端末内 AI が失敗したときのエラーの型・ドメイン・番号の項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last error"
+          }
+        }
+      }
+    },
+    "最後のエラーの日時" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。起動してから最後に端末内 AI が失敗した日時の項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time of last error"
+          }
+        }
+      }
+    },
+    "最後のエラーの機能" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。起動してから最後に端末内 AI が失敗した機能（ひとこと入力・質問・ふりかえり・レシート）の項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feature of last error"
+          }
+        }
+      }
+    },
     "月%lld回" : {
       "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の、無料で使える回数。%lld は回数",
       "localizations" : {
@@ -4667,6 +4711,17 @@
         }
       }
     },
+    "決まった短い文で、端末内 AI に 1 回だけ生成させます（最大 %lld 秒）。記録の中身は渡しません。" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。端末内 AI の区切りの下の説明（「生成を試す」のボタンについて）。%lld は待つ上限の秒数",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asks the on-device AI to generate once from a fixed short prompt (up to %lld seconds). Your records are not sent."
+          }
+        }
+      }
+    },
     "準備しています…" : {
       "comment" : "声の入力を始めている間に、入力欄の代わりに出す文",
       "localizations" : {
@@ -4763,6 +4818,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reason: %@ %@"
+          }
+        }
+      }
+    },
+    "生成の試し" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。端末内 AI に短い文を 1 回生成させた結果（ok とかかった時間・エラー・時間切れ）の項目名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generation test"
+          }
+        }
+      }
+    },
+    "生成を試しました" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。「生成を試す」が終わったときの VoiceOver の読み上げ（結果は「生成の試し」の行に出る）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generation test finished"
+          }
+        }
+      }
+    },
+    "生成を試す" : {
+      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。端末内 AI の区切りにある、決まった短い文で 1 回だけ生成させるボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try Generation"
           }
         }
       }

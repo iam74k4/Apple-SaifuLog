@@ -11,6 +11,8 @@ struct ReceiptReader: Sendable {
     /// 品名とカテゴリを整える AI を選ぶ。AI が使えなければ nil（キーワード辞書のカテゴリのまま）。読み取りのたびに呼ぶ
     /// （AI の使える・使えないは途中から変わるため）。
     var makeRefiner: @Sendable () -> (any ReceiptItemRefining)? = { ReceiptItemRefinerFactory.makeRefiner() }
+    /// AI の失敗を残す先（利用者には知らせず、ログと診断画面にだけ出す）。テストで別の記録を渡す。
+    var aiFallbackLog: AIFallbackLog = .shared
 
     /// 画像を読み取る。画像が無い（写真や撮った画像を読み込めなかった）・文字が無い・品目も合計も無ければ、読めなかった理由を返す。
     ///
@@ -29,8 +31,12 @@ struct ReceiptReader: Sendable {
         if scan.hasNoAmounts { return .unreadable(.noAmounts) }
         if !scan.items.isEmpty, let refiner = makeRefiner() {
             let image = refiner.usesImage ? images.first : nil
-            if let suggestions = try? await refiner.suggestions(for: scan.items, storeName: scan.storeName, image: image) {
+            do {
+                let suggestions = try await refiner.suggestions(for: scan.items, storeName: scan.storeName, image: image)
                 scan.items = ReceiptItemRefinement.apply(suggestions, to: scan.items)
+            } catch {
+                // 辞書のカテゴリのまま出す。取り消した（シートを閉じた）後の失敗は、取り消しによるものなので残さない。
+                if !Task.isCancelled { aiFallbackLog.record(.failed(error), in: .receipt) }
             }
         }
         return .read(scan)
