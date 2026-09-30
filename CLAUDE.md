@@ -128,6 +128,14 @@
     「カテゴリを作る」・⑥・⑤ で付く。削除すると記録は「その他」、カテゴリ別の予算は 0、覚えたカテゴリからも外す。家族の家計には持ち込まない
     （「その他」にする）。⑧ の「カテゴリ」（`Views/Categories/` の `CategoryListView`・`CategoryListModel`、作る・直すシートは
     `CategoryEditorSheet`・`CategoryEditorModel`）。`docs/design.md` §8）。
+    くり返しの記録（家賃・サブスク・給料のように毎月同じ記録。決めた日（1〜31。無い日は月末）を過ぎて最初に開いたとき（ホームが出た・前面に戻った・
+    日付が変わった・足したり直したりした）に `HomeModel.recordDueRecurringEntries` が記録し、返事のカード（「くり返しの記録」。自分の吹き出しは出さない。
+    元の文は空・入力元 `.recurring`）と「取り消す」で知らせる。開かなかった月も 12 か月までさかのぼる。記録した月は決まりに覚え（取り消した月も）、
+    記録には印 `Entry.recurrenceKey`（「決まりの ID/202610」）を付けて、iCloud で 2 台が同じ月を記録したら記録した日時の古い 1 件を残す
+    （`RecurringDuplicates`。ほかの端末の変更が届いたときと記録する前）。決まりは `RecurringEntry`（暗号化フィールド）と `RecurringEntryStore`、日付は
+    コアの `RecurringSchedule`・`RecurringMonth`（西暦で数える）。⑧ の「毎月の記録」の「くり返しの記録」（`Views/Recurring/` の `RecurringListView`・
+    `RecurringListModel`、足す・直すシートは `RecurringEditorSheet`・`RecurringEditorModel`）と、返事の行の長押しの「毎月くり返す」（その記録の月の次の
+    月から）。自分の記録だけ。無料。`docs/design.md` §9）。
     よく使うひとこと（入力欄の上に、直近 90 日のよく記録する品目を「品目 ¥金額」のボタンで並べ、押すと入力欄に入る。送信は利用者。
     候補はコアの `QuickPhrases`、画面は `QuickPhraseBar`、`HomeModel.quickPhrases`）。
     アプリのロック（⑧ の「セキュリティ」の「Face ID でロック」。既定はオフで `AppSettings.appLockEnabled`。起動と裏から戻ったときに
@@ -139,7 +147,7 @@
     release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
     main で `mode=export` の照合が通るかの確認はまだ。`docs/design.md` §5-4）。
   - **未実装:** 週のふりかえりの通知・家族との共有の提供（試作は機能フラグで隠している）・
-    くり返しの記録・金額が読めないときの聞き返し・CSV の読み込み（くり返しの記録は、デザイン案にあるが未決。`docs/design.md` §13）。
+    金額が読めないときの聞き返し・CSV の読み込み。
   - 実機での確認の手段: release.yml の手動実行 `mode=testflight` で、develop のビルドを診断画面入りで TestFlight の
     社内テスト専用に送れるようにした（審査には出ない。Environment `release` の配備ブランチは `main` と `develop`）。
     実際に TestFlight で入れての確認はまだ（`docs/release-flow.md` の「TestFlight で実機に入れる（社内テスト）」）。
