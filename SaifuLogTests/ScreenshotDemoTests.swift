@@ -138,6 +138,52 @@ struct ScreenshotDemoTests {
         #expect(calendar.date(byAdding: .day, value: -1, to: recordedDay) == calendar.startOfDay(for: split.spentAt))
     }
 
+    /// ホームは送った文（元の文）を自分の吹き出しに、記録を返事に出すので、元の文は実際に送る書き方で、読み直すと同じ記録になる
+    /// ものにする（読み取りの AI が無い端末と同じキーワード辞書で確かめる）。1 行に 2 件の送信は、アプリと同じく書いた順に
+    /// 記録した日時をずらす（`ParsedEntry.timestamps`）。
+    @Test("デモの元の文は、キーワード辞書で読み直すと同じ記録になる（1 行に 2 件の送信・割り勘・収入も）", arguments: shootingDays)
+    func originalTextsReadBackToRecords(day: Date) async throws {
+        let calendar = TestSupport.calendar
+        let now = ScreenshotDemo.pinnedNow(on: day, calendar: calendar)
+        let records = ScreenshotDemoLedger.records(now: now, calendar: calendar).sorted { $0.createdAt < $1.createdAt }
+        let sends = TimelineSend.groups(of: records.enumerated().map { index, record in
+            TimelineSend.Record(id: index, originalText: record.originalText, source: "text", createdAt: record.createdAt)
+        }).map { group in group.map { records[$0.id] } }
+
+        for send in sends {
+            let first = try #require(send.first)
+            let parsed = try await RuleBasedParser(calendar: calendar, now: { first.createdAt }).parse(first.originalText)
+            #expect(parsed.map(\.amount) == send.map(\.amount), "\(first.originalText)")
+            #expect(parsed.map(\.memo) == send.map(\.memo), "\(first.originalText)")
+            #expect(parsed.map(\.category) == send.map(\.category), "\(first.originalText)")
+            #expect(parsed.map(\.isIncome) == send.map(\.isIncome), "\(first.originalText)")
+            // 使った日（「昨日」なら記録した日の前の日）。時刻はデモのほうが実際に使った時刻（割り勘の夕食）なので比べない。
+            let timestamps = ParsedEntry.timestamps(for: parsed, now: first.createdAt, calendar: calendar)
+            #expect(timestamps.map(\.createdAt) == send.map(\.createdAt), "\(first.originalText)")
+            #expect(
+                timestamps.map { calendar.startOfDay(for: $0.spentAt) } == send.map { calendar.startOfDay(for: $0.spentAt) },
+                "\(first.originalText)"
+            )
+        }
+    }
+
+    @Test("デモの「いま」の日の最後の送信は、1 行に 2 件を書いた送信（ホームのいちばん下に、2 件の返事のカードが写る）", arguments: shootingDays)
+    func latestSendIsMultiItemLine(day: Date) throws {
+        let calendar = TestSupport.calendar
+        let now = ScreenshotDemo.pinnedNow(on: day, calendar: calendar)
+        let records = ScreenshotDemoLedger.records(now: now, calendar: calendar).sorted { $0.createdAt < $1.createdAt }
+        let groups = TimelineSend.groups(of: records.enumerated().map { index, record in
+            TimelineSend.Record(id: index, originalText: record.originalText, source: "text", createdAt: record.createdAt)
+        })
+        let latest = try #require(groups.last).map { records[$0.id] }
+
+        #expect(latest.map(\.originalText) == [ScreenshotDemoLedger.multiItemText, ScreenshotDemoLedger.multiItemText])
+        #expect(latest.map(\.memo) == ["牛乳", "洗剤"])
+        #expect(latest.allSatisfy { calendar.isDate($0.createdAt, inSameDayAs: now) })
+        // 同じ文の送信は、デモの「いま」の日と先月の同じ日だけ（ほかの日の送信とまとまらない）。
+        #expect(groups.filter { records[$0[0].id].originalText == ScreenshotDemoLedger.multiItemText }.allSatisfy { $0.count == 2 })
+    }
+
     @Test("数字がスクリーンショットに向く: 先週と今月は食費がいちばん多く、今月は予算の内（カテゴリ別の予算も）で、予算の目安の提案は出ない", arguments: shootingDays)
     func figuresSuitScreenshots(day: Date) throws {
         let calendar = TestSupport.calendar

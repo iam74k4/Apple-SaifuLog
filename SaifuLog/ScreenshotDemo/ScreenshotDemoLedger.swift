@@ -12,6 +12,10 @@ import SwiftData
 ///
 /// 金額は曜日と日付の決まった型から選ぶ（乱数を使わない）。同じ月に撮れば、日本語と英語で同じ記録になる。品目は日本語
 /// （アプリは日本語の入力を読むので、英語の画面でも記録は日本語で書かれる）。店の名前や人の名前は入れない。
+///
+/// ホームのタイムラインは、送った文（元の文）を自分の吹き出しに、記録をアプリの返事に出す会話の形なので、元の文は実際に送る
+/// 書き方にする（「ランチ 850」「昨日 焼肉12000 4人で割り勘」「給料 25万」。キーワード辞書で読み直すと同じ記録になることを
+/// ScreenshotDemoTests で確かめる）。デモの「いま」の日には、1 行に 2 件を書いた送信（`multiItemText`）も入れる。
 enum ScreenshotDemoLedger {
     /// デモの 1 件。
     struct Record: Equatable, Sendable {
@@ -32,6 +36,11 @@ enum ScreenshotDemoLedger {
     static let categoryBudgets: [EntryCategory: Int] = [.food: 60_000, .cafe: 12_000]
     /// 割り勘の記録の元の文（ようこその例と同じ書き方）。
     static let splitBillText = "昨日 焼肉12000 4人で割り勘"
+    /// 1 行に 2 件を書いた送信の元の文（デモの「いま」の日の夜。返事のカードに 2 件が並ぶ）。
+    static let multiItemText = "牛乳 198 洗剤 348"
+    /// 1 回の送信の 2 件目からの、記録した日時のずれ（秒）。アプリが 1 回の送信の記録に振る間隔（`ParsedEntry.timestamps`）と
+    /// 同じにする（ScreenshotDemoTests で照合する）。
+    static let multiItemStep: TimeInterval = 0.001
 
     /// 記録を始めた日（先月の 1 日の 0 時）。
     static func startDate(now: Date, calendar: Calendar) -> Date? {
@@ -54,9 +63,10 @@ enum ScreenshotDemoLedger {
                 isSplitBillDay: day == splitDay
             )
             for item in items {
-                guard let spentAt = calendar.date(bySettingHour: item.hour, minute: item.minute, second: 0, of: day),
-                      spentAt <= now
-                else { continue }
+                guard let sentAt = calendar.date(bySettingHour: item.hour, minute: item.minute, second: 0, of: day) else { continue }
+                // 1 回の送信の 2 件目からは、書いた順に並ぶよう記録した日時をずらす（使った日時も同じ。アプリと同じ）。
+                let spentAt = sentAt.addingTimeInterval(Double(item.partIndex) * multiItemStep)
+                guard spentAt <= now else { continue }
                 // 割り勘は翌朝に「昨日 …」と送った記録にする（記録した日時は翌日、使った日時は前の日）。
                 let createdAt = item.recordedNextMorning
                     ? calendar.date(byAdding: DateComponents(day: 1, hour: -9, minute: -25), to: spentAt) ?? spentAt
@@ -106,6 +116,8 @@ enum ScreenshotDemoLedger {
         var text: String?
         /// 翌朝にまとめて記録したか（割り勘）。
         var recordedNextMorning = false
+        /// 1 回の送信の何件目か（0 から）。1 行に複数件を書いた送信は、同じ `text` と時刻の品目を続けて並べる。
+        var partIndex = 0
 
         var originalText: String {
             text ?? "\(memo) \(amount)"
@@ -167,6 +179,12 @@ enum ScreenshotDemoLedger {
             } else {
                 items.append(Item(hour: 15, minute: 30, memo: "100均", amount: 660, category: .daily))
             }
+        }
+        // デモの「いま」の日（15 日。先月の 15 日にも入る）の夜に、1 行に 2 件を書いた送信（ホームのいちばん下に、2 件の返事の
+        // カードを写すため）。
+        if dayOfMonth == ScreenshotDemo.pinnedDay {
+            items.append(Item(hour: 20, minute: 5, memo: "牛乳", amount: 198, category: .food, text: multiItemText))
+            items.append(Item(hour: 20, minute: 5, memo: "洗剤", amount: 348, category: .daily, text: multiItemText, partIndex: 1))
         }
         // 月に一度の支払いと給料。給料はデモの「いま」（15 日）より前の 10 日にする（帯の「今月の収入」と、月のまとめの収入と
         // 収支を、今月の分で写すため）。
