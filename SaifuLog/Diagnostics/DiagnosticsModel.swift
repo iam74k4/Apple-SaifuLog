@@ -4,10 +4,10 @@ import Observation
 import SwiftData
 import UIKit
 
-/// 診断画面の状態と操作（値を読む・まとめてコピーする）。
+/// 診断画面の状態と操作（値を読む・端末内 AI の生成を試す・まとめてコピーする）。
 ///
-/// 端末に依存する部分（ロックの状態・音声の書き起こしの問い合わせ・クリップボード）は外から渡せるようにし、
-/// SaifuLogTests で確かめられるようにしている。
+/// 端末に依存する部分（ロックの状態・音声の書き起こしの問い合わせ・端末内 AI の生成・クリップボード）は外から渡せるようにし、
+/// SaifuLogTests で確かめられるようにしている（テストでは本物のモデルを呼ばない）。
 @MainActor
 @Observable
 final class DiagnosticsModel {
@@ -15,9 +15,15 @@ final class DiagnosticsModel {
     private(set) var report: DiagnosticsReport?
     /// まとめてコピーした回数（「コピーしました」の表示と、手ざわりの合図に使う）。
     private(set) var copyCount = 0
+    /// 生成の試し（「生成を試す」）の状態と結果。読み直しても消さない（試した結果をコピーする文に残すため）。
+    private(set) var generationProbe: DiagnosticsReport.GenerationProbe = .notRun
     /// 読み込みを始めた回数。前の読み込みの音声の答えが、後から始めた読み込みより遅れて返ったときに、
     /// 新しい値を古い値で上書きしないため。
     @ObservationIgnored private var loadGeneration = 0
+    /// いちばん新しい読み込みの、音声の書き起こしと iCloud のアカウントの答え（返るまでは nil）。生成の試しが終わって値を
+    /// 作り直すときに、問い合わせ直さずに使う。
+    @ObservationIgnored private var speechAnswer: DiagnosticsReport.SpeechStatus?
+    @ObservationIgnored private var accountAnswer: ICloudAccountStatus?
 
     @ObservationIgnored private let context: ModelContext
     @ObservationIgnored private let storeURL: URL
@@ -28,6 +34,9 @@ final class DiagnosticsModel {
     @ObservationIgnored private let copy: @MainActor (String) -> Void
     @ObservationIgnored private let announce: @MainActor (String) -> Void
     @ObservationIgnored private let household: HouseholdHost?
+    @ObservationIgnored private let aiFallbackLog: AIFallbackLog
+    @ObservationIgnored private let generate: @Sendable () async throws -> Void
+    @ObservationIgnored private let generationTimeout: Duration
 
     /// - Parameters:
     ///   - context: 件数を数える保存先。
@@ -40,6 +49,9 @@ final class DiagnosticsModel {
     ///   - copy: まとめてコピーする先（クリップボード）。テストで文を集める。
     ///   - announce: VoiceOver に読み上げさせる。
     ///   - household: 家計の共有。渡すと（有効なときだけ）家計の行を出す。
+    ///   - aiFallbackLog: 起動してから端末内 AI の結果を使わなかった回数と最後の失敗の記録。テストで別の記録を渡す。
+    ///   - generate: 生成の試しで、端末内 AI に 1 回生成させる。テストでは本物のモデルを呼ばない代わりに差し替える。
+    ///   - generationTimeout: 生成の試しを待つ上限。
     init(
         context: ModelContext,
         storeURL: URL = ModelContainerFactory.storeURL,
@@ -49,9 +61,15 @@ final class DiagnosticsModel {
         defaults: UserDefaults = .standard,
         copy: @escaping @MainActor (String) -> Void = { UIPasteboard.general.string = $0 },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
-        household: HouseholdHost? = nil
+        household: HouseholdHost? = nil,
+        aiFallbackLog: AIFallbackLog = .shared,
+        generate: @escaping @Sendable () async throws -> Void = { try await DiagnosticsProbe.generateOnce() },
+        generationTimeout: Duration = DiagnosticsProbe.generationTimeout
     ) {
         self.household = household
+        self.aiFallbackLog = aiFallbackLog
+        self.generate = generate
+        self.generationTimeout = generationTimeout
         self.context = context
         self.storeURL = storeURL
         self.isProtectedDataAvailable = isProtectedDataAvailable
@@ -70,32 +88,58 @@ final class DiagnosticsModel {
     func load() async {
         loadGeneration += 1
         let generation = loadGeneration
-        report = makeReport(speech: nil, iCloudAccount: nil)
+        speechAnswer = nil
+        accountAnswer = nil
+        report = makeReport()
         let speech = speech
         let iCloudAccount = iCloudAccount
         async let speechStatus = speech()
         async let accountStatus = iCloudAccount()
-        let (speechAnswer, accountAnswer) = await (speechStatus, accountStatus)
+        let answers = await (speech: speechStatus, account: accountStatus)
         // 待つ間に読み直しが始まっていれば、そちらに任せる（そちらの方が新しい値を読む）。
         guard generation == loadGeneration else { return }
-        report = makeReport(speech: speechAnswer, iCloudAccount: accountAnswer)
+        speechAnswer = answers.speech
+        accountAnswer = answers.account
+        report = makeReport()
     }
 
-    private func makeReport(speech: DiagnosticsReport.SpeechStatus?, iCloudAccount: ICloudAccountStatus?) -> DiagnosticsReport {
+    /// 端末内 AI に、決まった短い文で 1 回だけ生成させ、かかった時間かエラー（か時間切れ）を出す（「生成を試す」）。
+    ///
+    /// 使えるか（availability）の行は available なのに、生成が毎回失敗する端末がある（モデルの資産が無いシミュレータなど）。
+    /// アプリは失敗を利用者に見せずに辞書へ切り替えるので、実際に生成して確かめる。試している間に押し直しても重ねて試さない。
+    func runGenerationProbe() async {
+        guard generationProbe != .running else { return }
+        generationProbe = .running
+        refreshReport()
+        generationProbe = await DiagnosticsProbe.tryGeneration(timeout: generationTimeout, generate)
+        // 試している間に AI の記録が増えていることもあるので、表ごと作り直す。
+        refreshReport()
+        announce(String(localized: "生成を試しました"))
+    }
+
+    /// 読み込み済みの表を、いまの値で作り直す。まだ読み込んでいなければ何もしない（読み込みが作る）。
+    private func refreshReport() {
+        guard report != nil else { return }
+        report = makeReport()
+    }
+
+    private func makeReport() -> DiagnosticsReport {
         DiagnosticsReport(
             app: DiagnosticsProbe.appInfo(),
             device: DiagnosticsProbe.deviceInfo(),
             foundationModels: DiagnosticsProbe.foundationModels(),
-            speech: speech,
+            speech: speechAnswer,
             storeFiles: DiagnosticsProbe.storeFiles(storeURL: storeURL),
             isProtectedDataAvailable: isProtectedDataAvailable(),
             counts: DiagnosticsProbe.counts(context: context),
             iCloud: DiagnosticsReport.ICloudStatus(
-                account: iCloudAccount?.diagnosticName,
+                account: accountAnswer?.diagnosticName,
                 database: DiagnosticsProbe.cloudKitDatabase(container: context.container),
                 isSyncSettingOn: defaults.bool(for: AppSettings.iCloudSyncEnabled)
             ),
-            household: householdStatus()
+            household: householdStatus(),
+            aiFallbacks: aiFallbackLog.snapshot,
+            generationProbe: generationProbe
         )
     }
 
