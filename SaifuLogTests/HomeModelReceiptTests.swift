@@ -192,12 +192,13 @@ struct HomeModelReceiptTests {
         #expect(fixture.announcements.last?.contains("¥198") == true)
     }
 
-    /// 取り消しの対象から外れた後（次の送信の後など）に長押しで消しても、数えた回数は戻さない。
+    /// 取り消しの対象から外れた後（次の文を送った後）に長押しで消しても、数えた回数は戻さない。
     @Test func laterDeletionDoesNotRefund() async throws {
         let fixture = try Fixture()
         let result = try await Self.read(fixture)
         result.requestRecord()
-        fixture.model.dismissUndo()
+        await fixture.send("今月カフェいくら?")
+        #expect(!fixture.model.canUndo)
 
         for entry in try fixture.entries() {
             fixture.model.requestDelete(entry)

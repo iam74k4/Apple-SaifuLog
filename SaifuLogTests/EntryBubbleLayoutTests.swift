@@ -122,8 +122,8 @@ struct EntryBubbleLayoutTests {
     }
 }
 
-/// 描いた画像の画素を読む（sRGB の RGBA 8 ビットに描き直してから）。
-private struct RGBAImage {
+/// 描いた画像の画素を読む（sRGB の RGBA 8 ビットに描き直してから）。返事の行の並べ方のテスト（`RecordedReplyLayoutTests`）でも使う。
+struct RGBAImage {
     /// 画素の色の見分け。赤なら品目、青なら金額（文字の縁の半透明の画素も、色の偏りで見分ける）。
     enum Pixel: Equatable {
         case title, amount, clear, other

@@ -166,23 +166,19 @@ struct HomeModelHouseholdTests {
         #expect(fixture.household.engines[.shared]?.savedRecordNames == [entry.id.uuidString])
     }
 
-    /// 家計に複数件を記録したときも、バナーの「直す」はどれを直すかの確認を出し、選んだ家計の記録のシートを開く。
+    /// 家計に複数件を記録したときも、入力欄の VoiceOver の「直す: …」で選んだ家計の記録のシートを開く。
     @Test func choosingRecordedHouseholdItemOpensItsEdit() async throws {
         let fixture = try Fixture()
         try fixture.household.insertHousehold(role: .owner)
         fixture.model.ledgerScope = .household
         await fixture.send("スーパー2480、ドラッグ1200")
-
-        fixture.model.requestRecordedEdit(calendar: TestSupport.calendar)
-        #expect(fixture.model.showsRecordedItemChoice)
-        #expect(fixture.model.editing == nil)
-        #expect(!fixture.model.autoHidesUndo)
+        #expect(fixture.model.recordedItems.map(\.summaryText) == ["スーパー ¥2,480", "ドラッグ ¥1,200"])
 
         let drug = try #require(fixture.model.recordedItems.last)
         fixture.model.presentEdit(drug, calendar: TestSupport.calendar)
 
         #expect(fixture.model.editing?.memo == "ドラッグ")
-        #expect(!fixture.model.showsRecordedItemChoice)
+        #expect(fixture.model.canUndo)
         #expect(try fixture.entries().isEmpty)
     }
 

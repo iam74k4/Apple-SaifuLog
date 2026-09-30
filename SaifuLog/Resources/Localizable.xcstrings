@@ -89,6 +89,17 @@
         }
       }
     },
+    "%@・" : {
+      "comment" : "ホームのタイムラインの返事の行の、種別（カテゴリ名か「収入」）と使った日の間の区切り（「食費・9月27日」。使った日が送った日と違うときだけ日付を添える）。%@ は種別。日付は後ろに続けて出し、1 行に収まらなければ日付を次の行に移すので、区切りは種別の側に付ける（日本語では「・」を行の頭に置かない）。英語は中点の前後に空白を入れる（後ろの空白も消さない）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · "
+          }
+        }
+      }
+    },
     "%@・%@" : {
       "comment" : "家計への質問の回答カードの上の、期間の見出し（「今月・9月1日～30日」）。1 つ目の %@ は期間の名前（「今月」）、2 つ目の %@ は日付の範囲（「9月1日～30日」）。文字をつなげるだけで間に空きが入らないので、英語では中点の前後に空白を入れる（ホームの帯の「・」とは別のキー）",
       "localizations" : {
@@ -1158,28 +1169,6 @@
         }
       }
     },
-    "どれを直しますか？" : {
-      "comment" : "1 回の送信で複数件を記録したとき、記録の直後のバナーの「直す」で出す確認の見出し。下に記録したもの（「ランチ ¥850」）を並べ、直すものを選ばせる",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Which record do you want to edit?"
-          }
-        }
-      }
-    },
-    "どれを直すかを選びます" : {
-      "comment" : "1 回の送信で複数件を記録したときの、記録の直後のバナーの「直す」の VoiceOver のヒント（押すと、どれを直すかの確認を出す）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose which record to edit."
-          }
-        }
-      }
-    },
     "なし" : {
       "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表で、その機能が無いこと",
       "localizations" : {
@@ -1952,6 +1941,17 @@
         }
       }
     },
+    "レシートから記録したものを消します" : {
+      "comment" : "ホームのタイムラインの、レシートから記録した返事の見出しの「取り消す」の VoiceOver のヒント（記録を消し、数えた無料の 1 回を戻す。入力欄には何も戻さない）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removes what was recorded from the receipt."
+          }
+        }
+      }
+    },
     "レシートの合計" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。照合の欄の、レシートに印字された合計の行の名前",
       "localizations" : {
@@ -2261,7 +2261,7 @@
       }
     },
     "今日" : {
-      "comment" : "家計への質問の回答カードの期間の名前",
+      "comment" : "家計への質問の回答カードの期間の名前。ホームのタイムラインの日付の見出しにも使う",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3188,7 +3188,7 @@
       }
     },
     "取り消す" : {
-      "comment" : "記録の直後に出るバナーのボタン（「直す」と並ぶ）",
+      "comment" : "ホームのタイムラインの、直前の送信への返事の見出しのボタン（その送信で記録したものを消す）。家計のタイムラインの記録の直後の行にも使う",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4376,7 +4376,7 @@
       }
     },
     "昨日" : {
-      "comment" : "家計への質問の回答カードの期間の名前",
+      "comment" : "家計への質問の回答カードの期間の名前。ホームのタイムラインの日付の見出しにも使う",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4845,7 +4845,7 @@
       }
     },
     "直す" : {
-      "comment" : "記録の吹き出しの長押しメニュー・VoiceOver の操作・記録の直後のバナーのボタン。直すシートを開く",
+      "comment" : "記録の長押しメニュー（返事の行と家計の記録の吹き出し）・VoiceOver の操作。直すシートを開く",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5100,7 +5100,7 @@
       }
     },
     "記録しました" : {
-      "comment" : "記録の直後に出るバナー",
+      "comment" : "ホームのタイムラインの、送信へのアプリの返事のカードの見出し（1 件を記録したとき）。家計のタイムラインの記録の直後の行にも使う",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5117,6 +5117,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Recorded: %@"
+          }
+        }
+      }
+    },
+    "記録しました（%lld件）" : {
+      "comment" : "ホームのタイムラインの、送信へのアプリの返事のカードの見出し（1 回の送信で 2 件以上を記録したとき。1 件なら「記録しました」）。%lld は記録した件数（2 以上）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded %lld items"
           }
         }
       }
@@ -5325,6 +5336,17 @@
         }
       }
     },
+    "記録を消して、送った文を入力欄に戻します" : {
+      "comment" : "ホームのタイムラインの、送信への返事の見出しの「取り消す」の VoiceOver のヒント（その送信で記録したものを消し、送った文を入力欄に戻す）。家計のタイムラインの記録の直後の「取り消す」にも使う",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removes the records and puts your text back in the input field."
+          }
+        }
+      }
+    },
     "記録を直す" : {
       "comment" : "直すシートの見出し",
       "localizations" : {
@@ -5337,7 +5359,7 @@
       }
     },
     "記録を直す画面を開きます" : {
-      "comment" : "記録の吹き出しと、記録の直後のバナーの「直す」（1 件のとき）の VoiceOver のヒント（ダブルタップで直すシートを開く）",
+      "comment" : "ホームのタイムラインの返事の行と、家計の記録の吹き出しの VoiceOver のヒント（ダブルタップで直すシートを開く）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5706,7 +5728,7 @@
       }
     },
     "送った文: %@" : {
-      "comment" : "ホームのタイムラインの吹き出し（VoiceOver）。記録か質問か決められなかった文を送ったとき（質問とは名乗らない）。%@ は送った文",
+      "comment" : "ホームのタイムラインの送った文の吹き出し（VoiceOver）。記録の送信と、記録か質問か決められなかった文（質問とは名乗らない）。%@ は送った文",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5888,17 +5910,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Amount in yen"
-          }
-        }
-      }
-    },
-    "閉じる" : {
-      "comment" : "「記録しました / 直す / 取り消す」のバナーを閉じる VoiceOver の操作",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dismiss"
           }
         }
       }

@@ -309,7 +309,6 @@ struct HomeModelTests {
             await MainActor.run {
                 #expect(fixture.model.isParsing)
                 #expect(!fixture.model.canUndo)
-                #expect(!fixture.model.autoHidesUndo)
                 #expect(fixture.model.justRecorded.isEmpty)
                 // 押せたとしても、前の記録は消さない。
                 fixture.model.undoLastRecord()
@@ -358,10 +357,8 @@ struct HomeModelTests {
         #expect(announcement.contains("¥1,200"))
     }
 
-    /// 取り消しの保存に失敗してアラートを出している間は、「取り消す」を時間で引っ込めない（閉じたら数え直す）。
-    ///
-    /// 数え続けると、アラートを読んでいる間にバナーが消え、「もう一度お試しください」に従えなくなるため。
-    @Test func undoFailureAlertPausesAutoHide() async throws {
+    /// 取り消しの保存に失敗したら、アラートを閉じた後も「取り消す」を残す（「もう一度お試しください」に従えるように）。
+    @Test func undoFailureKeepsUndoAfterAlert() async throws {
         let fixture = try Fixture()
         await fixture.send("ランチ 850")
         fixture.failsSave = true
@@ -370,10 +367,9 @@ struct HomeModelTests {
 
         #expect(fixture.model.storeFailure == .undo)
         #expect(fixture.model.canUndo)
-        #expect(!fixture.model.autoHidesUndo)
         // アラートを閉じると、画面が nil に戻す。
         fixture.model.storeFailure = nil
-        #expect(fixture.model.autoHidesUndo)
+        #expect(fixture.model.canUndo)
     }
 
     @Test func undoDeletesRecordAndRestoresText() async throws {
@@ -424,12 +420,24 @@ struct HomeModelTests {
         #expect(try fixture.entries().isEmpty)
     }
 
-    /// 「取り消す」を引っ込めても（時間切れ・閉じる）、記録はそのまま残る。
-    @Test func dismissUndoKeepsRecord() async throws {
+    /// 「取り消す」は時間では引っ込めない（返事の見出しに出したまま）。ほかの画面を開いて戻っても、時間がたっても残り、次の文を
+    /// 送ったときに引っ込む（記録はそのまま残る）。
+    @Test func undoStaysUntilNextSend() async throws {
         let fixture = try Fixture()
         await fixture.send("ランチ 850")
 
-        fixture.model.dismissUndo()
+        fixture.model.presentMonthlyReport(calendar: TestSupport.calendar)
+        fixture.model.monthlyReport = nil
+        fixture.model.presentSettings()
+        fixture.model.settings = nil
+        fixture.now = TestSupport.now.addingTimeInterval(10 * 60)
+        fixture.model.refreshToday()
+
+        #expect(fixture.model.canUndo)
+        #expect(fixture.model.justRecorded.map(\.amount) == [850])
+
+        // 質問を送っても引っ込める（送るたびに引っ込める）。
+        await fixture.send("今月カフェいくら?")
 
         #expect(!fixture.model.canUndo)
         #expect(try fixture.entries().map(\.amount) == [850])
@@ -482,7 +490,6 @@ struct HomeModelTests {
     @Test func deletingOlderRecordKeepsUndo() async throws {
         let fixture = try Fixture()
         await fixture.send("ランチ 850")
-        fixture.model.dismissUndo()
         await fixture.send("コーヒー 400")
         let lunch = try #require(try fixture.entries().first { $0.amount == 850 })
 
@@ -511,7 +518,7 @@ struct HomeModelTests {
 
     // MARK: - 直す
 
-    /// 吹き出し・長押しのメニュー・バナー・VoiceOver の操作から、その記録の「直す」のシートを開く。
+    /// 返事の行・長押しのメニュー・VoiceOver の操作から、その記録の「直す」のシートを開く。
     @Test func presentEditOpensSheetForEntry() async throws {
         let fixture = try Fixture()
         await fixture.send("ランチ 850")
@@ -568,7 +575,6 @@ struct HomeModelTests {
     @Test func editingOlderRecordKeepsUndo() async throws {
         let fixture = try Fixture()
         await fixture.send("ランチ 850")
-        fixture.model.dismissUndo()
         await fixture.send("コーヒー 400")
         let lunch = try #require(try fixture.entries().first { $0.amount == 850 })
         fixture.model.presentEdit(lunch, calendar: TestSupport.calendar)
@@ -580,32 +586,25 @@ struct HomeModelTests {
         #expect(fixture.model.justRecorded.map(\.amount) == [400])
     }
 
-    /// 直すのをやめても（保存せずに閉じる）、「取り消す」はそのまま残る。
-    ///
-    /// 時間で引っ込めるタイマーは画面にあるので、ここでは「シートを出している間は数えない」（`autoHidesUndo`）までを確かめる。
-    /// 数え続けると、直すのに 8 秒以上かけてやめたときには、画面の上では「取り消す」が消えているため。
+    /// 直すのをやめても（保存せずに閉じる）、「取り消す」はそのまま残る（シートを出している間も、閉じた後も）。
     @Test func cancellingEditKeepsUndo() async throws {
         let fixture = try Fixture()
         await fixture.send("ランチ 850")
-        #expect(fixture.model.autoHidesUndo)
         let entry = try #require(try fixture.entries().first)
         fixture.model.presentEdit(entry, calendar: TestSupport.calendar)
         fixture.model.editing?.amountText = "900"
 
-        // シートを出している間は、「取り消す」を時間で引っ込めない。
         #expect(fixture.model.canUndo)
-        #expect(!fixture.model.autoHidesUndo)
 
-        // シートを閉じると、画面が nil に戻す。閉じたら数え直す（閉じた直後にも取り消せる）。
+        // シートを閉じると、画面が nil に戻す。閉じた後も取り消せる。
         fixture.model.editing = nil
 
         #expect(fixture.model.canUndo)
-        #expect(fixture.model.autoHidesUndo)
         #expect(try fixture.entries().map(\.amount) == [850])
     }
 
-    /// 直前の記録を直して保存したら「取り消す」は引っ込むので、シートを閉じても数え直さない。
-    @Test func savingEditOfJustRecordedStopsUndoCountdown() async throws {
+    /// 直前の記録を直して保存したら「取り消す」は引っ込み、シートを閉じても戻らない。
+    @Test func savingEditOfJustRecordedRetractsUndo() async throws {
         let fixture = try Fixture()
         await fixture.send("ランチ 850")
         let entry = try #require(try fixture.entries().first)
@@ -617,21 +616,7 @@ struct HomeModelTests {
         fixture.model.editing = nil
 
         #expect(!fixture.model.canUndo)
-        #expect(!fixture.model.autoHidesUndo)
-    }
-
-    /// 取り消せるものが無ければ、数えるものも無い（直すシートを閉じた後も）。
-    @Test func autoHidesUndoNeedsSomethingToUndo() async throws {
-        let fixture = try Fixture()
-        #expect(!fixture.model.autoHidesUndo)
-
-        await fixture.send("ランチ 850")
-        fixture.model.dismissUndo()
-        let entry = try #require(try fixture.entries().first)
-        fixture.model.presentEdit(entry, calendar: TestSupport.calendar)
-        fixture.model.editing = nil
-
-        #expect(!fixture.model.autoHidesUndo)
+        #expect(fixture.model.justRecorded.isEmpty)
     }
 
     /// 直すシートから消した記録は、「取り消す」の対象からも外す（消えた記録を取り消そうとしないように）。
@@ -670,50 +655,14 @@ struct HomeModelTests {
         #expect(try fixture.entries().map(\.amount) == [850])
     }
 
-    // MARK: - バナーの「直す」
+    // MARK: - 入力欄の VoiceOver の「直す」
 
-    /// 1 件だけ記録したときのバナーの「直す」は、選ばせずにその記録のシートを開く。
-    @Test func bannerEditOfSingleRecordOpensSheet() async throws {
-        let fixture = try Fixture()
-        await fixture.send("ランチ 850")
-
-        fixture.model.requestRecordedEdit(calendar: TestSupport.calendar)
-
-        #expect(!fixture.model.showsRecordedItemChoice)
-        #expect(fixture.model.editing?.memo == "ランチ")
-    }
-
-    /// 複数件を記録したときのバナーの「直す」は、シートを開かずにどれを直すかの確認を出す。確認を出している間は
-    /// 「取り消す」を時間で引っ込めず、やめたら（キャンセル。画面が false に戻す）数え直す。
-    ///
-    /// 以前は押すとすぐ開くメニューで、指を離したところの項目が選ばれて 1 件のシートが開くことがあり、メニューを開いている
-    /// 間もタイマーが数え続けて、バナーごとメニューが閉じることがあった。
-    @Test func bannerEditOfSeveralRecordsAsksWhichOne() async throws {
+    /// 入力欄の VoiceOver の「直す: …」は、直前の送信の記録を 1 件ずつ出し、選んだ記録のシートを開く（1 件目に限らない）。
+    /// 直さずに閉じても「取り消す」は残る。
+    @Test func recordedItemEditOpensChosenEntry() async throws {
         let fixture = try Fixture()
         await fixture.send("スーパー2480、ドラッグ1200")
-        #expect(fixture.model.autoHidesUndo)
-
-        fixture.model.requestRecordedEdit(calendar: TestSupport.calendar)
-
-        #expect(fixture.model.showsRecordedItemChoice)
-        #expect(fixture.model.editing == nil)
         #expect(fixture.model.recordedItems.map(\.summaryText) == ["スーパー ¥2,480", "ドラッグ ¥1,200"])
-        #expect(!fixture.model.autoHidesUndo)
-        // ほかの確認と同じく、声の入力を止め、体験の終わりの案内を重ねない。
-        #expect(fixture.model.isPresentingOtherScreen)
-
-        fixture.model.showsRecordedItemChoice = false
-
-        #expect(fixture.model.canUndo)
-        #expect(fixture.model.autoHidesUndo)
-    }
-
-    /// 確認で選んだものの「直す」のシートを開く（1 件目に限らない）。シートを出している間もタイマーは止めたままで、
-    /// 閉じたら数え直す。
-    @Test func choosingRecordedItemOpensItsEdit() async throws {
-        let fixture = try Fixture()
-        await fixture.send("スーパー2480、ドラッグ1200")
-        fixture.model.requestRecordedEdit(calendar: TestSupport.calendar)
         let drug = try #require(fixture.model.recordedItems.last)
 
         fixture.model.presentEdit(drug, calendar: TestSupport.calendar)
@@ -721,48 +670,22 @@ struct HomeModelTests {
         let editing = try #require(fixture.model.editing)
         #expect(editing.memo == "ドラッグ")
         #expect(editing.amountText == EntryAmountInput.text(for: 1_200))
-        #expect(!fixture.model.showsRecordedItemChoice)
-        #expect(!fixture.model.autoHidesUndo)
-
         // シートを直さずに閉じると、画面が nil に戻す。
         fixture.model.editing = nil
-
         #expect(fixture.model.canUndo)
-        #expect(fixture.model.autoHidesUndo)
     }
 
-    /// 選ぶ対象が 2 件を切ったら（引っ込めた・取り消した・消した）、確認も閉じたことにする。出したままの扱いで残ると、
-    /// タイマーが止まったままになり、次に記録したときに押していない確認が出るため。
-    @Test func recordedItemChoiceClosesWhenTargetsGo() async throws {
+    /// 直前の送信のものでなくなった記録（次の文を送った後）は、入力欄の「直す」からは開かない（返事の行から開く）。
+    @Test func recordedItemEditIgnoresStaleItem() async throws {
         let fixture = try Fixture()
-
-        await fixture.send("スーパー2480、ドラッグ1200")
-        fixture.model.requestRecordedEdit(calendar: TestSupport.calendar)
-        #expect(fixture.model.showsRecordedItemChoice)
-        fixture.model.dismissUndo()
-        #expect(!fixture.model.showsRecordedItemChoice)
-
-        await fixture.send("スーパー2480、ドラッグ1200")
-        fixture.model.requestRecordedEdit(calendar: TestSupport.calendar)
-        #expect(fixture.model.showsRecordedItemChoice)
-        fixture.model.undoLastRecord()
-        #expect(!fixture.model.showsRecordedItemChoice)
-
-        await fixture.send("スーパー2480、ドラッグ1200")
-        fixture.model.requestRecordedEdit(calendar: TestSupport.calendar)
-        #expect(fixture.model.showsRecordedItemChoice)
-        // 直前の記録から取る。時計を止めているので、1 回目に送った「スーパー」と記録した日時が同じで、保存先を記録した日時で
-        // 並べても、どちらが後に来るかは決まらないため。
-        let supermarket = try #require(fixture.model.justRecorded.first { $0.amount == 2_480 })
-        fixture.model.requestDelete(supermarket)
-        fixture.model.delete(try #require(fixture.model.pendingDeletion))
-        #expect(fixture.model.recordedItems.count == 1)
-        #expect(!fixture.model.showsRecordedItemChoice)
-
-        // 次に記録しても、確認はひとりでに出ない。
+        await fixture.send("ランチ 850")
+        let stale = try #require(fixture.model.recordedItems.first)
         await fixture.send("コーヒー 400")
-        #expect(!fixture.model.showsRecordedItemChoice)
-        #expect(fixture.model.autoHidesUndo)
+
+        fixture.model.presentEdit(stale, calendar: TestSupport.calendar)
+
+        #expect(fixture.model.editing == nil)
+        #expect(fixture.model.recordedItems.map(\.summaryText) == ["コーヒー ¥400"])
     }
 
     // MARK: - 設定

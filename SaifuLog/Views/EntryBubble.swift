@@ -1,12 +1,14 @@
 import SaifuLogCore
 import SwiftUI
 
-/// タイムラインの 1 件。自分が送ったメッセージのように右寄せの吹き出しで出す。
+/// 家族の家計のタイムラインの 1 件。右寄せの吹き出しで出す。
 ///
 /// 吹き出しを押すと「直す」のシートを開く。長押しのメニューには「直す」と「削除」を出す。
 ///
-/// 自分の記録（`Entry`）と家計の記録（`HouseholdEntry`）の両方に使う。家計の記録は、だれが記録したか（`recorderName`）を
-/// 日付の前に添える（家族の記録が混ざって並ぶので、だれのものかが分からないと直す・消すを決められないため）。
+/// 自分の記録のタイムラインは、送った文の吹き出しとアプリの返事のカード（`RecordedReplyCard`）の会話の形にした。家計の記録は
+/// 送った文を持たない（`HouseholdEntry`）ので、記録ごとの吹き出しのまま。だれが記録したか（`recorderName`）を日付の前に添える
+/// （家族の記録が混ざって並ぶので、だれのものかが分からないと直す・消すを決められないため）。型は記録の形（`LedgerEntryDisplaying`）
+/// で受け、テストでは値だけの記録でも描く。
 struct EntryBubble<Record: LedgerEntryDisplaying>: View {
     let entry: Record
     /// 今日。日付に年を添えるかの基準にする。
@@ -346,8 +348,9 @@ private struct TitleAmountLayout: Layout {
     }
 }
 
-/// 種別・記録した人・日付を横に並べる行。すべてが理想の幅（折り返さない幅）で収まるときは 1 行に並べる。収まらないときは、
-/// `stacksWhenNeeded` なら縦に積み（右寄せ）、そうでなければ HStack に任せる（文字を折り返して詰める）。
+/// 種別・記録した人・日付を横に並べる行（家計の記録の吹き出しと、アプリの返事のカードの行の種別と日付）。すべてが理想の幅
+/// （折り返さない幅）で収まるときは 1 行に並べる。収まらないときは、`stacksWhenNeeded` なら縦に積み（`stackAlignment` に寄せる）、
+/// そうでなければ HStack に任せる（文字を折り返して詰める）。
 ///
 /// 文字が大きいときも一律に縦に積むと、「食費 9月28日」のように 1 行に収まるものまで行が増え、
 /// 画面に出る記録が減るため、収まるかどうかで選ぶ。
@@ -358,10 +361,12 @@ private struct TitleAmountLayout: Layout {
 /// 調べる提案をせずに理想の大きさで並べる（`IdealRowArrangement`）。そうでないとき（家計の記録で名前が長いときや、文字が大きい
 /// ときなど）は、HStack・VStack にそのまま任せる（割った幅より広い子が先に渡されると、収まるのに折り返されることがあり、その形も
 /// 変えないため）。`stacksWhenNeeded` のときに `ViewThatFits` を使わないのは、候補ごとに文字を作って測るため。
-private struct AdaptiveRowLayout: Layout {
+struct AdaptiveRowLayout: Layout {
     let stacksWhenNeeded: Bool
     /// 横に並べるときの間。
     let spacing: CGFloat
+    /// 縦に積むときの揃え。吹き出し（右寄せ）は右、アプリの返事のカード（左寄せ）は左。
+    var stackAlignment: HorizontalAlignment = .trailing
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {
         switch arrangement(proposal: proposal, subviews: subviews) {
@@ -414,7 +419,7 @@ private struct AdaptiveRowLayout: Layout {
         }
         // 前の組み立てと同じ選び方: 縦に積めるときは、理想の幅で 1 行に収まれば HStack、収まらなければ VStack。
         if stacksWhenNeeded && !row.fits(proposal) {
-            return .stack(AnyLayout(VStackLayout(alignment: .trailing, spacing: 2)))
+            return .stack(AnyLayout(VStackLayout(alignment: stackAlignment, spacing: 2)))
         }
         return .stack(horizontal)
     }
@@ -422,7 +427,7 @@ private struct AdaptiveRowLayout: Layout {
 
 /// 子を理想の大きさ（幅の提案なし）で左から並べ、`alignment` の位置をそろえた形。HStack が、すべての子に理想の幅を与えて
 /// 並べるときと同じ大きさと位置。
-private struct IdealRowArrangement {
+struct IdealRowArrangement {
     let size: CGSize
     let origins: [CGPoint]
     /// 子の理想の幅（左から）。
@@ -472,7 +477,7 @@ private struct IdealRowArrangement {
 
 /// 標準の並べ方（HStack・VStack）に、測る・置く・揃えを任せる（`HStackLayout` などは、それらの関数を公開していないので
 /// `AnyLayout` を通して呼ぶ）。理想の大きさで並べられないときと、揃えを問われたときだけ使うので、キャッシュはそのたびに作る。
-private struct FallbackLayout {
+struct FallbackLayout {
     let layout: AnyLayout
 
     init(_ layout: AnyLayout) {
@@ -504,7 +509,7 @@ private struct FallbackLayout {
     }
 }
 
-/// タイムラインの吹き出し・削除の確認・直す対象の選択に出す記録の形（自分の記録と家計の記録）。
+/// 家計の記録の吹き出し・返事の行・削除の確認・入力欄の VoiceOver の「直す」に出す記録の形（自分の記録と家計の記録）。
 protocol LedgerEntryDisplaying: LedgerRecord {
     /// 品目（メモ）。
     var memo: String { get }
@@ -524,7 +529,8 @@ extension LedgerEntryDisplaying {
         isIncome ? String(localized: "収入") : String(localized: category.label)
     }
 
-    /// 削除の確認や直す対象の選択に出す「ランチ ¥850」。品目が無ければ種別の名前にする（吹き出しの見出しと同じ）。
+    /// 削除の確認や入力欄の VoiceOver の「直す: …」に出す「ランチ ¥850」。品目が無ければ種別の名前にする（返事の行と吹き出しの
+    /// 見出しと同じ）。
     var summaryText: String {
         "\(memo.isEmpty ? kindText : memo) \(YenFormatter.string(from: amount))"
     }

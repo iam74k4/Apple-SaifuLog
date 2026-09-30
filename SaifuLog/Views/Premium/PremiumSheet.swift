@@ -48,7 +48,8 @@ struct PremiumSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    // 取り消しのバナーの「閉じる」（英語は Dismiss）とは別のキーにする。英語ではシートを閉じるボタンは Close のため。
+                    // シートを閉じるボタンの専用のキーにする（英語では Close。VoiceOver の操作の「閉じる」などは Dismiss と訳すことが
+                    // あり、同じキーにすると言い方が合わなくなるため）。
                     Button {
                         dismiss()
                     } label: {

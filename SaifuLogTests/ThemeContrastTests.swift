@@ -45,7 +45,7 @@ struct ThemeContrastTests {
         .init(name: "danger / surface", foreground: Palette.danger, background: Palette.surface),
         .init(name: "income / background", foreground: Palette.income, background: Palette.background),
         .init(name: "income / surface", foreground: Palette.income, background: Palette.surface),
-        // 山吹の塗りの上の文字（主ボタンの文字など）。
+        // 山吹の塗りの上の文字（主ボタンの文字・タイムラインの自分が送った文の吹き出しなど）。
         .init(name: "onAccent / accentFill", foreground: Palette.onAccent, background: Palette.accentFill),
     ]
 

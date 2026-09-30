@@ -1,7 +1,7 @@
 import SaifuLogCore
 import SwiftUI
 
-/// ホームのタイムラインに出す「先週のふりかえり」のカード（アプリからの返事と同じく左寄せ）。
+/// ホームのタイムラインに出す「先週のふりかえり」のカード（アプリからの返事として左寄せ。記録の返事・質問の回答のカードと同じ面）。
 ///
 /// 見出しと期間、定型文（先週の支出と前の週との差）、AI の一言（プレミアムと体験中で、AI が使える端末だけ）、支出の多い
 /// 3 つのカテゴリ、週の目安との比べ、予算についての案内（予算が無ければ「予算を決める」、あれば目安との差が大きいときだけ
@@ -19,15 +19,11 @@ struct WeeklyRecapCard: View {
     /// 予算を決める画面を出す。
     let setBudget: () -> Void
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
     var body: some View {
         if let recap = model.recap {
-            HStack(spacing: 0) {
-                card(recap)
+            card(recap)
                 // アプリからの返事として左に寄せ、右に余白を残す（アクセシビリティサイズの文字では幅を使わせる）。
-                Spacer(minLength: dynamicTypeSize.isAccessibilitySize ? 0 : 40)
-            }
+                .leadingReply()
         }
     }
 
@@ -57,10 +53,7 @@ struct WeeklyRecapCard: View {
             budgetPrompt
         }
         .foregroundStyle(Theme.ink)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: .rect(cornerRadius: 18))
+        .replyCardSurface()
         .overlay(alignment: .topTrailing) {
             closeButton
         }

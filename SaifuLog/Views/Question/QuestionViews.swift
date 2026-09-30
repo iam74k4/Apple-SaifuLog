@@ -1,7 +1,8 @@
 import SaifuLogCore
 import SwiftUI
 
-/// タイムラインの質問 1 つ。送った質問を記録と同じく右寄せの吹き出しで出し、その下に返事のカードを左寄せで出す。
+/// タイムラインの質問 1 つ。送った質問を記録の送信と同じく右寄せの自分の吹き出しで出し、その下に返事のカードを左寄せで出す
+/// （記録の返事のカードと同じ見た目）。
 ///
 /// 質問は保存しないので、長押しの「直す」「削除」は無い（アプリを開き直すと消える）。
 struct QuestionExchangeView: View {
@@ -14,58 +15,20 @@ struct QuestionExchangeView: View {
     let openPremium: () -> Void
 
     var body: some View {
+        // 吹き出しと返事の間は、タイムラインの行どうしの間（12pt）と同じにする（記録の送信は吹き出しと返事が別の行）。
         VStack(spacing: 12) {
-            QuestionBubble(text: exchange.text, isQuestion: exchange.state != .unclear)
+            UserMessageBubble(
+                text: exchange.text,
+                // 記録か質問か決められなかった文は、VoiceOver でも「質問」と読まない。下の案内が「記録か質問か分かりません
+                // でした」と言うのに、吹き出しが質問と名乗ると食い違うため。
+                accessibilityLabel: exchange.state == .unclear ? Text("送った文: \(exchange.text)") : Text("質問: \(exchange.text)")
+            )
             QuestionReplyCard(state: exchange.state, openReport: openReport, setBudget: setBudget, openPremium: openPremium)
         }
     }
 }
 
-/// 送った質問の吹き出し（記録の吹き出しと同じく、自分が送ったものとして右寄せ）。
-///
-/// 記録か質問か決められなかった文（`isQuestion` が false）は、「?」の丸を付けず、VoiceOver でも「質問」と読まない。
-/// 下の案内が「記録か質問か分かりませんでした」と言うのに、吹き出しが質問と名乗ると食い違うため。
-private struct QuestionBubble: View {
-    let text: String
-    let isQuestion: Bool
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @ScaledMetric(relativeTo: .body) private var iconSize = 28
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Spacer(minLength: dynamicTypeSize.isAccessibilitySize ? 0 : 40)
-            Text(verbatim: text)
-                .foregroundStyle(Theme.ink)
-                .multilineTextAlignment(.trailing)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(Theme.surface, in: .rect(cornerRadius: 18))
-            if !dynamicTypeSize.isAccessibilitySize {
-                if isQuestion {
-                    // 記録の吹き出しのカテゴリの丸の代わりに、質問の印を置く（記録ではないことが一目で分かるように）。
-                    Image(systemName: "questionmark")
-                        .font(.system(size: iconSize * 0.5, weight: .semibold))
-                        .foregroundStyle(Theme.onCategory)
-                        .frame(width: iconSize, height: iconSize)
-                        .background(Theme.inkSecondary, in: .circle)
-                        // 丸はダークでもライトの色（濃い色）で塗る（記録の丸と同じ理由。白い記号を読めるように）。
-                        .environment(\.colorScheme, .light)
-                        .accessibilityHidden(true)
-                } else {
-                    // 丸の分の幅は空けておき、ほかの吹き出しと右の端をそろえる。
-                    Color.clear
-                        .frame(width: iconSize, height: iconSize)
-                        .accessibilityHidden(true)
-                }
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(isQuestion ? Text("質問: \(text)") : Text("送った文: \(text)"))
-    }
-}
-
-/// 質問への返事のカード（アプリからの返事として左寄せ）。
+/// 質問への返事のカード（アプリからの返事として左寄せ。記録の返事のカードと同じ面）。
 ///
 /// 答えたときは、大きな数字（コードが計算した値をそのまま）、期間とカテゴリの見出し、元になった件数、AI の一言（ある場合。
 /// 数字の照合を通ったものか定型文）、無料の残りの回数（3 回以下のとき）を出す。今月・先月の答えは、押すとその月の月のまとめへ進む。
@@ -76,19 +39,11 @@ private struct QuestionReplyCard: View {
     let setBudget: () -> Void
     let openPremium: () -> Void
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
     var body: some View {
-        HStack(spacing: 0) {
-            content
-                .foregroundStyle(Theme.ink)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.surface, in: .rect(cornerRadius: 18))
-            // アプリからの返事として左に寄せ、右に余白を残す（アクセシビリティサイズの文字では幅を使わせる）。
-            Spacer(minLength: dynamicTypeSize.isAccessibilitySize ? 0 : 40)
-        }
+        content
+            .foregroundStyle(Theme.ink)
+            .replyCardSurface()
+            .leadingReply()
     }
 
     @ViewBuilder
@@ -335,7 +290,7 @@ private struct AnswerContent: View {
 
 /// 内訳の 1 行（色と記号の丸・名前・金額・割合）。1 行に収まらなければ金額を名前の下に積み、それでも収まらなければ
 /// 割合を金額の下に積む（縮めて読めなくしない）。アクセシビリティサイズの文字では、名前と金額に幅を使わせるため丸を省く
-/// （記録の吹き出しと同じ。名前はいつも出る）。先週のふりかえりのカードの上位のカテゴリでも使う。
+/// （記録の返事の行の印と同じ。名前はいつも出る）。先週のふりかえりのカードの上位のカテゴリでも使う。
 struct BreakdownLine: View {
     let item: CategoryBreakdown.Item
 
