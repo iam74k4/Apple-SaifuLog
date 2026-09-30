@@ -115,6 +115,7 @@ struct PremiumSheetModelTests {
 
     /// 無料とプレミアムの違いの表で「近日」と書く機能。まだ出していない機能を、できるように書かない。
     /// 家計への質問・ふりかえりの AI の一言・レシートの読み取りは出したので「近日」を外した（出した機能を「近日」のままにしない）。
+    /// カテゴリ別の予算も、月のまとめに進みを出したので、補足の「使った額との比べの表示は近日対応です」を外した。
     @Test func comingSoonFeatures() {
         #expect(!PremiumFeature.receiptScan.isComingSoon)
         #expect(!PremiumFeature.question.isComingSoon)

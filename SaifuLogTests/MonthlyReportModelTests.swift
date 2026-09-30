@@ -34,11 +34,18 @@ struct MonthlyReportModelTests {
             try BudgetStore(context: context, now: { date }).setAmount(amount, for: .total)
         }
 
+        /// カテゴリ別の予算を `date` の日時に決める（0 で設定なし）。
+        func setBudget(_ amount: Int, for category: EntryCategory, at date: Date) throws {
+            try BudgetStore(context: context, now: { date }).setAmount(amount, for: .category(category))
+        }
+
         /// いまの保存先で、まとめのモデルを作る（今月を開く）。
-        func makeModel() -> MonthlyReportModel {
+        /// - Parameter purchases: プレミアムの状態。渡さなければ無料と同じ（カテゴリ別の予算の進みを出さない）。
+        func makeModel(purchases: PurchaseManager? = nil) -> MonthlyReportModel {
             MonthlyReportModel(
                 store: EntryStore(context: context),
                 calendar: TestSupport.calendar,
+                purchases: purchases,
                 now: { [unowned self] in now },
                 announce: { [unowned self] in announcements.append($0) },
                 didSave: { [unowned self] in savedEntries.append($0) },
@@ -423,5 +430,159 @@ struct MonthlyReportModelTests {
         #expect(model.report?.budget?.budget == 120_000)
         model.showPreviousMonth()
         #expect(model.report?.budget == nil)
+    }
+
+    // MARK: - カテゴリ別の予算
+
+    /// 買い切りのプレミアムの購入（30 日前）。
+    static let premiumPurchase = PremiumPurchase(
+        product: .premium, purchaseDate: TestSupport.now.addingTimeInterval(-30 * TrialPeriod.secondsPerDay)
+    )
+
+    /// 食費 ¥45,000・カフェ ¥3,000（9 月）と、食費 ¥20,000（8 月）の記録。予算は 9/1 に決めた食費 ¥40,000・カフェ ¥5,000・医療 ¥5,000。
+    static func insertCategoryBudgetLedger(_ fixture: Fixture) throws {
+        try fixture.insert(
+            TestSupport.entry(amount: 20_000, category: .food, spentAt: TestSupport.date(2026, 8, 20)),
+            TestSupport.entry(amount: 45_000, category: .food, spentAt: TestSupport.date(2026, 9, 3)),
+            TestSupport.entry(amount: 3_000, category: .cafe, memo: "コーヒー", spentAt: TestSupport.date(2026, 9, 10))
+        )
+        let decidedAt = TestSupport.date(2026, 9, 1, hour: 9)
+        try fixture.setBudget(40_000, for: .food, at: decidedAt)
+        try fixture.setBudget(5_000, for: .cafe, at: decidedAt)
+        try fixture.setBudget(5_000, for: .medical, at: decidedAt)
+    }
+
+    @Test("プレミアムでは、カテゴリの行に予算の進みを出し、支出の無い予算のカテゴリも ¥0 で並べる")
+    func categoryBudgetsForPremium() async throws {
+        let fixture = try Fixture()
+        try Self.insertCategoryBudgetLedger(fixture)
+
+        let model = fixture.makeModel(purchases: await TestSupport.purchases([Self.premiumPurchase]))
+
+        #expect(model.showsCategoryBudgets)
+        #expect(Set(model.categoryBudgets.keys) == [.food, .cafe, .medical])
+        let food = try #require(model.categoryBudgets[.food])
+        #expect(food.spent == 45_000)
+        #expect(food.isOver)
+        #expect(food.overspent == 5_000)
+        #expect(model.categoryBudgets[.cafe]?.remaining == 2_000)
+        #expect(model.budgetedCategoriesWithoutExpense == [.medical])
+        #expect(model.categoryBudgets[.medical]?.spent == 0)
+        // カテゴリ別の予算だけのときは、全体の予算の欄は出さない。
+        #expect(model.report?.budget == nil)
+    }
+
+    @Test("体験中も、カテゴリ別の予算の進みを出す")
+    func categoryBudgetsDuringTrial() async throws {
+        let fixture = try Fixture()
+        try Self.insertCategoryBudgetLedger(fixture)
+
+        let model = fixture.makeModel(purchases: await TestSupport.purchases([TestSupport.trial(startedDaysAgo: 3)]))
+
+        #expect(model.showsCategoryBudgets)
+        #expect(model.categoryBudgets[.food]?.spent == 45_000)
+    }
+
+    /// 無料に戻った人（体験の終わり・返金）には出さない（買わずに使える機能に見せない）。決めた額は消さずに残し、買えばまた出る。
+    @Test("無料・体験の終わり・返金の後は、カテゴリ別の予算の進みを出さず、決めた額は残す", arguments: [
+        [],
+        [TestSupport.trial(startedDaysAgo: 20)],
+        [PremiumPurchase(product: .premium, purchaseDate: TestSupport.date(2026, 9, 1), revocationDate: TestSupport.date(2026, 9, 5))],
+    ] as [[PremiumPurchase]])
+    func categoryBudgetsHiddenWhenFree(purchases: [PremiumPurchase]) async throws {
+        let fixture = try Fixture()
+        try Self.insertCategoryBudgetLedger(fixture)
+
+        let model = fixture.makeModel(purchases: await TestSupport.purchases(purchases))
+
+        #expect(!model.showsCategoryBudgets)
+        #expect(model.categoryBudgets.isEmpty)
+        #expect(model.budgetedCategoriesWithoutExpense.isEmpty)
+        // 行（内訳）は今までどおり。数えてはあるので、買えばすぐ出せる。
+        #expect(model.report?.breakdown.items.map(\.category) == [.food, .cafe])
+        #expect(model.report?.categoryBudgets[.food]?.spent == 45_000)
+        // 決めた額は消さない。
+        #expect(try BudgetStore(context: fixture.context).plan().byCategory == [.food: 40_000, .cafe: 5_000, .medical: 5_000])
+    }
+
+    @Test("購入の状態を渡さなければ（無料と同じ）、カテゴリ別の予算の進みを出さない")
+    func categoryBudgetsHiddenWithoutPurchases() throws {
+        let fixture = try Fixture()
+        try Self.insertCategoryBudgetLedger(fixture)
+
+        let model = fixture.makeModel()
+
+        #expect(!model.showsCategoryBudgets)
+        #expect(model.categoryBudgets.isEmpty)
+    }
+
+    /// 開いたまま体験が終わっても、読み直すのを待たずに消える（画面は状態を読むたびに決め直す）。
+    @Test("見ている間に体験が終わったら、読み直さなくてもカテゴリ別の予算の進みを出さなくなる")
+    func categoryBudgetsHideWhenTrialEndsWhileOpen() async throws {
+        let fixture = try Fixture()
+        try Self.insertCategoryBudgetLedger(fixture)
+        var clock = TestSupport.now
+        let purchases = await TestSupport.purchases(
+            [TestSupport.trial(startedDaysAgo: 13.9)], now: { clock }
+        )
+        let model = fixture.makeModel(purchases: purchases)
+        #expect(model.categoryBudgets[.food] != nil)
+
+        clock = TestSupport.now.addingTimeInterval(TrialPeriod.secondsPerDay)
+
+        #expect(!model.showsCategoryBudgets)
+        #expect(model.categoryBudgets.isEmpty)
+    }
+
+    /// 全体の予算と同じく、そのカテゴリの予算を決めた月より前の月には出さない（カテゴリごとに決めた日時で決める）。
+    @Test("カテゴリ別の予算も、そのカテゴリの予算を決めた月より前の月には出さない")
+    func categoryBudgetsOnlyFromDecidedMonth() async throws {
+        let fixture = try Fixture()
+        try fixture.insert(
+            TestSupport.entry(amount: 20_000, category: .food, spentAt: TestSupport.date(2026, 8, 20)),
+            TestSupport.entry(amount: 45_000, category: .food, spentAt: TestSupport.date(2026, 9, 3))
+        )
+        // 食費は 9/1、カフェは 7/1 に決めた。
+        try fixture.setBudget(40_000, for: .food, at: TestSupport.date(2026, 9, 1, hour: 9))
+        try fixture.setBudget(5_000, for: .cafe, at: TestSupport.date(2026, 7, 1))
+        let model = fixture.makeModel(purchases: await TestSupport.purchases([Self.premiumPurchase]))
+        #expect(Set(model.categoryBudgets.keys) == [.food, .cafe])
+
+        model.showPreviousMonth()
+
+        #expect(model.month == Self.month(2026, 8))
+        #expect(Set(model.categoryBudgets.keys) == [.cafe])
+        #expect(model.categoryBudgets[.cafe]?.spent == 0)
+        #expect(model.budgetedCategoriesWithoutExpense == [.cafe])
+    }
+
+    /// バーは読ませないので、行の読み上げに予算・使った額・残り（か超えた額）を文で足す（アプリのテストは日本語の画面で動く）。
+    @Test("カテゴリの行の読み上げに足す予算の進みは、予算・使った額・残りか超えた額")
+    func spokenCategoryBudgetProgress() throws {
+        let month = Self.month(2026, 9)
+        let within = try #require(BudgetStatus(
+            budget: 40_000, spent: 12_300, now: TestSupport.now, month: month, calendar: TestSupport.calendar
+        ))
+        #expect(within.spokenProgress == ["予算 ¥40,000", "使った額 ¥12,300", "残り ¥27,700"])
+
+        let over = try #require(BudgetStatus(
+            budget: 40_000, spent: 45_000, now: TestSupport.now, month: month, calendar: TestSupport.calendar
+        ))
+        #expect(over.spokenProgress == ["予算 ¥40,000", "使った額 ¥45,000", "¥5,000 オーバー"])
+    }
+
+    @Test("カテゴリ別の予算を変えたりなくしたりしたら、読み直すと変わる")
+    func categoryBudgetChangesOnReload() async throws {
+        let fixture = try Fixture()
+        try Self.insertCategoryBudgetLedger(fixture)
+        let model = fixture.makeModel(purchases: await TestSupport.purchases([Self.premiumPurchase]))
+
+        try fixture.setBudget(50_000, for: .food, at: TestSupport.date(2026, 9, 20))
+        try fixture.setBudget(0, for: .medical, at: TestSupport.date(2026, 9, 20))
+        model.reload()
+
+        #expect(model.categoryBudgets[.food]?.remaining == 5_000)
+        #expect(model.categoryBudgets[.medical] == nil)
+        #expect(model.budgetedCategoriesWithoutExpense.isEmpty)
     }
 }
