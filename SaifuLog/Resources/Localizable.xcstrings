@@ -961,6 +961,17 @@
         }
       }
     },
+    "「ランチ 850」のようなひとことを送って記録します。アプリを開いて、記録した内容を返事で見せます。" : {
+      "comment" : "Siri・ショートカットの操作「ひとことで記録」の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send a short note like “Lunch 850” to record it. SaifuLog opens and shows what it recorded in a reply."
+          }
+        }
+      }
+    },
     "「ランチ 850」のように、品目と金額を入れてください。" : {
       "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。「家族」のときに記録か質問か分からない文を送ったときのアラートの本文。例の「ランチ 850」は訳さない（入力は日本語）",
       "localizations" : {
@@ -979,6 +990,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Include the amount as a number, like “ランチ 850”."
+          }
+        }
+      }
+    },
+    "「今月カフェいくら?」のように家計について聞きます。アプリを開いて、答えをタイムラインに出します。" : {
+      "comment" : "Siri・ショートカットの操作「家計に質問」の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask about your spending, like “How much on cafés this month?”. SaifuLog opens and shows the answer in the timeline."
           }
         }
       }
@@ -2198,6 +2220,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Turn on app lock"
+          }
+        }
+      }
+    },
+    "アプリを開いて、すぐに打てるよう入力欄にキーボードを出します。" : {
+      "comment" : "Siri・ショートカットの操作「入力欄を開く」の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens SaifuLog with the keyboard ready in the input field."
+          }
+        }
+      }
+    },
+    "アプリを開いて、レシートを撮るか写真から選ぶ画面を出します。" : {
+      "comment" : "Siri・ショートカットの操作「レシートを読み取る」の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens SaifuLog and lets you take a photo of a receipt or choose one from Photos."
+          }
+        }
+      }
+    },
+    "アプリを開いて、話した内容を入力欄に入れます。送るのは、あなたが送信を押したときだけです。" : {
+      "comment" : "Siri・ショートカットの操作「声で入力」の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens SaifuLog and puts what you say into the input field. It’s sent only when you tap Send."
           }
         }
       }
@@ -3735,6 +3790,28 @@
         }
       }
     },
+    "何を聞きますか？" : {
+      "comment" : "Siri・ショートカットの操作「家計に質問」で、質問を尋ねるときの Siri の言葉",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What would you like to ask?"
+          }
+        }
+      }
+    },
+    "何を記録しますか？" : {
+      "comment" : "Siri・ショートカットの操作「ひとことで記録」で、記録する文を尋ねるときの Siri の言葉",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What would you like to record?"
+          }
+        }
+      }
+    },
     "作ったカテゴリ" : {
       "comment" : "設定の「カテゴリ」の節の見出し。利用者が作ったカテゴリ",
       "localizations" : {
@@ -4216,6 +4293,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Puts it in the input field"
+          }
+        }
+      }
+    },
+    "入力欄を開く" : {
+      "comment" : "Siri・ショートカットの操作の名前（アプリを開いて入力欄にキーボードを出す）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Input Field"
           }
         }
       }
@@ -5305,6 +5393,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Opens the list of people in the household"
+          }
+        }
+      }
+    },
+    "家計に質問" : {
+      "comment" : "Siri・ショートカットの操作の名前（家計について質問する）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask About Spending"
           }
         }
       }
@@ -7155,6 +7254,17 @@
         }
       }
     },
+    "記録する文" : {
+      "comment" : "Siri・ショートカットの操作「ひとことで記録」の、記録する文の項目の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text to Record"
+          }
+        }
+      }
+    },
     "記録する日" : {
       "comment" : "くり返しの記録を作る・直すシートの、記録する日の欄の見出し",
       "localizations" : {
@@ -7636,6 +7746,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "One-time purchase · Family Sharing"
+          }
+        }
+      }
+    },
+    "質問" : {
+      "comment" : "Siri・ショートカットの操作「家計に質問」の、質問の項目の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Question"
           }
         }
       }

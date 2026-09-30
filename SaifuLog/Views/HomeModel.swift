@@ -83,6 +83,10 @@ final class HomeModel {
     var categoryEditor: CategoryEditorModel?
     /// 返事の行の長押しの「毎月くり返す」で開く、くり返しの記録を作るシート。出していなければ nil。
     var recurringEditor: RecurringEditorModel?
+    /// Siri・ショートカットからの頼みのうち、まだ行っていないもの（読み取りの間・ほかの画面を出している間は待つ）。
+    private(set) var pendingQuickAction: QuickAction?
+    /// 入力欄にキーボードを出す頼みの数（増えるたびに、入力欄にフォーカスを入れる）。
+    private(set) var inputFocusRequest = 0
     /// 「月のまとめ」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
     var monthlyReport: MonthlyReportModel?
     /// 「設定」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
@@ -286,15 +290,26 @@ final class HomeModel {
     func send(calendar: Calendar) -> Task<Void, Never>? {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isParsing else { return nil }
-        // 送った瞬間の日時を 1 つ決め、解析（「昨日」「9/26」の基準）と保存（記録した日時・使った日時）の両方に使う。
-        // 保存のときに時計を読み直すと、読み取りを待つ間に日付が変わったとき（23:59:59 に送って 0:00:01 に保存）、
-        // 「9/26」と書いた記録が 1 日ずれて保存されるため。質問も、この日時で期間を区切る。
-        let sentAt = now()
         // 入力欄を空ける前に、どこから入れた文かを取っておく（空けると `draftSource` は text に戻る）。
         let source = draftSource
         // 送った時点で入力欄を空ける。解析（AI だと 1 秒以上かかることがある）を待ってから空けると、
         // 入力欄にとどまって打ち始めた次の入力まで、黙って消してしまうため。
         draft = ""
+        return submit(text, source: source, calendar: calendar)
+    }
+
+    /// 文を送る（入力欄の文か、Siri・ショートカットから頼まれた文）。入力欄には触れない（送れなかったときに文を戻すのは、
+    /// 入力欄が空のときだけ。`restoreDraft`）。
+    ///
+    /// - Parameter forcesQuestion: 記録か見分けずに質問として答える（Siri・ショートカットの「家計に質問」）。
+    @discardableResult
+    private func submit(
+        _ text: String, source: EntrySource, forcesQuestion: Bool = false, calendar: Calendar
+    ) -> Task<Void, Never> {
+        // 送った瞬間の日時を 1 つ決め、解析（「昨日」「9/26」の基準）と保存（記録した日時・使った日時）の両方に使う。
+        // 保存のときに時計を読み直すと、読み取りを待つ間に日付が変わったとき（23:59:59 に送って 0:00:01 に保存）、
+        // 「9/26」と書いた記録が 1 日ずれて保存されるため。質問も、この日時で期間を区切る。
+        let sentAt = now()
         // 前の記録の「取り消す」（返事の見出しと VoiceOver の操作）を引っ込める。読み取りの間も出したままだと、押したときに
         // 前の記録が消え、前の文が入力欄に戻る。それを送り直したり、いま送った文の記録だけが残ったりして、
         // 取り消したつもりのものと違う記録が残るため。質問を送ったときも同じにする（送るたびに引っ込める、と揃える）。
@@ -303,6 +318,9 @@ final class HomeModel {
         categoryQuestionIDs = []
         if isHouseholdActive {
             return sendToHousehold(text, source: source, sentAt: sentAt, calendar: calendar)
+        }
+        if forcesQuestion {
+            return ask(text, source: source, sentAt: sentAt, calendar: calendar)
         }
         switch InputIntentClassifier.classify(text, now: sentAt, calendar: calendar, catalog: categories.catalog) {
         case .record:
@@ -952,6 +970,49 @@ final class HomeModel {
                 self?.chooseCategory(category, for: entry)
             }
         )
+    }
+
+    // MARK: - Siri・ショートカット
+
+    /// Siri・ショートカットからの頼みを受け取る（`QuickActionInbox` から）。前に待っていた頼みがあれば、新しいほうにする。
+    func receive(_ action: QuickAction) {
+        pendingQuickAction = action
+    }
+
+    /// 待っている頼みを、行えるなら行う。行ったら、その処理を待つ Task を返す（テストで使う）。行えなければ nil（待ち続ける）。
+    /// ホームが出たとき・頼みを受け取ったとき・読み取りが終わったとき・ほかの画面を閉じたとき・ロックを解いたときに呼ぶ。
+    ///
+    /// 記録と質問は読み取りの間だけ待つ（ほかの画面を出していても行い、答えや返事はタイムラインに出す）。入力欄・レシート・
+    /// 声は、ほかの画面を出している間も待つ（画面の下で入力欄やカメラを開かないため）。記録と質問の文が空なら、入力欄を開く。
+    @discardableResult
+    func performPendingQuickAction(calendar: Calendar) -> Task<Void, Never>? {
+        guard let action = pendingQuickAction, !isParsing else { return nil }
+        switch action {
+        case .record(let text), .ask(let text):
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                guard !isPresentingOtherScreen else { return nil }
+                pendingQuickAction = nil
+                inputFocusRequest += 1
+                return Task {}
+            }
+            pendingQuickAction = nil
+            let isQuestion = if case .ask = action { true } else { false }
+            return submit(trimmed, source: .text, forcesQuestion: isQuestion, calendar: calendar)
+        case .compose:
+            guard !isPresentingOtherScreen else { return nil }
+            pendingQuickAction = nil
+            inputFocusRequest += 1
+            return Task {}
+        case .receipt:
+            guard !isPresentingOtherScreen else { return nil }
+            pendingQuickAction = nil
+            return requestReceiptScan(calendar: calendar)
+        case .voice:
+            guard !isPresentingOtherScreen else { return nil }
+            pendingQuickAction = nil
+            return voice.isActive ? Task {} : (voice.toggle() ?? Task {})
+        }
     }
 
     // MARK: - くり返しの記録
