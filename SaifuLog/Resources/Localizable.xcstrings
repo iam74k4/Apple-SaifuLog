@@ -1908,17 +1908,6 @@
         }
       }
     },
-    "ランチ 850 のように入力" : {
-      "comment" : "入力欄のプレースホルダ。例の「ランチ 850」は訳さない（解析が日本語の入力を前提にしているため）。英訳は短く保つ（長いと既定の文字サイズでも例が「…」で切れる）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "e.g. “ランチ 850”"
-          }
-        }
-      }
-    },
     "レシート: %@ 合計 %@" : {
       "comment" : "レシートから記録した記録の「元の文」（直す画面と CSV に出る）。最初の %@ は店名、次の %@ は「¥1,280」のような合計。OCR の全文は入れない",
       "localizations" : {
@@ -5310,6 +5299,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your records are saved on this iPhone, and what you write is read on this iPhone too. There’s no developer server, and your records and what you type are never sent to the developer or any third party. Only if you turn on iCloud sync in Settings are your records also saved in your iCloud and kept in sync across devices signed in to the same Apple Account."
+          }
+        }
+      }
+    },
+    "記録も質問も、ひとことで" : {
+      "comment" : "ホームの入力欄のプレースホルダ（記録も家計への質問も同じ入力欄に打てることを伝える）。英訳は短く保つ（長いと既定の文字サイズでも「…」で切れる）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record or ask in one line"
           }
         }
       }

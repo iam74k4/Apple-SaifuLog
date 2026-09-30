@@ -156,10 +156,14 @@ struct InputBar: View {
         }
     }
 
-    /// 入力の例。アクセシビリティサイズの文字では例だけにする。入力欄の幅に収まらない案内は、
-    /// 読めないほど小さく縮められるため。例の「ランチ 850」は訳さない（解析が日本語の入力を前提にしているため）。
+    /// 入力欄の案内。記録も質問も同じ入力欄に打てることを伝える（「記録も質問も、ひとことで」）。何を打てばよいかの例は、記録が
+    /// 無いときのタイムラインの案内（`EmptyTimelineView`）に出す。アクセシビリティサイズの文字では例（「ランチ 850」）だけにする。
+    /// 入力欄の幅に収まらない案内は、読めないほど小さく縮められるため。例の「ランチ 850」は訳さない（解析が日本語の入力を
+    /// 前提にしているため）。
     ///
     /// 色は補足の文字と同じにする。システムの既定の薄い灰色は、ガラスの地の上で 3:1 に届かないため。
+    /// 字は本文より一回り小さく（subheadline）する。入力欄はカメラとマイクのボタンに挟まれて狭く、本文の大きさでは標準の文字でも
+    /// 「記録も質問も、ひとことで」が「…」で切れたため（iPhone 17 Pro のシミュレータ）。打った文は本文の大きさのまま。
     private var prompt: Text {
         let text = if targetsHousehold {
             // 「自分／家族」を取り違えて記録しないよう、家計に記録することを例の文でも示す。アクセシビリティサイズでも
@@ -168,9 +172,9 @@ struct InputBar: View {
         } else if dynamicTypeSize.isAccessibilitySize {
             Text(verbatim: "ランチ 850")
         } else {
-            Text("ランチ 850 のように入力")
+            Text("記録も質問も、ひとことで")
         }
-        return text.foregroundStyle(Theme.inkSecondary)
+        return text.font(.subheadline).foregroundStyle(Theme.inkSecondary)
     }
 
     /// 入力欄の名前（VoiceOver が読む）。
