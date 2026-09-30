@@ -172,6 +172,37 @@ struct HomeTimelineLayoutTests {
         try Self.expectAtTheBottom(frames, key: .row(recap.id), size: size)
     }
 
+    /// 家計に記録した直後の「記録しました 取り消す」の行は、自分が記録した吹き出しのすぐ下に出る。「取り消す」は次の文を送るまで
+    /// 出したままなので、その間に家族の記録が同期で届くことがある。いちばん下の吹き出しの下に出すと、ほかの人の記録の下に並び、
+    /// その記録を取り消すように見える（押すと消えるのは自分の記録）。
+    @Test("家計に記録した後に家族の記録が届いても、「取り消す」の行は自分が記録した吹き出しのすぐ下に出る", arguments: sendSizes)
+    func householdUndoRowStaysUnderOwnRecord(size: UIContentSizeCategory) async throws {
+        let fixture = try TimelineFixture(household: true)
+        fixture.markWeeklyRecapShown()
+        _ = try fixture.insertHouseholdLedger()
+        fixture.model.ledgerScope = .household
+        fixture.model.draft = "コンビニ 650"
+        await fixture.model.send(calendar: TestSupport.calendar)?.value
+        let own = try #require(fixture.model.justRecordedHousehold.first)
+        #expect(fixture.model.canUndo)
+        // 家族の記録が 1 分後に届く（同期で取り込んだ代わりに、家計の保存先へ入れる）。
+        let later = try #require(try fixture.insertHouseholdEntry(
+            memo: "コーヒー", amount: 400, recorderName: "たろう", createdAt: fixture.now.addingTimeInterval(60)
+        ))
+
+        let frames = try await fixture.host(size: size, name: "household-undo")
+
+        let ownRow = try #require(frames[.row(own.id)].flatMap { $0.isNull ? nil : $0 }, "自分の記録が描かれていません（\(size.rawValue)）")
+        let laterRow = try #require(frames[.row(later)].flatMap { $0.isNull ? nil : $0 }, "家族の記録が描かれていません（\(size.rawValue)）")
+        let undoRow = try #require(
+            frames[.householdUndo].flatMap { $0.isNull ? nil : $0 }, "「取り消す」の行が描かれていません（\(size.rawValue)）"
+        )
+        #expect(ownRow.maxY <= undoRow.minY, "「取り消す」の行が自分の記録の下にありません（\(size.rawValue)）")
+        #expect(undoRow.maxY <= laterRow.minY, "「取り消す」の行が家族の記録の下にあります（\(size.rawValue)）")
+        // いちばん下は、後から届いた家族の記録（下の余白を残して下の端に見える）。
+        try Self.expectAtTheBottom(frames, key: .row(later), size: size)
+    }
+
     /// 前提: 中身が画面より高い（見える範囲より上に行がある）。行の id まで送ったときに下の余白が隠れたのは、この形のときだけ。
     private static func expectTallerThanViewport(
         _ frames: [TimelineFrameKey: CGRect], size: UIContentSizeCategory
@@ -267,6 +298,18 @@ private final class TimelineFixture {
             HouseholdEntry.timelineDescriptor(zoneName: TestSupport.householdZoneName, limit: 1)
         ).first
         return newest?.id
+    }
+
+    /// 家族の記録を 1 件、家計の保存先に入れる（同期で取り込んだ代わり）。入れた記録の id を返す。
+    func insertHouseholdEntry(memo: String, amount: Int, recorderName: String, createdAt: Date) throws -> UUID? {
+        guard let household else { return nil }
+        let entry = TestSupport.householdEntry(
+            amount: amount, memo: memo, category: .cafe, recorderName: recorderName,
+            spentAt: createdAt, createdAt: createdAt, modifiedAt: createdAt
+        )
+        household.context.insert(entry)
+        try household.context.save()
+        return entry.id
     }
 
     /// 入力欄から記録を送り（送信のボタンと同じ `HomeModel.send`）、保存し終えるまで待つ。送った記録の返事のカードの行を返す。

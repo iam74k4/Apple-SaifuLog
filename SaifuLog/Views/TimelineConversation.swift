@@ -43,8 +43,9 @@ struct EntrySend: Identifiable {
 
 // MARK: - 自分の吹き出し
 
-/// 自分が送ったもの（送った文・質問）の吹き出し。右に寄せ、山吹の塗りに墨の文字で出す（左に寄せる面の色の返事のカードと
-/// 見分けるため。チャットと同じく、自分の側を色で塗る）。押せるものではない。
+/// 自分が送ったもの（送った文・質問）の吹き出し。右に寄せ、灰色の面（`Theme.userBubble`）に墨の文字で出す。左に寄せる返事の
+/// カード（面の色と細い枠）とは、寄せる側と色で見分ける。山吹の塗りにしていた時期もあったが、送るたびに山吹の大きな塊が並んで、
+/// 山吹を使う送信ボタンや予算の進捗バーより目立ったため、灰色にした（デザイン案の質問の画面と同じ考え方）。押せるものではない。
 struct UserMessageBubble: View {
     let text: String
     /// 文の前に添える記号（声で入れた文のマイク・レシートの印）。nil なら添えない。
@@ -54,11 +55,11 @@ struct UserMessageBubble: View {
 
     var body: some View {
         content
-            .foregroundStyle(Theme.onAccent)
+            .foregroundStyle(Theme.ink)
             // 折り返すときも各行を吹き出しの右の端にそろえる（右寄せで出しているため）。
             .multilineTextAlignment(.trailing)
             .padding(EdgeInsets(top: 10, leading: 14, bottom: 10, trailing: 14))
-            .background(Theme.accentFill, in: Self.shape)
+            .background(Theme.userBubble, in: Self.shape)
             .trailingMessage()
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityLabel)

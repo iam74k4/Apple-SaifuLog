@@ -31,6 +31,9 @@ enum Theme {
     static let accentFill = Palette.accentFill.color
     /// 山吹の塗りの上に載せる文字と記号。
     static let onAccent = Palette.onAccent.color
+    /// タイムラインの自分の吹き出し（送った文・質問）の面。墨の文字を載せる。背景とアプリの返事のカード（面）の
+    /// どちらとも見分けられる灰色にする。
+    static let userBubble = Palette.userBubble.color
     /// 文字の強調の色（Assets の AccentColor。値は `Palette.accentText` と同じにしてあり、テストで照合する）。
     static let accentText = Color.accentColor
     /// 注意の色（予算オーバーなど）。アイコンと文字を必ず添える。
@@ -66,6 +69,7 @@ enum Palette {
     static let inkSecondary = ColorPair(light: 0x5F5B55, dark: 0xA8A6A1)
     static let accentFill = ColorPair(light: 0xF8B500, dark: 0xFFC62E)
     static let onAccent = ColorPair(light: 0x1F1D1A, dark: 0x1F1D1A)
+    static let userBubble = ColorPair(light: 0xE8E5DE, dark: 0x2C3037)
     /// Assets の AccentColor と同じ値にする（二か所にあるので、テストで食い違いを止める）。
     static let accentText = ColorPair(light: 0x8A5A00, dark: 0xFFC62E)
     static let danger = ColorPair(light: 0xB3261E, dark: 0xFF8A80)

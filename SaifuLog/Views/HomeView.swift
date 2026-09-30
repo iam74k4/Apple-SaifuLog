@@ -22,7 +22,7 @@ import UIKit
 ///
 /// 状態と操作（送信・質問・レシート・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ・
 /// 先週のふりかえり）は `HomeModel` が持つ。ここは表示と、
-/// 環境（文字の大きさ・支援技術・前面かどうか）に合わせた出し方だけを受け持つ。
+/// 環境（文字の大きさ・前面かどうか）に合わせた出し方だけを受け持つ。
 struct HomeView: View {
     @Environment(\.calendar) private var calendar
     @Environment(\.scenePhase) private var scenePhase
@@ -297,7 +297,7 @@ struct HomeView: View {
                 limit: model.timelineLimit,
                 canShowMore: model.canShowMoreTimeline,
                 today: model.today,
-                canUndo: model.canUndo,
+                undoableEntryIDs: Set(model.justRecordedHousehold.map(\.id)),
                 showMore: { model.showMoreTimeline() },
                 undo: { model.undoLastRecord() },
                 edit: { model.presentHouseholdEdit($0, calendar: calendar) },
@@ -678,7 +678,7 @@ private struct EntryTimeline: View {
 ///
 /// 家計の記録は送った文を持たないので、自分の記録のタイムラインのような会話の形（送った文と返事のカード）にはしていない
 /// （記録ごとの吹き出しのまま。会話の形にするかは docs/design.md §15 のあとの作業）。記録の直後の「取り消す」だけは、下の
-/// バナーをやめたので、いちばん新しい吹き出しの下に出す（`HouseholdUndoRow`）。
+/// バナーをやめたので、直前に記録した吹き出し（複数件ならいちばん新しいもの）のすぐ下に出す（`HouseholdUndoRow`）。
 ///
 /// 家計の保存先（household.store）を読むので、呼び出し側が家計の保存先を環境に渡す（`.modelContainer`）。
 private struct HouseholdTimeline: View {
@@ -686,8 +686,8 @@ private struct HouseholdTimeline: View {
     /// 「前の記録を表示」でさらに読み込めるか（読み込む件数が上限に届いていなければ）。
     let canShowMore: Bool
     let today: Date
-    /// 直前に家計へ記録したものを取り消せるか（いちばん新しい吹き出しの下に「取り消す」を出すか）。
-    let canUndo: Bool
+    /// 直前に家計へ記録したもの（まだ取り消せるもの）の id。その吹き出しの下に「取り消す」を出す。取り消せなければ空。
+    let undoableEntryIDs: Set<UUID>
     let showMore: () -> Void
     let undo: () -> Void
     let edit: (HouseholdEntry) -> Void
@@ -700,7 +700,7 @@ private struct HouseholdTimeline: View {
         limit: Int,
         canShowMore: Bool,
         today: Date,
-        canUndo: Bool,
+        undoableEntryIDs: Set<UUID>,
         showMore: @escaping () -> Void,
         undo: @escaping () -> Void,
         edit: @escaping (HouseholdEntry) -> Void,
@@ -709,7 +709,7 @@ private struct HouseholdTimeline: View {
         self.limit = limit
         self.canShowMore = canShowMore
         self.today = today
-        self.canUndo = canUndo
+        self.undoableEntryIDs = undoableEntryIDs
         self.showMore = showMore
         self.undo = undo
         self.edit = edit
@@ -717,7 +717,17 @@ private struct HouseholdTimeline: View {
         _recentEntries = Query(HouseholdEntry.timelineDescriptor(zoneName: zoneName, limit: limit))
     }
 
+    /// 「記録しました 取り消す」の行を下に置く吹き出し（直前に記録したもののうち、いちばん新しいもの）。
+    ///
+    /// いちばん下の吹き出しの下に置かないのは、「取り消す」は次の文を送るまで出したままなので、その間に家族の記録が同期で
+    /// 届くと、ほかの人の記録の下に「記録しました 取り消す」が並び、その記録を取り消すように見えるため（押すと消えるのは自分の記録）。
+    private var undoRowAnchor: UUID? {
+        guard !undoableEntryIDs.isEmpty else { return nil }
+        return recentEntries.first { undoableEntryIDs.contains($0.id) }?.id
+    }
+
     var body: some View {
+        let undoRowAnchor = undoRowAnchor
         ScrollViewReader { proxy in
             TimelineScrollView {
                 if recentEntries.isEmpty {
@@ -732,9 +742,10 @@ private struct HouseholdTimeline: View {
                         recorderName: entry.recorderName
                     )
                     .reportsTimelineFrame(.row(entry.id))
-                }
-                if canUndo {
-                    HouseholdUndoRow(undo: undo)
+                    if entry.id == undoRowAnchor {
+                        HouseholdUndoRow(undo: undo)
+                            .reportsTimelineFrame(.householdUndo)
+                    }
                 }
             }
             // いちばん新しい家計の記録が替わったら、下端まで送る（行ではなく中身の下端で、動きを付けない。`scrollToTimelineBottom`）。
@@ -746,13 +757,15 @@ private struct HouseholdTimeline: View {
     }
 }
 
-/// 家計のタイムラインの、記録の直後の「記録しました」と「取り消す」（いちばん新しい吹き出しの下に右寄せで出す）。
+/// 家計のタイムラインの、記録の直後の「記録しました」と「取り消す」（直前に記録した吹き出しの下に右寄せで出す）。
 /// 時間では引っ込めない（次の文を送る・取り消す・その記録を直す・記録先を切り替えるまで。自分の記録の返事と同じ）。
 private struct HouseholdUndoRow: View {
     let undo: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
+        // 1 行に収まらなければ（アクセシビリティサイズの文字）、「取り消す」を下の行に右寄せで置く。HStack のままだと、AX5 で
+        // 「記録しました」が語の途中で折り返され、「取り消す」が「取り…」に切れた。
+        AdaptiveRowLayout(stacksWhenNeeded: true, spacing: 12, stackAlignment: .trailing) {
             Text("記録しました")
                 .foregroundStyle(Theme.inkSecondary)
             Button(action: undo) {
@@ -927,6 +940,8 @@ enum TimelineFrameKey: Hashable {
     case viewport
     /// 行。送信の返事のカードは送信の `id`（送信のいちばん古い記録の `persistentModelID`）、家計の記録・質問・ふりかえりは `id`。
     case row(AnyHashable)
+    /// 家計のタイムラインの、記録の直後の「記録しました 取り消す」の行（`HouseholdUndoRow`）。
+    case householdUndo
 }
 
 /// タイムラインの行と見える範囲が描かれた位置（ウィンドウの座標）を受け取るもの。
