@@ -6,6 +6,8 @@ App Store Connect へのアップロード、審査への提出、配信後の�
 
 > **現状:** 仕組みは用意してあるが、まだ一度も通していない（最初のリリース前）。
 > 初回は下の「[一度だけの準備](#一度だけの準備)」と「[初回リリース（0.1.0）の進め方](#初回リリース010の進め方)」から始める。
+> 配信後にタグと GitHub Release を作る tag-release.yml は、最初のリリースまで Actions で無効にしてある（2026-09-30 から）。
+> 初めて main へマージするときに有効に戻す（「[既定のブランチ](#既定のブランチ)」と「初回リリース」の 2）。
 
 ---
 
@@ -48,7 +50,7 @@ PR: develop → main ─ マージ ─▶ release.yml
 | 自動（build.yml） | PR と push のたびに `make build`・`make check-strings`（String Catalog とコードの文字列の整合）・`make test`（コアのテスト）・`make build-tests` と `make test-app`（アプリのテストのビルドと、シミュレータでの実行）・`make test-storekit`（購入のテストを、SKTestSession が動く iOS 26.2 のシミュレータで。1 つでも飛ばされたら失敗）・`make check-version` と、署名なしの `make archive`（提出物と同じ Release・実機向けの組み立てを、マージ前に一度通す。バージョン・ビルド番号・アイコンがアプリの Info.plist に入っているかと、社内テスト用の診断画面と家族との家計の共有と撮影用のデモが入っていないかも見る） |
 | 自動（release.yml / upload） | 承認済みの版ならスキップ、アーカイブ（開発用の証明書で署名）、エンタイトルメントの照合（送らずに書き出す。いまは抜けていても警告だけ）、クラウド署名、App Store Connect へのアップロード |
 | 自動（release.yml / submit） | 処理待ち、バージョンの用意、リリースノート、**審査への提出** |
-| 自動（tag-release.yml） | 配信を検知し、配信されたビルドを作ったコミットにタグと GitHub Release を作成 |
+| 自動（tag-release.yml） | 配信を検知し、配信されたビルドを作ったコミットにタグと GitHub Release を作成（最初のリリースまでは無効にしてあり、初めて main へマージするときに人が有効に戻す） |
 | 人 | バージョンを上げる、CHANGELOG を書く、App Store Connect の Web でしかできない設定、リジェクトの対応 |
 | 人（任意）→ release.yml の `mode=testflight` | main へマージする前の develop のビルドを、診断画面入りで TestFlight の社内テスト専用に送る（審査には出ない。下の「[TestFlight で実機に入れる（社内テスト）](#testflight-で実機に入れる社内テスト)」） |
 
@@ -234,6 +236,8 @@ git checkout -b develop
 git push -u origin develop
 ```
 
+#### 既定のブランチ
+
 **既定のブランチは `develop` にする**（2026-09-29 に `main` から替えた）。GitHub は手動実行（workflow_dispatch）を、
 既定ブランチにワークフローのファイルがあるときにしか受け付けない。`main` を既定にしたままだと、初めてのリリースで
 `main` に入るまで release.yml が無く、develop からの `mode=testflight`（TestFlight の社内テスト）も
@@ -245,9 +249,21 @@ git push -u origin develop
   develop からの実行も許す）。守りは develop の Ruleset（直接 push できず、PR と `build` が必須。承認は 0 人）だけに
   なるので、`.github/workflows/` を変える PR は中身を見てからマージする。判定に読むのは常に main の中身
   （`ref: main`）で、main にまだリリースの中身が無いうちは何もせずに終わる。
-- 初めてのリリースの前に cron を止めておきたいときは、Actions → tag-release → 「…」→ Disable workflow で止め、
-  初めて main へマージするときに有効に戻す（止めていても手動実行はできる）。
 - PR の base は既定で develop になる。main へは release の PR（develop → main）だけを出す。
+
+**tag-release は、最初のリリースまで止めてある。** 所有者の判断で、2026-09-30 に Actions → tag-release → 「…」→
+**Disable workflow** で無効にした。main にまだリリースの中身が無いうちは、動いても何もせずに終わるだけで、止めても失うものが
+無い。そこで、上のとおり develop の定義が App Store Connect の鍵を持って 3 時間おきに動くのを、最初のリリースまでは止めておく。無効の間は cron で
+動かず、手動実行（Run workflow）もできない（GitHub は無効にしたワークフローを手動でも走らせない）。
+
+- **初めて main へマージするときに有効に戻す**（Actions → tag-release → **Enable workflow**。「[初回リリース（0.1.0）の進め方](#初回リリース010の進め方)」の 2）。
+  戻し忘れると、審査を通って配信が始まっても、タグ `v<version>` と GitHub Release が作られない
+- 戻し忘れたまま配信が始まったときは、有効に戻してから Actions → tag-release → Run workflow で手動実行する（`sha` は空でよい。
+  配信されたビルドから、タグを打つコミットを割り出す）
+- 有効に戻したかは、Actions → tag-release を開いて Enable workflow のボタンが出ていないことで確かめる。`gh workflow list --all` でも、
+  状態が `active`（無効なら `disabled_manually`）と出る
+
+#### 保護ルール（Ruleset）
 
 main と develop の保護は **Ruleset** で行う（Settings → Rules → Rulesets →
 New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分ける。** 許すマージの方法
@@ -286,10 +302,10 @@ New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分
 プレミアム（⑨。`docs/design.md` §6・§9）の課金アイテムは App Store Connect に登録済み。**製品 ID は変えない**（アプリのコアの
 `PremiumProduct` と `Config/SaifuLog.storekit` に同じ値を書いている。変えると買った人がプレミアムを使えなくなる）。
 
-| 製品 ID | 種類 | 価格 | ファミリー共有 | 表示名（ja） |
+| 製品 ID | 種類 | 価格 | ファミリー共有 | 表示名（ja / en） |
 |---|---|---|---|---|
-| `com.iam74k4.SaifuLog.premium` | 非消耗型 | ¥1,800（日本基準） | オン | サイフログ プレミアム |
-| `com.iam74k4.SaifuLog.trial14` | 非消耗型 | ¥0 | オフ | 14日間の無料体験 |
+| `com.iam74k4.SaifuLog.premium` | 非消耗型 | ¥1,800（日本基準） | オン | サイフログ プレミアム / SaifuLog Premium |
+| `com.iam74k4.SaifuLog.trial14` | 非消耗型 | ¥0 | オフ | 14日間の無料体験 / 14-day Trial |
 
 App ID の In-App Purchase の Capability は、明示的な App ID なら最初から有効（エンタイトルメントのファイルに足すものは無い）。
 
@@ -315,7 +331,8 @@ App ID の In-App Purchase の Capability は、明示的な App ID なら最初
    体験は 0 円で始められること・マイクの用途など）も同じファイルにある。上のとおり出すかは見直し中なので、決め事を変えたら
    審査メモも合わせて書き直してから出す。
 3. 表示名と説明（ja と en）。アプリの中の表示（`Config/SaifuLog.storekit` のローカライズ）と食い違わないようにする。体験の英語の
-   表示名とガイドライン 3.1.1 の名前の決まり（「XX-day Trial」）は `app-store/review-notes.md` に書いた。
+   表示名は、ガイドライン 3.1.1 の名前の決まり（「XX-day Trial」）に合わせた「14-day Trial」（`app-store/review-notes.md`）。
+   App Store Connect の英語のローカライズを直すのは所有者の作業（[`app-store/README.md`](app-store/README.md) の「App Store Connect で所有者がすること」）。
 4. 審査の前に、Sandbox のテスター（ユーザとアクセス → Sandbox）で実機に TestFlight のビルドを入れ、購入・体験・復元を一通り試す
    （`docs/design.md` §15 の「これから」）。
 
@@ -354,7 +371,10 @@ App ID の In-App Purchase の Capability は、明示的な App ID なら最初
      `AppIcon.appiconset` に入っていることを確かめる。App Store Connect はアイコンの無いビルドを
      受け付けない。消えていれば build.yml の `make archive` が止める
      （下の「[アプリアイコン](#アプリアイコンappiconappiconset)」）
-2. develop → main をマージする。release.yml の upload が走り、ビルドが App Store Connect に届く
+2. **tag-release を有効に戻してから**、develop → main をマージする。release.yml の upload が走り、ビルドが App Store Connect に届く
+   - マージの直前に Actions → tag-release → **Enable workflow** を押す（最初のリリースまで無効にしてある。「[既定のブランチ](#既定のブランチ)」）。
+     **戻し忘れると、配信が始まってもタグと GitHub Release が作られない。** マージの前に有効にしても、main にリリースの中身が
+     入るまでは何もせずに終わり、入った後も配信中の版が無いうちは何もしない（下の「2〜7 の間も」）ので、先に戻してかまわない
    - アップロードの前の「送る前に書き出して確かめる（送信しない）」で、書き出したアプリに
      エンタイトルメント（データ保護の `default-data-protection`、iCloud のサービスとコンテナ、`aps-environment`）が
      載っているかと、値（`aps-environment` が `production` に替わっているかなど）を照合する。
@@ -402,8 +422,9 @@ App ID の In-App Purchase の Capability は、明示的な App ID なら最初
      版の食い違い（1.0 と 0.1.0）で赤く止まり、タグと Release が作られない
 8. `ASC_AUTO_SUBMIT` を消す（以降はマージで審査まで進む）
 
-2〜7 の間も tag-release.yml は 3 時間おきに走る。App Store Connect に配信中の版がまだ無いので、
-「配信中の版はまだありません」として何もせずに終わる（失敗にはならない）。
+2〜7 の間も tag-release.yml は 3 時間おきに走る（2 で有効に戻したので）。App Store Connect に配信中の版がまだ無いので、
+「配信中の版はまだありません」として何もせずに終わる（失敗にはならない）。審査を通って配信が始まったら、3 時間以内に
+タグ `v0.1.0` と GitHub Release ができていることを確かめる（できていなければ、tag-release が有効になっているかを見る）。
 
 初回の版には「このバージョンでの変更点」の欄が無い。submit ジョブはリリースノートを
 入れられずに警告を出すが、そのまま提出へ進む（失敗ではない）。
@@ -457,6 +478,7 @@ App ID の In-App Purchase の Capability は、明示的な App ID なら最初
 | `前の版 X が … のため、Y の版を作れません` | 前の版の審査中（または配信待ちの間）に、版を上げて main へマージした。App Store Connect は進行中の版を 1 つしか持てない。前の版の配信が始まるか、リジェクトされる（取り下げる）のを待ってから、失敗した submit ジョブだけを **Re-run failed jobs** で再実行する。アップロードはやり直さなくてよい。前の版のタグと Release は tag-release が付ける |
 | 審査への追加で 409 が返り、Apple の理由（`errors[].detail` と `associatedErrors`）が並んで止まる | 提出に必要なものが足りない（スクリーンショット、説明文、サポート URL、年齢制限、App のプライバシーなど）。ログに並んだ理由を App Store Connect の Web で直してから、失敗した submit ジョブを **Re-run failed jobs** で再実行する。この版が既に入れ物に入っていただけのとき（前回の実行が提出の手前で落ちたなど）は、`asc.py` が入れ物の中身を確かめて先へ進むので、止まらない |
 | `既に配信済み ... MARKETING_VERSION を上げてください` | バージョンの上げ忘れ |
+| 配信が始まって 3 時間たっても、タグ `v<version>` も GitHub Release も無い（tag-release の実行も無い） | tag-release が無効のまま（最初のリリースまで無効にしてある）。Actions → tag-release → Enable workflow で有効に戻し、Run workflow で手動実行する（「[既定のブランチ](#既定のブランチ)」）。60 日間動きの無いリポジトリで GitHub が止めたときも同じ（「[cron の注意](#cron-の注意)」） |
 | タグ `v<version>` はあるのに GitHub Release が無い | tag-release.yml がタグの push の後、Release の作成で落ちた。次の実行（3 時間以内。急ぐなら手動実行）で Release だけが作られる。タグは打ち直されない |
 | tag-release が `release.yml の実行を逆算できません` / `実行 #N が見つかりません` / `コミット … の版は …で、v… と合いません` で止まる | 配信されたビルドから、タグを打つコミットを割り出せなかった（手元から送ったビルド、配信待ちの版があるうちに `BUILD_NUMBER_OFFSET` を変えた、App Store Connect の版番号を `MARKETING_VERSION` に揃えずに提出した、など）。配信されたビルドを作ったコミットを確かめ、Actions → tag-release → Run workflow の `sha` にそのコミットを入れて手動実行する（下の「[`tag-release.yml`](#tag-releaseyml)」） |
 
@@ -472,7 +494,8 @@ main へマージする前の develop のビルドを、TestFlight で自分の 
 
 1. 「[一度だけの準備](#一度だけの準備)」の 1〜3・6・7 を済ませる（Bundle ID とアプリレコード、API キー、証明書の Secrets、保護ルール）
 2. **Environment `release` の配備ブランチに `develop` を足す**（所有者の作業）。Settings → Environments → `release` →
-   Deployment branches and tags → Add deployment branch or tag rule → `develop`。足したあと何で安全を保つか（と、その限界）は「一度だけの準備」の 3
+   Deployment branches and tags → Add deployment branch or tag rule → `develop`。足したあと何で安全を保つか（と、その限界）は「一度だけの準備」の 3。
+   済み（いまの配備ブランチは `main` と `develop`）
 3. App Store Connect → アプリ → **TestFlight** → 内部テストの **+** でグループを作り（名前は任意。例: 「所有者」）、
    テスターに自分を足す
    - 内部テスターになれるのは、App Store Connect のチームのユーザ（最大 100 人）。Apple Developer Program の所有者は、そのまま足せる
@@ -810,7 +833,10 @@ actions と Python の依存は Dependabot が月に一度 develop 宛てに PR 
 
 また GitHub は、60 日間まったく動きの無いリポジトリで scheduled workflow を
 自動的に止める。長く触っていない状態でリリースしたときは、Actions タブで
-有効になっているかを確認する（止まっていても、tag-release は手動実行できる）。
+有効になっているかを確認する（止まっている間は手動実行もできないので、Enable workflow で有効に戻してから走らせる）。
+
+いまは、最初のリリースまで所有者が tag-release を手で無効にしてある（「[既定のブランチ](#既定のブランチ)」）。
+初めて main へマージするときに有効に戻す（「[初回リリース（0.1.0）の進め方](#初回リリース010の進め方)」の 2）。
 
 ---
 
