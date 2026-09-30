@@ -48,6 +48,7 @@ final class EditEntryModel: Identifiable {
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     ///   - didSave: 保存できたあとに呼ぶ（ホームが「取り消す」を片づける）。
     ///   - didDelete: 削除できたあとに、消した記録の ID を渡して呼ぶ（ホームが「取り消す」の対象から外す）。
+    ///   - learnedCategories: 直したカテゴリを覚える先（修正の記憶）。渡さなければ記録と同じ保存先に覚える。
     convenience init(
         entry: Entry,
         store: EntryStore,
@@ -55,17 +56,26 @@ final class EditEntryModel: Identifiable {
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
         didSave: @escaping @MainActor (Entry) -> Void = { _ in },
-        didDelete: @escaping @MainActor (PersistentIdentifier) -> Void = { _ in }
+        didDelete: @escaping @MainActor (PersistentIdentifier) -> Void = { _ in },
+        learnedCategories: LearnedCategoryStore? = nil
     ) {
         // 消した記録の ID は、保存した後には読めないことがあるので先に取っておく。
         let id = entry.persistentModelID
+        let original = EntryEdits(entry)
+        let learned = learnedCategories ?? LearnedCategoryStore(context: store.context, now: now)
         self.init(
             target: Target(
-                original: EntryEdits(entry),
+                original: original,
                 originalText: entry.originalText,
                 source: entry.source,
                 deletionSummary: entry.summaryText,
-                update: { try store.update(entry, with: $0) },
+                learnsCategory: true,
+                update: { edits in
+                    try store.update(entry, with: edits)
+                    // 直したカテゴリを覚え、次から同じ品目の記録をそのカテゴリにする（修正の記憶。docs/design.md §3-2）。
+                    // 覚えられなくても、直した記録は保存できているので、保存を失敗にはしない（直した内容を打ち直させないため）。
+                    _ = try? learned.rememberCorrection(from: original, to: edits)
+                },
                 delete: { try store.delete([entry]) },
                 didSave: { didSave(entry) },
                 didDelete: { didDelete(id) }
@@ -143,6 +153,18 @@ final class EditEntryModel: Identifiable {
     /// 保存できるか。直していなければ押せない（押しても何も変わらないため）。
     var canSave: Bool {
         edits.map { $0 != original } ?? false
+    }
+
+    /// 保存すると覚える品目（「次から『ユニクロ』の記録も日用品にします」と知らせる）。支出のカテゴリを変えていて、品目があり、
+    /// 覚える記録（自分の記録）のときだけ。覚えなければ nil（`LearnedCategoryStore.rememberCorrection` と同じ決まり）。
+    var learningItem: String? {
+        guard target.learnsCategory, !isIncome, original.isIncome || category != original.category else { return nil }
+        let item = CategoryMemory.item(
+            ofMemo: memo.trimmingCharacters(in: .whitespacesAndNewlines),
+            amount: edits?.amount ?? original.amount,
+            isIncome: false
+        )
+        return CategoryMemory.key(for: item) == nil ? nil : item
     }
 
     /// 金額の入力欄の文字を見せる形（「1,280」）にそろえる。入力欄が変わるたびに呼ぶ。
@@ -228,6 +250,8 @@ final class EditEntryModel: Identifiable {
         let deletionSummary: String
         /// 家族と共有している家計の記録か（削除すると家族の端末からも消えるので、確認でそう伝える）。自分の記録は false。
         var isShared = false
+        /// 直したカテゴリを覚えるか（修正の記憶。自分の記録だけ）。覚えるなら、シートでそのことを知らせる（`learningItem`）。
+        var learnsCategory = false
         /// 直した値を書き込む。書き込めなければ直す前の値に戻して throw する。
         let update: @MainActor (EntryEdits) throws -> Void
         /// 記録を消す。消せなければ throw する。

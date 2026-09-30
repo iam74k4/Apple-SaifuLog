@@ -67,6 +67,28 @@
         }
       }
     },
+    "%@にしました" : {
+      "comment" : "ホームの返事でカテゴリを選んだ後に VoiceOver で読み上げる内容（品目の無い記録で、覚えないとき）。%@ はカテゴリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set to %@"
+          }
+        }
+      }
+    },
+    "%@にしました。次から「%@」は%@にします" : {
+      "comment" : "ホームの返事でカテゴリを選んだ後に VoiceOver で読み上げる内容。1 つ目と 3 つ目の %@ は選んだカテゴリの名前、2 つ目は覚えた品目",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set to %1$@. “%2$@” goes to %3$@ from now on."
+          }
+        }
+      }
+    },
     "%@の件数" : {
       "comment" : "家計への質問の回答カードの見出し。%@ はカテゴリの名前（「カフェ」）。そのカテゴリの支出の記録の件数を答えたとき",
       "localizations" : {
@@ -152,6 +174,35 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld 件（覚えたカテゴリ）" : {
+      "comment" : "設定の「覚えたカテゴリ」の行の右に出す、覚えた言葉の数。%lld は数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld word"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld words"
+                }
+              }
+            }
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 件"
           }
         }
       }
@@ -432,6 +483,17 @@
         }
       }
     },
+    "Face ID でロック" : {
+      "comment" : "設定の「セキュリティ」の節のトグル。オンにすると、アプリを開くときに Face ID を求める",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lock with Face ID"
+          }
+        }
+      }
+    },
     "OK" : {
       "comment" : "アラートを閉じるボタン",
       "localizations" : {
@@ -465,6 +527,17 @@
         }
       }
     },
+    "Optic ID でロック" : {
+      "comment" : "設定の「セキュリティ」の節のトグル（Optic ID の端末）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lock with Optic ID"
+          }
+        }
+      }
+    },
     "Safari で開きます" : {
       "comment" : "設定のプライバシーポリシー・ライセンスの行の VoiceOver の説明（ヒント）。押すと Safari で GitHub のページを開く",
       "localizations" : {
@@ -472,6 +545,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Opens in Safari."
+          }
+        }
+      }
+    },
+    "Touch ID でロック" : {
+      "comment" : "設定の「セキュリティ」の節のトグル（Touch ID の端末）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lock with Touch ID"
           }
         }
       }
@@ -619,6 +703,17 @@
         }
       }
     },
+    "iPhone の設定でパスコードを設定すると、使えるようになります。" : {
+      "comment" : "アプリのロックをオンにしようとしたが、端末にパスコードが設定されていなかったときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set a passcode in iPhone Settings to use app lock."
+          }
+        }
+      }
+    },
     "¥1 以上の金額にしてください。" : {
       "comment" : "直すシートで金額が 0 のとき、保存できない理由として出す",
       "localizations" : {
@@ -626,6 +721,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enter an amount of ¥1 or more."
+          }
+        }
+      }
+    },
+    "「%@」を%@にしました" : {
+      "comment" : "設定の「覚えたカテゴリ」で、覚えた言葉のカテゴリを変えた後に VoiceOver で読み上げる内容。1 つ目の %@ は言葉、2 つ目はカテゴリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set “%@” to %@"
+          }
+        }
+      }
+    },
+    "「%@」を忘れました" : {
+      "comment" : "設定の「覚えたカテゴリ」で、覚えた言葉を忘れた後に VoiceOver で読み上げる内容。%@ は言葉",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forgot “%@”"
           }
         }
       }
@@ -1114,6 +1231,28 @@
         }
       }
     },
+    "この記録のカテゴリにします" : {
+      "comment" : "ホームの返事のカテゴリのボタンの VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sets the category of this entry"
+          }
+        }
+      }
+    },
+    "この記録をその他のままにします" : {
+      "comment" : "ホームの返事の「その他のまま」のボタンの VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keeps this entry in Other"
+          }
+        }
+      }
+    },
     "この記録を削除" : {
       "comment" : "直すシートの下の削除のボタン。押すと確認を出す",
       "localizations" : {
@@ -1213,6 +1352,17 @@
         }
       }
     },
+    "すべて忘れる" : {
+      "comment" : "設定の「覚えたカテゴリ」の右上のボタンと、その確認のボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forget All"
+          }
+        }
+      }
+    },
     "その他" : {
       "comment" : "カテゴリ",
       "localizations" : {
@@ -1220,6 +1370,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Other"
+          }
+        }
+      }
+    },
+    "その他のまま" : {
+      "comment" : "ホームの返事で、カテゴリを聞き返したときのボタン。記録を「その他」のままにし、同じ品目をもう聞き返さない",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Other"
           }
         }
       }
@@ -1335,6 +1496,17 @@
         }
       }
     },
+    "まだ覚えたカテゴリはありません。記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、ここに並びます。" : {
+      "comment" : "設定の「覚えたカテゴリ」に何も無いときの案内",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No learned categories yet. When you choose a category in a reply or change one on the edit screen, it appears here."
+          }
+        }
+      }
+    },
     "まとめて1件で記録" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。レシートの合計を 1 件の記録にする選択肢",
       "localizations" : {
@@ -1423,6 +1595,17 @@
         }
       }
     },
+    "よく使うひとこと" : {
+      "comment" : "ホームの入力欄の上の、よく記録する品目の候補の並びの VoiceOver の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frequent entries"
+          }
+        }
+      }
+    },
     "アカウントの状態" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。iCloud のアカウントの状態の項目名",
       "localizations" : {
@@ -1441,6 +1624,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "App"
+          }
+        }
+      }
+    },
+    "アプリのロックをオンにします" : {
+      "comment" : "アプリのロックをオンにするときの Face ID・パスコードの画面に出る理由",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on app lock"
+          }
+        }
+      }
+    },
+    "アプリを開くときに、ロックの解除を求めます" : {
+      "comment" : "設定の「Face ID でロック」のトグルの VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asks you to unlock SaifuLog when you open it"
           }
         }
       }
@@ -1511,6 +1716,17 @@
         }
       }
     },
+    "オンにすると、アプリを開くときにロックの解除を求めます。アプリの切り替えの画面でも記録を隠します。" : {
+      "comment" : "設定の「セキュリティ」の節の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When this is on, SaifuLog asks you to unlock it when you open it, and hides your records in the app switcher."
+          }
+        }
+      }
+    },
     "オンにすると、記録と予算をあなたの iCloud に保存し、同じ Apple アカウントの端末どうしでそろえます。オフのあいだは、この iPhone の中だけに保存します。" : {
       "comment" : "設定の「同期」の節の注記（「iCloud で同期」がオフのとき）",
       "localizations" : {
@@ -1540,6 +1756,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "You can also set a limit for each category. Categories left blank have no budget. The monthly summary shows your spending against each one in its category row."
+          }
+        }
+      }
+    },
+    "カテゴリはどれですか？" : {
+      "comment" : "ホームの返事で、「その他」になった記録のカテゴリを聞き返す見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Which category is this?"
+          }
+        }
+      }
+    },
+    "カテゴリを変えられませんでした" : {
+      "comment" : "ホームの返事でカテゴリを選んだが、保存できなかったときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Change Category"
+          }
+        }
+      }
+    },
+    "カテゴリを選び直します" : {
+      "comment" : "設定の「覚えたカテゴリ」の行の VoiceOver の説明（押すとカテゴリを選ぶメニューが開く）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a different category"
           }
         }
       }
@@ -1699,6 +1948,17 @@
         }
       }
     },
+    "セキュリティ" : {
+      "comment" : "設定の節の見出し（アプリのロック）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Security"
+          }
+        }
+      }
+    },
     "ダウンロード" : {
       "comment" : "声の入力の、日本語の音声モデルをダウンロードするかの確認の、ダウンロードするボタン",
       "localizations" : {
@@ -1761,6 +2021,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Version"
+          }
+        }
+      }
+    },
+    "パスコードが設定されていません" : {
+      "comment" : "アプリのロックをオンにしようとしたが、端末にパスコードが設定されていなかったときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Passcode Set"
+          }
+        }
+      }
+    },
+    "パスコードでロック" : {
+      "comment" : "設定の「セキュリティ」の節のトグル（生体認証の無い端末。パスコードで解除する）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lock with Passcode"
           }
         }
       }
@@ -1882,6 +2164,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "You've purchased Premium. Thank you!"
+          }
+        }
+      }
+    },
+    "ヘルプ・お問い合わせ" : {
+      "comment" : "設定の「このアプリについて」の行。押すと Safari でサポートのページ（GitHub）を開く",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Help & Contact"
           }
         }
       }
@@ -2069,6 +2362,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reading Receipts and Screenshots"
+          }
+        }
+      }
+    },
+    "ロックしています" : {
+      "comment" : "アプリのロックの画面の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SaifuLog Is Locked"
+          }
+        }
+      }
+    },
+    "ロックはオフのままです。もう一度お試しください。" : {
+      "comment" : "アプリのロックをオンにしようとしたが、認証できなかったときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App lock is still off. Please try again."
+          }
+        }
+      }
+    },
+    "ロックをオンにできませんでした" : {
+      "comment" : "アプリのロックをオンにしようとしたが、認証できなかったときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Turn On App Lock"
+          }
+        }
+      }
+    },
+    "ロックを解除" : {
+      "comment" : "アプリのロックの画面のボタン。Face ID（パスコード）を求める",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock"
           }
         }
       }
@@ -2708,6 +3045,17 @@
         }
       }
     },
+    "保存すると、次から「%@」の記録も%@にします。" : {
+      "comment" : "直すシートで、カテゴリを変えたときにカテゴリの下に出す注記（修正の記憶）。1 つ目の %@ は品目、2 つ目はカテゴリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Once you save, “%@” will also go to %@ from now on."
+          }
+        }
+      }
+    },
     "保存できませんでした" : {
       "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計の変更を保存できなかったときのアラートの題名",
       "localizations" : {
@@ -2980,6 +3328,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Example: %@"
+          }
+        }
+      }
+    },
+    "入力欄に入れます" : {
+      "comment" : "ホームの入力欄の上の、よく使うひとことのボタンの VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puts it in the input field"
           }
         }
       }
@@ -3376,6 +3735,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "You can also ask about your spending in the same field."
+          }
+        }
+      }
+    },
+    "同じ言葉の記録を、次からこのカテゴリで記録します。前に記録したものは変わりません。覚えた言葉は記録と同じ場所（この iPhone、iCloud で同期しているときはあなたの iCloud）に保存し、外へ送りません。" : {
+      "comment" : "設定の「覚えたカテゴリ」の一覧の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entries with the same words are recorded in these categories from now on. Earlier entries don’t change. Learned words are stored with your records (on this iPhone, and in your iCloud when sync is on) and are never sent anywhere else."
           }
         }
       }
@@ -4157,6 +4527,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Required. Your family sees this as “recorded by” on entries you add to the household."
+          }
+        }
+      }
+    },
+    "忘れる" : {
+      "comment" : "設定の「覚えたカテゴリ」の行を左へスワイプしたときのボタンと、VoiceOver の操作",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forget"
           }
         }
       }
@@ -5237,6 +5618,50 @@
         }
       }
     },
+    "覚えたカテゴリ" : {
+      "comment" : "設定の行と、その一覧の画面の題名。記録の返事や直す画面で選んだカテゴリを、同じ言葉に次から使う（修正の記憶）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Learned Categories"
+          }
+        }
+      }
+    },
+    "覚えたカテゴリをすべて忘れました" : {
+      "comment" : "設定の「覚えたカテゴリ」で、すべて忘れた後に VoiceOver で読み上げる内容",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forgot all learned categories"
+          }
+        }
+      }
+    },
+    "覚えたカテゴリをすべて忘れますか？" : {
+      "comment" : "設定の「覚えたカテゴリ」の「すべて忘れる」の確認の題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forget All Learned Categories?"
+          }
+        }
+      }
+    },
+    "覚えた言葉とカテゴリの一覧を開きます" : {
+      "comment" : "設定の「覚えたカテゴリ」の行の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the list of learned words and categories"
+          }
+        }
+      }
+    },
     "計算しています…" : {
       "comment" : "家計への質問の回答カード。答えを計算している間",
       "localizations" : {
@@ -5288,6 +5713,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Recorded: %@"
+          }
+        }
+      }
+    },
+    "記録しました: %@。カテゴリを選べます" : {
+      "comment" : "記録の直後に VoiceOver で読み上げる内容（返事でカテゴリを聞き返すとき）。%@ は「その他 ¥3,990」を並べたもの",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded: %@. You can choose a category."
           }
         }
       }
@@ -5452,6 +5888,28 @@
         }
       }
     },
+    "記録の読み取り" : {
+      "comment" : "設定の節の見出し（覚えたカテゴリ）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading Entries"
+          }
+        }
+      }
+    },
+    "記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。" : {
+      "comment" : "設定の「記録の読み取り」の節の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When you choose a category in a reply or change one on the edit screen, SaifuLog records the same words in that category from now on."
+          }
+        }
+      }
+    },
     "記録はこの iPhone の中だけに保存しています（「iCloud で同期」はオフに戻しました）。%@ 設定からもう一度オンにできます。" : {
       "comment" : "iCloud と同期する保存先を開けず、端末の中だけの保存先に戻したときのアラートの本文。%@ は理由の文（「iCloud の空き容量が足りません。」など）",
       "localizations" : {
@@ -5481,6 +5939,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your records are saved on this iPhone, and what you write is read on this iPhone too. There’s no developer server, and your records and what you type are never sent to the developer or any third party. Only if you turn on iCloud sync in Settings are your records also saved in your iCloud and kept in sync across devices signed in to the same Apple Account."
+          }
+        }
+      }
+    },
+    "記録は消えません。次からは、いつもどおり AI とキーワード辞書でカテゴリを読みます。" : {
+      "comment" : "設定の「覚えたカテゴリ」の「すべて忘れる」の確認の本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your entries stay. From now on, categories are read by AI and the keyword dictionary as usual."
           }
         }
       }
@@ -5547,6 +6016,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Opens the record for editing."
+          }
+        }
+      }
+    },
+    "記録を表示するためにロックを解除します" : {
+      "comment" : "アプリのロックを解除するときの Face ID・パスコードの画面に出る理由",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock to show your records"
+          }
+        }
+      }
+    },
+    "記録を見るには、ロックを解除してください。" : {
+      "comment" : "アプリのロックの画面の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock to see your records."
           }
         }
       }
@@ -5718,6 +6209,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t read"
+          }
+        }
+      }
+    },
+    "読み込めませんでした" : {
+      "comment" : "設定の「覚えたカテゴリ」を読み込めなかったときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Load"
           }
         }
       }
@@ -5982,6 +6484,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Weekly guide %@: %@ under"
+          }
+        }
+      }
+    },
+    "選ぶと、次から「%@」の記録にも使います。" : {
+      "comment" : "ホームの返事でカテゴリを聞き返したときの注記。%@ は品目",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your choice is also used for “%@” from now on."
           }
         }
       }

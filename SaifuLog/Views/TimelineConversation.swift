@@ -128,10 +128,14 @@ struct RecordedReplyCard: View {
     /// 今月の状況の一行を出すか。直前の送信の返事で、「取り消す」を出している間（`canUndo` と同じ値を渡す。見出しの高さを
     /// 確かめるテストで分けられるように、別に受け取る）。
     var showsStatus = false
+    /// カテゴリを聞き返している記録（`HomeModel.categoryQuestionIDs`）。その記録の行の下にカテゴリのボタンを出す。
+    var askingCategory: Set<PersistentIdentifier> = []
     let undo: () -> Void
     let edit: (Entry) -> Void
     /// 削除を求める（確認は呼び出し側で出す）。
     let requestDelete: (Entry) -> Void
+    /// 聞き返したカテゴリを選ぶ（「その他のまま」は `.other`）。
+    var chooseCategory: (Entry, EntryCategory) -> Void = { _, _ in }
 
     @Environment(\.calendar) private var calendar
 
@@ -160,10 +164,93 @@ struct RecordedReplyCard: View {
         .leadingReply()
     }
 
+    /// 記録 1 件の行。カテゴリを聞き返している記録は、行の下にカテゴリのボタンを添える（聞き返すのは直前の送信だけなので、
+    /// たいていの行は入れ物を挟まない。行はすべて測るため）。
+    @ViewBuilder
     private func row(_ entry: Entry) -> some View {
-        RecordedReplyRow(
+        let recorded = RecordedReplyRow(
             entry: entry, sentAt: send.sentAt, today: today, edit: { edit(entry) }, requestDelete: { requestDelete(entry) }
         )
+        if askingCategory.contains(entry.persistentModelID) {
+            LeadingStack(spacing: 10) {
+                recorded
+                CategoryQuestionView(entry: entry, choose: { chooseCategory(entry, $0) })
+            }
+        } else {
+            recorded
+        }
+    }
+}
+
+/// 返事の行の下の、カテゴリの聞き返し（「その他」になり、品目が辞書にも覚えにも当たらない支出。`CategoryMemory.asksCategory`）。
+///
+/// 選んだカテゴリにその記録を直し、品目とカテゴリの組を覚えて次から使う（`HomeModel.chooseCategory`）。「その他のまま」も覚える
+/// （同じ品目でもう聞き返さない）。記録は済んでいるので、選ばずに次を送ってもよい（聞き返しは消え、記録は「その他」のまま）。
+/// ボタンは横に送れる 1 行に並べる（折り返すと返事のカードが 3 行分ほど高くなり、タイムラインを押し上げるため）。
+struct CategoryQuestionView: View {
+    let entry: Entry
+    let choose: (EntryCategory) -> Void
+
+    /// 覚える品目（割り勘などの説明を除いたメモ）。品目の無い記録（金額だけ）は覚えられないので、覚えることは書かない。
+    private var item: String {
+        CategoryMemory.item(ofMemo: entry.memo, amount: entry.amount, isIncome: entry.isIncome)
+    }
+
+    var body: some View {
+        LeadingStack(spacing: 6) {
+            Text("カテゴリはどれですか？")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.ink)
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    ForEach(EntryCategory.allCases.filter { $0 != .other }) { category in
+                        chip(category: category, label: Text(category.label))
+                    }
+                    chip(category: .other, label: Text("その他のまま"))
+                }
+            }
+            .scrollIndicators(.hidden)
+            // カードの左右の余白（`replyCardSurface`）の外まで送れるようにする。余白の内側で切ると、右の端のボタンが途中で
+            // 切れて見えるため。並べ始めはほかの行と同じ位置にそろえる。
+            .contentMargins(.horizontal, 16, for: .scrollContent)
+            .padding(.horizontal, -16)
+            if CategoryMemory.key(for: item) != nil {
+                Text("選ぶと、次から「\(item)」の記録にも使います。")
+                    .font(.caption)
+                    .foregroundStyle(Theme.inkSecondary)
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    /// カテゴリのボタン（カテゴリの色の丸と名前）。色だけで見分けさせないよう、名前をいつも出す。
+    private func chip(category: EntryCategory, label: Text) -> some View {
+        Button {
+            choose(category)
+        } label: {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Theme.color(for: category))
+                    .frame(width: 8, height: 8)
+                    .accessibilityHidden(true)
+                label
+                    .lineLimit(1)
+            }
+            .font(.subheadline)
+            .foregroundStyle(Theme.ink)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 36)
+            .background {
+                Capsule()
+                    .fill(Theme.background)
+                    .stroke(Theme.track, lineWidth: 1)
+            }
+            // 見た目は 36pt の高さにし、押せる範囲は上下の余白まで広げて 44pt にする（よく使うひとことのボタンと同じ）。
+            .padding(.vertical, 4)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(category == .other ? Text("この記録をその他のままにします") : Text("この記録のカテゴリにします"))
     }
 }
 

@@ -72,7 +72,7 @@ enum ModelContainerFactory {
     /// CloudKit は、一度スキーマに載った項目を暗号化フィールドに変えられないため。暗号化の指定は Core Data のモデルの版
     /// （バージョンハッシュ）に入らないので、指定を足しても端末の保存先は移行なしでそのまま開ける（どちらもテストで確かめている）。
     static var modelTypes: [any PersistentModel.Type] {
-        [Entry.self, Budget.self]
+        [Entry.self, Budget.self, LearnedCategory.self]
     }
 
     static var schema: Schema {

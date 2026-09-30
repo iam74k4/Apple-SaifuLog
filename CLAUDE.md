@@ -4,7 +4,7 @@
 端末内の AI（Apple の Foundation Models）で行い、家計のデータを端末の外に出さない。
 
 ## 現在の到達点
-- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・家計への質問・レシートの読み取り・声の入力・月の予算・月のまとめ・週のふりかえり・設定と CSV 書き出し・iCloud 同期（自分の端末どうし）・初回の案内・プレミアム（StoreKit）の試作**まで。
+- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・カテゴリの聞き返しと修正の記憶・よく使うひとこと・家計への質問・レシートの読み取り・声の入力・月の予算・月のまとめ・週のふりかえり・設定と CSV 書き出し・iCloud 同期（自分の端末どうし）・アプリのロック・初回の案内・プレミアム（StoreKit）の試作**まで。
   - 試作済み: 一行の読み取り（端末内 AI、使えない端末ではキーワード辞書）、タイムライン（会話の形。1 回の送信で記録したものを
     送信にまとめ（コアの `TimelineSend`。送信は保存せず、元の文・入力元が同じで記録した日時が 0.1 秒以内に続く記録をまとめる）、送った文を
     右寄せの自分の吹き出し（灰色。声はマイク・レシートは印つき）に、記録をアプリの返事のカード（「記録しました」・記録ごとの行。
@@ -116,11 +116,24 @@
     `scripts/app-store-screenshots.sh` が 6.9 インチのシミュレータで日本語と英語で撮る（`docs/app-store/screenshots/`。透過の層は
     `scripts/screenshot-image.swift` で外す）。Release のアーカイブに入っていないことは `make archive` が印 `SaifuLog-ScreenshotDemo-v1`
     （`release.mk` の `RELEASE_SCREENSHOT_DEMO_MARKER`）で確かめる。組み立ては `ScreenshotDemoTests`。
+    カテゴリの聞き返しと修正の記憶（「その他」になり、品目が辞書にも覚えにも当たらない支出だけ、直前の返事の行の下にカテゴリのボタン
+    （`CategoryQuestionView`）を出して聞き返す。記録は止めない。返事で選んだカテゴリと ⑥ で変えたカテゴリを品目の言葉とともに覚え、
+    読み取った後に AI と辞書のどちらの記録にも当てる（AI への手がかりには渡さない）。当て方はコアの `CategoryMemory`、保存は
+    `LearnedCategory`（暗号化フィールド）と `LearnedCategoryStore`、状態は `HomeModel.categoryQuestionIDs`・`chooseCategory`。⑧ の
+    「覚えたカテゴリ」（`LearnedCategoriesView`・`LearnedCategoriesModel`）で一覧・変える・忘れる）。
+    よく使うひとこと（入力欄の上に、直近 90 日のよく記録する品目を「品目 ¥金額」のボタンで並べ、押すと入力欄に入る。送信は利用者。
+    候補はコアの `QuickPhrases`、画面は `QuickPhraseBar`、`HomeModel.quickPhrases`）。
+    アプリのロック（⑧ の「セキュリティ」の「Face ID でロック」。既定はオフで `AppSettings.appLockEnabled`。起動と裏から戻ったときに
+    `deviceOwnerAuthentication` を求め、前面を離れたら隠す。状態は `AppLock`（`SaifuLogApp` で 1 つ、環境で設定へ渡す）、ロックの画面は
+    シートやアラートより上の別の窓（`AppLockOverlay` の `AppLockWindow`）。Face ID の利用目的は project.yml と InfoPlist.xcstrings。実機の
+    Face ID の確認はまだ）。⑧ に「ヘルプ・お問い合わせ」（`docs/support.md`）。
     保存先を開けないときは落とさず、ロック中なら解除を待って開き直し、それ以外は再試行の画面を出す（`StoreHost`）。
     保存先のデータ保護は NSFileProtectionComplete（ロック中は読めないようにする。実機での確認はまだ。
     release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
     main で `mode=export` の照合が通るかの確認はまだ。`docs/design.md` §5-4）。
-  - **未実装:** 週のふりかえりの通知・家族との共有の提供（試作は機能フラグで隠している）・修正の記憶・CSV の読み込み。
+  - **未実装:** 週のふりかえりの通知・家族との共有の提供（試作は機能フラグで隠している）・カテゴリの追加（いまは 8 種で固定）・
+    くり返しの記録・金額が読めないときの聞き返し・CSV の読み込み（カテゴリの追加とくり返しの記録は、デザイン案にあるが未決。
+    `docs/design.md` §13）。
   - 実機での確認の手段: release.yml の手動実行 `mode=testflight` で、develop のビルドを診断画面入りで TestFlight の
     社内テスト専用に送れるようにした（審査には出ない。Environment `release` の配備ブランチは `main` と `develop`）。
     実際に TestFlight で入れての確認はまだ（`docs/release-flow.md` の「TestFlight で実機に入れる（社内テスト）」）。

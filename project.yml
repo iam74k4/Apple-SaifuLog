@@ -97,6 +97,9 @@ targets:
         # 書き起こしは SpeechAnalyzer（端末の中）で、声を Apple のサーバーへ送らないので、音声認識の利用目的
         # （NSSpeechRecognitionUsageDescription。SFSpeechRecognizer の許可のためのもの）は要らない（docs/design.md §9 の声の入力の決め事）。
         INFOPLIST_KEY_NSMicrophoneUsageDescription: 声で記録するためにマイクを使います。声は端末の中で文字にし、保存も送信もしません。
+        # 設定の「Face ID でロック」のための Face ID の利用目的。言語ごとの文は InfoPlist.xcstrings（ja / en）が上書きする。
+        # 認証は iOS が行い、アプリは結果だけを受け取る（顔のデータは受け取らない）。
+        INFOPLIST_KEY_NSFaceIDUsageDescription: アプリのロックを解除するために Face ID を使います。顔のデータはアプリに渡らず、保存も送信もしません。
         # Info.plist のうち、ビルドの設定（INFOPLIST_KEY_…）で書けないものだけを置くファイル。ほかのキーは上の設定から
         # Xcode が作り（GENERATE_INFOPLIST_FILE）、このファイルと合わせる。
         # - UIBackgroundModes の remote-notification（INFOPLIST_KEY_UIBackgroundModes は Xcode 27 でも Info.plist に入らなかった）。

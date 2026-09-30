@@ -37,6 +37,24 @@
         }
       }
     },
+    "NSFaceIDUsageDescription" : {
+      "comment" : "Face ID の利用の許可を求める画面の説明。設定の「Face ID でロック」で、アプリのロックを解除するときに使う",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SaifuLog uses Face ID to unlock the app. Your face data never reaches the app and is never saved or sent."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アプリのロックを解除するために Face ID を使います。顔のデータはアプリに渡らず、保存も送信もしません。"
+          }
+        }
+      }
+    },
     "NSMicrophoneUsageDescription" : {
       "comment" : "マイクの利用の許可を求める画面の説明。ホームの入力欄のマイクのボタン（声の入力）で使う",
       "extractionState" : "manual",

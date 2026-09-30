@@ -19,6 +19,8 @@ final class SettingsModel {
     static let privacyPolicyURL = URL(string: "https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md")!
     /// ライセンス（リポジトリの main の LICENSE。Safari で開く）。
     static let licenseURL = URL(string: "https://github.com/iam74k4/SaifuLog-Apple/blob/main/LICENSE")!
+    /// ヘルプ・お問い合わせ（リポジトリの main の docs/support.md。App Store Connect のサポート URL と同じページ。Safari で開く）。
+    static let supportURL = URL(string: "https://github.com/iam74k4/SaifuLog-Apple/blob/main/docs/support.md")!
 
     /// 書き出す期間。開くたびに今月から始める（前に選んだ期間を覚えておくほどの設定ではないため）。
     var exportPeriod: LedgerExportPeriod = .thisMonth
@@ -63,6 +65,9 @@ final class SettingsModel {
 
     /// 「家族と共有」の節の状態と操作。家計の共有が有効で、家計の保存先を開けたときだけある（無ければ節を出さない）。
     let household: HouseholdSettingsModel?
+
+    /// 「覚えたカテゴリ」（修正の記憶の一覧）の状態と操作。行には覚えた言葉の数を出す。
+    let learnedCategories: LearnedCategoriesModel
 
     /// 「家族と共有」の節を出すか。
     var showsHousehold: Bool { household != nil }
@@ -123,6 +128,7 @@ final class SettingsModel {
         self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
         self.storeHost = storeHost
         self.household = householdHost.flatMap { $0.isAvailable ? HouseholdSettingsModel(host: $0) : nil }
+        self.learnedCategories = LearnedCategoriesModel(store: LearnedCategoryStore(context: context, now: now), announce: announce)
         self.accountStatus = accountStatus
         self.isICloudSyncEnabled = storeHost?.cloudKitDatabase.isSyncEnabled ?? false
         self.defaults = defaults

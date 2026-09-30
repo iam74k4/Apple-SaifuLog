@@ -215,6 +215,16 @@ struct EditEntrySheet: View {
                     }
                 }
             }
+            // カテゴリを変えたら、保存すると同じ品目を次から覚えることを知らせる（修正の記憶。黙って覚えないため）。
+            if let item = model.learningItem {
+                Label {
+                    Text("保存すると、次から「\(item)」の記録も\(Text(model.category.label))にします。")
+                } icon: {
+                    Image(systemName: "sparkles")
+                }
+                .font(.footnote)
+                .foregroundStyle(Theme.inkSecondary)
+            }
         }
     }
 

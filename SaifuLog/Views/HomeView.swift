@@ -155,6 +155,7 @@ struct HomeView: View {
                     // モデルは初回の案内より前に作っている（`AppRootView`）。案内の間に日付が変わっていても今日で数えるよう、読み直す。
                     model.refreshToday()
                     model.showWeeklyRecapIfDue(calendar: calendar)
+                    model.refreshQuickPhrases()
                 }
                 // この端末で声の入力を使えるか（マイクのボタンを出すか）を調べる。前面に戻ったときにも調べ直す（下の scenePhase）。
                 .task {
@@ -169,13 +170,16 @@ struct HomeView: View {
                 .onChange(of: calendar) { _, calendar in
                     model.showWeeklyRecapIfDue(calendar: calendar)
                 }
-                // 保存先に書き込まれたら、ふりかえりのカード（と内訳）の数字を読み直す（先週の日付で記録したり、直したりしたとき）。
+                // 保存先に書き込まれたら、ふりかえりのカード（と内訳）の数字と、よく使うひとことの候補を読み直す（記録を足した・
+                // 直した・消したとき）。
                 .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { _ in
                     model.weeklyRecap?.reload()
+                    model.refreshQuickPhrases()
                 }
                 // iCloud で届いたほかの端末の変更でも読み直す（didSave にならないため。帯とタイムラインは @Query が追う）。
                 .onReceive(StoreChanges.remote) { _ in
                     model.weeklyRecap?.reload()
+                    model.refreshQuickPhrases()
                 }
                 #if DEBUG || INTERNAL_DIAGNOSTICS
                 .sheet(isPresented: $showsDiagnostics) {
@@ -240,6 +244,7 @@ struct HomeView: View {
                     switch phase {
                     case .active:
                         model.refreshToday()
+                        model.refreshQuickPhrases()
                         // 状態が変わらなくても、前面に戻ったときには確かめる（ほかの画面を閉じた後で出せるように）。
                         model.presentPremiumIfTrialEnded()
                         model.showWeeklyRecapIfDue(calendar: calendar)
@@ -312,10 +317,13 @@ struct HomeView: View {
                 questions: model.questions,
                 weeklyRecap: model.weeklyRecap,
                 undoableEntryIDs: Set(model.justRecorded.map(\.persistentModelID)),
+                askingCategory: model.categoryQuestionIDs,
                 showMore: { model.showMoreTimeline() },
                 undo: { model.undoLastRecord() },
                 edit: { model.presentEdit($0, calendar: calendar) },
                 requestDelete: { model.requestDelete($0) },
+                chooseCategory: { model.chooseCategory($1, for: $0) },
+                fillDraft: { model.draft = $0 },
                 openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
                 setBudget: { model.presentBudgetSetup() },
                 openPremium: { model.presentPremium() },
@@ -360,6 +368,15 @@ struct HomeView: View {
                         try? await Task.sleep(for: .seconds(5))
                         if !Task.isCancelled, model.voice.notice == notice { model.voice.notice = nil }
                     }
+            }
+            // よく使うひとこと。レシートと声と同じく「自分」だけ（家計の記録は候補の元にしていない）。声の入力の間は出さない
+            // （入力欄の代わりに書き起こしを出している間は、入力欄に文を入れられないため）。
+            if !model.isHouseholdActive, model.voice.isActive == false {
+                QuickPhraseBar(phrases: QuickPhrases.suggestions(model.quickPhrases, draft: model.draft)) {
+                    model.pickQuickPhrase($0)
+                }
+                // 候補は画面の端から端まで送れるようにする（下の入力欄の左右の余白の外まで）。
+                .padding(.horizontal, -16)
             }
             InputBar(
                 text: $model.draft,
@@ -456,13 +473,14 @@ private extension HomeModel.StoreFailure {
         case .record: Text("記録できませんでした")
         case .undo: Text("取り消せませんでした")
         case .delete: Text("削除できませんでした")
+        case .categoryChoice: Text("カテゴリを変えられませんでした")
         }
     }
 
     var message: Text {
         switch self {
         case .record: Text("保存に失敗しました。もう一度送ってください。")
-        case .undo, .delete: Text("保存に失敗しました。もう一度お試しください。")
+        case .undo, .delete, .categoryChoice: Text("保存に失敗しました。もう一度お試しください。")
         }
     }
 }
@@ -487,10 +505,15 @@ private struct EntryTimeline: View {
     let weeklyRecap: WeeklyRecapModel?
     /// 直前の送信で記録したもの（まだ取り消せるもの）。これを含む送信の返事にだけ「取り消す」を出す。取り消せなければ空。
     let undoableEntryIDs: Set<PersistentIdentifier>
+    /// カテゴリを聞き返している記録。その記録の行の下にカテゴリのボタンを出す。
+    let askingCategory: Set<PersistentIdentifier>
     let showMore: () -> Void
     let undo: () -> Void
     let edit: (Entry) -> Void
     let requestDelete: (Entry) -> Void
+    let chooseCategory: (Entry, EntryCategory) -> Void
+    /// 記録が無いときの案内の入力の例を、入力欄に入れる。
+    let fillDraft: (String) -> Void
     let openReport: (Date) -> Void
     let setBudget: () -> Void
     let openPremium: () -> Void
@@ -507,10 +530,13 @@ private struct EntryTimeline: View {
         questions: [QuestionExchange],
         weeklyRecap: WeeklyRecapModel?,
         undoableEntryIDs: Set<PersistentIdentifier>,
+        askingCategory: Set<PersistentIdentifier>,
         showMore: @escaping () -> Void,
         undo: @escaping () -> Void,
         edit: @escaping (Entry) -> Void,
         requestDelete: @escaping (Entry) -> Void,
+        chooseCategory: @escaping (Entry, EntryCategory) -> Void,
+        fillDraft: @escaping (String) -> Void,
         openReport: @escaping (Date) -> Void,
         setBudget: @escaping () -> Void,
         openPremium: @escaping () -> Void,
@@ -523,10 +549,13 @@ private struct EntryTimeline: View {
         self.questions = questions
         self.weeklyRecap = weeklyRecap
         self.undoableEntryIDs = undoableEntryIDs
+        self.askingCategory = askingCategory
         self.showMore = showMore
         self.undo = undo
         self.edit = edit
         self.requestDelete = requestDelete
+        self.chooseCategory = chooseCategory
+        self.fillDraft = fillDraft
         self.openReport = openReport
         self.setBudget = setBudget
         self.openPremium = openPremium
@@ -610,7 +639,7 @@ private struct EntryTimeline: View {
         ScrollViewReader { proxy in
             TimelineScrollView {
                 if recentEntries.isEmpty && questions.isEmpty && weeklyRecap == nil {
-                    EmptyTimelineView()
+                    EmptyTimelineView(fill: fillDraft)
                 }
                 // 読み込んだ件数が上限に届いていれば、まだ前の記録があるかもしれない。
                 if recentEntries.count >= limit {
@@ -626,8 +655,9 @@ private struct EntryTimeline: View {
                         // 直前の送信の返事にだけ、「取り消す」と今月の状況の一行を出す（同じ間。`ReplyStatusLine`）。
                         let isLatest = canUndo(send)
                         RecordedReplyCard(
-                            send: send, today: today, canUndo: isLatest, showsStatus: isLatest, undo: undo, edit: edit,
-                            requestDelete: requestDelete
+                            send: send, today: today, canUndo: isLatest, showsStatus: isLatest,
+                            askingCategory: isLatest ? askingCategory : [], undo: undo, edit: edit,
+                            requestDelete: requestDelete, chooseCategory: chooseCategory
                         )
                         // 送信のいちばん下（返事のカード）の位置を知らせる。
                         .reportsTimelineFrame(.row(send.id))
@@ -1001,7 +1031,12 @@ private struct HouseholdEmptyTimelineView: View {
 }
 
 /// 記録が 1 件も無いときの案内。入力の例を見せて、何を書けばよいかを伝える。質問も同じ入力欄からできることを添える。
+///
+/// 例は押すと入力欄に入る（送るのは利用者）。初めての記録を、打たずに試せるようにするため。
 private struct EmptyTimelineView: View {
+    /// 例を入力欄に入れる。
+    let fill: (String) -> Void
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("ひとことで記録")
@@ -1022,10 +1057,26 @@ private struct EmptyTimelineView: View {
     private func examples(_ texts: [String]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(texts, id: \.self) { example in
-                Text(verbatim: example)
+                Button {
+                    fill(example)
+                } label: {
+                    HStack(spacing: 8) {
+                        Text(verbatim: example)
+                            .foregroundStyle(Theme.ink)
+                        // 押すと入力欄に入ることを示す印（入力欄へ上げる矢印）。
+                        Image(systemName: "arrow.down.left")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Theme.inkSecondary)
+                            .accessibilityHidden(true)
+                    }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
+                    .frame(minHeight: 44)
                     .background(Theme.surface, in: .rect(cornerRadius: 12))
+                    .contentShape(.rect(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("入力欄に入れます")
             }
         }
     }

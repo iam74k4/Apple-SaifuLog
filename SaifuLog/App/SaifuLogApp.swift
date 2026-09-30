@@ -15,6 +15,8 @@ struct SaifuLogApp: App {
     /// 家計の共有（家族・パートナー）。アプリで 1 つ。機能フラグが false のビルドでは何もしない（`HouseholdSharing`）。
     /// 家計の保存先は、自分の記録の保存先を開けた後に開く（`AppRootView` が `start()` を呼ぶ）。
     @State private var household = HouseholdHost()
+    /// アプリのロック（設定の「Face ID でロック」）。アプリで 1 つ。保存先を開く前（再試行の画面を含む）から効かせる。
+    @State private var appLock = AppLock()
     #if DEBUG || INTERNAL_DIAGNOSTICS
     /// 家計の共有の招待を受け取るための委任先（場面の委任先を足す）。家計の共有を隠している間は、App Store へ出すビルドの
     /// 起動の仕組みを変えないよう、機能フラグと同じ条件のビルドにだけ入れる。
@@ -29,6 +31,8 @@ struct SaifuLogApp: App {
             _storeHost = State(initialValue: demo.makeStoreHost())
             _purchases = State(initialValue: demo.makePurchases())
             _household = State(initialValue: HouseholdHost(isEnabled: false))
+            // ロックの設定もデモの領域から読む（利用者の設定に触れない。デモの領域は毎回空なので、ロックはオフ）。
+            _appLock = State(initialValue: AppLock(defaults: demo.defaults))
             return
         }
         #endif
@@ -45,6 +49,10 @@ struct SaifuLogApp: App {
                 // 初回だけ案内（ようこそ → 予算を決める）を出し、それ以外はホーム。
                 AppRootView(container: container, storeHost: storeHost, purchases: purchases, household: household)
             }
+            // 設定の「Face ID でロック」の行が読み書きする。
+            .environment(appLock)
+            // ロック中と前面を離れている間は、ロックの画面をすべての画面より上に出す。
+            .appLock(appLock)
             #if DEBUG
             // 撮影用のデモでは、画面の設定（@AppStorage）もデモの領域から読む（利用者の設定に触れない）。
             .defaultAppStorage(ScreenshotDemo.current?.defaults ?? .standard)

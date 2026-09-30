@@ -43,6 +43,9 @@ final class HomeModel {
     }
     /// 入力欄の文をどこから入れたか。声で入れた文（打ち直したものも含む）を送ったら、記録の入力元を「声」にする。
     private(set) var draftSource: EntrySource = .text
+    /// よく使うひとことの候補（品目ごとにまとめたもの。入力欄の文に合わせて絞るのは画面。`QuickPhrases.suggestions`）。
+    /// 記録を足す・直す・消す・取り込むたびに `refreshQuickPhrases()` で作り直す。
+    private(set) var quickPhrases: [QuickPhrase] = []
     /// 送った文を読み取っている間（送信ボタンを押せなくし、読み取り中の印を出す）。
     private(set) var isParsing = false
     /// 直前の送信で記録したもの。その送信の返事に「取り消す」を出すため（時間では引っ込めない。次の文を送る・取り消す・
@@ -58,8 +61,13 @@ final class HomeModel {
             guard ledgerScope != oldValue else { return }
             justRecorded = []
             justRecordedHousehold = []
+            categoryQuestionIDs = []
         }
     }
+    /// 直前の送信で記録したもののうち、返事でカテゴリを聞き返しているもの（「その他」になり、品目が辞書にも覚えにも当たらない支出。
+    /// `CategoryMemory.asksCategory`）。「取り消す」と同じく、次の文を送る・取り消す・選ぶ・その記録を直す・消す・記録先を
+    /// 切り替えるまで出す。聞き返すのは返事の中だけで、記録は止めない（一行入力の軽さを保つため。docs/design.md §3-2）。
+    private(set) var categoryQuestionIDs: Set<PersistentIdentifier> = []
     /// 家計の記録の削除の確認を待っているもの。
     var pendingHouseholdDeletion: PendingHouseholdDeletion?
     /// 「家族」のときに、質問や読めない文を送った（家計には記録しない）ことの知らせ。
@@ -114,6 +122,8 @@ final class HomeModel {
 
     @ObservationIgnored private let store: EntryStore
     @ObservationIgnored private let budgetStore: BudgetStore
+    /// 覚えたカテゴリ（修正の記憶）。読み取った記録に当て、返事で選んだカテゴリを覚える。
+    @ObservationIgnored private let learnedCategories: LearnedCategoryStore
     @ObservationIgnored private let pendingWrites: PendingStoreWrites
     /// 保存先を開いたもの。設定の「iCloud で同期」の切り替え先として設定に渡す。無ければ設定に iCloud の節を出さない（テスト用）。
     @ObservationIgnored private let storeHost: StoreHost?
@@ -138,6 +148,7 @@ final class HomeModel {
 
     /// - Parameters:
     ///   - budgetStore: 予算の読み書き。渡さなければ記録と同じ保存先（`store` の ModelContext）を使う。
+    ///   - learnedCategories: 覚えたカテゴリの読み書き（修正の記憶）。渡さなければ記録と同じ保存先を使う。
     ///   - pendingWrites: 解析を待ってから記録する処理を数える先（`StoreHost.pendingWrites`）。保存先を開き直すとき、
     ///     記録し終えるのを待ってもらうため。
     ///   - purchases: プレミアムの購入と状態。アプリは `SaifuLogApp` の 1 つを渡す。渡さなければ購入の無い状態（テスト用）。
@@ -158,6 +169,7 @@ final class HomeModel {
     init(
         store: EntryStore,
         budgetStore: BudgetStore? = nil,
+        learnedCategories: LearnedCategoryStore? = nil,
         pendingWrites: PendingStoreWrites = PendingStoreWrites(),
         purchases: PurchaseManager? = nil,
         storeHost: StoreHost? = nil,
@@ -175,6 +187,7 @@ final class HomeModel {
     ) {
         self.store = store
         self.budgetStore = budgetStore ?? BudgetStore(context: store.context)
+        self.learnedCategories = learnedCategories ?? LearnedCategoryStore(context: store.context, now: now)
         self.pendingWrites = pendingWrites
         self.storeHost = storeHost
         self.household = household
@@ -267,6 +280,7 @@ final class HomeModel {
         // 取り消したつもりのものと違う記録が残るため。質問を送ったときも同じにする（送るたびに引っ込める、と揃える）。
         justRecorded = []
         justRecordedHousehold = []
+        categoryQuestionIDs = []
         if isHouseholdActive {
             return sendToHousehold(text, source: source, sentAt: sentAt, calendar: calendar)
         }
@@ -305,7 +319,11 @@ final class HomeModel {
                 showsNoAmountAlert = true
                 return
             }
-            let recorded = Entry.records(from: parsed, originalText: text, source: source, now: sentAt, calendar: calendar)
+            // 覚えたカテゴリを、AI と辞書のどちらで読んだ記録にも当てる（修正の記憶）。覚えを読めなくても記録は止めない。
+            let memory = (try? learnedCategories.memory()) ?? CategoryMemory()
+            let recorded = Entry.records(
+                from: memory.applying(to: parsed), originalText: text, source: source, now: sentAt, calendar: calendar
+            )
             do {
                 try store.insert(recorded)
             } catch {
@@ -315,7 +333,14 @@ final class HomeModel {
                 return
             }
             justRecorded = recorded
-            announceRecorded(recorded, today: sentAt, calendar: calendar)
+            categoryQuestionIDs = Set(
+                recorded.filter {
+                    memory.asksCategory(memo: $0.memo, amount: $0.amount, category: $0.category, isIncome: $0.isIncome)
+                }
+                .map(\.persistentModelID)
+            )
+            // 返事のカテゴリのボタンは画面に出るだけでは VoiceOver の利用者に伝わらないので、聞き返すときは選べることも読み上げる。
+            announceRecorded(recorded, today: sentAt, calendar: calendar, asksCategory: !categoryQuestionIDs.isEmpty)
         }
     }
 
@@ -361,7 +386,9 @@ final class HomeModel {
             }
             let recorded: [HouseholdEntry]
             do {
-                recorded = try household.record(parsed, sentAt: sentAt, calendar: calendar)
+                // 覚えたカテゴリは家計の記録にも当てる（書いた人の言葉の覚えなので）。聞き返しは「自分」の返事だけ。
+                let memory = (try? learnedCategories.memory()) ?? CategoryMemory()
+                recorded = try household.record(memory.applying(to: parsed), sentAt: sentAt, calendar: calendar)
             } catch {
                 restoreDraft(text, source: source)
                 storeFailure = .record
@@ -482,17 +509,18 @@ final class HomeModel {
     /// VoiceOver の利用者は記録できたかも、AI がどう読んだかも分からず、読み違いにその場で気づけない。
     /// 今日でない日付に記録したときは日付も読む（「昨日」の読み違いや、未来の日付に気づけるように）。
     /// 今日かどうかは、記録の日付を決めたのと同じ送った瞬間（`today`）で見る。
-    private func announceRecorded(_ recorded: [Entry], today: Date, calendar: Calendar) {
+    private func announceRecorded(_ recorded: [Entry], today: Date, calendar: Calendar, asksCategory: Bool = false) {
         announceRecorded(
             recorded.map { (kind: $0.kindText, amount: $0.amount, spentAt: $0.spentAt) }, toHousehold: false,
-            today: today, calendar: calendar
+            today: today, calendar: calendar, asksCategory: asksCategory
         )
     }
 
     /// 記録の読み上げ（自分の記録と家計の記録で共通）。家計に記録したときは、家計に記録したことが分かる文にする
     /// （「自分／家族」を取り違えて記録したことに、読み上げで気づけるように）。
     private func announceRecorded(
-        _ recorded: [(kind: String, amount: Int, spentAt: Date)], toHousehold: Bool, today: Date, calendar: Calendar
+        _ recorded: [(kind: String, amount: Int, spentAt: Date)], toHousehold: Bool, today: Date, calendar: Calendar,
+        asksCategory: Bool = false
     ) {
         let items = recorded.map { entry in
             var item = "\(entry.kind) \(YenFormatter.string(from: entry.amount))"
@@ -504,7 +532,13 @@ final class HomeModel {
             return item
         }
         let list = items.formatted(.list(type: .and))
-        announce(toHousehold ? String(localized: "家族の家計に記録しました: \(list)") : String(localized: "記録しました: \(list)"))
+        if toHousehold {
+            announce(String(localized: "家族の家計に記録しました: \(list)"))
+        } else if asksCategory {
+            announce(String(localized: "記録しました: \(list)。カテゴリを選べます"))
+        } else {
+            announce(String(localized: "記録しました: \(list)"))
+        }
     }
 
     // MARK: - レシート
@@ -688,6 +722,7 @@ final class HomeModel {
             return
         }
         justRecorded = []
+        categoryQuestionIDs = []
         if let charge = receiptQuotaCharge, charge.ids == ids {
             quotaStore.refundUse(of: .receiptScan, month: charge.month)
         }
@@ -732,7 +767,7 @@ final class HomeModel {
             return
         }
         // 直前に記録したものを消したら、「取り消す」の対象からも外す（消えた記録を取り消そうとしないように）。
-        justRecorded.removeAll { $0.persistentModelID == id }
+        forgetJustRecorded(id)
         announce(String(localized: "削除しました: \(pending.summary)"))
     }
 
@@ -798,7 +833,7 @@ final class HomeModel {
             now: now,
             announce: announce,
             didSave: { [weak self] entry in self?.finishEditing(entry) },
-            didDelete: { [weak self] id in self?.justRecorded.removeAll { $0.persistentModelID == id } }
+            didDelete: { [weak self] id in self?.forgetJustRecorded(id) }
         )
     }
 
@@ -811,6 +846,46 @@ final class HomeModel {
         if justRecorded.contains(where: { $0.persistentModelID == id }) {
             justRecorded = []
         }
+        // 直すでカテゴリを選んだ（直すで変えたカテゴリは、そこで覚える）ので、返事で聞き返すのをやめる。
+        categoryQuestionIDs.remove(id)
+    }
+
+    /// 消した記録を、「取り消す」と聞き返しの対象から外す（消えた記録を取り消したり、選んだりしないように）。
+    private func forgetJustRecorded(_ id: PersistentIdentifier) {
+        justRecorded.removeAll { $0.persistentModelID == id }
+        categoryQuestionIDs.remove(id)
+    }
+
+    // MARK: - カテゴリの聞き返し
+
+    /// 返事で聞き返したカテゴリを選ぶ（「その他のまま」は `.other`）。記録のカテゴリを直し、品目とカテゴリの組を覚えて、
+    /// 次から同じ品目の記録をそのカテゴリにする（修正の記憶。docs/design.md §3-2）。
+    ///
+    /// 「取り消す」は残す（取り消すと送った文が入力欄に戻り、送り直すと覚えたカテゴリで記録されるので、選んだことと食い違わない）。
+    /// 記録を直せなければ、聞き返しを残して知らせる（もう一度選べるように）。覚えられなくても、記録のカテゴリは直っているので
+    /// 失敗にはしない（次に同じ品目を送ったときに、また聞き返す）。
+    func chooseCategory(_ category: EntryCategory, for entry: Entry) {
+        let id = entry.persistentModelID
+        guard categoryQuestionIDs.contains(id) else { return }
+        if entry.category != category {
+            var edits = EntryEdits(entry)
+            edits.category = category
+            do {
+                try store.update(entry, with: edits)
+            } catch {
+                storeFailure = .categoryChoice
+                return
+            }
+        }
+        let item = CategoryMemory.item(ofMemo: entry.memo, amount: entry.amount, isIncome: entry.isIncome)
+        let remembered = (try? learnedCategories.remember(item: item, category: category)) ?? false
+        categoryQuestionIDs.remove(id)
+        let name = String(localized: category.label)
+        announce(
+            remembered
+                ? String(localized: "\(name)にしました。次から「\(item)」は\(name)にします")
+                : String(localized: "\(name)にしました")
+        )
     }
 
     // MARK: - 予算
@@ -845,7 +920,7 @@ final class HomeModel {
             now: now,
             announce: announce,
             didSave: { [weak self] entry in self?.finishEditing(entry) },
-            didDelete: { [weak self] id in self?.justRecorded.removeAll { $0.persistentModelID == id } }
+            didDelete: { [weak self] id in self?.forgetJustRecorded(id) }
         )
     }
 
@@ -921,7 +996,7 @@ final class HomeModel {
             now: self.now,
             announce: announce,
             didSave: { [weak self] entry in self?.finishEditing(entry) },
-            didDelete: { [weak self] id in self?.justRecorded.removeAll { $0.persistentModelID == id } }
+            didDelete: { [weak self] id in self?.forgetJustRecorded(id) }
         )
     }
 
@@ -955,6 +1030,26 @@ final class HomeModel {
     /// タイムラインにさらに前の記録を読み込む（上限の `timelineMaxLimit` を超えては読み込まない）。
     func showMoreTimeline() {
         timelineLimit = min(timelineLimit + Self.timelinePageSize, Self.timelineMaxLimit)
+    }
+
+    // MARK: - よく使うひとこと
+
+    /// よく使うひとことの候補に読む期間（日）。いまの暮らしで使う品目と額を出すため、古い記録は読まない。
+    static let quickPhraseWindowDays = 90
+
+    /// よく使うひとことの候補を作り直す（ホームが出たとき・保存先に書き込んだとき・iCloud で取り込んだとき・前面に戻ったとき）。
+    /// 読めなければ前の候補のまま（候補は入力の手助けで、無くても記録できるため）。
+    func refreshQuickPhrases() {
+        // 期間はおおよそでよいので、暦ではなく秒数で区切る。
+        let start = now().addingTimeInterval(-Double(Self.quickPhraseWindowDays) * 86_400)
+        guard let records = try? store.context.fetch(Entry.quickPhraseDescriptor(since: start)) else { return }
+        quickPhrases = QuickPhrases.phrases(from: records)
+    }
+
+    /// よく使うひとことを選んだ。その文（「ランチ 850」）を入力欄に入れる（送るのは利用者。額を直してから送れるように）。
+    func pickQuickPhrase(_ phrase: QuickPhrase) {
+        draft = phrase.draft
+        draftSource = .text
     }
 
     // MARK: - 型
@@ -992,6 +1087,8 @@ final class HomeModel {
         case record
         case undo
         case delete
+        /// 返事で選んだカテゴリを書き込めなかった。
+        case categoryChoice
     }
 }
 

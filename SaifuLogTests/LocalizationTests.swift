@@ -66,10 +66,11 @@ struct LocalizationTests {
         }
     }
 
-    /// 許可を求める API は、Info.plist に利用目的が無いとアプリを落とす。マイク（声の入力）とカメラ（レシート）の利用目的が、
-    /// 開発言語の既定値（project.yml）と英語の訳（InfoPlist.xcstrings）の両方に入っていることを確かめる。
-    @Test("マイクとカメラの利用目的が Info.plist にあり、英語にも訳してある", arguments: [
-        "NSMicrophoneUsageDescription", "NSCameraUsageDescription",
+    /// 許可を求める API は、Info.plist に利用目的が無いとアプリを落とす（Face ID は認証が失敗する）。マイク（声の入力）と
+    /// カメラ（レシート）と Face ID（アプリのロック）の利用目的が、開発言語の既定値（project.yml）と英語の訳（InfoPlist.xcstrings）の
+    /// 両方に入っていることを確かめる。
+    @Test("マイクとカメラと Face ID の利用目的が Info.plist にあり、英語にも訳してある", arguments: [
+        "NSMicrophoneUsageDescription", "NSCameraUsageDescription", "NSFaceIDUsageDescription",
     ])
     func usageDescriptions(key: String) throws {
         let value = try #require(Bundle.main.object(forInfoDictionaryKey: key) as? String)

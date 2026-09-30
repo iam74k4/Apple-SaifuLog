@@ -138,6 +138,21 @@ extension Entry {
         return descriptor
     }
 
+    /// よく使うひとことの候補（`QuickPhrases`）を作るのに読む記録。`start` より後に記録したもの（レシートから記録したものは除く）を、
+    /// 記録した日時の新しいものから `limit` 件。
+    ///
+    /// レシートの品目は店の略した名前や半角のカナが多く、ひとこと入力で打つ文の候補にならないので除く。件数で区切るのは、
+    /// 記録を足すたびに読み直すため（記録が増えても読む量が変わらないように）。
+    static func quickPhraseDescriptor(since start: Date, limit: Int = 500) -> FetchDescriptor<Entry> {
+        let receipt = EntrySource.receipt.rawValue
+        var descriptor = FetchDescriptor<Entry>(
+            predicate: #Predicate { $0.createdAt >= start && $0.sourceRawValue != receipt },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = limit
+        return descriptor
+    }
+
     /// タイムラインに出す、記録した日時の新しいものから `limit` 件。
     ///
     /// 件数で区切るので新しい順に読む（画面では古い順に並べ直す）。
@@ -150,6 +165,9 @@ extension Entry {
 
 /// 集計（SaifuLogCore の LedgerSummary・MonthlySummary）と CSV の書き出し（LedgerCSVWriter）にそのまま渡せるようにする。
 extension Entry: LedgerCSVRecord {}
+
+/// よく使うひとことの候補（SaifuLogCore の QuickPhrases）にそのまま渡せるようにする。
+extension Entry: QuickPhraseRecord {}
 
 /// どこから記録したか。rawValue は保存に使うので変えないこと。
 enum EntrySource: String, Codable, CaseIterable, Sendable {
