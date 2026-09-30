@@ -45,8 +45,10 @@ struct ThemeContrastTests {
         .init(name: "danger / surface", foreground: Palette.danger, background: Palette.surface),
         .init(name: "income / background", foreground: Palette.income, background: Palette.background),
         .init(name: "income / surface", foreground: Palette.income, background: Palette.surface),
-        // 山吹の塗りの上の文字（主ボタンの文字・タイムラインの自分が送った文の吹き出しなど）。
+        // 山吹の塗りの上の文字（主ボタンの文字など）。
         .init(name: "onAccent / accentFill", foreground: Palette.onAccent, background: Palette.accentFill),
+        // タイムラインの自分の吹き出し（送った文・質問）の文字。
+        .init(name: "ink / userBubble", foreground: Palette.ink, background: Palette.userBubble),
     ]
 
     @Test(arguments: textCombinations, Mode.allCases)
@@ -99,6 +101,7 @@ struct ThemeContrastTests {
             ("inkSecondary", Theme.inkSecondary, Palette.inkSecondary),
             ("accentFill", Theme.accentFill, Palette.accentFill),
             ("onAccent", Theme.onAccent, Palette.onAccent),
+            ("userBubble", Theme.userBubble, Palette.userBubble),
             ("danger", Theme.danger, Palette.danger),
             ("track", Theme.track, Palette.track),
             ("income", Theme.income, Palette.income),
