@@ -5,7 +5,8 @@ import Foundation
 /// 金額はすべてここがコードで読む（AI には読ませない）。読み方は次のとおり。
 /// - 行: OCR は品名と金額を別の行として返すことが多いので、位置が分かれば縦の重なりで 1 行にまとめ、左から並べる
 /// - 表記: 半角のカナを全角に、全角の数字・記号を半角にそろえ、桁区切りのカンマを除く（`TextNormalizer`）
-/// - 品目の行: 行の最後の金額（「¥198」「198円」「198※」「198軽」）と、その前の品名。「※」「*」「軽」は軽減税率の印
+/// - 品目の行: 行の最後の金額（「¥198」「198円」「198※」「198軽」、OCR が「¥」を読み違えた「·198」）と、その前の品名。
+///   「※」「*」「軽」は軽減税率の印
 /// - 数量の行: 「2コX単98」「@98×2」「2個 @98」。前の品名だけの行か、同じ額の品目の行と合わせる
 /// - 値引きの行: 「値引 -20」「割引 ▲30」「20%OFF ▲96」「50-」。すぐ上の品目から引く。小計の後の値引きは品目に付けない。
 ///   品名の中の「OFF」「オフ」「引き」（「COFFEE」「オフィス」「引き出し」）では値引きにしない
@@ -108,7 +109,7 @@ extension ReceiptLineScanner {
         var amount: Int?
         /// マイナス（「-」「▲」「△」、後ろの「-」）が付いていたか。
         var isNegative = false
-        /// 「¥」か「円」が付いていたか（品目の行らしさの手がかり）。
+        /// 「¥」か「円」が付いていたか（品目の行らしさの手がかり）。OCR が「¥」を読み違えた「·」も含む。
         var hasYenMark = false
         /// 金額より前の文字（後ろの印を除いたもの）。金額が無ければ行の文字そのもの。
         var body: String
@@ -182,7 +183,11 @@ extension ReceiptLineScanner {
         if digitsStart > 0, [".", ":", "/", ","].contains(chars[digitsStart - 1]) { return noAmount }
         skipSpaces()
         var spaceBefore = i < digitsStart
-        if i > 0, chars[i - 1] == "¥" || chars[i - 1] == "\\" {
+        // OCR は「¥」を中点の「·」（U+00B7）と読むことがある（「洗剤 ·398」）。数字の直前（空白を挟まない）にあり、前が数字でない
+        // 「·」だけを「¥」とみなす。空白を挟んだ「·」は品名までのつなぎの点かもしれず、数字に挟まれた「·」（「1·5」）は小数点や
+        // 時刻の読み違いかもしれないので、「¥」の手がかりにはしない（品名の端に残った「·」は `cleanedName` が除く）。
+        let isMisreadYen = !spaceBefore && i > 0 && chars[i - 1] == "·" && !(i >= 2 && chars[i - 2].isASCIIDigit)
+        if i > 0, chars[i - 1] == "¥" || chars[i - 1] == "\\" || isMisreadYen {
             hasYenMark = true
             i -= 1
             skipSpaces()
@@ -244,8 +249,8 @@ extension ReceiptLineScanner {
 
     /// 品名の前後の印・コード・区切りを除く。
     ///
-    /// 先頭の「※」「*」「軽」は軽減税率の印、先頭の 4 桁以上の数字は商品のコード（JAN など）、末尾の「……」「・」「:」は
-    /// 金額までのつなぎ。
+    /// 先頭の「※」「*」「軽」は軽減税率の印、先頭の 4 桁以上の数字は商品のコード（JAN など）、末尾の「……」「・」「·」「:」は
+    /// 金額までのつなぎ（「·」は OCR が読み違えた「¥」のことも）。
     static func cleanedName(_ text: String) -> (name: String, isReducedTaxRate: Bool) {
         var name = text.trimmingCharacters(in: .whitespaces)
         var reduced = false
@@ -296,7 +301,8 @@ extension ReceiptLineScanner {
     /// 「*」は軽減税率の印として金額の直前にも置く（「おにぎり *150」）ので入れない。
     static let attachedNonPriceMarks: Set<Character> = ["@", "×", "#", "~", "〜", "_"]
 
-    static let nameEdgeSeparators = CharacterSet.whitespaces.union(CharacterSet(charactersIn: ".…・:：-=_~〜|()（）[]"))
+    /// 品名の端から除く記号。「·」（U+00B7）は、OCR が「¥」を読み違えた点か、金額までのつなぎの点（「・」とは別の文字）。
+    static let nameEdgeSeparators = CharacterSet.whitespaces.union(CharacterSet(charactersIn: ".…・·:：-=_~〜|()（）[]"))
 
     // 数量の語（コ・個・点…）は、数量の後ろにだけ付く。
     private static let counter = #"(?:コ|個|点|本|袋|パック|ケ|ヶ|枚|缶|玉|束|P)"#

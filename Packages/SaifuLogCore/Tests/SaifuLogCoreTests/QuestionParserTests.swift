@@ -40,6 +40,32 @@ struct QuestionParserTests {
         #expect(Self.question(text)?.period == expected, "\(text)")
     }
 
+    @Test("年の初めからの言い回しは今年として読む", arguments: [
+        "年初から外食いくら?",
+        "年始からの食費は?",
+        "年明けから外食いくら?",
+        "年頭からの支出",
+        "年初め以降の支出",
+        "年明け以降カフェいくら?",
+        "年明けてから外食いくら?",
+        "年が明けてからいくら使った?",
+        "今年初めからカフェいくら?",
+        "今年頭から外食いくら?",
+        "今年の年初から外食いくら?",
+        "年の初めから外食いくら?",
+        "今年の初めからカフェいくら?",
+        "年の始め以降の支出",
+    ])
+    func sinceYearStart(text: String) {
+        #expect(Self.question(text)?.period == .thisYear, "\(text)")
+    }
+
+    /// 聞かれたのは年の初めからなので、黙って今月として答えない（辞書に無い語として期間を読み落とすと、今月の数字になる）。
+    @Test("「年初から外食いくら?」は今年の食費で答える")
+    func sinceYearStartQuestion() {
+        #expect(Self.question("年初から外食いくら?") == LedgerQuestion(period: .thisYear, metric: .categoryExpense, category: .food))
+    }
+
     @Test("直近 N 日（週は 7 日）", arguments: [
         ("直近7日の支出", 7),
         ("過去30日間の合計", 30),
@@ -154,6 +180,22 @@ struct QuestionParserTests {
         "1年間の支出",
         "半年の支出",
         "今年度の支出",
+        // 年末と、「から」の付かない年の初めの語は、年の初めの数日のこと（今年とは読めない）。
+        "年末の支出",
+        "年末から外食いくら?",
+        "年始の食費は?",
+        "年初の外食いくら?",
+        "年明けの支出",
+        "今年初めの外食いくら?",
+        "年の初めの支出",
+        "今年の初めの外食いくら?",
+        "年が明けたら外食いくら?",
+        "年末年始から外食いくら?",
+        // 「年」の前に漢字が付いた言い回しは、別の年のこと。
+        "去年初めから外食いくら?",
+        "昨年頭からの支出",
+        "毎年初めからの支出",
+        "毎年の初めからの支出",
     ])
     func unsupported(text: String) {
         #expect(Self.question(text) == nil, "\(text)")
@@ -199,11 +241,23 @@ struct QuestionParserTests {
 
     @Test("文から読めなかったものだけ、モデルの選択を使う")
     func modelFillsGaps() {
-        // 「年初から」「外で食べた」は辞書に無い言い回し。
-        let reading = Self.reading("年初から外で食べたのは?")
+        // 「年が変わってから」「外で食べた」は辞書に無い言い回し。
+        let reading = Self.reading("年が変わってから外で食べたのは?")
         let choice = QuestionChoice(period: .thisYear, metric: .categoryExpense, category: .food)
 
         #expect(reading.question == nil)
+        #expect(reading.resolved(with: choice) == LedgerQuestion(period: .thisYear, metric: .categoryExpense, category: .food))
+    }
+
+    /// 辞書で読める期間なので、AI が使えるかどうかで答える期間を変えない（辞書の経路は今年、AI の経路はモデルの選択、とならない）。
+    @Test("「年初から」は文から今年と読み、モデルがほかの期間を選んでも辞書の経路と同じ質問にする", arguments: QuestionChoice.Period.allCases)
+    func sinceYearStartWinsOverModel(modelPeriod: QuestionChoice.Period) {
+        let reading = Self.reading("年初から外食いくら?")
+        let choice = QuestionChoice(period: modelPeriod, metric: .categoryExpense, category: .food)
+
+        #expect(reading.period == .thisYear)
+        #expect(!reading.hasUnsupportedPart)
+        #expect(reading.resolved(with: choice) == reading.question)
         #expect(reading.resolved(with: choice) == LedgerQuestion(period: .thisYear, metric: .categoryExpense, category: .food))
     }
 
@@ -259,5 +313,6 @@ struct QuestionParserTests {
         let choice = QuestionChoice(period: .thisYear, metric: .categoryExpense, category: .food)
 
         #expect(Self.reading("去年の食費は?").resolved(with: choice) == nil)
+        #expect(Self.reading("年明けの外食いくら?").resolved(with: choice) == nil)
     }
 }
