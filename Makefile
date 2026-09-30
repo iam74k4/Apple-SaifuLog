@@ -53,7 +53,7 @@ TEST_DESTINATION ?= $(shell ./scripts/pick-simulator.sh)
 # シミュレータでは xcodebuild test から使えず（Apple の不具合。設定ファイルを渡せず、本物の Sandbox につながる）、
 # テストは飛ばされる。いちばん新しい版を選ぶ TEST_DESTINATION では購入のテストが 1 つも動かないまま CI が緑になるので、
 # 動くことを確かめた版を決めて動かす。ほかの版で動くと確かめたら、ここを変える（CI の build.yml も同じ値を読む）。
-STOREKIT_TEST_OS ?= 26.2
+STOREKIT_TEST_OS ?= 27.0
 # 例: make test-storekit STOREKIT_TEST_DESTINATION='platform=iOS Simulator,OS=26.2,name=iPhone 17 Pro'
 STOREKIT_TEST_DESTINATION ?= $(shell ./scripts/pick-simulator.sh $(STOREKIT_TEST_OS) 2>/dev/null)
 # 購入のテストの結果。飛ばした数を数えるのに使う（scripts/test-storekit.sh）。
