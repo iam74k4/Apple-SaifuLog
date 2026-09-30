@@ -90,7 +90,7 @@ App Store Connect → 収益化 → App 内課金 → 各アイテム → 「審
 
 ```text
 One-time non-consumable purchase, not a subscription. Family Sharing is supported.
-What it unlocks: unlimited receipt scans (free: 5 per month, counted only when a scan is recorded) and unlimited questions about spending (free: 10 per month, asked in the home entry field, e.g. "今月カフェいくら?"); a short on-device AI note in Last Week in Review and the Monthly Summary (only on devices that support Apple Intelligence; the numbers are always calculated by the app); and budgets by category in Settings > Monthly budget (the amounts can be set and saved; comparing them with spending is not shown yet, and the screen says so).
+What it unlocks: unlimited receipt scans (free: 5 per month, counted only when a scan is recorded) and unlimited questions about spending (free: 10 per month, asked in the home entry field, e.g. "今月カフェいくら?"); a short on-device AI note in Last Week in Review and the Monthly Summary (only on devices that support Apple Intelligence; the numbers are always calculated by the app); and budgets by category, set in Settings > Monthly Budget, with each category's spending against its budget (spent / budget, and the amount left or over) shown in the Monthly Summary.
 Where to buy: Settings > Premium. Restore Purchases is on the same screen and in Settings.
 ```
 
@@ -98,7 +98,7 @@ Where to buy: Settings > Premium. Restore Purchases is on the same screen and in
 
 ```text
 買い切りの非消耗型で、サブスクではありません。ファミリー共有に対応します。
-できるようになること: レシートの読み取りの回数の制限がなくなる（無料は月 5 回で、記録したときだけ数える）、家計への質問の回数の制限がなくなる（無料は月 10 回。ホームの入力欄で「今月カフェいくら?」のように聞く）、先週のふりかえりと月のまとめに端末内の AI の一言が付く（Apple Intelligence に対応した端末のみ。数字はいつもアプリが計算する）、設定 → 月の予算でカテゴリ別の予算を決められる（額を決めて残すところまで。使った額との比べはまだ出さず、画面にもそう書いている）。
+できるようになること: レシートの読み取りの回数の制限がなくなる（無料は月 5 回で、記録したときだけ数える）、家計への質問の回数の制限がなくなる（無料は月 10 回。ホームの入力欄で「今月カフェいくら?」のように聞く）、先週のふりかえりと月のまとめに端末内の AI の一言が付く（Apple Intelligence に対応した端末のみ。数字はいつもアプリが計算する）、設定 → 月の予算でカテゴリ別の予算を決められ、月のまとめのカテゴリの行に、使った額と予算、残りか超えた額が出る。
 購入: 設定 → プレミアム。同じ画面と設定に「購入の復元」がある。
 ```
 

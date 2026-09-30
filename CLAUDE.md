@@ -10,8 +10,10 @@
     ⑥ 直す（吹き出しを押す・長押しのメニュー・記録直後のバナー・VoiceOver の操作・⑦ の記録の一覧から開くシート。金額・品目・支出か収入か・
     カテゴリ・日付を直し、そこから削除もできる。`EditEntryModel` と `EntryStore.update`。割り勘の人数は記録に持たないので直せない）。
     月の全体の予算（② 予算を決める、ホームの帯の「今月あと ¥…／1日あたり ¥…」。カテゴリ別の予算の欄は、ホームと ⑧ から開いたときに
-    プレミアムと体験中だけ出す。進み（使った額との比べ）はまだどこにも出さない）。⑦ 月のまとめ（ホームの帯の見出しと数字から横に進む。月送り・支出と収入と収支・1 日あたりの
-    平均・前の月との差・予算の進み（いまの予算に決めた月から後だけ）・カテゴリ別の横棒グラフと行・行からその月の記録の一覧と ⑥。
+    プレミアムと体験中だけ出す。進み（使った額との比べ）は ⑦ のカテゴリの行にだけ出す（プレミアムと体験中だけ。無料に戻ったら出さずに
+    額を残す。`MonthlyReportModel.showsCategoryBudgets`、数字はコアの `MonthlyReport.categoryBudgets`・`BudgetPlan.categoryDecisions`））。⑦ 月のまとめ（ホームの帯の見出しと数字から横に進む。月送り・支出と収入と収支・1 日あたりの
+    平均・前の月との差・予算の進み（いまの予算に決めた月から後だけ）・カテゴリ別の横棒グラフと行（カテゴリ別の予算の進みも。当てはめる月の
+    決まりは全体の予算と同じ）・行からその月の記録の一覧と ⑥。
     `MonthlyReportView` と `MonthlyReportModel`、数字はコアの `MonthlyReport` と `CategoryBreakdown`）。
     初回の案内（① ようこそ → ② → ホーム。記録がある端末には出さない。`AppRootView` と `OnboardingModel`）。
     ⑧ 設定（ホームの帯の右上の歯車から横に進む。月の予算（② のシート）・週の始まり（`AppSettings.weekStart`。`AppRootView` が画面の
@@ -20,14 +22,14 @@
     いちばん上に「プレミアム」（状態）と「購入の復元」の行。週の始まりの下に「同期」の節（「iCloud で同期」））。
     ⑨ プレミアム（StoreKit 2。⑧ の「プレミアム」と、体験が終わった後の最初の起動に一度だけ出すシート。買い切り
     `com.iam74k4.SaifuLog.premium`（ファミリー共有）と、価格 0 の非消耗型の 14 日間の体験 `com.iam74k4.SaifuLog.trial14`（購入日時から
-    経過時間で 14 日）。価格は App Store の表示のまま。まだ出していない機能は「近日」。`PremiumSheet` と `PremiumSheetModel`、購入・復元・
+    経過時間で 14 日）。価格は App Store の表示のまま。まだ出していない機能は「近日」（いまは無い）。`PremiumSheet` と `PremiumSheetModel`、購入・復元・
     Transaction.updates の購読は `SaifuLog/Purchases/PurchaseManager`（`SaifuLogApp` で 1 つ作り、起動したらすぐ購読）、状態はコアの
     `PremiumStatus`・`TrialPeriod`。無料の回数の数え方はコアの `UsageQuota` と `QuotaStore`（家計への質問とレシートの読み取りで使う）。
     Xcode の Run では `Config/SaifuLog.storekit` で購入を試せる。購入のテストは SKTestSession で、iOS 26.3・26.4 のシミュレータでは
     Apple の不具合で動かないので、`make test-app` から除き、`make test-storekit` が iOS 26.2 のシミュレータで動かす（飛ばされたら失敗。
     CI のランナーで iOS 26.2 のランタイムを入れて通るかはまだ走らせていない）。実機（Sandbox）での購入・復元・返金・ファミリー共有の
-    確認はまだ。カテゴリ別の予算の進みを出すまで App 内課金は審査に出さない。家計への質問を出したので、この決め事を続けるかは見直し中で、
-    所有者が決めるまでは出さない。`docs/release-flow.md` の「App 内課金を審査に出す」）。配色は墨 × 山吹。
+    確認はまだ。「カテゴリ別の予算の進みを出すまで App 内課金は審査に出さない」の条件は満たした（⑦ に出した）。審査に出すかどうかの
+    最終判断は所有者。`docs/release-flow.md` の「App 内課金を審査に出す」）。配色は墨 × 山吹。
     家計への質問（ひとこと入力と同じ入力欄。記録か質問かはコアの `InputIntentClassifier` が決め、誤って記録しないことを優先し、
     決められない文は記録せずに書き直しを案内する。端末内 AI は `SaifuLog/AI/FoundationModelsQuestionAnswerer` のツール呼び出しで期間・知りたいこと・
     カテゴリを選択肢から選ぶだけで、数字はコアの `LedgerQuestionAnswerer` が計算し、AI の一言の数字はコアの `AnswerSentenceCheck` で照合する。
@@ -107,7 +109,7 @@
     保存先のデータ保護は NSFileProtectionComplete（ロック中は読めないようにする。実機での確認はまだ。
     release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
     main で `mode=export` の照合が通るかの確認はまだ。`docs/design.md` §5-4）。
-  - **未実装:** カテゴリ別の予算の進みの表示・週のふりかえりの通知・家族との共有の提供（試作は機能フラグで隠している）・修正の記憶・CSV の読み込み。
+  - **未実装:** 週のふりかえりの通知・家族との共有の提供（試作は機能フラグで隠している）・修正の記憶・CSV の読み込み。
   - 実機での確認の手段: release.yml の手動実行 `mode=testflight` で、develop のビルドを診断画面入りで TestFlight の
     社内テスト専用に送れるようにした（審査には出ない）。Environment `release` の配備ブランチへの develop の追加
     （所有者の作業）と、実際に TestFlight で入れての確認はまだ（`docs/release-flow.md` の「TestFlight で実機に入れる（社内テスト）」）。
