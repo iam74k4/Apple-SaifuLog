@@ -266,11 +266,12 @@ struct LedgerQuestionAnswererTests {
         #expect(interval.end == newYork.date(from: DateComponents(year: 2026, month: 3, day: 11)))
     }
 
-    @Test("読み込む範囲は、答えうる期間をすべて覆う")
+    @Test("読み込む範囲は、答えうる期間と、前の期間との比べの期間をすべて覆う")
     func window() throws {
         let window = try #require(QuestionLedger.window(now: Fixture.now, calendar: Fixture.calendar))
 
-        #expect(window.start == Fixture.date(2025, 9, 28))
+        // 今年と比べる去年の同じ日までの分（去年の初めから）。比べが無ければ直近 366 日の始まり（2025-09-28）。
+        #expect(window.start == Fixture.date(2025, 1, 1))
         #expect(window.end == Fixture.date(2027, 1, 1))
     }
 

@@ -21,7 +21,43 @@ public enum LedgerAnswerFacts {
             // 予算は月で数えるので、聞かれた期間と違う期間で答えたことを、モデルにも伝える。
             lines.insert("聞かれた期間: \(periodName(answer.question.period))（予算は月ごとなので、上の期間で数えた）", at: 1)
         }
+        if let comparison = answer.comparison {
+            lines.append("前の期間との比べ: \(comparisonText(comparison, value: answer.value))")
+        }
         return lines.joined(separator: "\n")
+    }
+
+    /// 前の期間との比べの文（「先月の同じ日まで（¥5,400）より ¥1,800 多い」）。比べた期間の日付は書かない（一言に期間の日付の
+    /// 数字を増やさないため）。
+    static func comparisonText(_ comparison: LedgerComparison, value: LedgerAnswer.Value) -> String {
+        let name = baselineName(comparison.baseline)
+        guard comparison.previousRecordCount > 0 else { return "\(name)は記録が無いので、比べられない" }
+        let figure: (Int) -> String
+        if case .count = value {
+            figure = { "\($0)件" }
+        } else {
+            figure = YenFormatter.string(from:)
+        }
+        let previous = figure(comparison.previous)
+        switch comparison.difference {
+        case 1...: return "\(name)（\(previous)）より \(figure(comparison.difference)) 多い"
+        case ..<0: return "\(name)（\(previous)）より \(figure(-comparison.difference)) 少ない"
+        default: return "\(name)（\(previous)）と同じ"
+        }
+    }
+
+    /// 比べた期間の名前（AI に渡す日本語）。
+    public static func baselineName(_ baseline: LedgerComparison.Baseline) -> String {
+        switch baseline {
+        case .yesterdaySameTime: "昨日の同じ時刻まで"
+        case .dayBeforeYesterday: "一昨日"
+        case .lastWeekToDate: "先週の同じ曜日の同じ時刻まで"
+        case .weekBeforeLast: "先々週"
+        case .lastMonthToDate: "先月の同じ日まで"
+        case .monthBeforeLast: "先々月"
+        case .lastYearToDate: "去年の同じ日まで"
+        case .previousDays(let days): "その前の\(days)日"
+        }
     }
 
     /// 期間の名前（AI に渡す日本語）。
