@@ -518,7 +518,7 @@ main へマージする前の develop のビルドを、TestFlight で自分の 
 |---|---|
 | 保存先（`default.store`・`-wal`・`-shm`）の保護クラス | 3 つとも `NSFileProtectionComplete`（データ保護が効いている。`docs/design.md` §5-4）。`default.store` は保存先を開いた時点（ホームが出る前）に作られるので、これが `missing` なら異常（診断画面の見ている場所と実際の保存先が食い違っているなど。記録を入れても直らない）。`-wal` / `-shm` は保存先を開いている間はふつうある（SQLite の WAL）。`missing` なら記録を 1 件入れてから再読み込みし、それでも `missing` なら報告に添える |
 | 保護されたデータを読めるか | 画面を見ている間は `true` |
-| 端末内 AI（Foundation Models） | `available` か、使えない理由（`deviceNotEligible`・`appleIntelligenceNotEnabled`・`modelNotReady`）。日本語に対応しているか。iOS 27 なら画像を入力できるか |
+| 端末内 AI（Foundation Models） | `available` か、使えない理由（`deviceNotEligible`・`appleIntelligenceNotEnabled`・`modelNotReady`）。日本語に対応しているか。iOS 27 なら画像を入力できるか。「生成を試す」を押すと、決まった短い文で 1 回だけ生成させた結果が「生成の試し」に出る（`ok (… ms)`・エラーの型とドメインと番号・`timeout (20000 ms)`）。`available` なのにエラーか時間切れなら、その値を報告に添える（AI は失敗しても利用者には辞書の結果だけを見せるので、画面では気づけない）。「AI の結果を使わなかった回数（起動から）」は、起動してから AI が失敗したか結果を返さずに辞書や定型文に切り替えた回数（`entry`・`question`・`recap`・`receipt` ごと）、「最後のエラー」はその最後の失敗（と機能・日時）。1 回ずつは Console.app のサブシステム `com.iam74k4.SaifuLog`・カテゴリ `ai` で見られる（`docs/design.md` §4-2） |
 | 音声の書き起こし（SpeechTranscriber） | 使えるか、日本語のモデルが入っているか、声の入力が使っている経路（`speechTranscriber` / `dictationTranscriber` / `none`）とそのモデルの状態（`installed` / `needsReservation` / `needsDownload` / `downloading`）。`checking` は端末への問い合わせがまだ返っていないところ（ほかの行はそれを待たずに出る）。再読み込みしても `checking` のままなら、問い合わせが返らない端末として報告に添える |
 | 版・ビルド番号・OS・機種 | 不具合を報告するときに添える |
 | 記録の件数・予算の行数 | 中身ではなく数だけ |

@@ -245,7 +245,8 @@ struct HomeView: View {
                 }
                 // 「取り消す」は記録の直後だけのもの。しばらくしたら引っ込め、タイムラインを広く使う。
                 // 支援技術を使い始めたときにも数え直す（id に含める）と、途中で引っ込むことがない。
-                // 「直す」のシートと保存の失敗のアラートを出している間は止め、閉じたら 8 秒を数え直す（`HomeModel.autoHidesUndo`）。
+                // 「直す」のシート・どれを直すかの確認・保存の失敗のアラートを出している間は止め、閉じたら 8 秒を数え直す
+                // （`HomeModel.autoHidesUndo`）。
                 .task(id: undoBannerSchedule) {
                     guard model.autoHidesUndo, !keepsUndoBanner else { return }
                     try? await Task.sleep(for: .seconds(8))
@@ -375,6 +376,8 @@ struct HomeView: View {
             if model.canUndo {
                 UndoBanner(
                     recorded: model.recordedItems,
+                    showsItemChoice: $model.showsRecordedItemChoice,
+                    requestEdit: { model.requestRecordedEdit(calendar: calendar) },
                     edit: { model.presentEdit($0, calendar: calendar) },
                     undo: { model.undoLastRecord() },
                     dismiss: { model.dismissUndo() }
@@ -472,6 +475,7 @@ struct HomeView: View {
             ids: model.recordedItems.map(\.id),
             keepsOpen: keepsUndoBanner,
             isEditing: model.editing != nil,
+            showsItemChoice: model.showsRecordedItemChoice,
             showsStoreFailure: model.storeFailure != nil
         )
     }
@@ -483,6 +487,8 @@ private struct UndoBannerSchedule: Hashable {
     var keepsOpen: Bool
     /// 「直す」のシートを出しているか。出したときにタイマーを止め、閉じたときに数え直すため。
     var isEditing: Bool
+    /// どれを直すかの確認（複数件を記録したときの「直す」）を出しているか。シートと同じく、出している間は止め、閉じたら数え直す。
+    var showsItemChoice: Bool
     /// 保存の失敗のアラートを出しているか。「直す」のシートと同じく、出している間は止め、閉じたら数え直す。
     var showsStoreFailure: Bool
 }

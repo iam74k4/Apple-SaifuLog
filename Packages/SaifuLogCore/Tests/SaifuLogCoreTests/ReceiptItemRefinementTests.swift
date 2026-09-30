@@ -81,6 +81,8 @@ struct ReceiptItemRefinementTests {
         #expect(ReceiptSummary.storeLabel("ローソン 1234-5678-9012-3456") == "ローソン")
         #expect(ReceiptSummary.storeLabel("カフェ ****1234") == "カフェ")
         #expect(ReceiptSummary.storeLabel("セブン-イレブン") == "セブン-イレブン")
+        // 端の「·」（OCR が読み違えた「¥」かつなぎの点）は品名と同じく除き、店名の中の「·」は残す。
+        #expect(ReceiptSummary.storeLabel("カフェ\u{B7}ひかり \u{B7}") == "カフェ\u{B7}ひかり")
         #expect(ReceiptSummary.storeLabel("0120-000-000") == nil)
         #expect(ReceiptSummary.storeLabel(nil) == nil)
         #expect(ReceiptSummary.storeLabel(String(repeating: "あ", count: 40))?.count == ReceiptSummary.maximumStoreNameLength)

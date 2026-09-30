@@ -19,6 +19,9 @@ struct DiagnosticsReport: Sendable {
     /// コピーする文の先頭の行に使い、最適化で消されないようにしている。
     static let buildMarker = "SaifuLog-InternalDiagnostics-v1"
 
+    /// 端末内 AI の区切りの ID。画面はこの区切りに「生成を試す」のボタンを足す。
+    static let foundationModelsSectionID = "foundationModels"
+
     var sections: [Section]
 
     /// 画面の 1 つの区切り。
@@ -77,6 +80,39 @@ extension DiagnosticsReport {
         var supportsJapanese: Bool
         /// 画像を入力できるか。iOS 26 では調べられない（nil）。
         var supportsVision: Bool?
+    }
+
+    /// 生成の試し（「生成を試す」）の状態と結果。
+    ///
+    /// 使えるか（availability）が available でも、生成が毎回失敗する端末がある（モデルの資産が無いシミュレータなど）。
+    /// 使えるかの行だけでは見分けられないので、実際に 1 回生成して確かめる。
+    enum GenerationProbe: Equatable, Sendable {
+        /// まだ試していない。
+        case notRun
+        /// 試している。
+        case running
+        /// 生成できた。かかった時間（セッションを作ってから答えが返るまで）。
+        case succeeded(latency: Duration)
+        /// 生成が失敗した（エラーの型・ドメイン・番号だけ。説明文は持たない）。
+        case failed(AIErrorSummary)
+        /// 上限の時間までに返らなかった。
+        case timedOut(Duration)
+
+        /// 時間はミリ秒で、桁区切りを入れずに書く（言語の設定によらず同じ形にし、そのまま比べられるように）。
+        var description: String {
+            switch self {
+            case .notRun: "not run"
+            case .running: "running"
+            case .succeeded(let latency): "ok (\(Self.milliseconds(latency)) ms)"
+            case .failed(let error): error.description
+            case .timedOut(let limit): "timeout (\(Self.milliseconds(limit)) ms)"
+            }
+        }
+
+        static func milliseconds(_ duration: Duration) -> Int64 {
+            let (seconds, attoseconds) = duration.components
+            return seconds * 1_000 + attoseconds / 1_000_000_000_000_000
+        }
     }
 
     /// 音声の書き起こしの問い合わせがまだ返っていないときの値（`init` の `speech` が nil のとき）。
@@ -160,7 +196,9 @@ extension DiagnosticsReport {
         isProtectedDataAvailable: Bool,
         counts: RecordCounts,
         iCloud: ICloudStatus,
-        household: HouseholdStatus? = nil
+        household: HouseholdStatus? = nil,
+        aiFallbacks: AIFallbackLog.Snapshot = AIFallbackLog.Snapshot(),
+        generationProbe: GenerationProbe = .notRun
     ) {
         sections = [
             Section(id: "app", title: "アプリ", rows: [
@@ -173,14 +211,15 @@ extension DiagnosticsReport {
                 Row(key: "os.detail", label: "OS の詳細", value: device.osDetail),
                 Row(key: "device.model", label: "機種", value: device.model),
             ]),
-            Section(id: "foundationModels", title: "端末内 AI（Foundation Models）", rows: [
+            Section(id: Self.foundationModelsSectionID, title: "端末内 AI（Foundation Models）", rows: [
                 Row(key: "fm.availability", label: "使えるか", value: foundationModels.availability),
                 Row(key: "fm.japanese", label: "日本語に対応", value: String(foundationModels.supportsJapanese)),
                 Row(
                     key: "fm.vision", label: "画像の入力（iOS 27 から）",
                     value: foundationModels.supportsVision.map(String.init) ?? "n/a (before iOS 27)"
                 ),
-            ]),
+                Row(key: "fm.generation", label: "生成の試し", value: generationProbe.description),
+            ] + Self.fallbackRows(aiFallbacks)),
             // 音声の問い合わせは返るまで待たずに画面を出すので、返る前はすべて checking にする。
             Section(id: "speech", title: "音声の書き起こし（SpeechTranscriber）", rows: [
                 Row(key: "speech.available", label: "使えるか", value: speech.map { String($0.isAvailable) } ?? Self.checking),
@@ -233,6 +272,25 @@ extension DiagnosticsReport {
                 }
             ))
         }
+    }
+
+    /// 起動してから AI の結果を使わなかった回数と、最後の失敗の行。AI が失敗しても利用者には辞書の結果だけを見せるので、
+    /// 「使える」と出るのに毎回失敗している端末を、ここで見分ける（`AIFallbackLog`）。失敗が無ければ、最後の失敗の機能と
+    /// 日時の行は出さない。
+    static func fallbackRows(_ snapshot: AIFallbackLog.Snapshot) -> [Row] {
+        // 機能ごとの回数は、0 回の機能も決まった順で並べる（別の端末や日の診断と見比べやすいように）。
+        let byFeature = AIFeature.allCases.map { "\($0.rawValue) \(snapshot.fallbacks[$0] ?? 0)" }.joined(separator: ", ")
+        var rows = [
+            Row(key: "fm.fallbacks", label: "AI の結果を使わなかった回数（起動から）", value: "\(snapshot.totalFallbacks) (\(byFeature))"),
+            Row(key: "fm.lastError", label: "最後のエラー", value: snapshot.lastError?.error.description ?? "none"),
+        ]
+        if let lastError = snapshot.lastError {
+            rows += [
+                Row(key: "fm.lastError.feature", label: "最後のエラーの機能", value: lastError.feature.rawValue),
+                Row(key: "fm.lastError.at", label: "最後のエラーの日時", value: lastError.date.formatted(.iso8601)),
+            ]
+        }
+        return rows
     }
 }
 #endif

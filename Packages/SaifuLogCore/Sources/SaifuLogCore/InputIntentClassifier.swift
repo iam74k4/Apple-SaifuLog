@@ -100,12 +100,12 @@ public enum InputIntentClassifier {
         questionWords.contains { text.contains($0) }
     }
 
-    /// 期間の語に、カテゴリの表示名が続くか、期間の語だけの文か（「先月の食費」「今日のカフェ」「先月」）。
+    /// 期間の語に、カテゴリの表示名が続くか、期間の語だけの文か（「先月の食費」「今日のカフェ」「先月」「年初からの食費」）。
     ///
     /// カテゴリはキーワードではなく表示名だけを見る。「昨日 ランチ」のような、金額を書き忘れた記録を質問として答えないため。
     static func asksAboutPeriod(_ text: String) -> Bool {
         var chars = Array(text)
-        let words = QuestionParser.periodWords.map(\.0) + ["直近", "過去", "最近"]
+        let words = QuestionParser.sinceYearStartPhrases + QuestionParser.periodWords.map(\.0) + ["直近", "過去", "最近"]
         let found = QuestionParser.ranges(of: words, in: chars)
             + QuestionParser.recentDayPhrases(in: chars).map(\.range)
         guard !found.isEmpty else { return false }

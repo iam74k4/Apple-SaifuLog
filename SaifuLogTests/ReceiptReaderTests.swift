@@ -17,8 +17,11 @@ struct ReceiptReaderTests {
         "合計 ¥496",
     ].map { ReceiptTextLine($0) }
 
-    static func reader(lines: [ReceiptTextLine] = lines, refiner: (any ReceiptItemRefining)?) -> ReceiptReader {
-        ReceiptReader(recognize: { _ in lines }, makeRefiner: { refiner })
+    /// AI の失敗の記録はテストごとに新しくする（アプリの `AIFallbackLog.shared` に、テストの失敗を混ぜないため）。
+    static func reader(
+        lines: [ReceiptTextLine] = lines, refiner: (any ReceiptItemRefining)?, log: AIFallbackLog = AIFallbackLog()
+    ) -> ReceiptReader {
+        ReceiptReader(recognize: { _ in lines }, makeRefiner: { refiner }, aiFallbackLog: log)
     }
 
     static func scan(_ reading: ReceiptReading) throws -> ReceiptScan {
@@ -74,16 +77,32 @@ struct ReceiptReaderTests {
         }
     }
 
-    /// AI が失敗しても、キーワード辞書のカテゴリのまま読み取る（AI が無くても使える）。
+    /// AI が失敗しても、キーワード辞書のカテゴリのまま読み取る（AI が無くても使える）。失敗は AI の記録に残す（利用者には知らせない）。
     @Test func aiFailureKeepsDictionaryResult() async throws {
         let refiner = StubReceiptRefiner { _ in throw TestError() }
+        let log = AIFallbackLog()
 
-        let scan = try Self.scan(await Self.reader(refiner: refiner).read(
+        let scan = try Self.scan(await Self.reader(refiner: refiner, log: log).read(
             [TestSupport.blankReceiptImage], now: TestSupport.now, calendar: TestSupport.calendar
         ))
 
         #expect(scan.items.map(\.name) == ["ギュウニュウ", "ティッシュ"])
         #expect(scan.items.map(\.category) == [.food, .daily])
+        #expect(log.snapshot.fallbacks == [.receipt: 1])
+        #expect(log.snapshot.lastError?.feature == .receipt)
+    }
+
+    /// AI が整えられたときは、AI の記録に何も残さない。
+    @Test func aiSuccessIsNotRecorded() async throws {
+        let refiner = StubReceiptRefiner { _ in [] }
+        let log = AIFallbackLog()
+
+        _ = try Self.scan(await Self.reader(refiner: refiner, log: log).read(
+            [TestSupport.blankReceiptImage], now: TestSupport.now, calendar: TestSupport.calendar
+        ))
+
+        #expect(refiner.calls.count == 1)
+        #expect(log.snapshot == AIFallbackLog.Snapshot())
     }
 
     /// 品目の無いレシート（合計だけ）では、AI を呼ばない。

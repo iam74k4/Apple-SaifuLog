@@ -166,6 +166,26 @@ struct HomeModelHouseholdTests {
         #expect(fixture.household.engines[.shared]?.savedRecordNames == [entry.id.uuidString])
     }
 
+    /// 家計に複数件を記録したときも、バナーの「直す」はどれを直すかの確認を出し、選んだ家計の記録のシートを開く。
+    @Test func choosingRecordedHouseholdItemOpensItsEdit() async throws {
+        let fixture = try Fixture()
+        try fixture.household.insertHousehold(role: .owner)
+        fixture.model.ledgerScope = .household
+        await fixture.send("スーパー2480、ドラッグ1200")
+
+        fixture.model.requestRecordedEdit(calendar: TestSupport.calendar)
+        #expect(fixture.model.showsRecordedItemChoice)
+        #expect(fixture.model.editing == nil)
+        #expect(!fixture.model.autoHidesUndo)
+
+        let drug = try #require(fixture.model.recordedItems.last)
+        fixture.model.presentEdit(drug, calendar: TestSupport.calendar)
+
+        #expect(fixture.model.editing?.memo == "ドラッグ")
+        #expect(!fixture.model.showsRecordedItemChoice)
+        #expect(try fixture.entries().isEmpty)
+    }
+
     /// 家計の記録を長押しで消す（確認のあと）。消す変更を登録する。
     @Test func deleteHouseholdEntry() throws {
         let fixture = try Fixture()
