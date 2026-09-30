@@ -91,6 +91,8 @@ struct InputIntentClassifierTests {
         "先月",
         "今月は",
         "今年の光熱費",
+        "年初からの食費",
+        "年明けから",
     ])
     func periodQuestions(text: String) {
         #expect(Self.classify(text) == .question, "\(text)")
