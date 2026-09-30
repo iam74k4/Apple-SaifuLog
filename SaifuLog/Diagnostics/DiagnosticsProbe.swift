@@ -6,6 +6,7 @@ import UIKit
 import FoundationModels
 #endif
 import Speech
+import Synchronization
 
 /// 診断画面の値を、端末・OS・保存先から読む。
 ///
@@ -95,6 +96,106 @@ enum DiagnosticsProbe {
         )
         #endif
     }
+
+    // MARK: - 生成の試し
+
+    /// 生成の試しを待つ上限。初めての生成はモデルの読み込みで数秒かかることがあるので、それより十分に長く、画面の前で
+    /// 待っていられる長さにする。
+    static let generationTimeout: Duration = .seconds(20)
+
+    /// 生成の試しでモデルに渡す文。利用者の記録や入力は渡さない（決まった短い文だけ）。
+    static let generationPrompt = "「はい」とだけ答えてください。"
+
+    /// 生成の試しで返させる長さの上限（トークン）。答えの中身は見ないので、短く切り上げて待つ時間を減らす。
+    static let generationMaximumTokens = 16
+
+    enum GenerationProbeError: Error {
+        /// Foundation Models の無い SDK でビルドした。
+        case frameworkMissing
+    }
+
+    /// 端末内 AI に、決まった短い文で 1 回だけ生成させる（診断画面の「生成を試す」）。
+    ///
+    /// アプリの機能と同じく、試すたびに新しいセッションを作る（前の試しの文脈を引きずらず、初めての生成の読み込みも含めて測る）。
+    static func generateOnce() async throws {
+        #if canImport(FoundationModels)
+        let session = LanguageModelSession()
+        _ = try await session.respond(
+            to: generationPrompt, options: GenerationOptions(maximumResponseTokens: generationMaximumTokens)
+        )
+        #else
+        throw GenerationProbeError.frameworkMissing
+        #endif
+    }
+
+    /// `generate` を 1 回呼び、かかった時間か、エラーか、時間切れかを返す。
+    ///
+    /// 時間切れのときは取り消しを伝え、生成が終わるのを待たずに返す（モデルが取り消しに応じずに止まっていても、画面を
+    /// 「running」のままにしない）。
+    static func tryGeneration(
+        timeout: Duration, _ generate: @escaping @Sendable () async throws -> Void
+    ) async -> DiagnosticsReport.GenerationProbe {
+        let clock = ContinuousClock()
+        let start = clock.now
+        let outcome = await withTimeout(timeout) { () -> GenerationOutcome in
+            do {
+                try await generate()
+                return .succeeded
+            } catch {
+                return .failed(AIErrorSummary(error))
+            }
+        }
+        switch outcome {
+        case .succeeded: return .succeeded(latency: start.duration(to: clock.now))
+        case .failed(let error): return .failed(error)
+        case nil: return .timedOut(timeout)
+        }
+    }
+
+    private enum GenerationOutcome: Sendable {
+        case succeeded
+        case failed(AIErrorSummary)
+    }
+
+    /// `operation` の結果を待ち、`timeout` を過ぎたら取り消しを伝えて、終わるのを待たずに nil を返す。
+    static func withTimeout<T: Sendable>(
+        _ timeout: Duration, _ operation: @escaping @Sendable () async -> T
+    ) async -> T? {
+        let work = Task { await operation() }
+        return await withCheckedContinuation { continuation in
+            let first = ResumeOnce(continuation)
+            let timer = Task {
+                // 先に終わって取り消されたら、ここで抜ける（時間切れにしない）。
+                try await Task.sleep(for: timeout)
+                first.resume(returning: nil)
+                work.cancel()
+            }
+            Task {
+                let value = await work.value
+                timer.cancel()
+                first.resume(returning: value)
+            }
+        }
+    }
+
+    /// 先に届いた値で 1 回だけ再開する（生成と時間切れの、先に終わったほう）。後から届いた値は捨てる。
+    private final class ResumeOnce<T: Sendable>: Sendable {
+        private let continuation: Mutex<CheckedContinuation<T?, Never>?>
+
+        init(_ continuation: CheckedContinuation<T?, Never>) {
+            self.continuation = Mutex(continuation)
+        }
+
+        func resume(returning value: T?) {
+            let pending = continuation.withLock { pending in
+                defer { pending = nil }
+                return pending
+            }
+            pending?.resume(returning: value)
+        }
+    }
+
+    // MARK: - 音声の書き起こし
 
     /// 端末内の音声の書き起こし（声の入力）が、日本語で使えるか。声の入力が使っている経路も出す。
     ///

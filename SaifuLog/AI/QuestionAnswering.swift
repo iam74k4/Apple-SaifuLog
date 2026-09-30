@@ -46,14 +46,19 @@ struct RuleBasedQuestionAnswerer: QuestionAnswering {
 struct FallbackQuestionAnswerer: QuestionAnswering {
     let primary: any QuestionAnswering
     let fallback: any QuestionAnswering
+    /// 答え直すたびに、その理由を渡す（nil なら何もしない）。利用者には見せないまま、AI が働いていないことに開発者が気づけるように
+    /// する（`AIFallbackLog`。記録の `FallbackEntryParser.onFallback` と同じ）。
+    var onFallback: (@Sendable (AIFallbackReason) -> Void)?
 
     func answer(_ text: String, ledger: QuestionLedger, now: Date, calendar: Calendar) async throws -> QuestionReply {
         do {
             let reply = try await primary.answer(text, ledger: ledger, now: now, calendar: calendar)
             if case .answered = reply { return reply }
+            onFallback?(.noResult)
         } catch {
-            // 取り消し（画面を閉じたなど）は失敗ではないので、答え直さずにそのまま伝える。
+            // 取り消し（画面を閉じたなど）は失敗ではないので、答え直さずにそのまま伝える（理由も渡さない）。
             if error is CancellationError { throw error }
+            onFallback?(.failed(error))
         }
         return try await fallback.answer(text, ledger: ledger, now: now, calendar: calendar)
     }
@@ -67,7 +72,10 @@ enum QuestionAnswererFactory {
         let rules = RuleBasedQuestionAnswerer()
         #if canImport(FoundationModels)
         if FoundationModelsEntryParser.isAvailable {
-            return FallbackQuestionAnswerer(primary: FoundationModelsQuestionAnswerer(), fallback: rules)
+            return FallbackQuestionAnswerer(
+                primary: FoundationModelsQuestionAnswerer(), fallback: rules,
+                onFallback: AIFallbackLog.shared.reporter(for: .question)
+            )
         }
         #endif
         return rules

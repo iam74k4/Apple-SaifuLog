@@ -43,43 +43,57 @@ struct QuestionAnsweringTests {
 
     // MARK: - AI からの切り替え
 
-    /// AI が失敗したら、キーワード辞書で答え直す。
+    /// AI の結果を使わなかったことを残す記録をつないだ切り替え（記録はテストごとに新しくする）。
+    static func fallbackAnswerer(primary: StubAnswerer, log: AIFallbackLog) -> FallbackQuestionAnswerer {
+        FallbackQuestionAnswerer(primary: primary, fallback: RuleBasedQuestionAnswerer(), onFallback: log.reporter(for: .question))
+    }
+
+    /// AI が失敗したら、キーワード辞書で答え直し、失敗を AI の記録に残す（利用者には知らせない）。
     @Test func fallbackAnswersWhenPrimaryFails() async throws {
-        let answerer = FallbackQuestionAnswerer(primary: StubAnswerer { _, _ in throw TestError() }, fallback: RuleBasedQuestionAnswerer())
+        let log = AIFallbackLog()
+        let answerer = Self.fallbackAnswerer(primary: StubAnswerer { _, _ in throw TestError() }, log: log)
 
         let reply = try await answerer.answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
 
         #expect(reply == .answered(try Self.answer(Self.cafeThisMonth), remark: nil))
+        #expect(log.snapshot.fallbacks == [.question: 1])
+        #expect(log.snapshot.lastError?.feature == .question)
+        #expect(log.snapshot.lastError?.error.type == String(reflecting: TestError.self))
     }
 
-    /// AI が答えられなかったときも、キーワード辞書で答え直す。
+    /// AI が答えられなかったときも、キーワード辞書で答え直し、結果が無かったこととして回数だけを残す。
     @Test func fallbackAnswersWhenPrimaryCannot() async throws {
-        let answerer = FallbackQuestionAnswerer(primary: StubAnswerer { _, _ in .unreadable }, fallback: RuleBasedQuestionAnswerer())
+        let log = AIFallbackLog()
+        let answerer = Self.fallbackAnswerer(primary: StubAnswerer { _, _ in .unreadable }, log: log)
 
         let reply = try await answerer.answer("先月の支出は?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
 
         #expect(reply == .answered(try Self.answer(LedgerQuestion(period: .lastMonth, metric: .expenseTotal)), remark: nil))
+        #expect(log.snapshot.fallbacks == [.question: 1])
+        #expect(log.snapshot.lastError == nil)
     }
 
-    /// AI が答えたら、そのまま使う。
+    /// AI が答えたら、そのまま使う（AI の記録には何も残さない）。
     @Test func fallbackKeepsPrimaryAnswer() async throws {
+        let log = AIFallbackLog()
         let expected = QuestionReply.answered(try Self.answer(Self.cafeThisMonth), remark: .ai("今月のカフェは¥1,600でした。"))
-        let answerer = FallbackQuestionAnswerer(primary: StubAnswerer { _, _ in expected }, fallback: RuleBasedQuestionAnswerer())
+        let answerer = Self.fallbackAnswerer(primary: StubAnswerer { _, _ in expected }, log: log)
 
         let reply = try await answerer.answer("カフェ代は?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
 
         #expect(reply == expected)
+        #expect(log.snapshot == AIFallbackLog.Snapshot())
     }
 
-    /// 取り消しは失敗ではないので、答え直さずに伝える。
+    /// 取り消しは失敗ではないので、答え直さずに伝える（AI の記録にも残さない）。
     @Test func fallbackPassesCancellation() async throws {
-        let answerer = FallbackQuestionAnswerer(
-            primary: StubAnswerer { _, _ in throw CancellationError() }, fallback: RuleBasedQuestionAnswerer()
-        )
+        let log = AIFallbackLog()
+        let answerer = Self.fallbackAnswerer(primary: StubAnswerer { _, _ in throw CancellationError() }, log: log)
 
         await #expect(throws: CancellationError.self) {
             _ = try await answerer.answer("今月の支出は?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
         }
+        #expect(log.snapshot == AIFallbackLog.Snapshot())
     }
 
     #if canImport(FoundationModels)
@@ -164,16 +178,20 @@ struct QuestionAnsweringTests {
         #expect(reply == .answered(try Self.answer(Self.cafeThisMonth), remark: .fixed))
     }
 
-    /// モデルがツールを呼ばずに答えたら使わない（投げて、キーワード辞書に答え直させる）。
+    /// モデルがツールを呼ばずに答えたら使わない（投げて、キーワード辞書に答え直させる）。ツールを呼ばなかったことは、AI の記録の
+    /// 最後のエラーで分かる（実機でどのくらい起きるかを数える。docs/design.md §15）。
     @Test func modelWithoutToolCallFallsBack() async throws {
         let ai = FoundationModelsQuestionAnswerer { _, _ in "今月のカフェは¥1,600でした。" }
+        let log = AIFallbackLog()
 
         await #expect(throws: QuestionAIError.self) {
             _ = try await ai.answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
         }
-        let reply = try await FallbackQuestionAnswerer(primary: ai, fallback: RuleBasedQuestionAnswerer())
-            .answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
+        let reply = try await FallbackQuestionAnswerer(
+            primary: ai, fallback: RuleBasedQuestionAnswerer(), onFallback: log.reporter(for: .question)
+        ).answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
         #expect(reply == .answered(try Self.answer(Self.cafeThisMonth), remark: nil))
+        #expect(log.snapshot.lastError?.error.type == "SaifuLog.QuestionAIError.toolNotCalled")
     }
 
     /// 答えられない書き方（「去年」など）を含む質問は、モデルに渡さない。
