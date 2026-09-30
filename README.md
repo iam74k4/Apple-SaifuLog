@@ -228,7 +228,8 @@ CloudKit のゾーンと同期し、ゾーンごと共有します（`docs/desig
   設定です）。squash すると `develop` と履歴が分かれ、次のリリースから毎回衝突するためです
 - **`main` へのマージがリリースの合図です。** App Store Connect へのアップロードと
   審査への提出が自動で進み、配信が始まると、配信されたビルドを作ったコミットにタグ
-  `v<バージョン>` と GitHub Release が自動で作られます
+  `v<バージョン>` と GitHub Release が自動で作られます（タグを作る定期実行は最初のリリースまで止めていて、
+  初めて `main` へマージするときに有効に戻します）
 - `main` へ入れる前のビルドは、Actions の release を `develop` から `mode=testflight` で手動実行すると、
   TestFlight の社内テスト専用（審査には出ません）で実機に入れられます。このビルド（と手元の DEBUG のビルド）にだけ、実機での確認に使う
   診断画面が入ります（作者向け。GitHub の Environment の設定が要ります）
