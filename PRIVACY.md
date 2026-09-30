@@ -132,6 +132,13 @@ Apple のサーバーへも送信しません**（この書き起こしは端末
 iOS が管理し、ほかのアプリと共有されます）。このダウンロードに声や記録は含まれません。モバイル回線かどうかの確認のために
 回線の種類をアプリの中で調べますが、その結果を保存したり送信したりはしません。
 
+### Siri・ショートカット
+
+Siri・ショートカット・Spotlight・アクションボタンから本アプリの操作（「ひとことで記録」「家計に質問」など）を使うと、話したり入れたりした文が、
+Siri とショートカットの仕組み（Apple）を通って本アプリに渡されます。Siri で話した声の扱いは、Apple のプライバシーポリシーと Siri の設定に従います。
+本アプリは、渡された文を入力欄に打った文と同じく扱い（記録や質問になった文は、上の「入力した家計の記録」と同じく保存します）、開発者や第三者へ
+送信することはありません。操作はどれも本アプリを開いてから行い、記録した内容はアプリの中の返事で確かめられます。
+
 ### CSV 書き出し
 
 設定の画面で利用者が「CSV ファイルを書き出す」を押したときだけ、選んだ期間（今月・先月・今年・すべて）の
@@ -400,6 +407,14 @@ If the Japanese model used for transcription is not on your iPhone, the app down
 (the model is managed by iOS and shared with other apps). This download does not include your voice or your records. To tell
 whether you are on cellular data, the app checks the type of network connection on the device; the result is neither stored nor
 sent.
+
+### Siri and Shortcuts
+
+When you use the app's actions (such as "Record in SaifuLog" or "Ask SaifuLog") from Siri, Shortcuts, Spotlight, or the Action button, the text you
+speak or enter is passed to the app through Siri and Shortcuts (Apple). How your voice is handled when you speak to Siri is governed by Apple's
+privacy policy and your Siri settings. The app treats the text it receives the same way as text typed in the input field (text that becomes a record
+or a question is handled as described in Your Records above), and never sends it to the developer or to any third party. Every action opens the app
+first, so you can check what was recorded in the app's reply.
 
 ### CSV Export
 

@@ -26,6 +26,10 @@ import UIKit
 struct HomeView: View {
     @Environment(\.calendar) private var calendar
     @Environment(\.scenePhase) private var scenePhase
+    /// アプリのロック（アプリで 1 つ。`SaifuLogApp` が渡す）。ロック中は、Siri・ショートカットからの頼みを待たせる。
+    @Environment(AppLock.self) private var appLock: AppLock?
+    /// Siri・ショートカットからの頼みの受け箱（アプリで 1 つ）。
+    private var quickActions: QuickActionInbox { .shared }
     @Environment(\.openURL) private var openURL
 
     @State private var model: HomeModel
@@ -166,7 +170,15 @@ struct HomeView: View {
                     model.recordDueRecurringEntries(calendar: calendar)
                     model.showWeeklyRecapIfDue(calendar: calendar)
                     model.refreshQuickPhrases()
+                    // 起動の途中（案内の間・保存先を開く前）に受けた Siri・ショートカットの頼みを行う。
+                    deliverQuickActions()
                 }
+                // Siri・ショートカットからの頼み（アプリを開いてから届く）と、待っていた頼みを行う時機（読み取りが終わったとき・
+                // ロックを解いたとき）。
+                .modifier(QuickActionDelivery(
+                    pending: quickActions.pending, isParsing: model.isParsing, isLocked: appLock?.isLocked,
+                    deliver: deliverQuickActions
+                ))
                 // この端末で声の入力を使えるか（マイクのボタンを出すか）を調べる。前面に戻ったときにも調べ直す（下の scenePhase）。
                 .task {
                     await model.voice.refreshAvailability()
@@ -174,7 +186,7 @@ struct HomeView: View {
                 // ほかの画面やシートを出したら、声の入力を止める（聞き取れた分は入力欄に入れる）。見えない入力欄に向けて
                 // 聞き続けないように。
                 .onChange(of: model.isPresentingOtherScreen) { _, presenting in
-                    if presenting { model.voice.stop(.user) }
+                    if presenting { model.voice.stop(.user) } else { deliverQuickActions() }
                 }
                 // 週の始まりの設定を変えると画面の暦が変わるので、変えた後の週で決め直す。
                 .onChange(of: calendar) { _, calendar in
@@ -414,12 +426,23 @@ struct HomeView: View {
                 recorded: model.canUndo ? model.recordedItems : [],
                 edit: { model.presentEdit($0, calendar: calendar) },
                 voice: model.isHouseholdActive ? nil : model.voice,
-                targetsHousehold: model.isHouseholdActive
+                targetsHousehold: model.isHouseholdActive,
+                focusRequest: model.inputFocusRequest
             )
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
         .animation(.default, value: model.voice.notice)
+    }
+
+    /// Siri・ショートカットからの頼みを受け取り、行えるなら行う。ロック中は受け取るだけにし、解いてから行う
+    /// （ロックの画面の下で記録したり、カメラやマイクを開いたりしないため）。
+    private func deliverQuickActions() {
+        if let action = quickActions.take() {
+            model.receive(action)
+        }
+        guard appLock?.isLocked != true else { return }
+        model.performPendingQuickAction(calendar: calendar)
     }
 
     /// 入力欄の「直前の記録を取り消す」の操作。取り消せるものがあるときだけ渡す。
@@ -1128,5 +1151,21 @@ private struct EmptyTimelineView: View {
     if let container = try? ModelContainerFactory.makeInMemoryContainer() {
         HomeView(model: HomeModel(context: container.mainContext, purchases: PurchaseManager(loadPurchases: { [] })))
             .modelContainer(container)
+    }
+}
+
+/// Siri・ショートカットからの頼みを受け渡す時機（頼みが届いたとき・読み取りが終わったとき・ロックを解いたとき）。ホームの画面の
+/// 修飾子が長くなり、型の確かめが終わらなくなったので分けた。
+private struct QuickActionDelivery: ViewModifier {
+    let pending: QuickAction?
+    let isParsing: Bool
+    let isLocked: Bool?
+    let deliver: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: pending) { deliver() }
+            .onChange(of: isParsing) { deliver() }
+            .onChange(of: isLocked) { deliver() }
     }
 }

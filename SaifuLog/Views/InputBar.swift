@@ -28,6 +28,8 @@ struct InputBar: View {
     var voice: VoiceInputModel?
     /// 家族の家計に記録しているか（ホームの帯の「家族」）。入力欄の名前と例で、家計に記録することを示す。
     var targetsHousehold = false
+    /// 入力欄にキーボードを出す頼みの数（Siri・ショートカットの「入力欄を開く」）。増えるたびにフォーカスを入れる。
+    var focusRequest = 0
 
     @FocusState private var isFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -74,6 +76,7 @@ struct InputBar: View {
             }
             .foregroundStyle(Theme.ink)
             .focused($isFocused)
+            .onChange(of: focusRequest) { isFocused = true }
             .submitLabel(.send)
             .onSubmit {
                 send()

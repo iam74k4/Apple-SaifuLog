@@ -1,0 +1,127 @@
+{
+  "sourceLanguage" : "ja",
+  "strings" : {
+    "${applicationName}でレシート" : {
+      "comment" : "Siri と Spotlight で操作を呼び出す言い方。${applicationName} はアプリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${applicationName} receipt"
+          }
+        }
+      }
+    },
+    "${applicationName}でレシートを読み取る" : {
+      "comment" : "Siri と Spotlight で操作を呼び出す言い方。${applicationName} はアプリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan a receipt in ${applicationName}"
+          }
+        }
+      }
+    },
+    "${applicationName}で入力" : {
+      "comment" : "Siri と Spotlight で操作を呼び出す言い方。${applicationName} はアプリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type in ${applicationName}"
+          }
+        }
+      }
+    },
+    "${applicationName}で声で入力" : {
+      "comment" : "Siri と Spotlight で操作を呼び出す言い方。${applicationName} はアプリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speak to ${applicationName}"
+          }
+        }
+      }
+    },
+    "${applicationName}で声で記録" : {
+      "comment" : "Siri と Spotlight で操作を呼び出す言い方。${applicationName} はアプリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record by voice in ${applicationName}"
+          }
+        }
+      }
+    },
+    "${applicationName}で家計を聞く" : {
+      "comment" : "Siri と Spotlight で操作を呼び出す言い方。${applicationName} はアプリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask ${applicationName} about my spending"
+          }
+        }
+      }
+    },
+    "${applicationName}で記録" : {
+      "comment" : "Siri と Spotlight で操作を呼び出す言い方。${applicationName} はアプリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record in ${applicationName}"
+          }
+        }
+      }
+    },
+    "${applicationName}に記録" : {
+      "comment" : "Siri と Spotlight で操作を呼び出す言い方。${applicationName} はアプリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log an entry in ${applicationName}"
+          }
+        }
+      }
+    },
+    "${applicationName}に記録して" : {
+      "comment" : "Siri と Spotlight で操作を呼び出す言い方。${applicationName} はアプリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add an entry in ${applicationName}"
+          }
+        }
+      }
+    },
+    "${applicationName}に質問" : {
+      "comment" : "Siri と Spotlight で操作を呼び出す言い方。${applicationName} はアプリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask ${applicationName}"
+          }
+        }
+      }
+    },
+    "${applicationName}の入力欄を開く" : {
+      "comment" : "Siri と Spotlight で操作を呼び出す言い方。${applicationName} はアプリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start typing in ${applicationName}"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
