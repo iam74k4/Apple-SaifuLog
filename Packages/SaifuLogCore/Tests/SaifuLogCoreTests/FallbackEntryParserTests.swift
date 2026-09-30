@@ -32,10 +32,12 @@ struct FallbackEntryParserTests {
     static let aiEntry = ParsedEntry(amount: 3_000, category: .food, memo: "AI")
     static let ruleEntry = ParsedEntry(amount: 12_000, category: .food, memo: "ルール")
 
-    func parser(primary: Result<[ParsedEntry], any Error>, recorder: FallbackRecorder? = nil) -> FallbackEntryParser {
+    func parser(
+        primary: Result<[ParsedEntry], any Error>, fallback: [ParsedEntry] = [FallbackEntryParserTests.ruleEntry], recorder: FallbackRecorder? = nil
+    ) -> FallbackEntryParser {
         FallbackEntryParser(
             primary: StubParser(result: primary),
-            fallback: StubParser(result: .success([Self.ruleEntry])),
+            fallback: StubParser(result: .success(fallback)),
             onFallback: { recorder?.record($0) }
         )
     }
@@ -94,6 +96,27 @@ struct FallbackEntryParserTests {
             Issue.record("結果が無かったと知らせていない: \(recorder.reasons)")
             return
         }
+    }
+
+    /// 金額の無い文など。AI の経路はモデルに渡さずに 0 件を返すので、AI が読み落としたことにしない。
+    @Test("AI もルールベースも読めなければ知らせない")
+    func doesNotReportWhenNeitherReads() async throws {
+        let recorder = FallbackRecorder()
+
+        let entries = try await parser(primary: .success([]), fallback: [], recorder: recorder).parse("ランチ")
+
+        #expect(entries.isEmpty)
+        #expect(recorder.reasons.isEmpty)
+    }
+
+    @Test("AI が失敗したら、ルールベースも読めなくても知らせる")
+    func reportsErrorEvenWhenFallbackReadsNothing() async throws {
+        let recorder = FallbackRecorder()
+
+        let entries = try await parser(primary: .failure(StubError()), fallback: [], recorder: recorder).parse("ランチ")
+
+        #expect(entries.isEmpty)
+        #expect(recorder.reasons.count == 1)
     }
 
     @Test("AI が読めたときと取り消しは知らせない")

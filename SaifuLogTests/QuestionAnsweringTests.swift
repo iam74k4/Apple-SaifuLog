@@ -208,6 +208,24 @@ struct QuestionAnsweringTests {
         #expect(calls.count == 0)
     }
 
+    /// 答えられない書き方の質問は、AI の経路がモデルに渡さずに読めないとし、キーワード辞書も答えない。AI が答えられなかったのでは
+    /// ないので、AI の記録に残さない（残すと、AI が働いているかを確かめる診断画面の回数に混ざる）。
+    @Test func unsupportedQuestionIsNotRecordedAsAIFallback() async throws {
+        let calls = CallCounter()
+        let ai = FoundationModelsQuestionAnswerer { _, _ in
+            calls.increment()
+            return ""
+        }
+        let log = AIFallbackLog()
+        let answerer = FallbackQuestionAnswerer(primary: ai, fallback: RuleBasedQuestionAnswerer(), onFallback: log.reporter(for: .question))
+
+        let reply = try await answerer.answer("去年の食費は?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
+
+        #expect(reply == .unreadable)
+        #expect(calls.count == 0)
+        #expect(log.snapshot == AIFallbackLog.Snapshot())
+    }
+
     /// 指示文とツールの説明に、具体的な数字や単位の例を書かない（モデルが入力に無くても写して返すため）。
     @Test func instructionsHaveNoNumberExamples() {
         let texts = [FoundationModelsQuestionAnswerer.instructions, Self.tool(for: "").description]

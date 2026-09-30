@@ -46,21 +46,25 @@ struct RuleBasedQuestionAnswerer: QuestionAnswering {
 struct FallbackQuestionAnswerer: QuestionAnswering {
     let primary: any QuestionAnswering
     let fallback: any QuestionAnswering
-    /// 答え直すたびに、その理由を渡す（nil なら何もしない）。利用者には見せないまま、AI が働いていないことに開発者が気づけるように
-    /// する（`AIFallbackLog`。記録の `FallbackEntryParser.onFallback` と同じ）。
+    /// AI の答えを使わずに辞書の答えにしたとき、その理由を渡す（nil なら何もしない）。利用者には見せないまま、AI が働いていない
+    /// ことに開発者が気づけるようにする（`AIFallbackLog`。記録の `FallbackEntryParser.onFallback` と同じ）。AI が読めないとした
+    /// 質問は、辞書で答えられたときだけ渡す（答えられない書き方（「去年」など）の質問は、AI の経路がモデルに渡さずに読めない
+    /// とし、辞書も答えないので、AI が答えられなかったことにしない）。
     var onFallback: (@Sendable (AIFallbackReason) -> Void)?
 
     func answer(_ text: String, ledger: QuestionLedger, now: Date, calendar: Calendar) async throws -> QuestionReply {
         do {
             let reply = try await primary.answer(text, ledger: ledger, now: now, calendar: calendar)
             if case .answered = reply { return reply }
-            onFallback?(.noResult)
         } catch {
             // 取り消し（画面を閉じたなど）は失敗ではないので、答え直さずにそのまま伝える（理由も渡さない）。
             if error is CancellationError { throw error }
             onFallback?(.failed(error))
+            return try await fallback.answer(text, ledger: ledger, now: now, calendar: calendar)
         }
-        return try await fallback.answer(text, ledger: ledger, now: now, calendar: calendar)
+        let reply = try await fallback.answer(text, ledger: ledger, now: now, calendar: calendar)
+        if case .answered = reply { onFallback?(.noResult) }
+        return reply
     }
 }
 
