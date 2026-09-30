@@ -119,6 +119,51 @@ enum QuestionTexts {
         String(localized: "元になった記録 \(count) 件")
     }
 
+    /// 比べた期間の名前（「先月の同じ日まで」）。
+    static func baselineName(_ baseline: LedgerComparison.Baseline) -> String {
+        switch baseline {
+        case .yesterdaySameTime: String(localized: "昨日の同じ時刻まで")
+        case .dayBeforeYesterday: String(localized: "一昨日")
+        case .lastWeekToDate: String(localized: "先週の同じ曜日まで")
+        case .weekBeforeLast: String(localized: "先々週")
+        case .lastMonthToDate: String(localized: "先月の同じ日まで")
+        case .monthBeforeLast: String(localized: "先々月")
+        case .lastYearToDate: String(localized: "去年の同じ日まで")
+        case .previousDays(let days): String(localized: "その前の \(days) 日")
+        }
+    }
+
+    /// 前の期間との比べの一文（「先月の同じ日までより ¥1,800 多い」）。比べた期間に記録が無ければ、差を出さずにそのことを書く
+    /// （0 円と比べた差は意味が無いため）。
+    static func comparison(_ comparison: LedgerComparison, value: LedgerAnswer.Value) -> String {
+        let name = baselineName(comparison.baseline)
+        guard comparison.previousRecordCount > 0 else { return String(localized: "\(name)は記録がありません") }
+        let isCount: Bool
+        if case .count = value { isCount = true } else { isCount = false }
+        let difference = abs(comparison.difference)
+        switch comparison.difference {
+        case 1...:
+            return isCount
+                ? String(localized: "\(name)より \(difference) 件多い")
+                : String(localized: "\(name)より \(YenFormatter.string(from: difference)) 多い")
+        case ..<0:
+            return isCount
+                ? String(localized: "\(name)より \(difference) 件少ない")
+                : String(localized: "\(name)より \(YenFormatter.string(from: difference)) 少ない")
+        default:
+            return String(localized: "\(name)と同じ")
+        }
+    }
+
+    /// 推移の読み上げ（「6 か月の推移: 4月 ¥1,000、5月 ¥0、…」）。
+    static func spokenTrend(_ trend: LedgerTrend, calendar: Calendar) -> String {
+        var style = Date.FormatStyle.dateTime.month()
+        style.calendar = calendar
+        style.timeZone = calendar.timeZone
+        let items = trend.points.map { "\($0.month.start.formatted(style)) \(YenFormatter.string(from: $0.value))" }
+        return String(localized: "\(trend.points.count) か月の推移: \(items.formatted(.list(type: .and)))")
+    }
+
     /// 今月の無料の質問の残り（「今月の無料の質問 あと 3 回」）。
     static func freeQuestionsLeft(_ count: Int) -> String {
         String(localized: "今月の無料の質問 あと \(count) 回")
@@ -134,6 +179,7 @@ enum QuestionTexts {
             String(localized: answer.period.label), title(for: answer.question, catalog: catalog),
             spokenValue(answer.value, catalog: catalog),
         ]
+        if let comparison = answer.comparison { parts.append(self.comparison(comparison, value: answer.value)) }
         parts.append(recordCount(answer.recordCount))
         if case .ai(let sentence) = remark { parts.append(sentence) }
         if let freeQuestionsLeft { parts.append(self.freeQuestionsLeft(freeQuestionsLeft)) }

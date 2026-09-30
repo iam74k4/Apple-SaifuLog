@@ -492,6 +492,18 @@ final class HomeModel {
         }
     }
 
+    /// 回答カードの「続けて聞く質問」を送る（ふつうの質問と同じ流れ。入力欄の文には触れない）。読み取りの間と「家族」のときは
+    /// 受け付けない（nil を返す）。送った文は、打った質問と同じく自分の吹き出しに出る。
+    @discardableResult
+    func askFollowUp(_ followUp: QuestionFollowUp, calendar: Calendar) -> Task<Void, Never>? {
+        guard !isParsing, !isHouseholdActive else { return nil }
+        // 送信と同じく、前の記録の「取り消す」と聞き返しを引っ込める。
+        justRecorded = []
+        justRecordedHousehold = []
+        categoryQuestionIDs = []
+        return ask(followUp.text, source: .text, sentAt: now(), calendar: calendar)
+    }
+
     /// 回答カードに出す、今月の無料の質問の残り。残りが少ない（3 回以下の）ときだけ（プレミアムと体験中は出さない）。
     private func freeQuestionsLeftToShow(status: PremiumStatus, calendar: Calendar) -> Int? {
         guard case .limited(let remaining, _) = quotaStore.allowance(for: .question, status: status, calendar: calendar),

@@ -67,6 +67,17 @@
         }
       }
     },
+    "%@と同じ" : {
+      "comment" : "家計への質問の回答カードの、前の期間との比べの一文。%@ は比べた期間の名前（「先月の同じ日まで」）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Same as %@"
+          }
+        }
+      }
+    },
     "%@にしました" : {
       "comment" : "ホームの返事でカテゴリを選んだ後に VoiceOver で読み上げる内容（品目の無い記録で、覚えないとき）。%@ はカテゴリの名前",
       "localizations" : {
@@ -133,6 +144,85 @@
         }
       }
     },
+    "%@は記録がありません" : {
+      "comment" : "家計への質問の回答カードの、前の期間との比べの一文。比べた期間に記録が無いとき。%@ は比べた期間の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No entries %@"
+          }
+        }
+      }
+    },
+    "%@より %@ 多い" : {
+      "comment" : "家計への質問の回答カードの、前の期間との比べの一文。1 つ目の %@ は比べた期間の名前、2 つ目は差の金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ more than %1$@"
+          }
+        }
+      }
+    },
+    "%@より %@ 少ない" : {
+      "comment" : "家計への質問の回答カードの、前の期間との比べの一文。1 つ目の %@ は比べた期間の名前、2 つ目は差の金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ less than %1$@"
+          }
+        }
+      }
+    },
+    "%@より %lld 件多い" : {
+      "comment" : "家計への質問の回答カードの、前の期間との比べの一文。%@ は比べた期間の名前、%lld は件数の差",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%2$lld more entry than %1$@"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%2$lld more entries than %1$@"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%@より %lld 件少ない" : {
+      "comment" : "家計への質問の回答カードの、前の期間との比べの一文。%@ は比べた期間の名前、%lld は件数の差",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%2$lld fewer entry than %1$@"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%2$lld fewer entries than %1$@"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%@・" : {
       "comment" : "ホームのタイムラインの返事の行の、種別（カテゴリ名か「収入」）と使った日の間の区切り（「食費・9月27日」。使った日が送った日と違うときだけ日付を添える）。%@ は種別。日付は後ろに続けて出し、1 行に収まらなければ日付を次の行に移すので、区切りは種別の側に付ける（日本語では「・」を行の頭に置かない）。英語は中点の前後に空白を入れる（後ろの空白も消さない）",
       "localizations" : {
@@ -162,6 +252,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ · %@ · Next: %@"
+          }
+        }
+      }
+    },
+    "%lld か月の推移: %@" : {
+      "comment" : "家計への質問の回答カードの推移の棒を VoiceOver で読むときの文。%lld は月の数、%@ は月と金額の一覧",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trend over %lld months: %@"
           }
         }
       }
@@ -1604,6 +1705,17 @@
         }
       }
     },
+    "この質問を送ります" : {
+      "comment" : "家計への質問の回答カードの、続けて聞く質問のボタンの VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sends this question"
+          }
+        }
+      }
+    },
     "この週の支出の記録はありません" : {
       "comment" : "先週のふりかえりの内訳のカテゴリ別の支出の欄。先週に収入の記録しかないとき",
       "localizations" : {
@@ -1710,6 +1822,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Keep Other"
+          }
+        }
+      }
+    },
+    "その前の %lld 日" : {
+      "comment" : "家計への質問の回答カードの、比べた期間の名前（直近 N 日と比べる、その前の N 日）。%lld は日数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "the previous %lld day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "the previous %lld days"
+                }
+              }
+            }
           }
         }
       }
@@ -3042,6 +3177,17 @@
         }
       }
     },
+    "一昨日" : {
+      "comment" : "家計への質問の回答カードの、比べた期間の名前（昨日と比べる）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the day before yesterday"
+          }
+        }
+      }
+    },
     "下の入力欄に、こんなふうに送るだけで記録できます。" : {
       "comment" : "記録が無いときの案内の本文",
       "localizations" : {
@@ -3832,6 +3978,28 @@
         }
       }
     },
+    "先々月" : {
+      "comment" : "家計への質問の回答カードの、比べた期間の名前（先月と比べる）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the month before last"
+          }
+        }
+      }
+    },
+    "先々週" : {
+      "comment" : "家計への質問の回答カードの、比べた期間の名前（先週と比べる）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the week before last"
+          }
+        }
+      }
+    },
     "先月" : {
       "comment" : "設定の書き出す期間の選択肢。前の月の 1 日から末日まで",
       "localizations" : {
@@ -3839,6 +4007,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Last Month"
+          }
+        }
+      }
+    },
+    "先月の同じ日まで" : {
+      "comment" : "家計への質問の回答カードの、比べた期間の名前（今月と比べる、先月の同じ日まで）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "last month to date"
           }
         }
       }
@@ -3905,6 +4084,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Opens last week’s details."
+          }
+        }
+      }
+    },
+    "先週の同じ曜日まで" : {
+      "comment" : "家計への質問の回答カードの、比べた期間の名前（今週と比べる、先週の同じ曜日まで）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "last week to date"
           }
         }
       }
@@ -4279,6 +4469,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Medical"
+          }
+        }
+      }
+    },
+    "去年の同じ日まで" : {
+      "comment" : "家計への質問の回答カードの、比べた期間の名前（今年と比べる、去年の同じ日まで）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "last year to date"
           }
         }
       }
@@ -5779,6 +5980,17 @@
         }
       }
     },
+    "昨日の同じ時刻まで" : {
+      "comment" : "家計への質問の回答カードの、比べた期間の名前（今日と比べる、昨日の同じ時刻まで）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "yesterday at this time"
+          }
+        }
+      }
+    },
     "昨日の日付で、1人分の ¥3,000 を記録" : {
       "comment" : "ようこその画面。入力の例「昨日 焼肉12000 4人で割り勘」がどう記録されるか",
       "localizations" : {
@@ -6642,6 +6854,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Model status for the route"
+          }
+        }
+      }
+    },
+    "続けて聞く" : {
+      "comment" : "家計への質問の回答カードの、続けて聞く質問のボタンの並びの VoiceOver の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask next"
           }
         }
       }

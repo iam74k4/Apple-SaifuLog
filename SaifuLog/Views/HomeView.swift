@@ -347,6 +347,7 @@ struct HomeView: View {
                 openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
                 setBudget: { model.presentBudgetSetup() },
                 openPremium: { model.presentPremium() },
+                askFollowUp: { model.askFollowUp($0, calendar: calendar) },
                 openWeeklyRecap: { model.presentWeeklyRecapDetail() },
                 // 閉じたときは、上の行がカードのあった所へ下りてくる動きを付ける（出したときは付けない。`TimelineScrollView`）。
                 dismissWeeklyRecap: { withAnimation { model.dismissWeeklyRecap() } }
@@ -541,6 +542,8 @@ private struct EntryTimeline: View {
     let openReport: (Date) -> Void
     let setBudget: () -> Void
     let openPremium: () -> Void
+    /// 回答カードの「続けて聞く質問」を送る（いちばん新しい答えにだけ出す）。
+    let askFollowUp: (QuestionFollowUp) -> Void
     let openWeeklyRecap: () -> Void
     let dismissWeeklyRecap: () -> Void
 
@@ -566,6 +569,7 @@ private struct EntryTimeline: View {
         openReport: @escaping (Date) -> Void,
         setBudget: @escaping () -> Void,
         openPremium: @escaping () -> Void,
+        askFollowUp: @escaping (QuestionFollowUp) -> Void,
         openWeeklyRecap: @escaping () -> Void,
         dismissWeeklyRecap: @escaping () -> Void
     ) {
@@ -587,6 +591,7 @@ private struct EntryTimeline: View {
         self.openReport = openReport
         self.setBudget = setBudget
         self.openPremium = openPremium
+        self.askFollowUp = askFollowUp
         self.openWeeklyRecap = openWeeklyRecap
         self.dismissWeeklyRecap = dismissWeeklyRecap
         _recentEntries = Query(Entry.timelineDescriptor(limit: limit))
@@ -692,7 +697,9 @@ private struct EntryTimeline: View {
                         .reportsTimelineFrame(.row(send.id))
                     case .question(let exchange):
                         QuestionExchangeView(
-                            exchange: exchange, openReport: openReport, setBudget: setBudget, openPremium: openPremium
+                            exchange: exchange, openReport: openReport, setBudget: setBudget, openPremium: openPremium,
+                            // 続けて聞く質問は、いちばん新しい答えにだけ出す（前の答えに並べると、タイムラインが候補で埋まるため）。
+                            askFollowUp: exchange.id == questions.last?.id ? askFollowUp : nil
                         )
                         .reportsTimelineFrame(.row(exchange.id))
                     case .weeklyRecap(let recap):
