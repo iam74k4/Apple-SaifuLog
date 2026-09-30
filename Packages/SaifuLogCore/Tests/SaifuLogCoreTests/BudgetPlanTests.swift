@@ -171,4 +171,45 @@ struct BudgetPlanTests {
         #expect(BudgetPlan.decidedAt(.category(.cafe), in: [Row(.total, 150_000, at: Self.earlier)]) == nil)
         #expect(BudgetPlan.decidedAt(.total, in: [Row(rawScope: "pets", 9_000, at: Self.later)]) == nil)
     }
+
+    // MARK: - カテゴリ別の予算と決めた日時（月のまとめのカテゴリの行）
+
+    /// 額と日時は、有効とみなす同じ 1 行から取る（resolve・decidedAt と同じ）。全体の予算と知らない対象は入れない。
+    @Test("カテゴリ別の予算は、有効な行の額と日時の組で、全体の予算と知らない対象は入れない")
+    func categoryDecisionsUsePreferredRow() {
+        let rows = [
+            Row(.total, 150_000, at: Self.earlier),
+            Row(.category(.food), 30_000, at: Self.earlier),
+            Row(.category(.food), 45_000, at: Self.later),
+            Row(.category(.cafe), 5_000, at: Self.earlier),
+            Row(rawScope: "pets", 9_000, at: Self.later),
+        ]
+
+        let decisions = BudgetPlan.categoryDecisions(in: rows)
+
+        #expect(decisions == [
+            .food: BudgetDecision(amount: 45_000, decidedAt: Self.later),
+            .cafe: BudgetDecision(amount: 5_000, decidedAt: Self.earlier),
+        ])
+        #expect(BudgetPlan.categoryDecisions(in: rows.reversed()) == decisions)
+        // 額は resolve、日時は decidedAt と同じ。
+        let plan = BudgetPlan.resolve(rows)
+        for (category, decision) in decisions {
+            #expect(plan.byCategory[category] == decision.amount)
+            #expect(BudgetPlan.decidedAt(.category(category), in: rows) == decision.decidedAt)
+        }
+    }
+
+    /// 予算をなくしたカテゴリ（最後に書いた行が 0）は、月のまとめで予算の無いカテゴリと同じに扱う。
+    @Test("最後に書いた行が 0 のカテゴリと、行の無いカテゴリは入れない")
+    func categoryDecisionsSkipUnset() {
+        #expect(BudgetPlan.categoryDecisions(in: [Row]()).isEmpty)
+        #expect(BudgetPlan.categoryDecisions(in: [Row(.total, 150_000, at: Self.earlier)]).isEmpty)
+        let decisions = BudgetPlan.categoryDecisions(in: [
+            Row(.category(.food), 40_000, at: Self.earlier),
+            Row(.category(.food), 0, at: Self.later),
+            Row(.category(.daily), 8_000, at: Self.later),
+        ])
+        #expect(decisions == [.daily: BudgetDecision(amount: 8_000, decidedAt: Self.later)])
+    }
 }

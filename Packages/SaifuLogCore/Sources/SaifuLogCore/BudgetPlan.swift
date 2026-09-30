@@ -102,12 +102,30 @@ public struct BudgetPlan: Sendable, Hashable {
     /// 予算は月ごとに持たない（毎月同じ額）ので、前の月の予算がいくらだったかは残らない。ただ、アプリは予算を書くとき
     /// （`BudgetStore.setAmounts`）に、有効な行の額が同じなら行を書き換えない（書き込んだ日時を動かさない）ので、
     /// この日時より後はずっとこの額だったと言える。月のまとめはこれを使い、この日時を含む月とそれより後の月にだけ
-    /// 予算の進みを出す（`MonthlyReport`）。
+    /// 予算の進みを出す（`MonthlyReport`。カテゴリ別の予算も同じ行の日時を `categoryDecisions(in:)` で渡す）。
     public static func decidedAt<Records: Sequence>(_ scope: BudgetScope, in records: Records) -> Date?
     where Records.Element: BudgetRecord {
         let rows = records.filter { BudgetScope(rawValue: $0.scopeRawValue) == scope }
         guard let row = preferred(rows), row.amount > 0 else { return nil }
         return row.updatedAt
+    }
+
+    /// カテゴリ別の、いま有効な予算の額と、それぞれをその額に決めた日時。決めていない（有効な行の額が 0 以下の）カテゴリは入れない。
+    ///
+    /// 月のまとめのカテゴリの行（`MonthlyReport.categoryBudgets`）が、全体の予算と同じ決まり（決めた日時を含む月から後にだけ
+    /// 当てはめる）でカテゴリ別の予算を当てはめるのに使う。額と日時は `resolve(_:)`・`decidedAt(_:in:)` と同じ行
+    /// （`preferred(_:)`）から取る（別々に選ぶと、重なった行があるときに額と日時が別の行のものになるため）。
+    public static func categoryDecisions<Records: Sequence>(in records: Records) -> [EntryCategory: BudgetDecision]
+    where Records.Element: BudgetRecord {
+        var groups: [EntryCategory: [Records.Element]] = [:]
+        for record in records {
+            guard case .category(let category) = BudgetScope(rawValue: record.scopeRawValue) else { continue }
+            groups[category, default: []].append(record)
+        }
+        return groups.compactMapValues { rows in
+            guard let row = preferred(rows), row.amount > 0 else { return nil }
+            return BudgetDecision(amount: row.amount, decidedAt: row.updatedAt)
+        }
     }
 
     /// その対象の予算。決めていなければ nil。
@@ -116,5 +134,20 @@ public struct BudgetPlan: Sendable, Hashable {
         case .total: total
         case .category(let category): byCategory[category]
         }
+    }
+}
+
+/// ある対象の、いま有効な予算の額と、その額に決めた日時。
+///
+/// 予算は月ごとに持たない（毎月同じ額）ので、どの月に当てはめてよいかは決めた日時で決める（`MonthlyReport`）。
+public struct BudgetDecision: Sendable, Hashable {
+    /// 予算（円）。0 以下は「設定なし」で、月のまとめでは当てはめない。
+    public let amount: Int
+    /// その額に決めた日時（`BudgetPlan.decidedAt`）。分からなければ nil（今月にだけ当てはめる）。
+    public let decidedAt: Date?
+
+    public init(amount: Int, decidedAt: Date?) {
+        self.amount = amount
+        self.decidedAt = decidedAt
     }
 }
