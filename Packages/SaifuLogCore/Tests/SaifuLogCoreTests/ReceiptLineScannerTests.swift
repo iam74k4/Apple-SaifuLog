@@ -354,6 +354,28 @@ struct ReceiptLineScannerTests {
         #expect(scan.rows.filter { $0.kind == .date }.count == 2)
     }
 
+    /// 「·」が品名に残ると（「洗剤 ·」）、⑤ の品目の行にも、記録のメモ・CSV の書き出し・iCloud にもそのまま入る。
+    @Test("OCR が「¥」を「·」と読んだ行も、品名に「·」を残さず、金額と集計の行を読む")
+    func misreadYenMarks() {
+        let scan = ReceiptFixtures.scan(ReceiptFixtures.misreadYenMarks)
+
+        #expect(scan.storeName == "ローソン 中野店")
+        #expect(Self.snapshot(scan) == [
+            ItemSnapshot(name: "洗剤", amount: 398, category: .daily),
+            ItemSnapshot(name: "おにぎり鮭", amount: 150, category: .food),
+            ItemSnapshot(name: "緑茶500ml", amount: 138, category: .food),
+            ItemSnapshot(name: "グリーンサラダ", amount: 298, category: .food),
+            ItemSnapshot(name: "ヨーグルト", amount: 128, category: .food),
+        ])
+        #expect(scan.subtotal == 1_112)
+        #expect(scan.total == 1_112)
+        // 1 文字の「計」は、行がその語だけのときに合計の行とみなす。「·」を「¥」として除かないと「計 ·」になり、合計の行と分からない。
+        #expect(scan.rows.first { $0.text.hasPrefix("計") }?.kind == .total)
+        #expect(scan.itemsTotal == 1_112)
+        #expect(scan.tendered == 2_000)
+        #expect(scan.change == 888)
+    }
+
     // MARK: - 行のまとめ方
 
     /// OCR は品名と金額を別の行として返すことが多い。位置が分かれば、縦に重なるものを 1 行にまとめ、左から並べる。
@@ -383,7 +405,7 @@ struct ReceiptLineScannerTests {
         ReceiptFixtures.supermarketInclusive, ReceiptFixtures.supermarketExclusive, ReceiptFixtures.convenienceStore,
         ReceiptFixtures.drugstoreDiscounts, ReceiptFixtures.mixedTaxRates, ReceiptFixtures.quantities,
         ReceiptFixtures.japaneseEraDate, ReceiptFixtures.noisy, ReceiptFixtures.receiptDiscount,
-        ReceiptFixtures.cafeEnglishNames, ReceiptFixtures.singleRateExclusiveWithSummary,
+        ReceiptFixtures.cafeEnglishNames, ReceiptFixtures.singleRateExclusiveWithSummary, ReceiptFixtures.misreadYenMarks,
     ])
     func positionedFixturesMatchText(text: String) {
         let positioned = ReceiptLineScanner.scan(ReceiptFixtures.positionedLines(text), now: Fixture.now, calendar: Fixture.calendar)
@@ -427,6 +449,38 @@ struct ReceiptLineScannerTests {
 
         #expect(parsed.amount == amount)
         #expect(parsed.isNegative == isNegative)
+    }
+
+    /// OCR は「¥」を中点の「·」（U+00B7）と読むことがある。数字の直前（空白を挟まない）にあり、前が数字でない「·」だけを「¥」と
+    /// みなし、品名の端に残った「·」は除く。
+    @Test("数字の直前の「·」は、OCR が読み違えた「¥」とみなす", arguments: [
+        ("洗剤 \u{B7}398", "洗剤"),
+        ("洗剤\u{B7}398", "洗剤"),
+        ("お預り \u{B7}2,000", "お預り"),
+    ])
+    func misreadYenMark(text: String, body: String) {
+        let parsed = ReceiptLineScanner.trailing(in: ReceiptLineScanner.normalize(text))
+
+        #expect(parsed.amount != nil)
+        #expect(parsed.hasYenMark)
+        #expect(parsed.body == body)
+    }
+
+    /// 空白を挟んだ「·」（つなぎの点かもしれない）と、数字に挟まれた「·」（小数点や時刻の読み違いかもしれない）は、「¥」の
+    /// 手がかりにしない。品名の端に残った「·」は、どちらでも除く。
+    @Test("数字から離れた「·」と、数字に挟まれた「·」は「¥」とみなさない")
+    func middleDotAwayFromDigitsIsNotYen() {
+        let spaced = ReceiptLineScanner.trailing(in: "洗剤 \u{B7} 398")
+        #expect(spaced.amount == 398)
+        #expect(!spaced.hasYenMark)
+        #expect(ReceiptLineScanner.cleanedName(spaced.body).name == "洗剤")
+
+        let between = ReceiptLineScanner.trailing(in: "1\u{B7}5")
+        #expect(!between.hasYenMark)
+
+        #expect(ReceiptLineScanner.cleanedName("おにぎり鮭 \u{B7}").name == "おにぎり鮭")
+        // 品名の中の「·」は残す（端だけを除く）。
+        #expect(ReceiptLineScanner.cleanedName("カフェ\u{B7}ラテ").name == "カフェ\u{B7}ラテ")
     }
 
     /// 住所・電話番号・番号・時刻・小数は金額にしない。

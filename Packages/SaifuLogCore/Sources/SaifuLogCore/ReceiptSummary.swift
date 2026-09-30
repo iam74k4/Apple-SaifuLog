@@ -27,8 +27,9 @@ public enum ReceiptSummary {
         // 4 桁以上の数字の並び（「-」や空白でつないだものも）は、電話番号・カード番号・登録番号・郵便番号。
         name = name.replacingOccurrences(of: #"[T#*xX]?\d[\d\-\s*]{2,}\d"#, with: " ", options: .regularExpression)
         name = name.replacingOccurrences(of: #"[*#=\-_~]{2,}"#, with: " ", options: .regularExpression)
+        // 端の「·」（U+00B7）は、品名と同じく OCR が「¥」を読み違えた点か、つなぎの点（`ReceiptLineScanner.nameEdgeSeparators`）。
         name = name.split(whereSeparator: \.isWhitespace).joined(separator: " ")
-            .trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: ".…・:：-=_~〜|/")))
+            .trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: ".…・·:：-=_~〜|/")))
         guard name.contains(where: \.isLetter) else { return "" }
         if name.count > maximumStoreNameLength {
             name = String(name.prefix(maximumStoreNameLength)).trimmingCharacters(in: .whitespaces)
