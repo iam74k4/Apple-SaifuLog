@@ -148,7 +148,10 @@
     `docs/design.md` §5-4）に置く。ホームが出たとき・前面に戻ったとき・受け取ったときに `HomeModel.importCapturedPayments` が記録にし、
     返事「Apple Pay の支払い」と「取り消す」。入力元 `.wallet`、印 `wallet/<ID>` で 2 回記録しない。金額はウォレットの値のまま（円だけ）、
     品目とカテゴリはコアの `PaymentCapture`（店名の辞書はレシートと同じ）。⑧ の「自動で記録」の「Apple Pay の支払い」（`WalletCaptureView`）に
-    作り方。実機での確認はまだ）。
+    作り方。同じ買い物を 2 回数えないよう、打った・声・Siri・レシートの記録と、使った日と金額が同じ支払いがあれば、直前の返事の行の下で
+    「Apple Pay の支払いと同じですか？」（支払いが後から届いたら支払いの行の下で「前の記録と同じ支払いですか？」）と聞き、選んだときだけ
+    Apple Pay の側を消す（見つけ方はコアの `PaymentOverlap`、状態は `HomeModel.paymentOverlaps`、画面は `PaymentOverlapView`）。
+    実機での確認はまだ）。
     よく使うひとこと（入力欄の上に、直近 90 日のよく記録する品目を「品目 ¥金額」のボタンで並べ、押すと入力欄に入る。送信は利用者。
     候補はコアの `QuickPhrases`、画面は `QuickPhraseBar`、`HomeModel.quickPhrases`）。
     アプリのロック（⑧ の「セキュリティ」の「Face ID でロック」。既定はオフで `AppSettings.appLockEnabled`。起動と裏から戻ったときに
