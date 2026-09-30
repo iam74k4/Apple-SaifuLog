@@ -621,8 +621,10 @@ private struct EntryTimeline: View {
                         WeeklyRecapCard(model: recap, open: openWeeklyRecap, dismiss: dismissWeeklyRecap, setBudget: setBudget)
                             .reportsTimelineFrame(.row(recap.id))
                             // 出し入れの動き（薄く出て消える）はカードにだけ付ける。タイムライン全体に `animation(_:value:)` を
-                            // 付けていたときは、カードを出すたびにほかの行とスクロールの位置まで動きになり、その間に見える範囲の
-                            // 高さが変わると（開いた直後の帯の高さが決まるまでなど）、下端からずれて止まった（`TimelineScrollView`）。
+                            // 付けていたときは、カードを出すたびにほかの行とスクロールの位置まで 0.5 秒ほど動きになり、その間に
+                            // 見える範囲の高さが変わると（開いた直後の帯の高さが決まるまでなど）、下端からずれて止まりうる
+                            // （`TimelineScrollView`。iOS 26.4 のシミュレータでは、下端へ動きなしで送れば全体に付けたままでも
+                            // ずれなかった。CI の iOS 27.0 のシミュレータでカードが 2〜3pt ずれた原因の候補として外した）。
                             .transition(.opacity.animation(.default))
                     }
                 }
@@ -754,7 +756,7 @@ private struct TimelineOlderRecords: View {
 /// 読み込んだ行は、記録の追加・削除や同期の取り込み、前面に戻ったときにもすべて描き直すので、「前の記録を表示」で読み足せる件数にも
 /// 上限（`HomeModel.timelineMaxLimit`）を設ける。
 ///
-/// 開いた後にいちばん新しいものを足したとき（記録・質問・ふりかえりのカード）は、中身の本当の下端に置いた目印
+/// 開いた後にいちばん新しいものを足したとき（記録・質問・ふりかえりのカード・家計の記録）は、中身の本当の下端に置いた目印
 /// （`TimelineBottomMarker`）まで、動きを付けずに送る（`ScrollViewProxy.scrollToTimelineBottom`）。
 /// - 行の id で下端に合わせると、行の下の端が見える範囲の下の端にそろい、その下の余白（`padding()` の 16pt）が見える範囲の外に
 ///   隠れた（中身が画面より高いときだけ。開いたときと「取り消す」のバナーが引っ込んだ後は余白が見えるので、送った直後だけ行が
@@ -790,7 +792,7 @@ private struct TimelineScrollView<Content: View>: View {
 
 /// タイムラインの中身の下端の目印の id（`TimelineScrollView`）。いちばん新しいものまで送るときの行き先。
 ///
-/// いちばん新しいもの（記録・質問・ふりかえりのカード）はいつもいちばん下に並ぶので、下端まで送れば見える。
+/// いちばん新しいもの（記録・質問・ふりかえりのカード・家計の記録）はいつもいちばん下に並ぶので、下端まで送れば見える。
 private enum TimelineBottomMarker: Hashable {
     case id
 }
