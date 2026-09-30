@@ -5,8 +5,8 @@ import Foundation
 /// オンのときの案内、診断画面に使う。
 ///
 /// CloudKit の型をそのまま画面やテストに持ち込まず、ここで写し替える。`CKContainer` は iCloud の entitlement の無い
-/// プロセス（署名なしのビルドで動かすアプリのテスト）で作ると落ちるので、状態を読むのは `current()` だけにし、
-/// テストでは値を渡す。
+/// プロセス（署名なしのビルド。`make build` でシミュレータに入れたアプリと、アプリのテスト）で作ると落ちるので、状態を読むのは
+/// `current()` だけにし、そうしたビルドでは CloudKit に問い合わせずに `missingEntitlement` を返す。テストでは値を渡す。
 enum ICloudAccountStatus: Equatable, Sendable {
     /// サインインしていて、このアプリの iCloud を使える。
     case available
@@ -20,6 +20,8 @@ enum ICloudAccountStatus: Equatable, Sendable {
     case couldNotDetermine
     /// 問い合わせが失敗した。エラーの説明文は端末の情報を含むことがあるので、ドメインと番号だけを持つ。
     case failed(domain: String, code: Int)
+    /// このビルドは iCloud の entitlement を持たない（署名なしの開発用のビルド）。CloudKit に問い合わせていない。
+    case missingEntitlement
 
     init(_ status: CKAccountStatus) {
         switch status {
@@ -47,14 +49,20 @@ enum ICloudAccountStatus: Equatable, Sendable {
         case .temporarilyUnavailable: "temporarilyUnavailable"
         case .couldNotDetermine: "couldNotDetermine"
         case .failed(let domain, let code): "error(\(domain) \(code))"
+        case .missingEntitlement: "missingEntitlement"
         }
     }
 
     /// 同期に使うコンテナで、いまの状態を問い合わせる。
     ///
-    /// iCloud の entitlement が無いと `CKContainer` の生成で落ちる。署名して入れたアプリ（Xcode の Run・TestFlight・
-    /// App Store）からだけ呼ぶ（アプリのテストでは差し替える）。
-    static func current(containerIdentifier: String = ModelContainerFactory.iCloudContainerIdentifier) async -> ICloudAccountStatus {
+    /// iCloud の entitlement が無いと `CKContainer` の生成でプロセスが止まる（SIGTRAP）。署名の無いビルドでは問い合わせずに
+    /// `missingEntitlement` を返す（診断画面を開いたときや、設定で同期をオンにしようとしたときに止まらないように）。
+    /// - Parameter canUseCloudKit: このプロセスが CloudKit を使えるか。テストで false を渡して、問い合わせないことを確かめる。
+    static func current(
+        containerIdentifier: String = ModelContainerFactory.iCloudContainerIdentifier,
+        canUseCloudKit: Bool = HouseholdSharing.canUseCloudKit
+    ) async -> ICloudAccountStatus {
+        guard canUseCloudKit else { return .missingEntitlement }
         do {
             return ICloudAccountStatus(try await CKContainer(identifier: containerIdentifier).accountStatus())
         } catch {
@@ -122,6 +130,8 @@ extension ICloudAccountStatus {
             String(localized: "いまは iCloud を使えません。iPhone の設定で、Apple アカウントの確認を求められていないかを確かめてください。")
         case .couldNotDetermine, .failed:
             String(localized: "iCloud の状態を確かめられませんでした。インターネットにつながっているかを確かめて、もう一度お試しください。")
+        case .missingEntitlement:
+            String(localized: "このビルドのアプリでは iCloud を使えません（署名していない開発用のビルドのため）。")
         }
     }
 }
@@ -143,6 +153,8 @@ extension ICloudAccountStatus {
             String(localized: "いまは iCloud を使えないため、この iPhone の中だけに保存しています。iPhone の設定で、Apple アカウントの確認を求められていないかを確かめてください。")
         case .couldNotDetermine, .failed:
             String(localized: "iCloud の状態を確かめられませんでした。インターネットにつながっているかを確かめてください。")
+        case .missingEntitlement:
+            String(localized: "このビルドのアプリでは iCloud を使えないため、この iPhone の中だけに保存しています（署名していない開発用のビルドのため）。")
         }
     }
 }
