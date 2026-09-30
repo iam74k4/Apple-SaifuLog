@@ -7,7 +7,8 @@ import UIKit
 /// ホーム。今月の合計、記録のタイムライン、入力欄を 1 画面に置く。
 ///
 /// 記録も質問も同じ入力欄から行う。入口を分けると「どこに書けばいいか」を利用者に考えさせることになるため。
-/// 質問とその返事は、記録の吹き出しと同じタイムラインに送った順で出す（保存はしない）。
+/// タイムラインは会話の形にする。送った文を右寄せの自分の吹き出しに、アプリの返事（記録しました・質問の答え）を左寄せの
+/// カードに、送った順に出す（質問とその答えは保存しない）。記録の直後の「取り消す」は、その返事の見出しに出す。
 ///
 /// 週が替わって最初に開いたときは、先週のふりかえりのカードも同じタイムラインに出す（アプリからの返事として、出した時点の位置に）。
 ///
@@ -21,12 +22,10 @@ import UIKit
 ///
 /// 状態と操作（送信・質問・レシート・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ・
 /// 先週のふりかえり）は `HomeModel` が持つ。ここは表示と、
-/// 環境（文字の大きさ・支援技術・前面かどうか）に合わせた出し方だけを受け持つ。
+/// 環境（文字の大きさ・前面かどうか）に合わせた出し方だけを受け持つ。
 struct HomeView: View {
     @Environment(\.calendar) private var calendar
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
-    @Environment(\.accessibilitySwitchControlEnabled) private var switchControlEnabled
     @Environment(\.openURL) private var openURL
 
     @State private var model: HomeModel
@@ -53,12 +52,6 @@ struct HomeView: View {
         #endif
     }
     #endif
-
-    /// 支援技術（VoiceOver・スイッチコントロール）を使っているときは、「取り消す」を自動で引っ込めない。
-    /// 8 秒では、バナーまでたどり着く前に消えてしまうため。次の記録を送るか、取り消すか、「閉じる」の操作で消える。
-    private var keepsUndoBanner: Bool {
-        voiceOverEnabled || switchControlEnabled
-    }
 
     var body: some View {
         NavigationStack {
@@ -243,15 +236,6 @@ struct HomeView: View {
                 .onChange(of: model.showsLedgerSwitch) {
                     model.householdAvailabilityDidChange()
                 }
-                // 「取り消す」は記録の直後だけのもの。しばらくしたら引っ込め、タイムラインを広く使う。
-                // 支援技術を使い始めたときにも数え直す（id に含める）と、途中で引っ込むことがない。
-                // 「直す」のシート・どれを直すかの確認・保存の失敗のアラートを出している間は止め、閉じたら 8 秒を数え直す
-                // （`HomeModel.autoHidesUndo`）。
-                .task(id: undoBannerSchedule) {
-                    guard model.autoHidesUndo, !keepsUndoBanner else { return }
-                    try? await Task.sleep(for: .seconds(8))
-                    if !Task.isCancelled { model.dismissUndo() }
-                }
                 .onChange(of: scenePhase) { _, phase in
                     switch phase {
                     case .active:
@@ -313,7 +297,9 @@ struct HomeView: View {
                 limit: model.timelineLimit,
                 canShowMore: model.canShowMoreTimeline,
                 today: model.today,
+                undoableEntryIDs: Set(model.justRecordedHousehold.map(\.id)),
                 showMore: { model.showMoreTimeline() },
+                undo: { model.undoLastRecord() },
                 edit: { model.presentHouseholdEdit($0, calendar: calendar) },
                 requestDelete: { model.requestHouseholdDelete($0) }
             )
@@ -325,7 +311,9 @@ struct HomeView: View {
                 today: model.today,
                 questions: model.questions,
                 weeklyRecap: model.weeklyRecap,
+                undoableEntryIDs: Set(model.justRecorded.map(\.persistentModelID)),
                 showMore: { model.showMoreTimeline() },
+                undo: { model.undoLastRecord() },
                 edit: { model.presentEdit($0, calendar: calendar) },
                 requestDelete: { model.requestDelete($0) },
                 openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
@@ -373,17 +361,6 @@ struct HomeView: View {
                         if !Task.isCancelled, model.voice.notice == notice { model.voice.notice = nil }
                     }
             }
-            if model.canUndo {
-                UndoBanner(
-                    recorded: model.recordedItems,
-                    showsItemChoice: $model.showsRecordedItemChoice,
-                    requestEdit: { model.requestRecordedEdit(calendar: calendar) },
-                    edit: { model.presentEdit($0, calendar: calendar) },
-                    undo: { model.undoLastRecord() },
-                    dismiss: { model.dismissUndo() }
-                )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
             InputBar(
                 text: $model.draft,
                 isSending: model.isParsing,
@@ -393,6 +370,8 @@ struct HomeView: View {
                 showsReceiptChoice: $model.showsReceiptSourceChoice,
                 canUseDocumentCamera: model.canUseDocumentCamera,
                 chooseReceiptSource: { model.startReceiptCapture($0) },
+                // 返事の見出しの「取り消す」と行の「直す」に加えて、入力欄の VoiceOver の操作にも出す（送信の後にフォーカスが
+                // 入力欄に戻るので、返事のカードまで移らずに取り消し・直しができるように）。
                 undo: undoAction,
                 recorded: model.canUndo ? model.recordedItems : [],
                 edit: { model.presentEdit($0, calendar: calendar) },
@@ -402,7 +381,6 @@ struct HomeView: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .animation(.default, value: model.canUndo)
         .animation(.default, value: model.voice.notice)
     }
 
@@ -469,28 +447,6 @@ struct HomeView: View {
             set: { if !$0 { model.household?.notice = nil } }
         )
     }
-
-    private var undoBannerSchedule: UndoBannerSchedule {
-        UndoBannerSchedule(
-            ids: model.recordedItems.map(\.id),
-            keepsOpen: keepsUndoBanner,
-            isEditing: model.editing != nil,
-            showsItemChoice: model.showsRecordedItemChoice,
-            showsStoreFailure: model.storeFailure != nil
-        )
-    }
-}
-
-/// 「取り消す」を引っ込めるタイマーの数え直しの条件。
-private struct UndoBannerSchedule: Hashable {
-    var ids: [AnyHashable]
-    var keepsOpen: Bool
-    /// 「直す」のシートを出しているか。出したときにタイマーを止め、閉じたときに数え直すため。
-    var isEditing: Bool
-    /// どれを直すかの確認（複数件を記録したときの「直す」）を出しているか。シートと同じく、出している間は止め、閉じたら数え直す。
-    var showsItemChoice: Bool
-    /// 保存の失敗のアラートを出しているか。「直す」のシートと同じく、出している間は止め、閉じたら数え直す。
-    var showsStoreFailure: Bool
 }
 
 /// 保存先への書き込みの失敗を利用者に知らせる文。
@@ -511,13 +467,17 @@ private extension HomeModel.StoreFailure {
     }
 }
 
-/// 記録のタイムライン。記録した日時の新しいものから `limit` 件を読み、古い順（新しいものが下）に並べる。
-/// この起動の間に送った質問とその返事も、送った順に同じ流れへ差し込む。先週のふりかえりのカードは、出した日時の位置に差し込む
-/// （出したときはいちばん下で、開いたときに見える。その後に記録すると、その上に流れていく）。
+/// 記録のタイムライン。記録した日時の新しいものから `limit` 件を読み、古い順（新しいものが下）に会話の形で並べる。
 ///
-/// 全期間を読むと、記録が増えるほど開くのも描き直すのも遅くなる。読み込む件数は `limit` で区切り、
+/// 1 回の送信で記録したもの（ひとこと入力の複数件・レシートの品目）を 1 つの送信にまとめ（`EntrySend`。コアの `TimelineSend`）、
+/// 送った文を右寄せの自分の吹き出しに、記録したものを左寄せの返事のカード（「記録しました」）に出す。この起動の間に送った質問と
+/// その答えも、送った順に同じ流れへ差し込む。先週のふりかえりのカードは、出した日時の位置に差し込む（出したときはいちばん下で、
+/// 開いたときに見える。その後に記録すると、その上に流れていく）。暦の日が替わるところには日付の見出しを置く（コアの `TimelineDay`）。
+///
+/// 全期間を読むと、記録が増えるほど開くのも描き直すのも遅くなる。読み込む件数は `limit` で区切り（送信ではなく記録の件数で数える）、
 /// さかのぼりたいときは上の「前の記録を表示」で増やす（行はすべて測るので、件数を区切る意味は大きい。`TimelineScrollView`）。
-/// 増やせるのは `HomeModel.timelineMaxLimit` まで（`TimelineOlderRecords`）。
+/// 増やせるのは `HomeModel.timelineMaxLimit` まで（`TimelineOlderRecords`）。区切りで前の件が切れたいちばん古い送信は、読み込んだ
+/// 件だけの返事になる。
 private struct EntryTimeline: View {
     let limit: Int
     /// 「前の記録を表示」でさらに読み込めるか（読み込む件数が上限に届いていなければ）。
@@ -525,7 +485,10 @@ private struct EntryTimeline: View {
     let today: Date
     let questions: [QuestionExchange]
     let weeklyRecap: WeeklyRecapModel?
+    /// 直前の送信で記録したもの（まだ取り消せるもの）。これを含む送信の返事にだけ「取り消す」を出す。取り消せなければ空。
+    let undoableEntryIDs: Set<PersistentIdentifier>
     let showMore: () -> Void
+    let undo: () -> Void
     let edit: (Entry) -> Void
     let requestDelete: (Entry) -> Void
     let openReport: (Date) -> Void
@@ -534,6 +497,7 @@ private struct EntryTimeline: View {
     let openWeeklyRecap: () -> Void
     let dismissWeeklyRecap: () -> Void
 
+    @Environment(\.calendar) private var calendar
     @Query private var recentEntries: [Entry]
 
     init(
@@ -542,7 +506,9 @@ private struct EntryTimeline: View {
         today: Date,
         questions: [QuestionExchange],
         weeklyRecap: WeeklyRecapModel?,
+        undoableEntryIDs: Set<PersistentIdentifier>,
         showMore: @escaping () -> Void,
+        undo: @escaping () -> Void,
         edit: @escaping (Entry) -> Void,
         requestDelete: @escaping (Entry) -> Void,
         openReport: @escaping (Date) -> Void,
@@ -556,7 +522,9 @@ private struct EntryTimeline: View {
         self.today = today
         self.questions = questions
         self.weeklyRecap = weeklyRecap
+        self.undoableEntryIDs = undoableEntryIDs
         self.showMore = showMore
+        self.undo = undo
         self.edit = edit
         self.requestDelete = requestDelete
         self.openReport = openReport
@@ -567,40 +535,75 @@ private struct EntryTimeline: View {
         _recentEntries = Query(Entry.timelineDescriptor(limit: limit))
     }
 
-    /// タイムラインの 1 つ（記録か、質問とその返事か、先週のふりかえり）。
-    private enum Item: Identifiable {
-        case entry(Entry)
+    /// タイムラインのやりとりの 1 つ（送信か、質問とその答えか、先週のふりかえり）。
+    private enum Exchange {
+        case send(EntrySend)
         case question(QuestionExchange)
         case weeklyRecap(WeeklyRecapModel)
 
-        var id: ItemID {
-            switch self {
-            case .entry(let entry): .entry(entry.persistentModelID)
-            case .question(let exchange): .question(exchange.id)
-            case .weeklyRecap(let recap): .weeklyRecap(recap.id)
-            }
-        }
-
-        /// 並べる日時。記録は記録した日時（送った順）、質問は送った日時、ふりかえりは出した日時。
+        /// 並べる日時。送信は送った日時（記録した日時）、質問は送った日時、ふりかえりは出した日時。日付の見出しもこの日で決める。
         var date: Date {
             switch self {
-            case .entry(let entry): entry.createdAt
+            case .send(let send): send.sentAt
             case .question(let exchange): exchange.askedAt
             case .weeklyRecap(let recap): recap.shownAt
             }
         }
     }
 
+    /// 画面に並べる 1 つ（日付の見出し・送った文の吹き出し・記録の返事・質問とその答え・先週のふりかえり）。
+    private enum Item: Identifiable {
+        case day(Date)
+        case sentText(EntrySend)
+        case reply(EntrySend)
+        case question(QuestionExchange)
+        case weeklyRecap(WeeklyRecapModel)
+
+        var id: ItemID {
+            switch self {
+            case .day(let day): .day(day)
+            case .sentText(let send): .sentText(send.id)
+            case .reply(let send): .reply(send.id)
+            case .question(let exchange): .question(exchange.id)
+            case .weeklyRecap(let recap): .weeklyRecap(recap.id)
+            }
+        }
+    }
+
     private enum ItemID: Hashable {
-        case entry(PersistentIdentifier)
+        case day(Date)
+        case sentText(PersistentIdentifier)
+        case reply(PersistentIdentifier)
         case question(UUID)
         case weeklyRecap(UUID)
     }
 
-    /// 記録と質問とふりかえりを、送った順（古いものが上）に並べる。
+    /// 送信と質問とふりかえりを送った順（古いものが上）に並べ、送信を吹き出しと返事に分け、日が替わるところに見出しを置く。
     private var items: [Item] {
-        (recentEntries.map(Item.entry) + questions.map(Item.question) + (weeklyRecap.map { [Item.weeklyRecap($0)] } ?? []))
+        let sends = EntrySend.sends(from: Array(recentEntries.reversed()))
+        let exchanges = (sends.map(Exchange.send) + questions.map(Exchange.question)
+            + (weeklyRecap.map { [Exchange.weeklyRecap($0)] } ?? []))
             .sorted { $0.date < $1.date }
+        let headers = Set(TimelineDay.headerIndices(for: exchanges.map(\.date), calendar: calendar))
+        var items: [Item] = []
+        for (index, exchange) in exchanges.enumerated() {
+            if headers.contains(index) {
+                items.append(.day(calendar.startOfDay(for: exchange.date)))
+            }
+            switch exchange {
+            case .send(let send):
+                // 元の文を持たない記録（古い版のものなど）は、送った文の吹き出しを出さずに返事だけにする。
+                if !send.originalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    items.append(.sentText(send))
+                }
+                items.append(.reply(send))
+            case .question(let exchange):
+                items.append(.question(exchange))
+            case .weeklyRecap(let recap):
+                items.append(.weeklyRecap(recap))
+            }
+        }
+        return items
     }
 
     var body: some View {
@@ -615,9 +618,16 @@ private struct EntryTimeline: View {
                 }
                 ForEach(items) { item in
                     switch item {
-                    case .entry(let entry):
-                        EntryBubble(entry: entry, today: today, edit: { edit(entry) }, requestDelete: { requestDelete(entry) })
-                            .reportsTimelineFrame(.row(entry.persistentModelID))
+                    case .day(let day):
+                        TimelineDayHeader(day: day, today: today)
+                    case .sentText(let send):
+                        SentTextBubble(send: send)
+                    case .reply(let send):
+                        RecordedReplyCard(
+                            send: send, today: today, canUndo: canUndo(send), undo: undo, edit: edit, requestDelete: requestDelete
+                        )
+                        // 送信のいちばん下（返事のカード）の位置を知らせる。
+                        .reportsTimelineFrame(.row(send.id))
                     case .question(let exchange):
                         QuestionExchangeView(
                             exchange: exchange, openReport: openReport, setBudget: setBudget, openPremium: openPremium
@@ -653,10 +663,19 @@ private struct EntryTimeline: View {
             }
         }
     }
+
+    /// この送信の返事に「取り消す」を出すか（直前の送信で記録したもので、まだ取り消せるものを含む）。
+    private func canUndo(_ send: EntrySend) -> Bool {
+        !undoableEntryIDs.isEmpty && send.entries.contains { undoableEntryIDs.contains($0.persistentModelID) }
+    }
 }
 
 /// 家族の家計のタイムライン（「家族」のとき）。家計の記録を、記録した日時の新しいものから `limit` 件読み、古い順に並べる。
 /// 吹き出しには記録した人の名前を添える。押すと直し（ほかの人の記録も）、長押しで削除できる。
+///
+/// 家計の記録は送った文を持たないので、自分の記録のタイムラインのような会話の形（送った文と返事のカード）にはしていない
+/// （記録ごとの吹き出しのまま。会話の形にするかは docs/design.md §15 のあとの作業）。記録の直後の「取り消す」だけは、下の
+/// バナーをやめたので、直前に記録した吹き出し（複数件ならいちばん新しいもの）のすぐ下に出す（`HouseholdUndoRow`）。
 ///
 /// 家計の保存先（household.store）を読むので、呼び出し側が家計の保存先を環境に渡す（`.modelContainer`）。
 private struct HouseholdTimeline: View {
@@ -664,7 +683,10 @@ private struct HouseholdTimeline: View {
     /// 「前の記録を表示」でさらに読み込めるか（読み込む件数が上限に届いていなければ）。
     let canShowMore: Bool
     let today: Date
+    /// 直前に家計へ記録したもの（まだ取り消せるもの）の id。その吹き出しの下に「取り消す」を出す。取り消せなければ空。
+    let undoableEntryIDs: Set<UUID>
     let showMore: () -> Void
+    let undo: () -> Void
     let edit: (HouseholdEntry) -> Void
     let requestDelete: (HouseholdEntry) -> Void
 
@@ -675,20 +697,34 @@ private struct HouseholdTimeline: View {
         limit: Int,
         canShowMore: Bool,
         today: Date,
+        undoableEntryIDs: Set<UUID>,
         showMore: @escaping () -> Void,
+        undo: @escaping () -> Void,
         edit: @escaping (HouseholdEntry) -> Void,
         requestDelete: @escaping (HouseholdEntry) -> Void
     ) {
         self.limit = limit
         self.canShowMore = canShowMore
         self.today = today
+        self.undoableEntryIDs = undoableEntryIDs
         self.showMore = showMore
+        self.undo = undo
         self.edit = edit
         self.requestDelete = requestDelete
         _recentEntries = Query(HouseholdEntry.timelineDescriptor(zoneName: zoneName, limit: limit))
     }
 
+    /// 「記録しました 取り消す」の行を下に置く吹き出し（直前に記録したもののうち、いちばん新しいもの）。
+    ///
+    /// いちばん下の吹き出しの下に置かないのは、「取り消す」は次の文を送るまで出したままなので、その間に家族の記録が同期で
+    /// 届くと、ほかの人の記録の下に「記録しました 取り消す」が並び、その記録を取り消すように見えるため（押すと消えるのは自分の記録）。
+    private var undoRowAnchor: UUID? {
+        guard !undoableEntryIDs.isEmpty else { return nil }
+        return recentEntries.first { undoableEntryIDs.contains($0.id) }?.id
+    }
+
     var body: some View {
+        let undoRowAnchor = undoRowAnchor
         ScrollViewReader { proxy in
             TimelineScrollView {
                 if recentEntries.isEmpty {
@@ -703,6 +739,10 @@ private struct HouseholdTimeline: View {
                         recorderName: entry.recorderName
                     )
                     .reportsTimelineFrame(.row(entry.id))
+                    if entry.id == undoRowAnchor {
+                        HouseholdUndoRow(undo: undo)
+                            .reportsTimelineFrame(.householdUndo)
+                    }
                 }
             }
             // いちばん新しい家計の記録が替わったら、下端まで送る（行ではなく中身の下端で、動きを付けない。`scrollToTimelineBottom`）。
@@ -711,6 +751,32 @@ private struct HouseholdTimeline: View {
                 proxy.scrollToTimelineBottom()
             }
         }
+    }
+}
+
+/// 家計のタイムラインの、記録の直後の「記録しました」と「取り消す」（直前に記録した吹き出しの下に右寄せで出す）。
+/// 時間では引っ込めない（次の文を送る・取り消す・その記録を直す・記録先を切り替えるまで。自分の記録の返事と同じ）。
+private struct HouseholdUndoRow: View {
+    let undo: () -> Void
+
+    var body: some View {
+        // 1 行に収まらなければ（アクセシビリティサイズの文字）、「取り消す」を下の行に右寄せで置く。HStack のままだと、AX5 で
+        // 「記録しました」が語の途中で折り返され、「取り消す」が「取り…」に切れた。
+        AdaptiveRowLayout(stacksWhenNeeded: true, spacing: 12, stackAlignment: .trailing) {
+            Text("記録しました")
+                .foregroundStyle(Theme.inkSecondary)
+            Button(action: undo) {
+                Text("取り消す")
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Theme.accentText)
+                    .lineLimit(1)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(.rect)
+            }
+            .accessibilityHint("記録を消して、送った文を入力欄に戻します")
+        }
+        .font(.subheadline)
+        .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
 
@@ -750,35 +816,36 @@ private struct TimelineOlderRecords: View {
 
 /// タイムラインのスクロール（自分の記録と家計の記録で共通）。下端から開き、いちばん新しいものを入力欄のすぐ上に出す。
 ///
-/// 行は LazyVStack ではなく VStack に並べる。LazyVStack は、まだ描いていない行の高さを、そのとき描いている行から見積もる。
-/// タイムラインの行は高さがそろわない（長い品目の割り勘の吹き出し・回答カード・ふりかえりのカード）ので、描く行が替わるたびに
+/// 行は LazyVStack ではなく、すべての行を測る並べ方（`TimelineStack`。VStack と同じ位置に置く）に並べる。LazyVStack は、まだ
+/// 描いていない行の高さを、そのとき描いている行から見積もる。
+/// タイムラインの行は高さがそろわない（送った文の吹き出し・品目の数だけ伸びる返事のカード・回答カード・ふりかえりのカード）ので、描く行が替わるたびに
 /// 全体の高さの見積もりが大きく揺れる。下端に合わせる（`defaultScrollAnchor(.bottom)`）と、揺れるたびに位置も同じだけ動いて
 /// 描く行がまた替わり、見える範囲に行が 1 つも無い位置で止まることがあった。開いたときにタイムラインが空に見えた不具合で、
 /// 見える行が少なく見積もりが数行で決まる大きな文字で起きた（シミュレータで、見積もりが 1 万 pt ほど揺れ、行を描かないまま
 /// 止まるのを確かめた。どの文字の大きさで起きるかは記録の中身と画面の幅で変わる）。途中で止まって、いちばん下の行が入力欄に
-/// 隠れることもあった（先週のふりかえりのカード）。VStack はすべての行を測るので全体の高さが正しく、下端に正しく合う。
+/// 隠れることもあった（先週のふりかえりのカード）。すべての行を測れば全体の高さが正しく、下端に正しく合う。
 ///
 /// すべての行を測るぶん開くときの手間は件数に比例するので、読み込む件数を `HomeModel.timelinePageSize` で区切る。
 /// 読み込んだ行は、記録の追加・削除や同期の取り込み、前面に戻ったときにもすべて描き直すので、「前の記録を表示」で読み足せる件数にも
 /// 上限（`HomeModel.timelineMaxLimit`）を設ける。
 ///
-/// 開いた後にいちばん新しいものを足したとき（記録・質問・ふりかえりのカード・家計の記録）は、中身の本当の下端に置いた目印
+/// 開いた後にいちばん新しいものを足したとき（送信の返事・質問・ふりかえりのカード・家計の記録）は、中身の本当の下端に置いた目印
 /// （`TimelineBottomMarker`）まで、動きを付けずに送る（`ScrollViewProxy.scrollToTimelineBottom`）。
 /// - 行の id で下端に合わせると、行の下の端が見える範囲の下の端にそろい、その下の余白（`padding()` の 16pt）が見える範囲の外に
-///   隠れた（中身が画面より高いときだけ。開いたときと「取り消す」のバナーが引っ込んだ後は余白が見えるので、送った直後だけ行が
-///   入力欄に寄って見えた）。目印は `defaultScrollAnchor(.bottom)` と同じ位置を指すので、二つの合わせ方が食い違わない。
+///   隠れた（中身が画面より高いときだけ。開いたときと、当時あった「取り消す」のバナーが引っ込んだ後は余白が見えるので、送った
+///   直後だけ行が入力欄に寄って見えた）。目印は `defaultScrollAnchor(.bottom)` と同じ位置を指すので、二つの合わせ方が食い違わない。
 /// - 動きを付けると、送り先の位置が送り始めたときの見える範囲の高さで決まり、動いている間はその位置に向かい続ける。同じときに
-///   見える範囲の高さが変わると（送った記録と一緒に出る「取り消す」のバナーなど）、`defaultScrollAnchor(.bottom)` が下端に合わせ直す
-///   分が打ち消され、変わった分だけ下端からずれて止まった（シミュレータの iOS 26.4 で、送った記録が見える範囲の下に 36〜129pt
-///   はみ出し、声の入力の知らせと同時に出たふりかえりのカードは AX1 と AX5 で 400pt 以上下に隠れた）。動きなしで下端に着けば、
-///   その後の高さの変化は `defaultScrollAnchor(.bottom)` が下端に合わせ続ける。
+///   見える範囲の高さが変わると（声の入力の知らせ。当時は送った記録と一緒に出た「取り消す」のバナーも）、`defaultScrollAnchor(.bottom)`
+///   が下端に合わせ直す分が打ち消され、変わった分だけ下端からずれて止まった（シミュレータの iOS 26.4 で、送った記録が見える範囲の
+///   下に 36〜129pt はみ出し、声の入力の知らせと同時に出たふりかえりのカードは AX1 と AX5 で 400pt 以上下に隠れた）。動きなしで
+///   下端に着けば、その後の高さの変化は `defaultScrollAnchor(.bottom)` が下端に合わせ続ける。
 private struct TimelineScrollView<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                VStack(spacing: 12) {
+                TimelineStack(spacing: 12) {
                     content
                 }
                 .padding()
@@ -796,9 +863,57 @@ private struct TimelineScrollView<Content: View>: View {
     }
 }
 
+/// タイムラインの行を上から並べる（`VStack(spacing:)` と同じ大きさと位置。幅の足りない行は真ん中に置く）。
+///
+/// VStack にしないのは、タイムラインを開くときの手間を減らすため（行はすべて測る。`TimelineScrollView`）。VStack は行を並べるときに
+/// 揃えの位置を行の中まで問い合わせるが、タイムラインの行はどれも幅いっぱいに広がるか（吹き出し・カード・見出し）、真ん中に置く
+/// もの（「前の記録を表示」）なので、問い合わせずに真ん中に置く。会話の形にして行が増えたとき（送った文の吹き出しと返事のカード）、
+/// 撮影用のデモの 50 件で、ホームを開いて最初に並べ終えるまでが 0.28 秒から 0.23 秒ほどに縮んだ（iPhone 17 Pro の iOS 26.4 の
+/// シミュレータ。docs/design.md §9）。
+private struct TimelineStack: Layout {
+    /// 行の間。
+    let spacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {
+        // 行には幅だけを提案する（高さは提案しない。行は自分の高さで並ぶ）。
+        let childProposal = ProposedViewSize(width: proposal.width, height: nil)
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+        for (index, subview) in subviews.enumerated() {
+            let size = subview.sizeThatFits(childProposal)
+            width = max(width, size.width)
+            height += size.height + (index == 0 ? 0 : spacing)
+        }
+        return CGSize(width: proposal.width ?? width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) {
+        let childProposal = ProposedViewSize(width: bounds.width, height: nil)
+        var y = bounds.minY
+        for subview in subviews {
+            let size = subview.sizeThatFits(childProposal)
+            subview.place(at: CGPoint(x: bounds.midX, y: y), anchor: .top, proposal: childProposal)
+            y += size.height + spacing
+        }
+    }
+
+    /// 並べ方の中に独自の揃えは無いので、揃えを問われても中を測らずに既定の位置（nil）を返す。
+    func explicitAlignment(
+        of guide: HorizontalAlignment, in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void
+    ) -> CGFloat? {
+        nil
+    }
+
+    func explicitAlignment(
+        of guide: VerticalAlignment, in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void
+    ) -> CGFloat? {
+        nil
+    }
+}
+
 /// タイムラインの中身の下端の目印の id（`TimelineScrollView`）。いちばん新しいものまで送るときの行き先。
 ///
-/// いちばん新しいもの（記録・質問・ふりかえりのカード・家計の記録）はいつもいちばん下に並ぶので、下端まで送れば見える。
+/// いちばん新しいもの（送信の返事・質問・ふりかえりのカード・家計の記録）はいつもいちばん下に並ぶので、下端まで送れば見える。
 private enum TimelineBottomMarker: Hashable {
     case id
 }
@@ -820,8 +935,10 @@ private extension ScrollViewProxy {
 enum TimelineFrameKey: Hashable {
     /// 行の見える範囲（帯と入力欄の間）。
     case viewport
-    /// 行。記録は `persistentModelID`、家計の記録・質問・ふりかえりは `id`。
+    /// 行。送信の返事のカードは送信の `id`（送信のいちばん古い記録の `persistentModelID`）、家計の記録・質問・ふりかえりは `id`。
     case row(AnyHashable)
+    /// 家計のタイムラインの、記録の直後の「記録しました 取り消す」の行（`HouseholdUndoRow`）。
+    case householdUndo
 }
 
 /// タイムラインの行と見える範囲が描かれた位置（ウィンドウの座標）を受け取るもの。
@@ -854,8 +971,8 @@ private struct TimelineFrameReporter: ViewModifier {
                 .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { frame in
                     observer.report(key, frame)
                 }
-                // 描かなくなった行は位置を消す（`.null`）。いまの VStack では起きないが、遅延して描くスタックに戻したときに、
-                // 見える範囲を外れて描いていない行を、前に描いた位置のまま「見えている」と数えないように。
+                // 描かなくなった行は位置を消す（`.null`）。いまの並べ方（`TimelineStack`）では起きないが、遅延して描くスタックに
+                // 戻したときに、見える範囲を外れて描いていない行を、前に描いた位置のまま「見えている」と数えないように。
                 .onDisappear {
                     observer.report(key, .null)
                 }

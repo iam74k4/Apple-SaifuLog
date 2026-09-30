@@ -9,7 +9,8 @@ import UIKit
 /// ライトとダークは iOS の設定に従う（アプリ内に外観の設定は置かない）。
 ///
 /// 使い分け:
-/// - 山吹（`accentFill`）は塗りにだけ使う（送信ボタン・主ボタン・選んだ額のボタン・予算の進捗バー）。
+/// - 山吹（`accentFill`）は塗りにだけ使う（送信ボタン・主ボタン・選んだ額のボタン・予算の進捗バー・タイムラインの自分が送った文の
+///   吹き出し）。
 ///   白地では 1.8:1 しかなく、ライトで文字や細いアイコンに使うと読めないため。塗りの上の文字と記号は
 ///   `onAccent`（墨）にする。白を載せると、ライトでもダークでも 2:1 に届かない。
 /// - 文字の強調（ボタンの文字など）は `accentText`。Assets の AccentColor で、アプリ全体の tint でもある
@@ -20,7 +21,7 @@ import UIKit
 enum Theme {
     /// 画面の背景。
     static let background = Palette.background.color
-    /// 記録の吹き出しなど、背景の上に載せる面。
+    /// アプリの返事のカード（記録しました・質問の回答・ふりかえり）など、背景の上に載せる面。
     static let surface = Palette.surface.color
     /// 本文の文字（墨）。
     static let ink = Palette.ink.color
@@ -30,11 +31,14 @@ enum Theme {
     static let accentFill = Palette.accentFill.color
     /// 山吹の塗りの上に載せる文字と記号。
     static let onAccent = Palette.onAccent.color
+    /// タイムラインの自分の吹き出し（送った文・質問）の面。墨の文字を載せる。背景とアプリの返事のカード（面）の
+    /// どちらとも見分けられる灰色にする。
+    static let userBubble = Palette.userBubble.color
     /// 文字の強調の色（Assets の AccentColor。値は `Palette.accentText` と同じにしてあり、テストで照合する）。
     static let accentText = Color.accentColor
     /// 注意の色（予算オーバーなど）。アイコンと文字を必ず添える。
     static let danger = Palette.danger.color
-    /// 進捗のバーの地（まだ使っていない分）。バーは数字に添える目安なので、地との差は控えめでよい。
+    /// 進捗のバーの地（まだ使っていない分）。バーは数字に添える目安なので、地との差は控えめでよい。返事のカードの細い枠にも使う。
     static let track = Palette.track.color
     /// 収入の金額の色。収入は「+」の符号と「収入」の語でも示す（色だけに頼らない）。
     static let income = Palette.income.color
@@ -65,12 +69,13 @@ enum Palette {
     static let inkSecondary = ColorPair(light: 0x5F5B55, dark: 0xA8A6A1)
     static let accentFill = ColorPair(light: 0xF8B500, dark: 0xFFC62E)
     static let onAccent = ColorPair(light: 0x1F1D1A, dark: 0x1F1D1A)
+    static let userBubble = ColorPair(light: 0xE8E5DE, dark: 0x2C3037)
     /// Assets の AccentColor と同じ値にする（二か所にあるので、テストで食い違いを止める）。
     static let accentText = ColorPair(light: 0x8A5A00, dark: 0xFFC62E)
     static let danger = ColorPair(light: 0xB3261E, dark: 0xFF8A80)
     static let track = ColorPair(light: 0xE4E1DA, dark: 0x2E3238)
     static let income = ColorPair(light: 0x2E7D4F, dark: 0x7FD1A0)
-    /// カテゴリの丸はダークでもライトの色で塗る（EntryBubble）ので、記号は両方とも白にする。
+    /// カテゴリの丸と返事の行の印はダークでもライトの色で塗る（EntryBubble・RecordedReplyRow）ので、記号は両方とも白にする。
     static let onCategory = ColorPair(light: 0xFFFFFF, dark: 0xFFFFFF)
 
     /// カテゴリの色。

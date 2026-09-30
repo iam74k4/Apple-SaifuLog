@@ -21,7 +21,7 @@ App Store Connect → アプリ → バージョン → 「App Review に関す�
 No sign-in is required. The app has no accounts and no developer server.
 
 HOW TO TRY IT
-- Type one line in the field at the bottom of the home screen and send it, for example "ランチ 850" (lunch 850 yen) or "昨日 焼肉12000 4人で割り勘" (yesterday, dinner 12,000 yen split four ways). The app records it and shows Edit and Undo right away. Tap an entry to edit it; touch and hold to delete it.
+- Type one line in the field at the bottom of the home screen and send it, for example "ランチ 850" (lunch 850 yen) or "昨日 焼肉12000 4人で割り勘" (yesterday, dinner 12,000 yen split four ways). The app records it and replies in the timeline with what it recorded; the latest reply has an Undo button. Tap a recorded item in a reply to edit it; touch and hold to delete it.
 - Ask a question in the same field, for example "今月カフェいくら?" (how much on cafes this month?). The answer is calculated by the app from the records.
 - Receipts: tap the camera button on the left of the field, then "Take Photo" or "Choose from Photos". Any photo or screenshot of a receipt works.
 - Voice: tap the microphone button on the right of the field and speak Japanese. The transcription is placed in the field; nothing is sent until the user taps Send.
@@ -48,7 +48,7 @@ Premium is a one-time non-consumable purchase (not a subscription) and supports 
 サインインは要りません。アカウントも開発者のサーバーもありません。
 
 試し方
-- ホーム画面の下の入力欄に一行を入れて送ります。例: 「ランチ 850」「昨日 焼肉12000 4人で割り勘」。記録され、すぐ「直す」「取り消す」が出ます。記録を押すと直せ、長押しで削除できます。
+- ホーム画面の下の入力欄に一行を入れて送ります。例: 「ランチ 850」「昨日 焼肉12000 4人で割り勘」。記録すると、アプリがタイムラインの返事で記録した内容を見せ、いちばん新しい返事に「取り消す」が出ます。返事の記録を押すと直せ、長押しで削除できます。
 - 同じ入力欄で質問できます。例: 「今月カフェいくら?」。答えの数字はアプリが記録から計算します。
 - レシート: 入力欄の左のカメラのボタン →「撮る」か「写真から選ぶ」。レシートの写真やスクリーンショットなら、どれでも試せます。
 - 声: 入力欄の右のマイクのボタンを押して日本語で話します。書き起こしは入力欄に入るだけで、送信を押すまで何も送りません。

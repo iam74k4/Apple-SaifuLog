@@ -6,21 +6,23 @@ import Testing
 import UIKit
 @testable import SaifuLog
 
-/// ホームを開いたとき、いちばん新しい行（記録・回答カード・先週のふりかえり・家計の記録）がタイムラインの下の端に見えること。
+/// ホームを開いたとき、いちばん新しい行（送信の返事のカード・質問の回答カード・先週のふりかえり・家計の記録）がタイムラインの
+/// 下の端に見えること。
 ///
 /// 大きな文字でタイムラインが空に見えた不具合の再発を防ぐ。行の高さがそろわないタイムラインを LazyVStack で下端に合わせると、
 /// 見積もった全体の高さが揺れて行の無い位置で止まり、空に見えた（`HomeView` の `TimelineScrollView`）。どの文字の大きさで
-/// 起きるかは記録の中身と画面の幅で変わるので、行の高さがそろわない撮影用のデモの家計（長い品目の割り勘を含む）で、
-/// 標準からアクセシビリティサイズまで確かめる。
+/// 起きるかは記録の中身と画面の幅で変わるので、行の高さがそろわない撮影用のデモの家計（長い品目の割り勘・1 行に 2 件の送信・
+/// 日付の見出しを含む）で、標準からアクセシビリティサイズまで確かめる。自分の記録のタイムラインは会話の形（送った文の吹き出しと
+/// 返事のカード）で、いちばん下は最後の送信の返事のカード。
 ///
 /// 部品だけを描くのではなく、ウィンドウに実際のホーム（ナビゲーション・帯・入力欄の中のスクロール）を置き、行と見える範囲が
 /// 描かれた位置（`timelineFrameObserver`）で確かめる。下端に合わせる動きと LazyVStack の見積もりの揺れは、スクロールの中に
 /// 並べた画面で起きるため（タイムラインを LazyVStack に戻すと、この置き方で AX1 の記録と、標準から AX5 まで（AX4 を除く）の
 /// ふりかえりのカードが落ちることを確かめた）。
 ///
-/// 開いた後に足した行（送った記録・質問の回答カード・開いたまま出たふりかえりのカード）も、開いたときと同じく下の余白を残して
-/// 下の端に出ることを確かめる。行の id まで送っていたときは余白が隠れ、動きを付けて送ると、同じときに見える範囲の高さが変わった分
-/// だけ下端からずれた（`HomeView` の `TimelineScrollView`）。
+/// 開いた後に足した行（送った記録の返事・質問の回答カード・開いたまま出たふりかえりのカード）も、開いたときと同じく下の余白を
+/// 残して下の端に出ることを確かめる。行の id まで送っていたときは余白が隠れ、動きを付けて送ると、同じときに見える範囲の高さが
+/// 変わった分だけ下端からずれた（`HomeView` の `TimelineScrollView`）。
 ///
 /// 画面を画像にして目で見るときは、環境変数 `SAIFULOG_TIMELINE_SNAPSHOTS` に書き出す先のフォルダを渡す（xcodebuild には
 /// `TEST_RUNNER_SAIFULOG_TIMELINE_SNAPSHOTS=…` で渡す）。`SAIFULOG_TIMELINE_SNAPSHOT_STYLE=dark` でダークにする。
@@ -35,16 +37,18 @@ struct HomeTimelineLayoutTests {
         .accessibilityExtraExtraExtraLarge,
     ]
 
-    @Test("開いたとき、いちばん新しい記録がタイムラインの下の端に見える", arguments: sizes)
-    func newestEntryIsAtTheBottom(size: UIContentSizeCategory) async throws {
+    @Test("開いたとき、いちばん新しい送信の返事のカードがタイムラインの下の端に見える", arguments: sizes)
+    func newestSendIsAtTheBottom(size: UIContentSizeCategory) async throws {
         let fixture = try TimelineFixture()
         try fixture.insertDemoLedger()
         fixture.markWeeklyRecapShown()
-        let newest = try #require(try fixture.newestEntry())
+        let newest = try #require(try fixture.latestSend())
+        // 前提: いちばん新しい送信は、1 行に 2 件を書いた送信（返事のカードに 2 件が並ぶ）。
+        #expect(newest.entries.map(\.originalText) == [ScreenshotDemoLedger.multiItemText, ScreenshotDemoLedger.multiItemText])
 
         let frames = try await fixture.host(size: size, name: "entries")
 
-        try Self.expectAtTheBottom(frames, key: .row(newest.persistentModelID), size: size)
+        try Self.expectAtTheBottom(frames, key: .row(newest.id), size: size)
     }
 
     @Test("質問の回答カードがいちばん下なら、カードが下の端に見える", arguments: sizes)
@@ -99,23 +103,25 @@ struct HomeTimelineLayoutTests {
 
     /// 開いた後に送った記録も、開いたときと同じく下の余白（16pt）を残した下の端に出る。行の id まで送ると、行の下の端が
     /// 見える範囲の下の端にそろい、余白が見える範囲の外に隠れた（中身が画面より高いときだけ。`HomeView` の `TimelineScrollView`）。
-    /// 送った後は「取り消す」のバナーで見える範囲が縮むので、その形のまま確かめる。
-    @Test("開いた後に記録を送ると、送った記録が下の余白を残して下の端に見える", arguments: sendSizes)
+    /// 送った後は、送った文の吹き出しと「取り消す」つきの返事のカードが足され、前の返事のカードは「取り消す」の無い形のまま
+    /// （見出しの高さは変えない）なので、その形のまま確かめる。
+    @Test("開いた後に記録を送ると、送った記録の返事のカードが下の余白を残して下の端に見える", arguments: sendSizes)
     func sentEntryIsAtTheBottom(size: UIContentSizeCategory) async throws {
         let fixture = try TimelineFixture()
         try fixture.insertDemoLedger()
         fixture.markWeeklyRecapShown()
-        let before = try #require(try fixture.newestEntry()).persistentModelID
+        let before = try #require(try fixture.latestSend()).id
 
         let frames = try await fixture.host(size: size, name: "sent") { opened in
             try Self.expectTallerThanViewport(opened, size: size)
             return try await fixture.send("コンビニ 650")
         }
 
-        let sent = try #require(try fixture.newestEntry())
-        #expect(sent.persistentModelID != before)
-        #expect(fixture.model.canUndo, "送った後に「取り消す」のバナーが出ていません（\(size.rawValue)）")
-        try Self.expectAtTheBottom(frames, key: .row(sent.persistentModelID), size: size)
+        let sent = try #require(try fixture.latestSend())
+        #expect(sent.id != before)
+        #expect(sent.entries.map(\.originalText) == ["コンビニ 650"])
+        #expect(fixture.model.canUndo, "送った後に返事の「取り消す」が出ていません（\(size.rawValue)）")
+        try Self.expectAtTheBottom(frames, key: .row(sent.id), size: size)
     }
 
     /// 開いた後に送った質問の回答カードも、下の余白を残した下の端に出る（送ったときと、答えが出てカードが伸びたときに送る）。
@@ -142,7 +148,7 @@ struct HomeTimelineLayoutTests {
     }
 
     /// 開いたまま週が替わってふりかえりのカードが出たときも、下の余白を残して下の端に出る。同じときに見える範囲の高さが変わっても
-    /// （ここでは入力欄の上に声の入力の知らせを出す。送った記録と一緒に出る「取り消す」のバナーと同じく、見える範囲が縮む）。
+    /// （ここでは入力欄の上に声の入力の知らせを出す。見える範囲が縮む）。
     /// 動きを付けて送っていたときは、変わった分が下端に合わせ直されず、AX1 と AX5 ではカードが見える範囲の下に 400pt 以上隠れた。
     @Test("開いたままふりかえりのカードが出ると、見える範囲が同時に縮んでも、カードが下の余白を残して下の端に見える", arguments: sendSizes)
     func weeklyRecapShownWhileOpenIsAtTheBottom(size: UIContentSizeCategory) async throws {
@@ -164,6 +170,37 @@ struct HomeTimelineLayoutTests {
         // 前提: 知らせが出たまま（画面が 5 秒で引っ込める）。
         #expect(fixture.model.voice.notice == .nothingHeard)
         try Self.expectAtTheBottom(frames, key: .row(recap.id), size: size)
+    }
+
+    /// 家計に記録した直後の「記録しました 取り消す」の行は、自分が記録した吹き出しのすぐ下に出る。「取り消す」は次の文を送るまで
+    /// 出したままなので、その間に家族の記録が同期で届くことがある。いちばん下の吹き出しの下に出すと、ほかの人の記録の下に並び、
+    /// その記録を取り消すように見える（押すと消えるのは自分の記録）。
+    @Test("家計に記録した後に家族の記録が届いても、「取り消す」の行は自分が記録した吹き出しのすぐ下に出る", arguments: sendSizes)
+    func householdUndoRowStaysUnderOwnRecord(size: UIContentSizeCategory) async throws {
+        let fixture = try TimelineFixture(household: true)
+        fixture.markWeeklyRecapShown()
+        _ = try fixture.insertHouseholdLedger()
+        fixture.model.ledgerScope = .household
+        fixture.model.draft = "コンビニ 650"
+        await fixture.model.send(calendar: TestSupport.calendar)?.value
+        let own = try #require(fixture.model.justRecordedHousehold.first)
+        #expect(fixture.model.canUndo)
+        // 家族の記録が 1 分後に届く（同期で取り込んだ代わりに、家計の保存先へ入れる）。
+        let later = try #require(try fixture.insertHouseholdEntry(
+            memo: "コーヒー", amount: 400, recorderName: "たろう", createdAt: fixture.now.addingTimeInterval(60)
+        ))
+
+        let frames = try await fixture.host(size: size, name: "household-undo")
+
+        let ownRow = try #require(frames[.row(own.id)].flatMap { $0.isNull ? nil : $0 }, "自分の記録が描かれていません（\(size.rawValue)）")
+        let laterRow = try #require(frames[.row(later)].flatMap { $0.isNull ? nil : $0 }, "家族の記録が描かれていません（\(size.rawValue)）")
+        let undoRow = try #require(
+            frames[.householdUndo].flatMap { $0.isNull ? nil : $0 }, "「取り消す」の行が描かれていません（\(size.rawValue)）"
+        )
+        #expect(ownRow.maxY <= undoRow.minY, "「取り消す」の行が自分の記録の下にありません（\(size.rawValue)）")
+        #expect(undoRow.maxY <= laterRow.minY, "「取り消す」の行が家族の記録の下にあります（\(size.rawValue)）")
+        // いちばん下は、後から届いた家族の記録（下の余白を残して下の端に見える）。
+        try Self.expectAtTheBottom(frames, key: .row(later), size: size)
     }
 
     /// 前提: 中身が画面より高い（見える範囲より上に行がある）。行の id まで送ったときに下の余白が隠れたのは、この形のときだけ。
@@ -237,9 +274,10 @@ private final class TimelineFixture {
         defaults.set(now, for: AppSettings.weeklyRecapShownAt)
     }
 
-    /// いちばん新しく記録したもの（タイムラインのいちばん下）。
-    func newestEntry() throws -> Entry? {
-        try context.fetch(Entry.timelineDescriptor(limit: 1)).first
+    /// いちばん新しい送信（タイムラインのいちばん下の返事のカード）。画面と同じく、読み込む件数の記録を送信にまとめて決める。
+    func latestSend() throws -> EntrySend? {
+        let entries = try context.fetch(Entry.timelineDescriptor(limit: HomeModel.timelinePageSize))
+        return EntrySend.sends(from: Array(entries.reversed())).last
     }
 
     /// 家計を端末に置き、撮影用のデモの記録と同じ品目の家計の記録（家族 2 人が交互に記録したもの）を入れる。いちばん新しく
@@ -262,13 +300,25 @@ private final class TimelineFixture {
         return newest?.id
     }
 
-    /// 入力欄から記録を送り（送信のボタンと同じ `HomeModel.send`）、保存し終えるまで待つ。送った記録の行を返す。
+    /// 家族の記録を 1 件、家計の保存先に入れる（同期で取り込んだ代わり）。入れた記録の id を返す。
+    func insertHouseholdEntry(memo: String, amount: Int, recorderName: String, createdAt: Date) throws -> UUID? {
+        guard let household else { return nil }
+        let entry = TestSupport.householdEntry(
+            amount: amount, memo: memo, category: .cafe, recorderName: recorderName,
+            spentAt: createdAt, createdAt: createdAt, modifiedAt: createdAt
+        )
+        household.context.insert(entry)
+        try household.context.save()
+        return entry.id
+    }
+
+    /// 入力欄から記録を送り（送信のボタンと同じ `HomeModel.send`）、保存し終えるまで待つ。送った記録の返事のカードの行を返す。
     func send(_ text: String) async throws -> TimelineFrameKey {
         model.draft = text
         await model.send(calendar: TestSupport.calendar)?.value
-        let entry = try #require(try newestEntry())
-        #expect(entry.originalText == text, "送った文が記録されていません")
-        return .row(entry.persistentModelID)
+        let send = try #require(try latestSend())
+        #expect(send.originalText == text, "送った文が記録されていません")
+        return .row(send.id)
     }
 
     /// ホームを文字の大きさ `size` でウィンドウに置き、行の位置が落ち着くまで待って、描かれた位置を返す（落ち着かなければ投げる）。

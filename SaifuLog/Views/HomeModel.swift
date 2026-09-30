@@ -45,18 +45,11 @@ final class HomeModel {
     private(set) var draftSource: EntrySource = .text
     /// 送った文を読み取っている間（送信ボタンを押せなくし、読み取り中の印を出す）。
     private(set) var isParsing = false
-    /// 直前に記録したもの。記録の直後に「取り消す」を出すため。
-    private(set) var justRecorded: [Entry] = [] {
-        didSet { closeRecordedItemChoiceIfNeeded() }
-    }
+    /// 直前の送信で記録したもの。その送信の返事に「取り消す」を出すため（時間では引っ込めない。次の文を送る・取り消す・
+    /// その記録を直す・記録先を切り替えるまで残し、消した記録は外す）。
+    private(set) var justRecorded: [Entry] = []
     /// 直前に家計へ記録したもの（「家族」のとき）。記録の直後に「取り消す」を出すため。
-    private(set) var justRecordedHousehold: [HouseholdEntry] = [] {
-        didSet { closeRecordedItemChoiceIfNeeded() }
-    }
-    /// バナーの「直す」で、どれを直すかを選ぶ確認を出しているか（1 回の送信で複数件を記録したとき。`requestRecordedEdit`）。
-    ///
-    /// 出している間は「取り消す」を時間で引っ込めない（`autoHidesUndo`）。
-    var showsRecordedItemChoice = false
+    private(set) var justRecordedHousehold: [HouseholdEntry] = []
     /// 記録先（「自分」か「家族」か）。家計に入っているときだけ「家族」を選べる（`showsLedgerSwitch`）。
     ///
     /// 切り替えたら「取り消す」を引っ込める（切り替えた後に、前の記録先の記録を取り消すと、どちらの記録が消えたか分からないため）。
@@ -102,7 +95,7 @@ final class HomeModel {
     private(set) var timelineLimit = HomeModel.timelinePageSize
     /// 「前の記録を表示」でさらに読み込めるか（読み込む件数が上限に届いていなければ）。
     var canShowMoreTimeline: Bool { timelineLimit < Self.timelineMaxLimit }
-    /// この起動の間に送った質問とその返事。タイムラインに記録の吹き出しと同じ流れ（送った順）で出す。
+    /// この起動の間に送った質問とその返事。タイムラインに記録の送信（送った文と返事）と同じ流れ（送った順）で出す。
     ///
     /// 質問は記録ではないので保存しない（アプリを開き直すと消える。docs/design.md §9 の質問の決め事）。
     private(set) var questions: [QuestionExchange] = []
@@ -216,15 +209,14 @@ final class HomeModel {
     var isPresentingOtherScreen: Bool {
         budgetSetup != nil || editing != nil || monthlyReport != nil || settings != nil || premiumSheet != nil
             || weeklyRecapDetail != nil || receiptResult != nil || receiptCapture != nil || showsReceiptSourceChoice
-            || showsRecordedItemChoice
     }
 
-    /// 直前の記録を取り消せるか（「取り消す」のバナーと入力欄の VoiceOver の操作を出すか）。いまの記録先の記録だけを数える。
+    /// 直前の記録を取り消せるか（返事の「取り消す」と入力欄の VoiceOver の操作を出すか）。いまの記録先の記録だけを数える。
     var canUndo: Bool {
         isHouseholdActive ? !justRecordedHousehold.isEmpty : !justRecorded.isEmpty
     }
 
-    /// 「取り消す」のバナーと入力欄の VoiceOver の「直す」の対象（いまの記録先の、直前に記録したもの）。
+    /// 入力欄の VoiceOver の「直す: …」の対象（いまの記録先の、直前に記録したもの）。
     var recordedItems: [RecordedItem] {
         if isHouseholdActive {
             justRecordedHousehold.map { RecordedItem(id: AnyHashable($0.id), summaryText: $0.summaryText) }
@@ -251,18 +243,6 @@ final class HomeModel {
         if !showsLedgerSwitch { ledgerScope = .personal }
     }
 
-    /// 「取り消す」のバナーを時間で引っ込めてよいか（画面の 8 秒のタイマーを動かすか）。
-    ///
-    /// 「直す」のシートを出している間は数えない。シートの下でもホームは表示されたままなので、数え続けると、
-    /// 直すのに 8 秒以上かけてやめたときには「取り消す」が消えていて、直すのをやめても取り消せる、という約束を破るため。
-    /// 保存の失敗のアラート（「取り消せませんでした」など）を出している間も数えない。アラートを読んでいる間に
-    /// バナーが消えると、「もう一度お試しください」に従えないため。どれを直すかの確認（`showsRecordedItemChoice`）を
-    /// 出している間も数えない。選んでいる間に時間切れでバナーごと確認が閉じ、直そうとしたものを選べなくなるため。
-    /// いずれも閉じたら数え直す（閉じた直後にも押せるように）。
-    var autoHidesUndo: Bool {
-        canUndo && editing == nil && storeFailure == nil && !showsRecordedItemChoice
-    }
-
     // MARK: - 送信
 
     /// 入力欄の文を送る。記録なら読み取って保存し、質問なら答える（保存しない）。読み取りや答えを待つための Task を返す
@@ -282,7 +262,7 @@ final class HomeModel {
         // 送った時点で入力欄を空ける。解析（AI だと 1 秒以上かかることがある）を待ってから空けると、
         // 入力欄にとどまって打ち始めた次の入力まで、黙って消してしまうため。
         draft = ""
-        // 前の記録の「取り消す」（バナーと VoiceOver の操作）を引っ込める。読み取りの間も出したままだと、押したときに
+        // 前の記録の「取り消す」（返事の見出しと VoiceOver の操作）を引っ込める。読み取りの間も出したままだと、押したときに
         // 前の記録が消え、前の文が入力欄に戻る。それを送り直したり、いま送った文の記録だけが残ったりして、
         // 取り消したつもりのものと違う記録が残るため。質問を送ったときも同じにする（送るたびに引っ込める、と揃える）。
         justRecorded = []
@@ -498,7 +478,7 @@ final class HomeModel {
 
     /// 何円をどのカテゴリに記録したかを VoiceOver に読み上げさせる。
     ///
-    /// 「記録しました / 取り消す」のバナーは、画面に出ても VoiceOver では読まれない。読み上げないと、
+    /// タイムラインに返事のカード（「記録しました」）が出ても、VoiceOver では読まれない（フォーカスは入力欄に戻る）。読み上げないと、
     /// VoiceOver の利用者は記録できたかも、AI がどう読んだかも分からず、読み違いにその場で気づけない。
     /// 今日でない日付に記録したときは日付も読む（「昨日」の読み違いや、未来の日付に気づけるように）。
     /// 今日かどうかは、記録の日付を決めたのと同じ送った瞬間（`today`）で見る。
@@ -631,7 +611,7 @@ final class HomeModel {
         }
     }
 
-    /// ⑤ から記録する。記録したら ⑤ を閉じ、記録の吹き出しと「取り消す」を出し、無料の 1 回を数える。
+    /// ⑤ から記録する。記録したら ⑤ を閉じ、タイムラインにレシートの送信と返事（「取り消す」つき）を出し、無料の 1 回を数える。
     ///
     /// 数えるのは記録したときだけ（読み取っただけ・読めなかった・閉じたは数えない）。記録の直後に「取り消す」を押したら戻す。
     /// 記録しようとした時点で使い切っていれば（読み取りの間に月が替わった・時計を動かしたなど）、記録せずにプレミアムの案内を出す。
@@ -703,7 +683,7 @@ final class HomeModel {
         do {
             try store.delete(targets)
         } catch {
-            // バナーは残し、もう一度押せるようにする。
+            // 「取り消す」は残し、もう一度押せるようにする。
             storeFailure = .undo
             return
         }
@@ -732,12 +712,6 @@ final class HomeModel {
         if let text = householdRecordedText { restoreDraft(text) }
         householdRecordedText = nil
         announce(String(localized: "取り消しました: \(items.formatted(.list(type: .and)))"))
-    }
-
-    /// 「取り消す」のバナーを引っ込める（時間切れ・「閉じる」の操作）。記録はそのまま残る。
-    func dismissUndo() {
-        justRecorded = []
-        justRecordedHousehold = []
     }
 
     // MARK: - 削除
@@ -799,21 +773,8 @@ final class HomeModel {
         editing = EditEntryModel(target: target, calendar: calendar, now: now, announce: announce)
     }
 
-    /// 「取り消す」のバナーの「直す」。1 件ならそのまま「直す」のシートを出し、複数件ならどれを直すかの確認を出す
-    /// （確認で選んだものは `presentEdit(_:calendar:)` で開く）。
-    func requestRecordedEdit(calendar: Calendar) {
-        let items = recordedItems
-        if items.count == 1, let item = items.first {
-            presentEdit(item, calendar: calendar)
-        } else if items.count > 1 {
-            showsRecordedItemChoice = true
-        }
-    }
-
-    /// 「取り消す」のバナー（どれを直すかの確認）と入力欄の VoiceOver の「直す」から、直前に記録したものを直す。
+    /// 入力欄の VoiceOver の「直す: …」から、直前に記録したものを直す。
     func presentEdit(_ item: RecordedItem, calendar: Calendar) {
-        // 確認で選んだら、確認は閉じたことにする（画面の確認も閉じるときに false に戻すが、モデルの状態を画面の閉じ方に頼らない）。
-        showsRecordedItemChoice = false
         if isHouseholdActive {
             guard let entry = justRecordedHousehold.first(where: { AnyHashable($0.id) == item.id }) else { return }
             presentHouseholdEdit(entry, calendar: calendar)
@@ -825,7 +786,7 @@ final class HomeModel {
 
     // MARK: - 直す
 
-    /// 「直す」のシートを出す（吹き出しのタップ・長押しのメニュー・「取り消す」のバナー・VoiceOver の操作から）。
+    /// 「直す」のシートを出す（返事の行のタップ・長押しのメニュー・VoiceOver の操作から）。
     ///
     /// 直した内容の保存は同期的に書き込む（送信のように、あとで書き込む処理ではない）ので、`pendingWrites` には数えない。
     /// - Parameter calendar: 日付の区切りの基準（画面の暦）。今日より先かの判定と、日付を直したかの判定に使う。
@@ -839,13 +800,6 @@ final class HomeModel {
             didSave: { [weak self] entry in self?.finishEditing(entry) },
             didDelete: { [weak self] id in self?.justRecorded.removeAll { $0.persistentModelID == id } }
         )
-    }
-
-    /// 選ぶ対象が 2 件を切ったら（取り消した・引っ込めた・次の文を送った・記録先を切り替えた・消した）、どれを直すかの確認も
-    /// 閉じたことにする。バナーごと確認が消えた後も出したままの扱いで残ると、タイマーが止まったままになり、次に記録した
-    /// ときに、押していない確認がひとりでに出るため。
-    private func closeRecordedItemChoiceIfNeeded() {
-        if showsRecordedItemChoice, recordedItems.count < 2 { showsRecordedItemChoice = false }
     }
 
     /// 直前に記録したものを直したら、「取り消す」を引っ込める。
@@ -1039,4 +993,14 @@ final class HomeModel {
         case undo
         case delete
     }
+}
+
+/// 記録の直後の「直す」の対象の 1 件（自分の記録か家計の記録か）。
+///
+/// 入力欄の VoiceOver の操作（「直す: ランチ ¥850」）は、どちらの保存先の記録かを知らなくてよいので、見出しと ID だけを持つ。
+/// どの記録を直すかは、ID から `HomeModel` が決める。
+struct RecordedItem: Identifiable {
+    let id: AnyHashable
+    /// 「ランチ ¥850」
+    let summaryText: String
 }

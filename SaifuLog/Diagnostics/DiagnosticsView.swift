@@ -24,8 +24,8 @@ struct DiagnosticsView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        // 文字は OS に任せる（閉じるの印と、OS の言語での読み上げ）。既存の「閉じる」のキーは取り消すのバナーの
-                        // VoiceOver の操作用（en は Dismiss）で、シートを閉じるボタンの文言とは合わないため。
+                        // 文字は OS に任せる（閉じるの印と、OS の言語での読み上げ）。社内向けの画面なので、閉じるボタンのためだけに
+                        // 訳のキーを足さない。
                         Button(role: .close) { dismiss() }
                     }
                     ToolbarItem(placement: .primaryAction) {
