@@ -117,10 +117,7 @@ struct RecordedReplyLayoutTests {
     }
 
     private static func render(_ view: some View, width: CGFloat, dynamicTypeSize: DynamicTypeSize = .large) -> RGBAImage? {
-        let renderer = ImageRenderer(content: fixedEnvironment(view, dynamicTypeSize: dynamicTypeSize))
-        renderer.proposedSize = ProposedViewSize(width: width, height: nil)
-        renderer.scale = 1
-        return renderer.cgImage.flatMap(RGBAImage.init)
+        RGBAImage.render(fixedEnvironment(view, dynamicTypeSize: dynamicTypeSize), width: width)
     }
 
     private static func fixedEnvironment(_ view: some View, dynamicTypeSize: DynamicTypeSize) -> some View {
