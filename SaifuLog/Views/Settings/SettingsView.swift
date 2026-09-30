@@ -14,14 +14,20 @@ struct SettingsView: View {
 
     /// 画面の暦（週の始まりを当てはめたもの）。書き出す期間を、ホームの今月と同じ月で区切るのに使う。
     @Environment(\.calendar) private var calendar
+    /// アプリのロック（アプリで 1 つ。`SaifuLogApp` が渡す）。無ければ（プレビュー）ロックの節を出さない。
+    @Environment(AppLock.self) private var appLock: AppLock?
 
     var body: some View {
         List {
             premiumSection
             budgetSection
+            learningSection
             calendarSection
             if model.showsICloudSync {
                 iCloudSection
+            }
+            if let appLock {
+                lockSection(appLock)
             }
             // 家族と共有（家計の共有が有効なビルドで、家計の保存先を開けたときだけ）。
             if let household = model.household {
@@ -112,8 +118,11 @@ struct SettingsView: View {
         }
         // 同期がオンのとき、iCloud をいまも使えるかを確かめる（使えなければ節の中に案内を出す）。
         .task { await model.refreshICloudAccountStatus() }
-        // iCloud で届いたほかの端末の変更（予算を変えたなど）で、月の予算の行を読み直す。
-        .onReceive(StoreChanges.remote) { _ in model.reloadBudget() }
+        // iCloud で届いたほかの端末の変更（予算を変えた・カテゴリを覚えたなど）で、月の予算と覚えたカテゴリの行を読み直す。
+        .onReceive(StoreChanges.remote) { _ in
+            model.reloadBudget()
+            model.learnedCategories.reload()
+        }
         // 家計の共有の知らせ（共有をやめた・抜けた・消えたなど）。設定の画面を出している間は、ホームの下からはアラートを
         // 出せないので、ここで出す（節のシートや確認を出している間は、閉じてから出す）。
         .alert(
@@ -227,6 +236,38 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - 覚えたカテゴリ
+
+    /// 修正の記憶（覚えたカテゴリ）の一覧へ進む行。覚えた言葉の数を出す。
+    private var learningSection: some View {
+        Section {
+            NavigationLink {
+                LearnedCategoriesView(model: model.learnedCategories)
+                    .onAppear { model.learnedCategories.reload() }
+            } label: {
+                LabeledContent {
+                    // 記録の件数の「件」とは別のキーにする（英語では記録ではなく言葉の数として訳すため）。
+                    Text(LocalizedStringResource(
+                        "%lld 件（覚えたカテゴリ）", defaultValue: "\(model.learnedCategories.rules.count) 件",
+                        comment: "設定の「覚えたカテゴリ」の行の右に出す、覚えた言葉の数。%lld は数"
+                    ))
+                        .foregroundStyle(Theme.inkSecondary)
+                        .monospacedDigit()
+                } label: {
+                    Text("覚えたカテゴリ")
+                        .foregroundStyle(Theme.ink)
+                }
+                .frame(minHeight: 44)
+            }
+            .accessibilityHint("覚えた言葉とカテゴリの一覧を開きます")
+            .listRowBackground(Theme.surface)
+        } header: {
+            sectionHeader("記録の読み取り")
+        } footer: {
+            sectionFooter("記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。")
+        }
+    }
+
     // MARK: - 週の始まり
 
     private var calendarSection: some View {
@@ -326,6 +367,52 @@ struct SettingsView: View {
         Binding(get: { model.iCloudAccountAlert != nil }, set: { if !$0 { model.iCloudAccountAlert = nil } })
     }
 
+    // MARK: - ロック
+
+    /// 「Face ID でロック」（Face ID の無い端末では Touch ID・パスコード）。オンにするときは、その場で 1 回認証してから切り替える。
+    private func lockSection(_ lock: AppLock) -> some View {
+        Section {
+            Toggle(isOn: Binding(get: { lock.isEnabled }, set: { enabled in Task { await lock.setEnabled(enabled) } })) {
+                lockTitle(lock.method)
+                    .foregroundStyle(Theme.ink)
+            }
+            .frame(minHeight: 44)
+            .accessibilityHint("アプリを開くときに、ロックの解除を求めます")
+            .listRowBackground(Theme.surface)
+        } header: {
+            sectionHeader("セキュリティ")
+        } footer: {
+            sectionFooter("オンにすると、アプリを開くときにロックの解除を求めます。アプリの切り替えの画面でも記録を隠します。")
+        }
+        .alert(
+            lockFailureTitle(lock.enableFailure),
+            isPresented: Binding(get: { lock.enableFailure != nil }, set: { if !$0 { lock.enableFailure = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            switch lock.enableFailure {
+            case .passcodeNotSet: Text("iPhone の設定でパスコードを設定すると、使えるようになります。")
+            case .notAuthenticated, nil: Text("ロックはオフのままです。もう一度お試しください。")
+            }
+        }
+    }
+
+    private func lockTitle(_ method: AppLockMethod) -> Text {
+        switch method {
+        case .faceID: Text("Face ID でロック")
+        case .touchID: Text("Touch ID でロック")
+        case .opticID: Text("Optic ID でロック")
+        case .passcode, .unavailable: Text("パスコードでロック")
+        }
+    }
+
+    private func lockFailureTitle(_ failure: AppLock.EnableFailure?) -> Text {
+        switch failure {
+        case .passcodeNotSet: Text("パスコードが設定されていません")
+        case .notAuthenticated, nil: Text("ロックをオンにできませんでした")
+        }
+    }
+
     // MARK: - 書き出し
 
     private var exportSection: some View {
@@ -403,6 +490,7 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         Section {
+            externalLink("ヘルプ・お問い合わせ", destination: SettingsModel.supportURL)
             externalLink("プライバシーポリシー", destination: SettingsModel.privacyPolicyURL)
             externalLink("ライセンス", destination: SettingsModel.licenseURL)
             LabeledContent {

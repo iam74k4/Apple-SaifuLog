@@ -20,6 +20,7 @@ struct AppSettingsTests {
         #expect(AppSettings.quota(for: .receiptScan).key == "quota.receiptScan")
         #expect(AppSettings.quota(for: .question).key == "quota.question")
         #expect(AppSettings.weeklyRecapShownAt.key == "weeklyRecap.shownAt")
+        #expect(AppSettings.appLockEnabled.key == "appLock.enabled")
     }
 
     /// 初回の案内はまだ終えていない、iCloud 同期はオフ（利用者が選んだときだけ同期する）、週の始まりは端末の設定に
@@ -32,6 +33,8 @@ struct AppSettingsTests {
         #expect(AppSettings.receiptScanQuota.defaultValue == UsageQuota())
         #expect(AppSettings.questionQuota.defaultValue == UsageQuota())
         #expect(AppSettings.weeklyRecapShownAt.defaultValue == nil)
+        // アプリのロックは、利用者がオンにしたときだけ。
+        #expect(AppSettings.appLockEnabled.defaultValue == false)
     }
 
     /// 日時の設定（先週のふりかえりを出した日時）は、書いた日時で読み、nil で消し、日時でない値は既定値（nil）で読む。

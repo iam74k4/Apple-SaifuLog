@@ -43,6 +43,9 @@ enum AppSettings {
     /// 出した週の始まりではなく、出した瞬間を持つ。週の始まりの設定や時間帯を変えたときに、変えた後の暦で「今週もう出したか」を
     /// 決め直せるようにするため（週の始まりの日時で持つと、設定を変えただけで同じ週にもう一度出る）。家計の中身は含まない。
     static let weeklyRecapShownAt = AppSetting<Date?>(key: "weeklyRecap.shownAt", defaultValue: nil)
+    /// アプリのロック（設定の「Face ID でロック」）がオンか。既定はオフ。オンのときは、起動したときと裏から戻ったときに
+    /// Face ID（使えなければパスコード）を求める（`AppLock`）。家計の中身は含まない。
+    static let appLockEnabled = AppSetting(key: "appLock.enabled", defaultValue: false)
 
     /// 機能ごとの、無料で使った回数の設定。
     static func quota(for feature: QuotaFeature) -> AppSetting<UsageQuota> {
@@ -56,7 +59,7 @@ enum AppSettings {
     static var allKeys: [String] {
         [
             hasCompletedOnboarding.key, iCloudSyncEnabled.key, weekStart.key, hasShownTrialEndedPremium.key,
-            receiptScanQuota.key, questionQuota.key, weeklyRecapShownAt.key,
+            receiptScanQuota.key, questionQuota.key, weeklyRecapShownAt.key, appLockEnabled.key,
         ]
     }
 }
