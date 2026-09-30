@@ -1158,6 +1158,28 @@
         }
       }
     },
+    "どれを直しますか？" : {
+      "comment" : "1 回の送信で複数件を記録したとき、記録の直後のバナーの「直す」で出す確認の見出し。下に記録したもの（「ランチ ¥850」）を並べ、直すものを選ばせる",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Which record do you want to edit?"
+          }
+        }
+      }
+    },
+    "どれを直すかを選びます" : {
+      "comment" : "1 回の送信で複数件を記録したときの、記録の直後のバナーの「直す」の VoiceOver のヒント（押すと、どれを直すかの確認を出す）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose which record to edit."
+          }
+        }
+      }
+    },
     "なし" : {
       "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表で、その機能が無いこと",
       "localizations" : {
@@ -5315,7 +5337,7 @@
       }
     },
     "記録を直す画面を開きます" : {
-      "comment" : "記録の吹き出しの VoiceOver のヒント（ダブルタップで直すシートを開く）",
+      "comment" : "記録の吹き出しと、記録の直後のバナーの「直す」（1 件のとき）の VoiceOver のヒント（ダブルタップで直すシートを開く）",
       "localizations" : {
         "en" : {
           "stringUnit" : {

@@ -2,12 +2,16 @@ import SwiftUI
 
 /// 記録の直後に出す「直す」「取り消す」。AI が読み違えても、その場で直すか戻せるようにするため。
 ///
-/// いつ引っ込めるかは HomeView と HomeModel が決める（支援技術を使っているとき、「直す」のシートや保存の失敗のアラートを
-/// 出している間は、時間では引っ込めない。次の文を送ったら、読み取りを待たずにすぐ引っ込める）。
+/// いつ引っ込めるかは HomeView と HomeModel が決める（支援技術を使っているとき、「直す」のシート・どれを直すかの確認・
+/// 保存の失敗のアラートを出している間は、時間では引っ込めない。次の文を送ったら、読み取りを待たずにすぐ引っ込める）。
 struct UndoBanner: View {
     /// 直前に記録したもの（「直す」の対象）。1 回の送信で複数件を記録したときは、どれを直すかを選ばせる。
     let recorded: [RecordedItem]
-    /// 「直す」のシートを出す。
+    /// どれを直すかの確認を出しているか（複数件のとき。`HomeModel.showsRecordedItemChoice`）。
+    @Binding var showsItemChoice: Bool
+    /// 「直す」を押した。1 件ならそのままシートを出し、複数件ならどれを直すかの確認を出す（`HomeModel.requestRecordedEdit`）。
+    let requestEdit: () -> Void
+    /// 確認で選んだものの「直す」のシートを出す。
     let edit: (RecordedItem) -> Void
     let undo: () -> Void
     /// バナーを閉じる。VoiceOver などの操作の一覧から使う（自動で引っ込めないときの閉じ方）。
@@ -21,6 +25,17 @@ struct UndoBanner: View {
             .padding(.horizontal, 16)
             // 高さ 44pt なら丸い端のカプセルになり、文字が大きく縦に積んだときは角丸の四角になる。
             .background(Theme.surface, in: .rect(cornerRadius: 22))
+            // 確認は「直す」ではなくバナーに付ける。アクセシビリティサイズの文字では、ボタンを ViewThatFits の並べ方ごとに
+            // 作るので、ボタンに付けると同じ確認がいくつもできるため。iOS 26 では付けたものを指す吹き出しの形で、バナーの上に出る
+            // （「直す」には重ならない）。
+            .confirmationDialog("どれを直しますか？", isPresented: $showsItemChoice, titleVisibility: .visible) {
+                ForEach(recorded) { item in
+                    Button { edit(item) } label: {
+                        Text(verbatim: item.summaryText)
+                    }
+                }
+                Button("キャンセル", role: .cancel) {}
+            }
     }
 
     /// アクセシビリティサイズの文字では、横に並べると「記録しました」もボタンも語の途中で折り返されるので、
@@ -71,27 +86,19 @@ struct UndoBanner: View {
         undoButton
     }
 
-    /// 1 件なら押すとそのまま開き、複数件ならどれを直すかのメニューを出す。
+    /// 1 件なら押すとそのまま開き、複数件ならどれを直すかの確認（`confirmationDialog`）を出す。
     ///
-    /// メニューを開いているかは SwiftUI から知る手段が無いので、開いている間も 8 秒のタイマーは数え続け、時間切れで
-    /// バナーごとメニューが閉じることがある（docs/design.md §15 の 5 で実機で確かめる）。
+    /// 選ぶところをメニュー（`Menu`）にしないのは、メニューが指を置いた時点で開き、画面の下のバナーからは「直す」の上に
+    /// 重なって開くため。指を離したところの項目が選ばれ、選ばせないまま 1 件のシートが開くことがあった。確認は指を離して
+    /// から出るので、押しただけで項目が選ばれることはない。確認を出している間は、バナーを時間で引っ込めない
+    /// （`HomeModel.autoHidesUndo`。メニューは開いていることを知れず、時間切れでバナーごと閉じることがあった）。
     @ViewBuilder
     private var editButton: some View {
-        if recorded.count == 1, let entry = recorded.first {
-            Button { edit(entry) } label: {
+        if !recorded.isEmpty {
+            Button(action: requestEdit) {
                 buttonLabel("直す")
             }
-            .accessibilityAction(named: "閉じる", dismiss)
-        } else if !recorded.isEmpty {
-            Menu {
-                ForEach(recorded) { item in
-                    Button { edit(item) } label: {
-                        Text(verbatim: item.summaryText)
-                    }
-                }
-            } label: {
-                buttonLabel("直す")
-            }
+            .accessibilityHint(recorded.count > 1 ? Text("どれを直すかを選びます") : Text("記録を直す画面を開きます"))
             .accessibilityAction(named: "閉じる", dismiss)
         }
     }
@@ -126,6 +133,13 @@ struct RecordedItem: Identifiable {
 }
 
 #Preview {
-    UndoBanner(recorded: [], edit: { _ in }, undo: {}, dismiss: {})
+    UndoBanner(
+        recorded: [RecordedItem(id: 1, summaryText: "ランチ ¥850"), RecordedItem(id: 2, summaryText: "コーヒー ¥400")],
+        showsItemChoice: .constant(false),
+        requestEdit: {},
+        edit: { _ in },
+        undo: {},
+        dismiss: {}
+    )
         .padding()
 }
