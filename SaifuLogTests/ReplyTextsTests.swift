@@ -55,6 +55,73 @@ struct ReplyTextsTests {
         #expect(try Self.english("1人分として記録しました。") == "Recorded as one person’s share.")
     }
 
+    // MARK: - 直前の送信の返事の、今月の状況の一行
+
+    /// 2026-09-28 の今月（9/28・9/29・9/30 の 3 日が残る）の予算の進み。
+    static func budget(_ amount: Int, spent: Int) throws -> BudgetStatus {
+        let month = try #require(ReportPeriod.thisMonth.interval(now: TestSupport.now, calendar: TestSupport.calendar))
+        return try #require(BudgetStatus(budget: amount, spent: spent, now: TestSupport.now, month: month, calendar: TestSupport.calendar))
+    }
+
+    @Test("予算を決めていれば、帯と同じ残りと 1 日あたりの額で「今月あと ¥…（1日あたり ¥…）」")
+    func statusWithBudget() throws {
+        let sentence = ReplyTexts.status(
+            summary: MonthlySummary(expense: 82_656), budget: try Self.budget(150_000, spent: 82_656), isIncomeOnly: false
+        )
+
+        #expect(sentence.text == "今月あと ¥67,344（1日あたり ¥22,448）")
+        #expect(sentence.figures == ["¥67,344", "¥22,448"])
+        #expect(!sentence.isWarning)
+        #expect(try Self.english("今月あと %@（1日あたり %@）", "¥67,344", "¥22,448") == "¥67,344 left this month (¥22,448 a day)")
+    }
+
+    @Test("予算を超えていれば「今月の予算を ¥… 超えています」（額は注意の色）")
+    func statusOverBudget() throws {
+        let sentence = ReplyTexts.status(
+            summary: MonthlySummary(expense: 153_000), budget: try Self.budget(150_000, spent: 153_000), isIncomeOnly: false
+        )
+
+        #expect(sentence.text == "今月の予算を ¥3,000 超えています")
+        #expect(sentence.figures == ["¥3,000"])
+        #expect(sentence.isWarning)
+        #expect(try Self.english("今月の予算を %@ 超えています", "¥3,000") == "¥3,000 over this month’s budget")
+    }
+
+    @Test("予算を決めていなければ「今月の支出 ¥…」")
+    func statusWithoutBudget() throws {
+        let sentence = ReplyTexts.status(summary: MonthlySummary(expense: 42_380, income: 1_000), budget: nil, isIncomeOnly: false)
+
+        #expect(sentence.text == "今月の支出 ¥42,380")
+        #expect(sentence.figures == ["¥42,380"])
+        #expect(try Self.english("今月の支出 %@", "¥42,380") == "Spent this month: ¥42,380")
+    }
+
+    /// 予算の残りは収入で増えないので、給料を送った返事には、予算があっても今月の収入を出す。
+    @Test("収入だけの送信は、予算があっても「今月の収入 ¥…」")
+    func statusForIncomeOnlySend() throws {
+        let summary = MonthlySummary(expense: 82_656, income: 250_000)
+        let withBudget = ReplyTexts.status(summary: summary, budget: try Self.budget(150_000, spent: 82_656), isIncomeOnly: true)
+        let withoutBudget = ReplyTexts.status(summary: summary, budget: nil, isIncomeOnly: true)
+
+        #expect(withBudget.text == "今月の収入 ¥250,000")
+        #expect(withBudget == withoutBudget)
+        #expect(withBudget.figures == ["¥250,000"])
+        #expect(try Self.english("今月の収入 %@（返事）", "¥250,000") == "Income this month: ¥250,000")
+    }
+
+    /// 数字は太字にし、ほかの数字の一部（「¥14,209」の中の「¥4,209」）には当てない。注意の文は数字を注意の色にする。
+    @Test("文の中の数字だけを太字にする（ほかの数字の一部には当てない）")
+    func figuresAreEmphasized() {
+        let sentence = ReplySentence(text: "今月あと ¥14,209（1日あたり ¥4,209）", figures: ["¥4,209"])
+
+        let emphasized = sentence.attributed().runs
+            .filter { $0.inlinePresentationIntent == .stronglyEmphasized }
+            .map { String(sentence.attributed()[$0.range].characters) }
+        #expect(emphasized == ["¥4,209"])
+        let colored = sentence.attributed(figureColor: .red).runs.compactMap(\.foregroundColor)
+        #expect(colored == [.red])
+    }
+
     /// 返事の行は品目だけを見出しにして説明を文で添えるが、保存するメモと CSV の書き出しは変えない。
     @Test("割り勘を送っても、保存するメモと CSV の書き出しは説明を書き足したまま")
     func splitSendKeepsStoredMemo() async throws {

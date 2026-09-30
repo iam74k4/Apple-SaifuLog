@@ -107,10 +107,31 @@ struct RecordedReplyLayoutTests {
         #expect(heights[0] > heights[1])
     }
 
+    /// 直前の送信の返事（「取り消す」を出している間）には、最後に今月の状況の一行を足す。一行は今月の記録と予算を保存先から読む。
+    @Test("直前の送信の返事には、今月の状況の一行を足す（前の送信の返事には足さない）")
+    func latestReplyAddsStatusLine() throws {
+        let context = try TestSupport.makeContext()
+        let entry = TestSupport.entry(memo: "ランチ", spentAt: TestSupport.now, createdAt: TestSupport.now)
+        context.insert(entry)
+        try context.save()
+        let send = try #require(EntrySend.sends(from: [entry]).first)
+
+        let latest = Self.size(
+            of: Self.card(send, canUndo: true, showsStatus: true).modelContainer(context.container), width: 370
+        )
+        let earlier = Self.size(of: Self.card(send, canUndo: false).modelContainer(context.container), width: 370)
+
+        // 一行（標準の文字で 20pt ほど）と区切りの線と間の分だけ高い。
+        #expect(latest.height > earlier.height + 20)
+    }
+
     // MARK: - 部品
 
-    private static func card(_ send: EntrySend, canUndo: Bool) -> some View {
-        RecordedReplyCard(send: send, today: TestSupport.now, canUndo: canUndo, undo: {}, edit: { _ in }, requestDelete: { _ in })
+    private static func card(_ send: EntrySend, canUndo: Bool, showsStatus: Bool = false) -> some View {
+        RecordedReplyCard(
+            send: send, today: TestSupport.now, canUndo: canUndo, showsStatus: showsStatus, undo: {}, edit: { _ in },
+            requestDelete: { _ in }
+        )
     }
 
     /// 品目を赤、金額を青で描いた行（字の形は返事の行と同じ）。

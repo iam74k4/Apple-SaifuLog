@@ -623,8 +623,11 @@ private struct EntryTimeline: View {
                     case .sentText(let send):
                         SentTextBubble(send: send)
                     case .reply(let send):
+                        // 直前の送信の返事にだけ、「取り消す」と今月の状況の一行を出す（同じ間。`ReplyStatusLine`）。
+                        let isLatest = canUndo(send)
                         RecordedReplyCard(
-                            send: send, today: today, canUndo: canUndo(send), undo: undo, edit: edit, requestDelete: requestDelete
+                            send: send, today: today, canUndo: isLatest, showsStatus: isLatest, undo: undo, edit: edit,
+                            requestDelete: requestDelete
                         )
                         // 送信のいちばん下（返事のカード）の位置を知らせる。
                         .reportsTimelineFrame(.row(send.id))

@@ -115,18 +115,24 @@ struct SentTextBubble: View {
 /// 見出しに「記録しました」（2 件以上なら件数も）を出し、直前の送信なら右に「取り消す」を出す。「取り消す」は時間では
 /// 引っ込めない（次の文を送る・取り消す・その記録を直す・記録先を切り替える・開き直すまで。`HomeModel.canUndo`）。記録ごとに
 /// 1 行（`RecordedReplyRow`）を並べ、行を押すと ⑥ 直すを開く。割り勘などの説明の文は、その記録の行の下に添える（`RecordedReplyRow`）。
+/// 直前の送信の返事には、最後に今月の状況の一行（`ReplyStatusLine`）を添える（「取り消す」と同じ間だけ）。
 ///
 /// 記録ごとの縦の並びにしてあるので、あとで記録ごとの選択肢（カテゴリを選ぶボタンなど）を行の下に足せる。
 struct RecordedReplyCard: View {
     let send: EntrySend
-    /// 今日。日付に年を添えるかの基準にする。
+    /// 今日。日付に年を添えるかの基準と、今月の状況の一行の「今月」にする。
     let today: Date
     /// 「取り消す」を出すか（直前の送信で、まだ取り消せるとき）。
     let canUndo: Bool
+    /// 今月の状況の一行を出すか。直前の送信の返事で、「取り消す」を出している間（`canUndo` と同じ値を渡す。見出しの高さを
+    /// 確かめるテストで分けられるように、別に受け取る）。
+    var showsStatus = false
     let undo: () -> Void
     let edit: (Entry) -> Void
     /// 削除を求める（確認は呼び出し側で出す）。
     let requestDelete: (Entry) -> Void
+
+    @Environment(\.calendar) private var calendar
 
     var body: some View {
         LeadingStack(spacing: 2) {
@@ -141,6 +147,11 @@ struct RecordedReplyCard: View {
                         row(entry)
                     }
                 }
+            }
+            if showsStatus {
+                ReplyStatusLine(today: today, calendar: calendar, isIncomeOnly: send.entries.allSatisfy(\.isIncome))
+                    // 行どうしの間（12pt）と同じだけ空ける（見出しと行の間の 2pt に足す）。
+                    .padding(.top, 10)
             }
         }
         // 見出しは 44pt の高さの真ん中に文字があるので、上の余白を詰めて、下の余白とつり合わせる。
@@ -377,6 +388,57 @@ struct RecordedReplyRow: View {
             .background(entry.isIncome ? Theme.income : Theme.color(for: entry.category), in: .rect(cornerRadius: tileSize * 0.28))
             .environment(\.colorScheme, .light)
             .accessibilityHidden(true)
+    }
+}
+
+/// 直前の送信の返事の最後の一行。今月の状況を、ホームの帯と同じ数字で言う（「今月あと ¥…（1日あたり ¥…）」「今月の予算を ¥… 超えて
+/// います」「今月の支出 ¥…」、収入だけの送信は「今月の収入 ¥…」。`ReplyTexts.status`）。
+///
+/// 数字は帯と同じ読み込みと計算（今月の記録と予算の @Query と `MonthSummaryHeader.figures`）で、記録を直す・消す・予算を変える・
+/// iCloud で取り込むと、その場で変わる（送ったときの数字の写しではない）。そのため出すのは直前の送信の返事だけにする（「取り消す」と
+/// 同じ間）。前の送信の返事にも出すと、いまの数字がその送信のときの数字のように読めてしまい、送信は保存しないので、送ったときの
+/// 数字を残すこともできない。直前の返事にあれば、送った直後に目を向ける場所で「あといくら使えるか」が分かる。
+private struct ReplyStatusLine: View {
+    let today: Date
+    let isIncomeOnly: Bool
+
+    @Environment(\.calendar) private var calendar
+    @ScaledMetric(relativeTo: .subheadline) private var iconWidth = 16
+    @Query private var records: [Entry]
+    @Query private var budgets: [Budget]
+
+    init(today: Date, calendar: Calendar, isIncomeOnly: Bool) {
+        self.today = today
+        self.isIncomeOnly = isIncomeOnly
+        _records = Query(Entry.monthDescriptor(containing: today, calendar: calendar))
+    }
+
+    var body: some View {
+        let figures = MonthSummaryHeader.figures(records: records, budgets: budgets, today: today, calendar: calendar)
+        let sentence = ReplyTexts.status(summary: figures.summary, budget: figures.budget, isIncomeOnly: isIncomeOnly)
+        LeadingStack(spacing: 10) {
+            // 記録の行と分けて、返事の終わりに添えた一行だと分かるようにする（カードの枠と同じ色の細い線）。
+            Rectangle()
+                .fill(Theme.track)
+                .frame(height: 1)
+                .accessibilityHidden(true)
+            Text(sentence.attributed(figureColor: sentence.isWarning ? Theme.danger : Theme.ink))
+                .font(.subheadline)
+                .monospacedDigit()
+                .foregroundStyle(Theme.inkSecondary)
+                // 予算を超えたときは、色だけでなくアイコンも添える（帯の「¥… オーバー」と同じ）。印は HStack ではなく文字に重ねる。
+                .padding(.leading, sentence.isWarning ? iconWidth + 4 : 0)
+                .overlay(alignment: Alignment(horizontal: .leading, vertical: .firstTextBaseline)) {
+                    if sentence.isWarning {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.danger)
+                            .frame(width: iconWidth)
+                            .accessibilityHidden(true)
+                    }
+                }
+                .accessibilityLabel(Text(verbatim: sentence.text))
+        }
     }
 }
 

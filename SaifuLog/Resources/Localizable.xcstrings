@@ -2414,6 +2414,17 @@
         }
       }
     },
+    "今月あと %@（1日あたり %@）" : {
+      "comment" : "ホームの返事のカードの最後の一行（直前の送信で、月の予算を決めているとき）。%1$@ は今月の予算の残り、%2$@ は今日から月末まで 1 日あたりに使える額（ホームの帯と同じ数字）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ left this month (%2$@ a day)"
+          }
+        }
+      }
+    },
     "今月のカフェの支出を答える（記録はしない）" : {
       "comment" : "ようこその画面。入力の例「今月カフェいくら?」（質問）がどう扱われるか",
       "localizations" : {
@@ -2432,6 +2443,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This month’s budget"
+          }
+        }
+      }
+    },
+    "今月の予算を %@ 超えています" : {
+      "comment" : "ホームの返事のカードの最後の一行（直前の送信で、今月の予算を超えたとき）。%@ は超えた額（「¥3,000」）。額は注意の色で、アイコンを添えて出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ over this month’s budget"
           }
         }
       }
@@ -2458,6 +2480,23 @@
         }
       }
     },
+    "今月の収入 %@（返事）" : {
+      "comment" : "ホームの返事のカードの最後の一行（直前の送信が収入だけのとき）。%@ は今月の収入の合計（「¥250,000」）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Income this month: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今月の収入 %@"
+          }
+        }
+      }
+    },
     "今月の支出" : {
       "comment" : "ホームの上の見出し",
       "localizations" : {
@@ -2465,6 +2504,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Spent this month"
+          }
+        }
+      }
+    },
+    "今月の支出 %@" : {
+      "comment" : "ホームの返事のカードの最後の一行（直前の送信で、月の予算を決めていないとき）。%@ は今月の支出の合計（「¥42,380」）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spent this month: %@"
           }
         }
       }
