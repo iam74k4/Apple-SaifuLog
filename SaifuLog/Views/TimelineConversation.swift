@@ -99,6 +99,8 @@ struct SentTextBubble: View {
         case .text: nil
         case .voice: "mic.fill"
         case .receipt: "receipt"
+        // くり返しの記録は打った文が無いので、ふつうは吹き出しを出さない（元の文が空）。
+        case .recurring: "arrow.triangle.2.circlepath"
         }
     }
 
@@ -138,12 +140,14 @@ struct RecordedReplyCard: View {
     var chooseCategory: (Entry, EntryCategory) -> Void = { _, _ in }
     /// 聞き返した記録のために、カテゴリを作る画面を開く（作ったらその記録のカテゴリにする）。
     var createCategory: (Entry) -> Void = { _ in }
+    /// その記録の中身で、くり返しの記録を作る画面を開く（長押しの「毎月くり返す」）。
+    var makeRecurring: (Entry) -> Void = { _ in }
 
     @Environment(\.calendar) private var calendar
 
     var body: some View {
         LeadingStack(spacing: 2) {
-            RecordedReplyHeader(count: send.entries.count, isReceipt: send.source == .receipt, undo: canUndo ? undo : nil)
+            RecordedReplyHeader(count: send.entries.count, source: send.source, undo: canUndo ? undo : nil)
             // たいていの送信は 1 件なので、1 件のときは行を並べる入れ物（`LeadingStack`・ForEach）を挟まない（行はすべて測るため）。
             // 記録ごとの一言や選択肢を足すときは、行の下（ここと ForEach の中）に並べる。
             if send.entries.count == 1 {
@@ -171,7 +175,9 @@ struct RecordedReplyCard: View {
     @ViewBuilder
     private func row(_ entry: Entry) -> some View {
         let recorded = RecordedReplyRow(
-            entry: entry, sentAt: send.sentAt, today: today, edit: { edit(entry) }, requestDelete: { requestDelete(entry) }
+            entry: entry, sentAt: send.sentAt, today: today, edit: { edit(entry) }, requestDelete: { requestDelete(entry) },
+            // くり返しの記録から記録したものは、もうくり返しているので出さない。
+            makeRecurring: entry.source == .recurring ? nil : { makeRecurring(entry) }
         )
         if askingCategory.contains(entry.persistentModelID) {
             LeadingStack(spacing: 10) {
@@ -290,13 +296,14 @@ struct CategoryQuestionView: View {
     }
 }
 
-/// 返事の見出し。「記録しました」（2 件以上なら件数）と、取り消せるときだけ右の端に「取り消す」。
+/// 返事の見出し。「記録しました」（2 件以上なら件数）と、取り消せるときだけ右の端に「取り消す」。くり返しの記録から記録した
+/// ものは「くり返しの記録」にし、印もくり返しの記号にする（打った文への返事ではなく、アプリが記録したことが分かるように）。
 ///
 /// 高さは「取り消す」の有無で変えない（44pt）。次の文を送ると前の返事の「取り消す」が消えるので、高さが変わると、その瞬間に
 /// タイムラインの行がずれて見えるため。1 行に収まらなければ（アクセシビリティサイズの文字）、「取り消す」を下の行に置く。
 private struct RecordedReplyHeader: View {
     let count: Int
-    let isReceipt: Bool
+    let source: EntrySource
     /// 取り消す。取り消せないときは nil（「取り消す」を出さない）。
     let undo: (() -> Void)?
 
@@ -306,6 +313,22 @@ private struct RecordedReplyHeader: View {
     /// 「記録しました」。訳した文字を先に引いておく。`Text("記録しました")` のままだと、送信の数だけあるカードごとに訳の表を引いて
     /// 装飾つきの文字に組み立て直し、行をすべて測るタイムライン（`HomeView` の `TimelineScrollView`）を開くのが目に見えて遅くなった。
     private static let recordedText = String(localized: "記録しました")
+    /// 「くり返しの記録」。設定の行の名前（英語では一覧を指す複数形）とは別のキーにする。
+    private static let recurringText = String(
+        localized: "くり返しの記録（返事の見出し）", defaultValue: "くり返しの記録",
+        comment: "ホームの返事の見出し。くり返しの記録から 1 件を記録したとき"
+    )
+
+    private var isRecurring: Bool { source == .recurring }
+
+    private var titleText: String {
+        switch (isRecurring, count > 1) {
+        case (true, true): String(localized: "くり返しの記録（\(count)件）")
+        case (true, false): Self.recurringText
+        case (false, true): String(localized: "記録しました（\(count)件）")
+        case (false, false): Self.recordedText
+        }
+    }
 
     /// チェックの印を添えるか。アクセシビリティサイズの文字では省き、見出しの文に幅を使わせる。
     private var showsCheck: Bool {
@@ -329,12 +352,12 @@ private struct RecordedReplyHeader: View {
 
     /// 印は HStack（Label）ではなく文字に重ねて置く（HStack は伸び縮みの幅を調べるために文字を測り直すため）。
     private var title: some View {
-        Text(verbatim: count > 1 ? String(localized: "記録しました（\(count)件）") : Self.recordedText)
+        Text(verbatim: titleText)
             .foregroundStyle(Theme.inkSecondary)
             .padding(.leading, showsCheck ? checkWidth + 4 : 0)
             .overlay(alignment: .leading) {
                 if showsCheck {
-                    Image(systemName: "checkmark")
+                    Image(systemName: isRecurring ? "arrow.triangle.2.circlepath" : "checkmark")
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(Theme.accentText)
                         .frame(width: checkWidth)
@@ -353,9 +376,15 @@ private struct RecordedReplyHeader: View {
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(.rect)
         }
-        .accessibilityHint(
-            isReceipt ? Text("レシートから記録したものを消します") : Text("記録を消して、送った文を入力欄に戻します")
-        )
+        .accessibilityHint(undoHint)
+    }
+
+    private var undoHint: Text {
+        switch source {
+        case .receipt: Text("レシートから記録したものを消します")
+        case .recurring: Text("くり返しの記録から記録したものを消します。その月の分はもう記録しません")
+        case .text, .voice: Text("記録を消して、送った文を入力欄に戻します")
+        }
     }
 }
 
@@ -378,6 +407,8 @@ struct RecordedReplyRow: View {
     let edit: () -> Void
     /// 削除を求める（確認は呼び出し側で出す）。
     let requestDelete: () -> Void
+    /// その記録の中身で、くり返しの記録を作る画面を開く（長押しの「毎月くり返す」）。nil なら出さない。
+    var makeRecurring: (() -> Void)?
 
     @Environment(\.calendar) private var calendar
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -400,6 +431,9 @@ struct RecordedReplyRow: View {
         .contentShape(.contextMenuPreview, .rect(cornerRadius: 12))
         .contextMenu {
             Button("直す", systemImage: "pencil", action: edit)
+            if let makeRecurring {
+                Button("毎月くり返す", systemImage: "arrow.triangle.2.circlepath", action: makeRecurring)
+            }
             Button("削除", systemImage: "trash", role: .destructive, action: requestDelete)
         }
         // VoiceOver では 1 件を 1 つのボタンとして、品目・金額・カテゴリ・日付の順に読ませる（ボタンが中の文を並べた順に読む。
@@ -407,6 +441,11 @@ struct RecordedReplyRow: View {
         .accessibilityHint("記録を直す画面を開きます")
         // 長押しのメニューは VoiceOver から見つけにくいので、直す・削除を操作の一覧にも出す。
         .accessibilityAction(named: "直す", edit)
+        .accessibilityActions {
+            if let makeRecurring {
+                Button("毎月くり返す", action: makeRecurring)
+            }
+        }
         .accessibilityAction(named: "削除", requestDelete)
     }
 

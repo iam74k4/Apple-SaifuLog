@@ -22,6 +22,7 @@ struct SettingsView: View {
             premiumSection
             budgetSection
             learningSection
+            recurringSection
             calendarSection
             if model.showsICloudSync {
                 iCloudSection
@@ -122,6 +123,7 @@ struct SettingsView: View {
         .onReceive(StoreChanges.remote) { _ in
             model.reloadBudget()
             model.categoryList.reload()
+            model.recurringList.reload()
             model.learnedCategories.reload()
         }
         // 家計の共有の知らせ（共有をやめた・抜けた・消えたなど）。設定の画面を出している間は、ホームの下からはアラートを
@@ -287,6 +289,38 @@ struct SettingsView: View {
                 .foregroundStyle(Theme.inkSecondary)
         } footer: {
             sectionFooter("家賃・服・美容など、カテゴリは作って増やせます。記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。")
+        }
+    }
+
+    // MARK: - くり返しの記録
+
+    /// 家賃・サブスク・給料のように、毎月同じ記録の一覧へ進む行。決まりの数を出す。
+    private var recurringSection: some View {
+        Section {
+            NavigationLink {
+                RecurringListView(model: model.recurringList)
+                    .onAppear { model.recurringList.reload() }
+            } label: {
+                LabeledContent {
+                    // 記録の件数の「件」とは別のキーにする（英語では決まりの数として訳すため）。
+                    Text(LocalizedStringResource(
+                        "%lld 件（くり返しの記録）", defaultValue: "\(model.recurringList.rows.count) 件",
+                        comment: "設定の「くり返しの記録」の行の右に出す、くり返しの記録の数。%lld は数"
+                    ))
+                        .foregroundStyle(Theme.inkSecondary)
+                        .monospacedDigit()
+                } label: {
+                    Text(.recurringTitle)
+                        .foregroundStyle(Theme.ink)
+                }
+                .frame(minHeight: 44)
+            }
+            .accessibilityHint("毎月同じ記録の一覧を開きます")
+            .listRowBackground(Theme.surface)
+        } header: {
+            sectionHeader("毎月の記録")
+        } footer: {
+            sectionFooter("家賃・サブスク・給料のように毎月同じ記録を、決めた日に自動で記録します。")
         }
     }
 

@@ -155,6 +155,17 @@
         }
       }
     },
+    "%@・%@・次は%@" : {
+      "comment" : "設定の「くり返しの記録」の行の下の文。1 つ目の %@ は毎月の日（「毎月25日」）、2 つ目はカテゴリ、3 つ目は次に記録する日",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · %@ · Next: %@"
+          }
+        }
+      }
+    },
     "%lld 件" : {
       "comment" : "月のまとめのカテゴリの記録の一覧の見出し。その月のそのカテゴリの支出の記録の件数。%lld は件数",
       "localizations" : {
@@ -174,6 +185,35 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld 件（くり返しの記録）" : {
+      "comment" : "設定の「くり返しの記録」の行の右に出す、くり返しの記録の数。%lld は数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld item"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld items"
+                }
+              }
+            }
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 件"
           }
         }
       }
@@ -288,6 +328,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Recorded as your share of a %lld-way split."
+          }
+        }
+      }
+    },
+    "%lld日" : {
+      "comment" : "くり返しの記録を作る・直すシートの、記録する日を選ぶメニューの 1 つ。%lld は毎月の何日か",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day %lld"
           }
         }
       }
@@ -765,6 +816,17 @@
         }
       }
     },
+    "「%@」のくり返しの記録をやめますか？" : {
+      "comment" : "設定の「くり返しの記録」で、左へのスワイプでやめる前の確認の題。%@ は品目かカテゴリ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop repeating “%@”?"
+          }
+        }
+      }
+    },
     "「%@」を%@にしました" : {
       "comment" : "設定の「覚えたカテゴリ」で、覚えた言葉のカテゴリを変えた後に VoiceOver で読み上げる内容。1 つ目の %@ は言葉、2 つ目はカテゴリの名前",
       "localizations" : {
@@ -1073,6 +1135,133 @@
         }
       }
     },
+    "くり返しの記録" : {
+      "comment" : "設定の行と、その一覧の画面の題名。家賃・サブスク・給料のように毎月同じ記録を、決めた日に自動で記録する",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recurring Entries"
+          }
+        }
+      }
+    },
+    "くり返しの記録から記録したものを消します。その月の分はもう記録しません" : {
+      "comment" : "くり返しの記録の返事の「取り消す」の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deletes the recurring entries just recorded. Those months won’t be recorded again"
+          }
+        }
+      }
+    },
+    "くり返しの記録から記録しました。ここで直しても、次の月からの記録は変わりません（設定の「くり返しの記録」で直せます）。" : {
+      "comment" : "直すシート（⑥）の上の注記。くり返しの記録から記録したものを開いたとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded from a recurring entry. Editing it here doesn’t change future months (edit those in Recurring Entries in Settings)."
+          }
+        }
+      }
+    },
+    "くり返しの記録をしました: %@" : {
+      "comment" : "くり返しの記録から記録したときに VoiceOver で読み上げる内容。%@ は記録したものの一覧",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded recurring entries: %@"
+          }
+        }
+      }
+    },
+    "くり返しの記録をやめました" : {
+      "comment" : "くり返しの記録をやめた後に VoiceOver で読み上げる内容",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopped the recurring entry"
+          }
+        }
+      }
+    },
+    "くり返しの記録を直しました" : {
+      "comment" : "くり返しの記録を直した後に VoiceOver で読み上げる内容",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated the recurring entry"
+          }
+        }
+      }
+    },
+    "くり返しの記録を直す" : {
+      "comment" : "くり返しの記録を直すシートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Recurring Entry"
+          }
+        }
+      }
+    },
+    "くり返しの記録を足しました" : {
+      "comment" : "くり返しの記録を足した後に VoiceOver で読み上げる内容",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added a recurring entry"
+          }
+        }
+      }
+    },
+    "くり返しの記録を足す" : {
+      "comment" : "設定の「くり返しの記録」の、足すボタンと、足すシートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Recurring Entry"
+          }
+        }
+      }
+    },
+    "くり返しの記録（%lld件）" : {
+      "comment" : "ホームの返事の見出し。くり返しの記録から 2 件以上を記録したとき。%lld は件数",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recurring entries (%lld)"
+          }
+        }
+      }
+    },
+    "くり返しの記録（返事の見出し）" : {
+      "comment" : "ホームの返事の見出し。くり返しの記録から 1 件を記録したとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recurring entry"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "くり返しの記録"
+          }
+        }
+      }
+    },
     "この Apple アカウントで購入したプレミアムは見つかりませんでした。購入したときの Apple アカウントでサインインしているか、お確かめください。" : {
       "comment" : "購入の復元で、プレミアムの購入が無かったときのアラートの本文",
       "localizations" : {
@@ -1201,6 +1390,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This iPhone doesn’t support Apple Intelligence, so amounts and categories are read with an on-device dictionary. You can record and ask questions without AI if you write like the examples above."
+          }
+        }
+      }
+    },
+    "このくり返しの記録をやめますか？" : {
+      "comment" : "くり返しの記録を直すシートで、やめる前の確認の題",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop this recurring entry?"
+          }
+        }
+      }
+    },
+    "このくり返しの記録をやめる" : {
+      "comment" : "くり返しの記録を直すシートの、やめるボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop This Recurring Entry"
           }
         }
       }
@@ -1503,6 +1714,17 @@
         }
       }
     },
+    "その日が無い月は、月末に記録します。" : {
+      "comment" : "くり返しの記録を作る・直すシートで、29 日か 30 日を選んだときの説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In months without that day, it’s recorded on the last day of the month."
+          }
+        }
+      }
+    },
     "なし" : {
       "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表で、その機能が無いこと",
       "localizations" : {
@@ -1647,6 +1869,17 @@
         }
       }
     },
+    "まだありません。家賃・サブスク・給料のように毎月同じ記録を足すと、決めた日に自動で記録します。" : {
+      "comment" : "設定の「くり返しの記録」に何も無いときの案内",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None yet. Add entries that repeat every month, such as rent, subscriptions, or salary, and SaifuLog records them on the day you choose."
+          }
+        }
+      }
+    },
     "まだ作ったカテゴリはありません。家賃・服・美容など、よく使う分け方を作れます。" : {
       "comment" : "設定の「カテゴリ」に作ったカテゴリが無いときの案内",
       "localizations" : {
@@ -1753,6 +1986,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Already in This Household"
+          }
+        }
+      }
+    },
+    "やめられませんでした" : {
+      "comment" : "くり返しの記録をやめられなかったときのアラートの題",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Stop"
+          }
+        }
+      }
+    },
+    "やめる" : {
+      "comment" : "くり返しの記録をやめる確認のボタンと、設定の一覧の左へのスワイプのボタン・VoiceOver の操作",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop"
           }
         }
       }
@@ -3161,6 +3416,17 @@
         }
       }
     },
+    "今月の分も記録する" : {
+      "comment" : "くり返しの記録を作るシートで、今月の記録する日を過ぎているときの切り替え",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Also Record This Month"
+          }
+        }
+      }
+    },
     "今月の収入" : {
       "comment" : "ホームの上の見出し",
       "localizations" : {
@@ -3440,6 +3706,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Save"
+          }
+        }
+      }
+    },
+    "保存すると、%@の分をすぐ記録します。" : {
+      "comment" : "くり返しの記録を作る・直すシートの説明。%@ は記録する日",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When you save, the entry for %@ is recorded right away."
           }
         }
       }
@@ -4996,6 +5273,28 @@
         }
       }
     },
+    "家賃・サブスク・給料 など" : {
+      "comment" : "くり返しの記録を作る・直すシートの、品目の欄が空のときの例",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "e.g. Rent, Subscription, Salary"
+          }
+        }
+      }
+    },
+    "家賃・サブスク・給料のように毎月同じ記録を、決めた日に自動で記録します。" : {
+      "comment" : "設定の「毎月の記録」の節の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Records entries that repeat every month, such as rent, subscriptions, or salary, on the day you choose."
+          }
+        }
+      }
+    },
     "家賃・服・美容など、カテゴリは作って増やせます。記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。" : {
       "comment" : "設定の「カテゴリ」の節の注記",
       "localizations" : {
@@ -5706,6 +6005,17 @@
         }
       }
     },
+    "月末" : {
+      "comment" : "くり返しの記録の、記録する日を選ぶメニューの 1 つ（毎月の最後の日）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last Day"
+          }
+        }
+      }
+    },
     "期間" : {
       "comment" : "設定の「記録を書き出す」の、書き出す期間の選択の見出し（今月・先月・今年・すべて）",
       "localizations" : {
@@ -5827,6 +6137,28 @@
         }
       }
     },
+    "次の月から記録しなくなります。これまでに記録したものは残ります。" : {
+      "comment" : "くり返しの記録をやめる前の確認の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It won’t be recorded from next month on. Entries already recorded are kept."
+          }
+        }
+      }
+    },
+    "次は%@に記録します。" : {
+      "comment" : "くり返しの記録を作る・直すシートの説明。%@ は次に記録する日",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next entry: %@."
+          }
+        }
+      }
+    },
     "残り" : {
       "comment" : "月のまとめの予算の行の見出し。予算から使った額を引いた額",
       "localizations" : {
@@ -5845,6 +6177,61 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ left"
+          }
+        }
+      }
+    },
+    "毎月%lld日" : {
+      "comment" : "くり返しの記録の記録する日（毎月の何日か）。%lld は日",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly on day %lld"
+          }
+        }
+      }
+    },
+    "毎月くり返す" : {
+      "comment" : "ホームの返事の行の長押しのメニューと VoiceOver の操作。その記録の中身で、くり返しの記録を作る",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repeat Monthly"
+          }
+        }
+      }
+    },
+    "毎月の記録" : {
+      "comment" : "設定の節の見出し（くり返しの記録）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly Entries"
+          }
+        }
+      }
+    },
+    "毎月同じ記録の一覧を開きます" : {
+      "comment" : "設定の「くり返しの記録」の行の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the list of entries that repeat every month"
+          }
+        }
+      }
+    },
+    "毎月末" : {
+      "comment" : "くり返しの記録の記録する日（毎月の最後の日）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly on the last day"
           }
         }
       }
@@ -6541,6 +6928,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Switches where entries are recorded and which entries are shown"
+          }
+        }
+      }
+    },
+    "記録する日" : {
+      "comment" : "くり返しの記録を作る・直すシートの、記録する日の欄の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day to Record"
+          }
+        }
+      }
+    },
+    "記録する日を過ぎて、最初にアプリを開いたときに記録し、ホームの返事でお知らせします。取り消すと、その月の分はもう記録しません。" : {
+      "comment" : "設定の「くり返しの記録」の一覧の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SaifuLog records them the first time you open the app on or after the day, and tells you in a reply on Home. If you undo it, that month isn’t recorded again."
+          }
+        }
+      }
+    },
+    "記録する日を過ぎて、最初にアプリを開いたときに記録します。" : {
+      "comment" : "くり返しの記録を作る・直すシートの説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It’s recorded the first time you open the app on or after the day."
           }
         }
       }
@@ -7360,6 +7780,17 @@
         }
       }
     },
+    "金額と毎月の日を決めて、くり返しの記録を足します" : {
+      "comment" : "設定の「くり返しの記録を足す」の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose an amount and a day of the month to add a recurring entry"
+          }
+        }
+      }
+    },
     "金額の書かれたレシートの画像を選んでください。" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。読み取れなかったときのこつ",
       "localizations" : {
@@ -7378,6 +7809,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No lines with amounts were found."
+          }
+        }
+      }
+    },
+    "金額や毎月の日を直します" : {
+      "comment" : "設定の「くり返しの記録」の行の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edits the amount and day of the month"
           }
         }
       }

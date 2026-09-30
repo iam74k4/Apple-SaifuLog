@@ -84,6 +84,10 @@ struct HomeView: View {
                 .sheet(item: $model.categoryEditor) { editor in
                     CategoryEditorSheet(model: editor)
                 }
+                // 返事の行の長押しの「毎月くり返す」で開く、くり返しの記録を作るシート。
+                .sheet(item: $model.recurringEditor) { editor in
+                    RecurringEditorSheet(model: editor)
+                }
                 // 月のまとめ（⑦）は横に進む。ホームへ戻ると monthlyReport は nil に戻る（item で出すのは、シートと同じく
                 // 戻る動きの間も中身を保つため）。
                 .navigationDestination(item: $model.monthlyReport) { report in
@@ -158,6 +162,8 @@ struct HomeView: View {
                 .onAppear {
                     // モデルは初回の案内より前に作っている（`AppRootView`）。案内の間に日付が変わっていても今日で数えるよう、読み直す。
                     model.refreshToday()
+                    // 記録する日を過ぎたくり返しの記録を記録する（ふりかえりより先に。ふりかえりのカードをいちばん下に出すため）。
+                    model.recordDueRecurringEntries(calendar: calendar)
                     model.showWeeklyRecapIfDue(calendar: calendar)
                     model.refreshQuickPhrases()
                 }
@@ -182,7 +188,9 @@ struct HomeView: View {
                     model.refreshQuickPhrases()
                 }
                 // iCloud で届いたほかの端末の変更でも読み直す（didSave にならないため。帯とタイムラインは @Query が追う）。
+                // ほかの端末が同じ月のくり返しの記録を記録していたら片づける。
                 .onReceive(StoreChanges.remote) { _ in
+                    model.removeDuplicateRecurringEntries()
                     model.categories.reload()
                     model.weeklyRecap?.reload()
                     model.refreshQuickPhrases()
@@ -250,6 +258,7 @@ struct HomeView: View {
                     switch phase {
                     case .active:
                         model.refreshToday()
+                        model.recordDueRecurringEntries(calendar: calendar)
                         model.refreshQuickPhrases()
                         // 状態が変わらなくても、前面に戻ったときには確かめる（ほかの画面を閉じた後で出せるように）。
                         model.presentPremiumIfTrialEnded()
@@ -265,6 +274,7 @@ struct HomeView: View {
                 // 日付が変わったとき（0 時・時間帯の変更など）。前面に置いたまま月をまたいでも合計を切り替える。
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
                     model.refreshToday()
+                    model.recordDueRecurringEntries(calendar: calendar)
                     model.showWeeklyRecapIfDue(calendar: calendar)
                 }
         }
@@ -332,6 +342,7 @@ struct HomeView: View {
                 requestDelete: { model.requestDelete($0) },
                 chooseCategory: { model.chooseCategory($1, for: $0) },
                 createCategory: { model.presentCategoryCreation(for: $0) },
+                makeRecurring: { model.presentRecurringCreation(from: $0, calendar: calendar) },
                 fillDraft: { model.draft = $0 },
                 openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
                 setBudget: { model.presentBudgetSetup() },
@@ -523,6 +534,8 @@ private struct EntryTimeline: View {
     let chooseCategory: (Entry, EntryCategory) -> Void
     /// 聞き返した記録のために、カテゴリを作る画面を開く。
     let createCategory: (Entry) -> Void
+    /// その記録の中身で、くり返しの記録を作る画面を開く（長押しの「毎月くり返す」）。
+    let makeRecurring: (Entry) -> Void
     /// 記録が無いときの案内の入力の例を、入力欄に入れる。
     let fillDraft: (String) -> Void
     let openReport: (Date) -> Void
@@ -548,6 +561,7 @@ private struct EntryTimeline: View {
         requestDelete: @escaping (Entry) -> Void,
         chooseCategory: @escaping (Entry, EntryCategory) -> Void,
         createCategory: @escaping (Entry) -> Void,
+        makeRecurring: @escaping (Entry) -> Void,
         fillDraft: @escaping (String) -> Void,
         openReport: @escaping (Date) -> Void,
         setBudget: @escaping () -> Void,
@@ -568,6 +582,7 @@ private struct EntryTimeline: View {
         self.requestDelete = requestDelete
         self.chooseCategory = chooseCategory
         self.createCategory = createCategory
+        self.makeRecurring = makeRecurring
         self.fillDraft = fillDraft
         self.openReport = openReport
         self.setBudget = setBudget
@@ -670,7 +685,8 @@ private struct EntryTimeline: View {
                         RecordedReplyCard(
                             send: send, today: today, canUndo: isLatest, showsStatus: isLatest,
                             askingCategory: isLatest ? askingCategory : [], undo: undo, edit: edit,
-                            requestDelete: requestDelete, chooseCategory: chooseCategory, createCategory: createCategory
+                            requestDelete: requestDelete, chooseCategory: chooseCategory, createCategory: createCategory,
+                            makeRecurring: makeRecurring
                         )
                         // 送信のいちばん下（返事のカード）の位置を知らせる。
                         .reportsTimelineFrame(.row(send.id))

@@ -134,8 +134,8 @@ struct CustomCategoryStore {
         return try context.fetchCount(FetchDescriptor<Entry>(predicate: #Predicate { $0.categoryRawValue == rawValue }))
     }
 
-    /// カテゴリを消す。そのカテゴリの記録は「その他」にし、予算と覚えたカテゴリからも外してから、1 回で書き込む（一部だけ
-    /// 書かれて、消したカテゴリを指す記録が残らないように）。
+    /// カテゴリを消す。そのカテゴリの記録とくり返しの記録は「その他」にし、予算と覚えたカテゴリからも外してから、1 回で書き込む
+    /// （一部だけ書かれて、消したカテゴリを指す記録が残らないように）。
     ///
     /// 記録を先に書き換えるのは、行を消しただけだと、記録が一覧に無いカテゴリ（名前は「その他」）を指したまま残り、月のまとめで
     /// 「その他」が 2 行に分かれるため。iCloud では書き換えた記録もほかの端末に届く。
@@ -152,6 +152,11 @@ struct CustomCategoryStore {
         }
         for learned in try context.fetch(FetchDescriptor<LearnedCategory>()) where learned.categoryRawValue == rawValue {
             context.delete(learned)
+        }
+        // くり返しの記録も「その他」にする（次の月から、消したカテゴリで記録しないように）。
+        for recurring in try context.fetch(FetchDescriptor<RecurringEntry>()) where recurring.categoryRawValue == rawValue {
+            recurring.category = .other
+            recurring.updatedAt = now()
         }
         for row in try context.fetch(FetchDescriptor<CustomCategory>()) where row.categoryID == id {
             context.delete(row)

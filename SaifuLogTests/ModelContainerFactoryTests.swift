@@ -46,7 +46,7 @@ struct ModelContainerFactoryTests {
     @Test func schemaListsModelTypes() throws {
         let container = try ModelContainerFactory.makeInMemoryContainer()
 
-        #expect(Set(container.schema.entities.map(\.name)) == ["Entry", "Budget", "LearnedCategory", "CustomCategory"])
+        #expect(Set(container.schema.entities.map(\.name)) == ["Entry", "Budget", "LearnedCategory", "CustomCategory", "RecurringEntry"])
     }
 
     /// 予算のモデルを足す前の保存先（記録のモデルだけ）を開いても、記録はそのまま読め、予算を書き込める。
@@ -139,6 +139,36 @@ struct ModelContainerFactoryTests {
         #expect(try categories.catalog().name(of: clothes) == "衣服")
     }
 
+    /// くり返しの記録のモデルを足す前の保存先を開いても、それまでの記録は読め、くり返しの記録を作って記録できる
+    /// （テーブルを足すだけの自動の移行）。記録に足した項目（`Entry.recurrenceKey`）の移行は `opensStoreCreatedBeforeCloudEncryption`。
+    @Test func opensStoreCreatedBeforeRecurringEntryWasAdded() throws {
+        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appending(path: "default.store", directoryHint: .notDirectory)
+
+        do {
+            let previousSchema = Schema([Entry.self, Budget.self, LearnedCategory.self, CustomCategory.self])
+            let previous = try ModelContainer(
+                for: previousSchema,
+                configurations: [ModelConfiguration(schema: previousSchema, url: url, cloudKitDatabase: .none)]
+            )
+            previous.mainContext.insert(TestSupport.entry(amount: 850))
+            try previous.mainContext.save()
+        }
+
+        let upgraded = try ModelContainerFactory.makeContainer(url: url, cloudKitDatabase: .none)
+        let context = upgraded.mainContext
+
+        #expect(try context.fetch(FetchDescriptor<Entry>()).map(\.amount) == [850])
+        let recurring = RecurringEntryStore(context: context, now: { TestSupport.now })
+        try recurring.create(
+            RecurringDraft(amount: 80_000, memo: "家賃", isIncome: false, category: .other, dayOfMonth: 25),
+            startMonth: RecurringMonth(year: 2026, month: 9)
+        )
+        #expect(try recurring.recordDue(now: TestSupport.date(2026, 9, 26), timeZone: TestSupport.calendar.timeZone).count == 1)
+    }
+
     /// ファイルの保存先に書いた記録は、開き直しても残る。
     /// アプリの本物の保存先には触れないよう、一時フォルダの中に開く。
     @Test func fileContainerKeepsRecordsAcrossReopen() throws {
@@ -204,7 +234,7 @@ struct ModelContainerFactoryTests {
     @Test func modelsSatisfyCloudKitConstraints() throws {
         let model = try #require(NSManagedObjectModel.makeManagedObjectModel(for: ModelContainerFactory.modelTypes))
 
-        #expect(Set(model.entities.compactMap(\.name)) == ["Entry", "Budget", "LearnedCategory", "CustomCategory"])
+        #expect(Set(model.entities.compactMap(\.name)) == ["Entry", "Budget", "LearnedCategory", "CustomCategory", "RecurringEntry"])
         #expect(Self.cloudKitViolations(in: model).isEmpty, "\(Self.cloudKitViolations(in: model))")
         // SwiftData の Schema の側でも、一意の属性が無い。
         for entity in ModelContainerFactory.schema.entities {
@@ -233,6 +263,7 @@ struct ModelContainerFactoryTests {
                 "amount": .integer64AttributeType, "isIncome": .booleanAttributeType, "categoryRawValue": .stringAttributeType,
                 "memo": .stringAttributeType, "spentAt": .dateAttributeType, "createdAt": .dateAttributeType,
                 "sourceRawValue": .stringAttributeType, "originalText": .stringAttributeType,
+                "recurrenceKey": .stringAttributeType,
             ],
             "Budget": [
                 "scopeRawValue": .stringAttributeType, "amount": .integer64AttributeType, "updatedAt": .dateAttributeType,
@@ -244,6 +275,12 @@ struct ModelContainerFactoryTests {
                 "categoryID": .stringAttributeType, "name": .stringAttributeType, "symbolName": .stringAttributeType,
                 "colorIndex": .integer64AttributeType, "sortOrder": .integer64AttributeType, "createdAt": .dateAttributeType,
                 "updatedAt": .dateAttributeType,
+            ],
+            "RecurringEntry": [
+                "recurrenceID": .stringAttributeType, "memo": .stringAttributeType, "amount": .integer64AttributeType,
+                "isIncome": .booleanAttributeType, "categoryRawValue": .stringAttributeType,
+                "dayOfMonth": .integer64AttributeType, "startMonthKey": .integer64AttributeType,
+                "lastRecordedMonthKey": .integer64AttributeType, "createdAt": .dateAttributeType, "updatedAt": .dateAttributeType,
             ],
         ]
 
@@ -266,7 +303,7 @@ struct ModelContainerFactoryTests {
     @Test func syncedAttributesAreCloudEncrypted() throws {
         let model = try #require(NSManagedObjectModel.makeManagedObjectModel(for: ModelContainerFactory.modelTypes))
 
-        #expect(Set(model.entities.compactMap(\.name)) == ["Entry", "Budget", "LearnedCategory", "CustomCategory"])
+        #expect(Set(model.entities.compactMap(\.name)) == ["Entry", "Budget", "LearnedCategory", "CustomCategory", "RecurringEntry"])
         #expect(Self.unencryptedAttributes(in: model).isEmpty, "\(Self.unencryptedAttributes(in: model))")
         #expect(Self.unencryptedAttributes(in: ModelContainerFactory.schema).isEmpty, "\(Self.unencryptedAttributes(in: ModelContainerFactory.schema))")
         // 内容にあたる項目を名指しでも確かめる（検査の数え方を誤って、項目を見ずに空を返していないか）。
@@ -274,7 +311,10 @@ struct ModelContainerFactoryTests {
         let budget = try #require(model.entitiesByName["Budget"])
         let learned = try #require(model.entitiesByName["LearnedCategory"])
         let custom = try #require(model.entitiesByName["CustomCategory"])
-        for name in ["amount", "isIncome", "categoryRawValue", "memo", "spentAt", "createdAt", "sourceRawValue", "originalText"] {
+        let recurring = try #require(model.entitiesByName["RecurringEntry"])
+        for name in [
+            "amount", "isIncome", "categoryRawValue", "memo", "spentAt", "createdAt", "sourceRawValue", "originalText", "recurrenceKey",
+        ] {
             #expect(entry.attributesByName[name]?.allowsCloudEncryption == true, "Entry.\(name) が暗号化フィールドになっていません")
         }
         for name in ["scopeRawValue", "amount", "updatedAt"] {
@@ -285,6 +325,12 @@ struct ModelContainerFactoryTests {
         }
         for name in ["categoryID", "name", "symbolName", "colorIndex", "sortOrder", "createdAt", "updatedAt"] {
             #expect(custom.attributesByName[name]?.allowsCloudEncryption == true, "CustomCategory.\(name) が暗号化フィールドになっていません")
+        }
+        for name in [
+            "recurrenceID", "memo", "amount", "isIncome", "categoryRawValue", "dayOfMonth", "startMonthKey", "lastRecordedMonthKey",
+            "createdAt", "updatedAt",
+        ] {
+            #expect(recurring.attributesByName[name]?.allowsCloudEncryption == true, "RecurringEntry.\(name) が暗号化フィールドになっていません")
         }
     }
 
@@ -358,6 +404,8 @@ struct ModelContainerFactoryTests {
         #expect(entry.createdAt == TestSupport.now)
         #expect(entry.source == .voice)
         #expect(entry.originalText == "昨日 焼肉12000 4人で割り勘")
+        // 後から足した項目（くり返しの記録の印）は既定値（空）で読める（項目を足しただけの自動の移行）。
+        #expect(entry.recurrenceKey.isEmpty)
         let budgets = try context.fetch(FetchDescriptor<Budget>())
         #expect(budgets.map(\.scopeRawValue) == [BudgetScope.total.rawValue])
         #expect(budgets.map(\.amount) == [150_000])

@@ -29,8 +29,13 @@ final class Entry {
     @Attribute(.allowsCloudEncryption) var createdAt: Date = Date.now
     /// 入力元の rawValue（`EntrySource`）。
     @Attribute(.allowsCloudEncryption) var sourceRawValue: String = EntrySource.text.rawValue
-    /// 元の入力文。直すときや、解析の見直しに使う。
+    /// 元の入力文。直すときや、解析の見直しに使う。くり返しの記録から記録したものは空（打った文が無いので、タイムラインに
+    /// 自分の吹き出しを出さない）。
     @Attribute(.allowsCloudEncryption) var originalText: String = ""
+    /// くり返しの記録から記録したものの印（どの決まりの、どの月の分か。`RecurringSchedule.occurrenceKey`）。ほかの記録は空。
+    /// iCloud で 2 台が同じ月の分を記録したときに見つけて片づける（`RecurringEntryStore.removeDuplicateOccurrences`）。
+    /// 後から足した項目（既定値があるので、足す前の保存先も移行なしで開ける。`ModelContainerFactoryTests`）。
+    @Attribute(.allowsCloudEncryption) var recurrenceKey: String = ""
 
     init(
         amount: Int,
@@ -138,15 +143,17 @@ extension Entry {
         return descriptor
     }
 
-    /// よく使うひとことの候補（`QuickPhrases`）を作るのに読む記録。`start` より後に記録したもの（レシートから記録したものは除く）を、
-    /// 記録した日時の新しいものから `limit` 件。
+    /// よく使うひとことの候補（`QuickPhrases`）を作るのに読む記録。`start` より後に記録したもの（レシートとくり返しの記録から
+    /// 記録したものは除く）を、記録した日時の新しいものから `limit` 件。
     ///
-    /// レシートの品目は店の略した名前や半角のカナが多く、ひとこと入力で打つ文の候補にならないので除く。件数で区切るのは、
-    /// 記録を足すたびに読み直すため（記録が増えても読む量が変わらないように）。
+    /// レシートの品目は店の略した名前や半角のカナが多く、ひとこと入力で打つ文の候補にならないので除く。くり返しの記録は
+    /// アプリが毎月記録するので、打つ候補に出さない。件数で区切るのは、記録を足すたびに読み直すため（記録が増えても読む量が
+    /// 変わらないように）。
     static func quickPhraseDescriptor(since start: Date, limit: Int = 500) -> FetchDescriptor<Entry> {
         let receipt = EntrySource.receipt.rawValue
+        let recurring = EntrySource.recurring.rawValue
         var descriptor = FetchDescriptor<Entry>(
-            predicate: #Predicate { $0.createdAt >= start && $0.sourceRawValue != receipt },
+            predicate: #Predicate { $0.createdAt >= start && $0.sourceRawValue != receipt && $0.sourceRawValue != recurring },
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
         descriptor.fetchLimit = limit
@@ -177,4 +184,6 @@ enum EntrySource: String, Codable, CaseIterable, Sendable {
     case receipt
     /// 声で記録
     case voice
+    /// くり返しの記録（毎月、決めた日にアプリが記録した）
+    case recurring
 }

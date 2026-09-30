@@ -77,6 +77,9 @@ struct EditEntrySheet: View {
                 if !model.originalText.isEmpty {
                     sentText
                 }
+                if model.source == .recurring {
+                    recurringNote
+                }
                 amountSection
                 memoSection
                 kindSection
@@ -113,6 +116,18 @@ struct EditEntrySheet: View {
                 .font(.subheadline)
         }
         .accessibilityElement(children: .combine)
+    }
+
+    /// くり返しの記録から記録したものであること（打った文が無いので、送った文の代わりに出す）。直しても決まりは変わらないことを
+    /// 添える（毎月の額を変えたいときは、設定の「くり返しの記録」で直す）。
+    private var recurringNote: some View {
+        Label {
+            Text("くり返しの記録から記録しました。ここで直しても、次の月からの記録は変わりません（設定の「くり返しの記録」で直せます）。")
+        } icon: {
+            Image(systemName: "arrow.triangle.2.circlepath")
+        }
+        .font(.footnote)
+        .foregroundStyle(Theme.inkSecondary)
     }
 
     /// 金額の入力欄。「¥」を前に置き、入れた数字は 3 桁ごとにカンマを入れて見せる。保存できない額なら、下に理由を出す。
@@ -291,8 +306,8 @@ struct EditEntrySheet: View {
     }
 }
 
-/// 欄の見出し。VoiceOver では見出しとして読ませ、見出しの移動で欄をたどれるようにする。
-private struct SectionLabel: View {
+/// 欄の見出し。VoiceOver では見出しとして読ませ、見出しの移動で欄をたどれるようにする（くり返しの記録のシートでも使う）。
+struct SectionLabel: View {
     let title: LocalizedStringKey
 
     init(_ title: LocalizedStringKey) {
@@ -309,8 +324,8 @@ private struct SectionLabel: View {
 
 /// 選べるものの 1 つ（種類・カテゴリ）。選んだものは枠と印で示す（色だけに頼らない）。
 ///
-/// 山吹は保存のボタンの塗りにだけ使うので、選んだ印には使わない（墨の枠とチェックの印にする）。
-private struct ChoiceChip<Content: View>: View {
+/// 山吹は保存のボタンの塗りにだけ使うので、選んだ印には使わない（墨の枠とチェックの印にする）。くり返しの記録のシートでも使う。
+struct ChoiceChip<Content: View>: View {
     let isSelected: Bool
     let action: () -> Void
     @ViewBuilder let label: Content
@@ -343,8 +358,8 @@ private struct ChoiceChip<Content: View>: View {
     }
 }
 
-/// カテゴリの色の丸と名前（記録の吹き出しの横の丸と同じ色と記号）。
-private struct CategoryLabel: View {
+/// カテゴリの色の丸と名前（記録の吹き出しの横の丸と同じ色と記号）。くり返しの記録のシートでも使う。
+struct CategoryLabel: View {
     let category: EntryCategory
 
     @Environment(\.categoryCatalog) private var catalog

@@ -81,6 +81,8 @@ final class HomeModel {
     var editing: EditEntryModel?
     /// 返事の聞き返しから開いた「カテゴリを作る」のシート。出していなければ nil（閉じると画面が nil に戻す）。
     var categoryEditor: CategoryEditorModel?
+    /// 返事の行の長押しの「毎月くり返す」で開く、くり返しの記録を作るシート。出していなければ nil。
+    var recurringEditor: RecurringEditorModel?
     /// 「月のまとめ」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
     var monthlyReport: MonthlyReportModel?
     /// 「設定」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
@@ -128,6 +130,10 @@ final class HomeModel {
     @ObservationIgnored private let budgetStore: BudgetStore
     /// 覚えたカテゴリ（修正の記憶）。読み取った記録に当て、返事で選んだカテゴリを覚える。
     @ObservationIgnored private let learnedCategories: LearnedCategoryStore
+    /// くり返しの記録。記録する日を過ぎた月の分を記録する。
+    @ObservationIgnored private let recurring: RecurringEntryStore
+    /// くり返しの記録を記録するときの暦（時間帯と読み上げの日付）。画面から最後に渡された暦（設定の画面から足したときにも使う）。
+    @ObservationIgnored private var recurringCalendar: Calendar = .autoupdatingCurrent
     @ObservationIgnored private let pendingWrites: PendingStoreWrites
     /// 保存先を開いたもの。設定の「iCloud で同期」の切り替え先として設定に渡す。無ければ設定に iCloud の節を出さない（テスト用）。
     @ObservationIgnored private let storeHost: StoreHost?
@@ -154,6 +160,7 @@ final class HomeModel {
     ///   - budgetStore: 予算の読み書き。渡さなければ記録と同じ保存先（`store` の ModelContext）を使う。
     ///   - learnedCategories: 覚えたカテゴリの読み書き（修正の記憶）。渡さなければ記録と同じ保存先を使う。
     ///   - categories: カテゴリの一覧（作ったカテゴリ）。渡さなければ記録と同じ保存先から読む。
+    ///   - recurring: くり返しの記録の読み書き。渡さなければ記録と同じ保存先を使う。
     ///   - pendingWrites: 解析を待ってから記録する処理を数える先（`StoreHost.pendingWrites`）。保存先を開き直すとき、
     ///     記録し終えるのを待ってもらうため。
     ///   - purchases: プレミアムの購入と状態。アプリは `SaifuLogApp` の 1 つを渡す。渡さなければ購入の無い状態（テスト用）。
@@ -176,6 +183,7 @@ final class HomeModel {
         budgetStore: BudgetStore? = nil,
         learnedCategories: LearnedCategoryStore? = nil,
         categories: CategoryCatalogModel? = nil,
+        recurring: RecurringEntryStore? = nil,
         pendingWrites: PendingStoreWrites = PendingStoreWrites(),
         purchases: PurchaseManager? = nil,
         storeHost: StoreHost? = nil,
@@ -195,6 +203,7 @@ final class HomeModel {
         self.budgetStore = budgetStore ?? BudgetStore(context: store.context)
         self.learnedCategories = learnedCategories ?? LearnedCategoryStore(context: store.context, now: now)
         self.categories = categories ?? CategoryCatalogModel(store: CustomCategoryStore(context: store.context, now: now))
+        self.recurring = recurring ?? RecurringEntryStore(context: store.context, now: now)
         self.pendingWrites = pendingWrites
         self.storeHost = storeHost
         self.household = household
@@ -227,7 +236,8 @@ final class HomeModel {
     /// ホームの上にほかの画面・シート・確認を出しているか。出している間は、体験の終わりの案内を重ねず、声の入力を止める
     /// （見えない入力欄に向けて聞き続けないように）。
     var isPresentingOtherScreen: Bool {
-        budgetSetup != nil || editing != nil || categoryEditor != nil || monthlyReport != nil || settings != nil
+        budgetSetup != nil || editing != nil || categoryEditor != nil || recurringEditor != nil || monthlyReport != nil
+            || settings != nil
             || premiumSheet != nil
             || weeklyRecapDetail != nil || receiptResult != nil || receiptCapture != nil || showsReceiptSourceChoice
     }
@@ -726,6 +736,7 @@ final class HomeModel {
     ///
     /// レシートから記録したものは、入力欄に何も戻さない（元の文は「レシート: 店名 合計 ¥…」の要約で、送り直すと合計の 1 件を
     /// ひとこと入力として記録してしまうため）。その回に数えた無料の 1 回は戻す（取り消した記録は数えない決め事。docs/design.md §6）。
+    /// くり返しの記録も入力欄に何も戻さない。取り消した月の分はもう記録しない（記録した月は覚えたまま。`RecurringEntryStore`）。
     func undoLastRecord() {
         if isHouseholdActive {
             undoLastHouseholdRecord()
@@ -736,7 +747,8 @@ final class HomeModel {
         // 消した記録の値は、保存した後には読めない。読み上げと入力欄に戻す文は先に取っておく。
         let items = targets.map { "\($0.kindText(in: categories.catalog)) \(YenFormatter.string(from: $0.amount))" }
         let originalText = targets.first?.originalText ?? ""
-        let isReceipt = targets.allSatisfy { $0.source == .receipt }
+        // レシートとくり返しの記録は打った文ではないので、入力欄に戻さない。
+        let restoresDraft = !targets.contains { $0.source == .receipt || $0.source == .recurring }
         let restoredSource: EntrySource = targets.allSatisfy { $0.source == .voice } ? .voice : .text
         let ids = targets.map(\.persistentModelID)
         do {
@@ -752,7 +764,7 @@ final class HomeModel {
             quotaStore.refundUse(of: .receiptScan, month: charge.month)
         }
         receiptQuotaCharge = nil
-        if !isReceipt { restoreDraft(originalText, source: restoredSource) }
+        if restoresDraft { restoreDraft(originalText, source: restoredSource) }
         announce(String(localized: "取り消しました: \(items.formatted(.list(type: .and)))"))
     }
 
@@ -930,6 +942,60 @@ final class HomeModel {
         )
     }
 
+    // MARK: - くり返しの記録
+
+    /// 記録する日を過ぎたくり返しの記録を記録し、返事のカード（「くり返しの記録」）と読み上げで知らせる（ホームが出たとき・
+    /// 前面に戻ったとき・日付が変わったとき・くり返しの記録を足したり直したりしたとき）。
+    ///
+    /// 記録したものは直前の送信と同じく「取り消す」の対象にする（取り消すと、その月の分はもう記録しない）。書き込めなければ
+    /// 何もしない（記録した月を覚えていないので、次に開いたときにもう一度記録する）。
+    func recordDueRecurringEntries(calendar: Calendar) {
+        recurringCalendar = calendar
+        removeDuplicateRecurringEntries()
+        let recordedAt = now()
+        guard let recorded = try? recurring.recordDue(now: recordedAt, timeZone: calendar.timeZone), !recorded.isEmpty else {
+            return
+        }
+        justRecorded = recorded
+        categoryQuestionIDs = []
+        receiptQuotaCharge = nil
+        let items = recorded.map { entry in
+            var item = "\(entry.kindText(in: categories.catalog)) \(YenFormatter.string(from: entry.amount))"
+            if !calendar.isDate(entry.spentAt, inSameDayAs: recordedAt) {
+                item += " \(entry.spentAt.formatted(.dateTime.month().day()))"
+            }
+            return item
+        }
+        announce(String(localized: "くり返しの記録をしました: \(items.formatted(.list(type: .and)))"))
+    }
+
+    /// iCloud で同期しているほかの端末が同じ月の分を記録していたら、片づける（`RecurringEntryStore.removeDuplicateOccurrences`）。
+    /// iCloud でほかの端末の変更が届いたときと、くり返しの記録を記録する前に呼ぶ。
+    func removeDuplicateRecurringEntries() {
+        guard let removed = try? recurring.removeDuplicateOccurrences() else { return }
+        removed.forEach(forgetJustRecorded)
+    }
+
+    /// 返事の行の長押しの「毎月くり返す」。その記録の金額・品目・カテゴリ・使った日を入れて、くり返しの記録を作るシートを出す。
+    /// その記録の月の分はもう記録してあるので、次の月から記録する。
+    func presentRecurringCreation(from entry: Entry, calendar: Calendar) {
+        guard entry.source != .recurring else { return }
+        let item = CategoryMemory.item(ofMemo: entry.memo, amount: entry.amount, isIncome: entry.isIncome)
+        let day = calendar.component(.day, from: entry.spentAt)
+        let recordedMonth = RecurringMonth(containing: entry.spentAt, timeZone: calendar.timeZone)
+        recurringEditor = RecurringEditorModel(
+            creating: RecurringDraft(
+                amount: entry.amount, memo: item, isIncome: entry.isIncome, category: entry.category, dayOfMonth: day
+            ),
+            notBefore: recordedMonth.adding(months: 1),
+            store: recurring,
+            timeZone: calendar.timeZone,
+            now: now,
+            announce: announce,
+            didChange: { [weak self] in self?.recordDueRecurringEntries(calendar: calendar) }
+        )
+    }
+
     // MARK: - 予算
 
     /// 「予算を決める」のシートを出す。いまの予算を入力欄に入れて開く（予算を変えるときも同じ画面）。
@@ -976,7 +1042,12 @@ final class HomeModel {
     func presentSettings() {
         settings = SettingsModel(
             context: store.context, budgetStore: budgetStore, categories: categories, purchases: purchases, storeHost: storeHost,
-            householdHost: household, defaults: defaults, now: now, announce: announce
+            householdHost: household, defaults: defaults, now: now, announce: announce,
+            // 足した・直したくり返しの記録の、記録する日を過ぎた分をすぐ記録する（ホームに戻ると返事のカードが出ている）。
+            recurringDidChange: { [weak self] in
+                guard let self else { return }
+                recordDueRecurringEntries(calendar: recurringCalendar)
+            }
         )
     }
 
