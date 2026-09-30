@@ -2,7 +2,7 @@
 
 **SaifuLog（サイフログ）**
 
-最終更新日 / Last updated: 2026-09-30
+最終更新日 / Last updated: 2026-10-01
 
 施行日 / Effective date: 初回リリース時に確定します / To be set at the first release
 
@@ -74,10 +74,14 @@ iPhone の上で行います。**記録や計算した数字、一言を外部�
 
 ふりかえりを最後に表示した日時だけを、下の「保存される設定」に保存します（同じ週にもう一度出さないため）。
 
-### 修正の記憶（予定の機能）
+### 覚えたカテゴリ（修正の記憶）
 
-利用者が記録を直した内容（例: ある言葉をどのカテゴリに分けるか）を以後の読み取りに
-役立てる機能を提供する場合、その内容は端末内にのみ保存します。
+記録の返事でカテゴリを選んだとき（「その他」になった記録に出るカテゴリのボタン）と、記録を直す画面でカテゴリを変えたときは、
+その記録の品目の言葉（例: 「ユニクロ」）と選んだカテゴリの組を覚え、次から同じ言葉の記録をそのカテゴリで記録します。
+覚えた言葉とカテゴリは、上の「入力した家計の記録」と同じ場所（お使いの iPhone の中の本アプリ専用の保存先。「iCloud で同期」を
+オンにしているときは、記録と同じく暗号化フィールドとして利用者自身の iCloud にも）に保存し、**開発者や第三者へ送信することは
+ありません。** 端末内 AI に渡すこともありません（読み取った後に、本アプリが覚えたカテゴリへ置き換えます）。
+覚えたものは、設定の「覚えたカテゴリ」でいつでも確かめ、カテゴリを変えたり、1 つずつ、またはすべて忘れさせたりできます。
 
 ### レシート・スクリーンショットの取り扱い
 
@@ -123,7 +127,7 @@ iOS の共有の画面に渡され、**利用者が選んだ共有先（アプ�
 ### iCloud での同期（任意）
 
 設定の「iCloud で同期」は、既定ではオフです。利用者がオンにしたときだけ、記録（金額・日付・カテゴリ・メモ・入力した文章など、
-上の「入力した家計の記録」と同じもの）と予算の金額を、Apple の iCloud の利用者自身の領域（CloudKit の非公開データベース）に
+上の「入力した家計の記録」と同じもの）と予算の金額と覚えたカテゴリを、Apple の iCloud の利用者自身の領域（CloudKit の非公開データベース）に
 保存し、同じ Apple アカウントでサインインしている端末どうしでそろえます。オンにした時点でお使いの端末にある記録も、iCloud に
 保存されます。上に書いた iPhone 自体のバックアップとは別の機能です。
 
@@ -131,8 +135,8 @@ iOS の共有の画面に渡され、**利用者が選んだ共有先（アプ�
   利用者の端末のあいだでだけやり取りされます。iCloud での保存には、Apple のプライバシーポリシーと iCloud の利用規約が
   適用されます。
 - **暗号化について。** 記録と予算の中身（本アプリが保存する項目のすべて。金額・収入か支出か・日付・カテゴリ・メモ・入力した
-  文章・入力の方法（文字・レシート・声）・記録した日時と、予算の対象・金額・決めた日時）は、CloudKit の暗号化フィールドとして、
-  お使いの端末の中で暗号化してから iCloud に保存します。Apple の「高度なデータ保護」をオンにしている場合は、エンドツーエンドで
+  文章・入力の方法（文字・レシート・声）・記録した日時と、予算の対象・金額・決めた日時と、覚えたカテゴリの言葉・カテゴリ・覚えた日時）は、
+  CloudKit の暗号化フィールドとして、お使いの端末の中で暗号化してから iCloud に保存します。Apple の「高度なデータ保護」をオンにしている場合は、エンドツーエンドで
   暗号化され、暗号の鍵は利用者の信頼できるデバイスだけが持ちます。オフの場合（標準のデータ保護）は、通信中と Apple のサーバー上で
   暗号化され、暗号の鍵は Apple が管理します。記録の件数や、iCloud に保存・変更した日時などの管理用の情報は、暗号化フィールドに
   入らず、高度なデータ保護をオンにしていても標準のデータ保護で扱われます（通信中と Apple のサーバー上では暗号化されます）。
@@ -188,9 +192,16 @@ iOS の共有の画面に渡され、**利用者が選んだ共有先（アプ�
 確認を求められることがあります。なお、Apple は開発者に売上の集計を提供しますが、購入者の氏名や連絡先、
 支払いの情報は含まれません。
 
+### アプリのロック（任意）
+
+設定の「Face ID でロック」（Face ID の無い端末では Touch ID かパスコード）は、既定ではオフです。オンにすると、本アプリを開くときに
+ロックの解除を求め、アプリの切り替えの画面でも記録を隠します。認証は iOS の仕組み（LocalAuthentication）が行い、本アプリが
+受け取るのは認証できたかどうかだけです。**顔や指紋のデータ、パスコードを本アプリが受け取ったり保存したりすることはありません。**
+オンかオフかだけを、下の「保存される設定」に保存します。
+
 ### 保存される設定
 
-初回の案内を終えたかどうか、週の始まり（日曜か月曜か）、iCloud で同期するかどうか、無料体験が終わったときの案内を出したかどうか、家計への質問を
+初回の案内を終えたかどうか、週の始まり（日曜か月曜か）、iCloud で同期するかどうか、アプリのロックをオンにしているかどうか、無料体験が終わったときの案内を出したかどうか、家計への質問を
 無料で使った回数（月ごとの回数。質問の文や答えは含みません）、先週のふりかえりを最後に表示した日時（ふりかえりの中身は
 含みません）、レシートの読み取りを無料で使った回数（月ごとの回数。画像や読み取った内容は含みません）といったアプリの設定は、
 iOS の標準的な仕組み（UserDefaults）を用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存します。
@@ -199,8 +210,8 @@ iOS の標準的な仕組み（UserDefaults）を用いて、お使いの iPhone
 
 ### 設定の画面から開くページ
 
-設定の画面の「プライバシーポリシー」と「ライセンス」は、Safari で GitHub のページ（このポリシーと
-ライセンスの文書）を開きます。開いたページの閲覧には、GitHub のプライバシーポリシーが適用されます。
+設定の画面の「ヘルプ・お問い合わせ」「プライバシーポリシー」「ライセンス」は、Safari で GitHub のページ（サポートのページ、
+このポリシー、ライセンスの文書）を開きます。開いたページの閲覧には、GitHub のプライバシーポリシーが適用されます。
 プレミアムの画面の「利用規約（Apple の標準 EULA）」は、Safari で Apple のページを開き、その閲覧には Apple の
 プライバシーポリシーが適用されます。本アプリが記録や設定をそれらのページへ送ることはありません。
 
@@ -303,11 +314,15 @@ budget is only displayed; your budget does not change unless you save it yoursel
 Only the date and time Last Week in Review was last shown is stored, as described in Settings We Store below (so that it does not
 appear again in the same week).
 
-### Remembered Corrections (Planned Feature)
+### Learned Categories (Remembered Corrections)
 
-If the app offers to remember your corrections (for example, which category a certain word
-belongs to) so that later entries can be read more accurately, those corrections will be
-stored only on your device.
+When you choose a category in a reply (the category buttons shown for an entry that was recorded as Other) or change the
+category of an entry on the edit screen, the app remembers the pair of the entry's item words (for example, "UNIQLO") and the
+category you chose, and records entries with the same words in that category from then on. Learned words and categories are stored
+in the same place as your records described above (in an area reserved for this app on your iPhone, and, when Sync with iCloud is
+on, also in your own iCloud as encrypted fields, like your records). **They are never sent to the developer or to any third party.**
+They are not passed to the on-device AI either (the app replaces the category with the learned one after reading).
+You can review them at any time in Learned Categories in Settings, change their categories, and forget them one by one or all at once.
 
 ### Receipts and Screenshots
 
@@ -361,7 +376,7 @@ quits while the share sheet is open, it is deleted the next time you open Settin
 ### Sync with iCloud (Optional)
 
 Sync with iCloud in Settings is off by default. Only when you turn it on, your records (the same items as in Your Records
-above, such as amounts, dates, categories, notes, and the text you entered) and budget amounts are saved in your own space in
+above, such as amounts, dates, categories, notes, and the text you entered), budget amounts, and learned categories are saved in your own space in
 Apple's iCloud (the CloudKit private database) and kept in sync across devices signed in to the same Apple Account. Records
 already on your device when you turn it on are saved to iCloud as well. This is separate from the iPhone backup described above.
 
@@ -370,7 +385,8 @@ already on your device when you turn it on are saved to iCloud as well. This is 
   iCloud terms.
 - **About encryption.** The contents of your records and budgets (every item the app saves: amounts, whether each is income or an
   expense, dates, categories, notes, the text you entered, how it was entered (text, receipt, or voice), when it was recorded,
-  and each budget's target, amount, and when it was set) are saved to iCloud as CloudKit encrypted fields, encrypted on your
+  each budget's target, amount, and when it was set, and each learned category's words, category, and when it was learned) are
+  saved to iCloud as CloudKit encrypted fields, encrypted on your
   device first. If Apple's Advanced Data Protection is on, they are end-to-end encrypted, and only your trusted devices have the
   keys. If it is off (standard data protection), they are encrypted in transit and on Apple's servers, and Apple manages the keys.
   Management information, such as the number of records and when they were saved to or changed in iCloud, is not stored in
@@ -442,10 +458,17 @@ When you tap Restore Purchases, the app syncs your purchase records with Apple's
 ask you to confirm your Apple Account. Apple provides the developer with aggregated sales reports,
 which do not include buyers' names, contact details, or payment information.
 
+### App Lock (Optional)
+
+Lock with Face ID in Settings (Touch ID or your passcode on devices without Face ID) is off by default. When it is on, the app
+asks you to unlock it when you open it and hides your records in the app switcher. Authentication is performed by iOS
+(LocalAuthentication), and the app only receives whether you were authenticated. **The app never receives or stores your face or
+fingerprint data or your passcode.** Only whether app lock is on is stored, as described in Settings We Store below.
+
 ### Settings We Store
 
 App settings, such as whether you have finished the first-launch introduction, which day your
-week starts on, whether to sync with iCloud, whether the notice at the end of the free trial has been shown, and the number of free
+week starts on, whether to sync with iCloud, whether app lock is on, whether the notice at the end of the free trial has been shown, and the number of free
 questions about your spending you have used (counted per month; your questions and answers are not
 included), the date and time Last Week in Review was last shown (not its contents), and the number of free receipt scans you have used
 (counted per month; no images or scanned contents), are stored only on your own iPhone, in an area reserved for this app, using the
@@ -455,7 +478,7 @@ described above. Whether you have purchased Premium is not stored as a setting (
 
 ### Pages Opened from Settings
 
-Privacy Policy and License in Settings open pages on GitHub (this policy and the license
+Help & Contact, Privacy Policy, and License in Settings open pages on GitHub (the support page, this policy, and the license
 document) in Safari. Your visit to those pages is covered by GitHub's privacy policy. Terms of Use
 (Apple's Standard EULA) on the Premium screen opens a page on Apple's website in Safari, covered by
 Apple's privacy policy. The app does not send your records or settings to those pages.
