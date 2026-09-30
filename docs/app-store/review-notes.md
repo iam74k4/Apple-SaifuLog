@@ -14,6 +14,7 @@ App Store Connect の「App Review に関する情報」の「メモ」と、課
 ## アプリの審査メモ
 
 App Store Connect → アプリ → バージョン → 「App Review に関する情報」→ メモ。「サインインが必要」はオフにする。
+メモの上限は 4,000 文字（英語の文はいま 3,976 文字）。書き足すときは、ほかの行を詰めて収める。
 
 ### 英語（入れる文）
 
@@ -25,7 +26,8 @@ HOW TO TRY IT
 - Ask a question in the same field, for example "今月カフェいくら?" (how much on cafes this month?). The answer is calculated by the app from the records.
 - Receipts: tap the camera button on the left of the field, then "Take Photo" or "Choose from Photos". Any photo or screenshot of a receipt works.
 - Voice: tap the microphone button on the right of the field and speak Japanese. The transcription is placed in the field; nothing is sent until the user taps Send.
-- The gear at the top right opens Settings (monthly budget, week start, CSV export, Sync with iCloud, Premium, Restore Purchases). Tapping the numbers at the top of the home screen opens the Monthly Summary.
+- The gear at the top right opens Settings (Premium, Restore Purchases, monthly budget, categories, learned categories, recurring entries, Apple Pay payments, week start, Sync with iCloud, Face ID lock, CSV export). Tapping the numbers at the top of the home screen opens the Monthly Summary.
+- Siri and Shortcuts: the app provides App Shortcuts such as "Record in SaifuLog" and "Ask SaifuLog"; each opens the app. The "Record Payment" action is for a Shortcuts Transaction automation (paying with Apple Pay). It runs without opening the app, keeps the amount and merchant on the device, and records them the next time the app is opened. To try it without paying, run "Record Payment" from a shortcut with any yen amount and a merchant, then open the app.
 - "Last Week in Review" appears on the home timeline only the first time the app is opened in a new week, when there are records from before that week, so it may not appear during a short review.
 
 APPLE INTELLIGENCE
@@ -34,6 +36,7 @@ AI features use Apple's on-device Foundation Models and work only on devices tha
 PERMISSIONS
 - Microphone: requested only when the user first taps the microphone button. Speech is transcribed on the device with SpeechAnalyzer; audio is never recorded to a file or sent anywhere, and speech recognition permission is not requested. The Japanese speech model may need to be downloaded from Apple the first time (the app asks first). On devices without Japanese transcription, the microphone button is hidden.
 - Camera: requested only when the user chooses "Take Photo" for a receipt. Images are read on the device with Vision and are never saved or sent. Choosing a photo uses the system photo picker, so no photo library permission is requested.
+- Face ID: used only when the user turns on the app lock in Settings (off by default). The system performs the authentication; the app receives only the result.
 
 DATA
 Records are stored on the device. Sync with iCloud is optional and off by default; when turned on, records are stored in the user's own iCloud private database, which the developer cannot read. The app sends no data to the developer and contains no analytics, advertising, or tracking.
@@ -52,7 +55,8 @@ Premium is a one-time non-consumable purchase (not a subscription) and supports 
 - 同じ入力欄で質問できます。例: 「今月カフェいくら?」。答えの数字はアプリが記録から計算します。
 - レシート: 入力欄の左のカメラのボタン →「撮る」か「写真から選ぶ」。レシートの写真やスクリーンショットなら、どれでも試せます。
 - 声: 入力欄の右のマイクのボタンを押して日本語で話します。書き起こしは入力欄に入るだけで、送信を押すまで何も送りません。
-- 右上の歯車で設定（月の予算・週の始まり・CSV 書き出し・iCloud で同期・プレミアム・購入の復元）。ホーム画面の上の数字を押すと月のまとめが開きます。
+- 右上の歯車で設定（プレミアム・購入の復元・月の予算・カテゴリ・覚えたカテゴリ・くり返しの記録・Apple Pay の支払い・週の始まり・iCloud で同期・Face ID でロック・CSV 書き出し）。ホーム画面の上の数字を押すと月のまとめが開きます。
+- Siri・ショートカット: 「サイフログで記録」「サイフログに質問」などの App Shortcuts があり、どれもアプリを開きます。「支払いを記録」の操作は、ショートカットの「取引」のオートメーション（Apple Pay で払ったとき）のためのものです。アプリを開かずに動き、金額と店名を端末の中に置いて、次にアプリを開いたときに記録します。払わずに試すには、「ショートカット」App でショートカットに「支払いを記録」を足し、円の金額と店名を入れて実行してから、アプリを開いてください。
 - 「先週のふりかえり」は、週が替わって最初に開いたときに、その週より前の記録があるときだけタイムラインに出るので、短い審査の間には出ないことがあります。
 
 Apple Intelligence
@@ -61,6 +65,7 @@ AI の機能は Apple の端末内の Foundation Models を使い、Apple Intell
 許可
 - マイク: マイクのボタンを初めて押したときだけ求めます。声は端末の中の SpeechAnalyzer で文字にし、録音をファイルに残さず、どこへも送りません。音声認識の許可は求めません。初めて使うときに、日本語の音声モデルを Apple からダウンロードすることがあります（先に確かめます）。日本語の書き起こしに対応しない端末では、マイクのボタンを出しません。
 - カメラ: レシートで「撮る」を選んだときだけ求めます。画像は端末の中の Vision で読み、保存も送信もしません。写真から選ぶときは iOS の写真の選択の画面を使うので、写真のライブラリの許可は求めません。
+- Face ID: 設定でアプリのロックをオンにしたときだけ使います（既定はオフ）。認証は iOS が行い、アプリは結果だけを受け取ります。
 
 データ
 記録は端末に保存します。iCloud で同期は任意で、既定はオフです。オンにすると、利用者自身の iCloud の非公開データベースに保存し、開発者は読めません。アプリは開発者にデータを送らず、解析・広告・トラッキングは入っていません。
