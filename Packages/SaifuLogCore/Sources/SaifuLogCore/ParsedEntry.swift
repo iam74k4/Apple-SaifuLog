@@ -37,7 +37,8 @@ public struct ParsedEntry: Sendable, Hashable {
     /// 読み取った値から 1 件を組み立てる。
     ///
     /// AI とルールベースのどちらもここを通す。割り勘の割り算やメモの書き方が、
-    /// どちらで読み取ったかによって変わらないようにするため。
+    /// どちらで読み取ったかによって変わらないようにするため。メモに書き足す説明の書き方は、ホームの返事が読み戻す
+    /// `EntryMemoNote` と同じもの（`EntryMemoNote.memo(item:note:)`）を使う。
     ///
     /// - Parameters:
     ///   - total: 入力に書かれていた金額（割り勘なら割る前の総額）。
@@ -57,18 +58,17 @@ public struct ParsedEntry: Sendable, Hashable {
         let item = item.trimmingCharacters(in: .whitespacesAndNewlines)
         // 1 人分の額はもう割ったあとの額なので、割らない。総額や人数をメモから除いたぶん、1 人分であることを書き足す。
         if !isIncome, isPerPerson {
-            let note = splitCount >= 2 ? "\(splitCount)人で割り勘・1人分" : "1人分"
             return ParsedEntry(
                 amount: total, category: category, isIncome: false,
-                memo: item.isEmpty ? note : "\(item)（\(note)）", daysAgo: daysAgo, splitCount: 1
+                memo: EntryMemoNote.memo(item: item, note: EntryMemoNote.perPersonNote(splitCount: splitCount)),
+                daysAgo: daysAgo, splitCount: 1
             )
         }
         // 収入を割り勘することはないので、人数が読めても無視する。
         if !isIncome, let split = BillSplit(total: total, count: splitCount) {
-            let memo = item.isEmpty ? split.note : "\(item)（\(split.note)）"
             return ParsedEntry(
                 amount: split.share, category: category, isIncome: false,
-                memo: memo, daysAgo: daysAgo, splitCount: split.count
+                memo: EntryMemoNote.memo(item: item, note: split.note), daysAgo: daysAgo, splitCount: split.count
             )
         }
         return ParsedEntry(

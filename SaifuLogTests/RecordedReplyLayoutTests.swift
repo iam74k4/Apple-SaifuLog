@@ -81,10 +81,57 @@ struct RecordedReplyLayoutTests {
         #expect(withUndo.height == withoutUndo.height)
     }
 
+    /// 割り勘の記録は、品目（「焼肉」）だけを見出しにし、説明を文にして行の下に添える。見出しが短くなるので、金額は品目と同じ行に
+    /// 並ぶ（長いメモのまま見出しにすると、金額が品目の下の行に落ちる）。メモか金額を直した記録は、メモをそのまま見出しにする。
+    @Test("割り勘の記録は品目だけを見出しにして説明の文を行の下に添え、直した記録はメモのまま")
+    func splitRowShowsItemAndNote() throws {
+        let context = try TestSupport.makeContext()
+        let split = TestSupport.entry(amount: 3_000, memo: Self.longMemo)
+        let plain = TestSupport.entry(amount: 3_000, memo: "焼肉", createdAt: TestSupport.now.addingTimeInterval(60))
+        // 金額だけを直した記録（説明の額と合わない）。
+        let edited = TestSupport.entry(amount: 3_500, memo: Self.longMemo, createdAt: TestSupport.now.addingTimeInterval(120))
+        for entry in [split, plain, edited] { context.insert(entry) }
+        try context.save()
+
+        #expect(RecordedReplyRow.text(of: split).item == "焼肉")
+        #expect(RecordedReplyRow.text(of: split).note == "¥12,000 を4人で割り勘。立て替えた ¥9,000 はメモに残しました。")
+        #expect(RecordedReplyRow.text(of: plain).item == "焼肉")
+        #expect(RecordedReplyRow.text(of: plain).note == nil)
+        #expect(RecordedReplyRow.text(of: edited).item == Self.longMemo)
+        #expect(RecordedReplyRow.text(of: edited).note == nil)
+
+        let sends = EntrySend.sends(from: [split, plain, edited])
+        #expect(sends.count == 3)
+        let heights = sends.map { Self.size(of: Self.card($0, canUndo: false), width: 370).height }
+        // 説明の文の分だけ、品目だけの記録のカードより高い。
+        #expect(heights[0] > heights[1])
+    }
+
+    /// 直前の送信の返事（「取り消す」を出している間）には、最後に今月の状況の一行を足す。一行は今月の記録と予算を保存先から読む。
+    @Test("直前の送信の返事には、今月の状況の一行を足す（前の送信の返事には足さない）")
+    func latestReplyAddsStatusLine() throws {
+        let context = try TestSupport.makeContext()
+        let entry = TestSupport.entry(memo: "ランチ", spentAt: TestSupport.now, createdAt: TestSupport.now)
+        context.insert(entry)
+        try context.save()
+        let send = try #require(EntrySend.sends(from: [entry]).first)
+
+        let latest = Self.size(
+            of: Self.card(send, canUndo: true, showsStatus: true).modelContainer(context.container), width: 370
+        )
+        let earlier = Self.size(of: Self.card(send, canUndo: false).modelContainer(context.container), width: 370)
+
+        // 一行（標準の文字で 20pt ほど）と区切りの線と間の分だけ高い。
+        #expect(latest.height > earlier.height + 20)
+    }
+
     // MARK: - 部品
 
-    private static func card(_ send: EntrySend, canUndo: Bool) -> some View {
-        RecordedReplyCard(send: send, today: TestSupport.now, canUndo: canUndo, undo: {}, edit: { _ in }, requestDelete: { _ in })
+    private static func card(_ send: EntrySend, canUndo: Bool, showsStatus: Bool = false) -> some View {
+        RecordedReplyCard(
+            send: send, today: TestSupport.now, canUndo: canUndo, showsStatus: showsStatus, undo: {}, edit: { _ in },
+            requestDelete: { _ in }
+        )
     }
 
     /// 品目を赤、金額を青で描いた行（字の形は返事の行と同じ）。
