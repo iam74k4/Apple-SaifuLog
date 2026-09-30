@@ -494,7 +494,8 @@ main へマージする前の develop のビルドを、TestFlight で自分の 
 
 1. 「[一度だけの準備](#一度だけの準備)」の 1〜3・6・7 を済ませる（Bundle ID とアプリレコード、API キー、証明書の Secrets、保護ルール）
 2. **Environment `release` の配備ブランチに `develop` を足す**（所有者の作業）。Settings → Environments → `release` →
-   Deployment branches and tags → Add deployment branch or tag rule → `develop`。足したあと何で安全を保つか（と、その限界）は「一度だけの準備」の 3
+   Deployment branches and tags → Add deployment branch or tag rule → `develop`。足したあと何で安全を保つか（と、その限界）は「一度だけの準備」の 3。
+   済み（いまの配備ブランチは `main` と `develop`）
 3. App Store Connect → アプリ → **TestFlight** → 内部テストの **+** でグループを作り（名前は任意。例: 「所有者」）、
    テスターに自分を足す
    - 内部テスターになれるのは、App Store Connect のチームのユーザ（最大 100 人）。Apple Developer Program の所有者は、そのまま足せる
