@@ -80,6 +80,14 @@ struct HomeView: View {
                 .sheet(item: $model.editing) { editing in
                     EditEntrySheet(model: editing)
                 }
+                // 返事の聞き返しから開く「カテゴリを作る」（上と同じく item で出す）。
+                .sheet(item: $model.categoryEditor) { editor in
+                    CategoryEditorSheet(model: editor)
+                }
+                // 返事の行の長押しの「毎月くり返す」で開く、くり返しの記録を作るシート。
+                .sheet(item: $model.recurringEditor) { editor in
+                    RecurringEditorSheet(model: editor)
+                }
                 // 月のまとめ（⑦）は横に進む。ホームへ戻ると monthlyReport は nil に戻る（item で出すのは、シートと同じく
                 // 戻る動きの間も中身を保つため）。
                 .navigationDestination(item: $model.monthlyReport) { report in
@@ -154,6 +162,8 @@ struct HomeView: View {
                 .onAppear {
                     // モデルは初回の案内より前に作っている（`AppRootView`）。案内の間に日付が変わっていても今日で数えるよう、読み直す。
                     model.refreshToday()
+                    // 記録する日を過ぎたくり返しの記録を記録する（ふりかえりより先に。ふりかえりのカードをいちばん下に出すため）。
+                    model.recordDueRecurringEntries(calendar: calendar)
                     model.showWeeklyRecapIfDue(calendar: calendar)
                     model.refreshQuickPhrases()
                 }
@@ -173,11 +183,15 @@ struct HomeView: View {
                 // 保存先に書き込まれたら、ふりかえりのカード（と内訳）の数字と、よく使うひとことの候補を読み直す（記録を足した・
                 // 直した・消したとき）。
                 .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { _ in
+                    model.categories.reload()
                     model.weeklyRecap?.reload()
                     model.refreshQuickPhrases()
                 }
                 // iCloud で届いたほかの端末の変更でも読み直す（didSave にならないため。帯とタイムラインは @Query が追う）。
+                // ほかの端末が同じ月のくり返しの記録を記録していたら片づける。
                 .onReceive(StoreChanges.remote) { _ in
+                    model.removeDuplicateRecurringEntries()
+                    model.categories.reload()
                     model.weeklyRecap?.reload()
                     model.refreshQuickPhrases()
                 }
@@ -244,6 +258,7 @@ struct HomeView: View {
                     switch phase {
                     case .active:
                         model.refreshToday()
+                        model.recordDueRecurringEntries(calendar: calendar)
                         model.refreshQuickPhrases()
                         // 状態が変わらなくても、前面に戻ったときには確かめる（ほかの画面を閉じた後で出せるように）。
                         model.presentPremiumIfTrialEnded()
@@ -259,9 +274,12 @@ struct HomeView: View {
                 // 日付が変わったとき（0 時・時間帯の変更など）。前面に置いたまま月をまたいでも合計を切り替える。
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
                     model.refreshToday()
+                    model.recordDueRecurringEntries(calendar: calendar)
                     model.showWeeklyRecapIfDue(calendar: calendar)
                 }
         }
+        // カテゴリの一覧（作ったカテゴリの名前・記号・色）を、ホームから開くすべての画面とシートに渡す。
+        .environment(\.categoryCatalog, model.categories.catalog)
         // 保存先の開き直しなどでホームの画面が片づけられるときは、声の入力をやめる（マイクを開いたままにしない）。
         .onDisappear {
             model.voice.cancel()
@@ -323,10 +341,13 @@ struct HomeView: View {
                 edit: { model.presentEdit($0, calendar: calendar) },
                 requestDelete: { model.requestDelete($0) },
                 chooseCategory: { model.chooseCategory($1, for: $0) },
+                createCategory: { model.presentCategoryCreation(for: $0) },
+                makeRecurring: { model.presentRecurringCreation(from: $0, calendar: calendar) },
                 fillDraft: { model.draft = $0 },
                 openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
                 setBudget: { model.presentBudgetSetup() },
                 openPremium: { model.presentPremium() },
+                askFollowUp: { model.askFollowUp($0, calendar: calendar) },
                 openWeeklyRecap: { model.presentWeeklyRecapDetail() },
                 // 閉じたときは、上の行がカードのあった所へ下りてくる動きを付ける（出したときは付けない。`TimelineScrollView`）。
                 dismissWeeklyRecap: { withAnimation { model.dismissWeeklyRecap() } }
@@ -512,11 +533,17 @@ private struct EntryTimeline: View {
     let edit: (Entry) -> Void
     let requestDelete: (Entry) -> Void
     let chooseCategory: (Entry, EntryCategory) -> Void
+    /// 聞き返した記録のために、カテゴリを作る画面を開く。
+    let createCategory: (Entry) -> Void
+    /// その記録の中身で、くり返しの記録を作る画面を開く（長押しの「毎月くり返す」）。
+    let makeRecurring: (Entry) -> Void
     /// 記録が無いときの案内の入力の例を、入力欄に入れる。
     let fillDraft: (String) -> Void
     let openReport: (Date) -> Void
     let setBudget: () -> Void
     let openPremium: () -> Void
+    /// 回答カードの「続けて聞く質問」を送る（いちばん新しい答えにだけ出す）。
+    let askFollowUp: (QuestionFollowUp) -> Void
     let openWeeklyRecap: () -> Void
     let dismissWeeklyRecap: () -> Void
 
@@ -536,10 +563,13 @@ private struct EntryTimeline: View {
         edit: @escaping (Entry) -> Void,
         requestDelete: @escaping (Entry) -> Void,
         chooseCategory: @escaping (Entry, EntryCategory) -> Void,
+        createCategory: @escaping (Entry) -> Void,
+        makeRecurring: @escaping (Entry) -> Void,
         fillDraft: @escaping (String) -> Void,
         openReport: @escaping (Date) -> Void,
         setBudget: @escaping () -> Void,
         openPremium: @escaping () -> Void,
+        askFollowUp: @escaping (QuestionFollowUp) -> Void,
         openWeeklyRecap: @escaping () -> Void,
         dismissWeeklyRecap: @escaping () -> Void
     ) {
@@ -555,10 +585,13 @@ private struct EntryTimeline: View {
         self.edit = edit
         self.requestDelete = requestDelete
         self.chooseCategory = chooseCategory
+        self.createCategory = createCategory
+        self.makeRecurring = makeRecurring
         self.fillDraft = fillDraft
         self.openReport = openReport
         self.setBudget = setBudget
         self.openPremium = openPremium
+        self.askFollowUp = askFollowUp
         self.openWeeklyRecap = openWeeklyRecap
         self.dismissWeeklyRecap = dismissWeeklyRecap
         _recentEntries = Query(Entry.timelineDescriptor(limit: limit))
@@ -657,13 +690,16 @@ private struct EntryTimeline: View {
                         RecordedReplyCard(
                             send: send, today: today, canUndo: isLatest, showsStatus: isLatest,
                             askingCategory: isLatest ? askingCategory : [], undo: undo, edit: edit,
-                            requestDelete: requestDelete, chooseCategory: chooseCategory
+                            requestDelete: requestDelete, chooseCategory: chooseCategory, createCategory: createCategory,
+                            makeRecurring: makeRecurring
                         )
                         // 送信のいちばん下（返事のカード）の位置を知らせる。
                         .reportsTimelineFrame(.row(send.id))
                     case .question(let exchange):
                         QuestionExchangeView(
-                            exchange: exchange, openReport: openReport, setBudget: setBudget, openPremium: openPremium
+                            exchange: exchange, openReport: openReport, setBudget: setBudget, openPremium: openPremium,
+                            // 続けて聞く質問は、いちばん新しい答えにだけ出す（前の答えに並べると、タイムラインが候補で埋まるため）。
+                            askFollowUp: exchange.id == questions.last?.id ? askFollowUp : nil
                         )
                         .reportsTimelineFrame(.row(exchange.id))
                     case .weeklyRecap(let recap):

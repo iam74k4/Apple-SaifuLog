@@ -10,8 +10,10 @@ import Foundation
 /// だけを扱うので、向きを書いた一言はいつも捨てる）。月のまとめは収支を書くので、その向き（「収入が支出より多い」など）を添える。
 public enum RecapFacts {
     /// 先週のふりかえりの文。記録が無かった週は nil（ふりかえる数字が無いので、AI に一言を書かせない）。
-    /// - Parameter calendar: 週を区切った暦。
-    public static func text(for recap: WeeklyRecap, calendar: Calendar) -> String? {
+    /// - Parameters:
+    ///   - calendar: 週を区切った暦。
+    ///   - catalog: カテゴリの一覧（作ったカテゴリの名前を書く）。
+    public static func text(for recap: WeeklyRecap, calendar: Calendar, catalog: CategoryCatalog = .builtIn) -> String? {
         guard !recap.isEmpty else { return nil }
         let yen = YenFormatter.string(from:)
         // 「1週間」と書いておくのは、一言の「一週間」「1週間」を照合で通すため（照合は、結果の文に無い数え方の数字を捨てる）。
@@ -32,7 +34,7 @@ public enum RecapFacts {
             lines.append("前の週との比べ: 前の週と同じ")
         }
         if !recap.breakdown.isEmpty {
-            lines.append("支出の多いカテゴリ: " + categories(recap.topCategories()))
+            lines.append("支出の多いカテゴリ: " + categories(recap.topCategories(), catalog: catalog))
         }
         if let day = recap.busiestDay {
             lines.append("いちばん多く使った日: \(date(day.interval.start, calendar: calendar))（\(yen(day.expense))）")
@@ -45,8 +47,10 @@ public enum RecapFacts {
     }
 
     /// 月のまとめの文。記録が無い月と、まだ始まっていない月は nil。
-    /// - Parameter calendar: 月を区切った暦。
-    public static func text(for report: MonthlyReport, calendar: Calendar) -> String? {
+    /// - Parameters:
+    ///   - calendar: 月を区切った暦。
+    ///   - catalog: カテゴリの一覧（作ったカテゴリの名前を書く）。
+    public static func text(for report: MonthlyReport, calendar: Calendar, catalog: CategoryCatalog = .builtIn) -> String? {
         guard report.recordCount > 0, report.timing != .future else { return nil }
         let yen = YenFormatter.string(from:)
         let range = LedgerAnswerFacts.dateRange(report.month, calendar: calendar)
@@ -66,7 +70,7 @@ public enum RecapFacts {
             lines.append("前の月との比べ: 前の月（\(yen(report.previousSummary.expense))）より \(comparison)")
         }
         if !report.breakdown.isEmpty {
-            lines.append("支出の多いカテゴリ: " + categories(Array(report.breakdown.items.prefix(3))))
+            lines.append("支出の多いカテゴリ: " + categories(Array(report.breakdown.items.prefix(3)), catalog: catalog))
         }
         if let budget = report.budget {
             if budget.isOver {
@@ -82,8 +86,8 @@ public enum RecapFacts {
     }
 
     /// 「食費 ¥6,000（49%）、カフェ ¥3,000（24%）」
-    static func categories(_ items: [CategoryBreakdown.Item]) -> String {
-        items.map { "\($0.category.displayName) \(YenFormatter.string(from: $0.amount))（\($0.percent)%）" }
+    static func categories(_ items: [CategoryBreakdown.Item], catalog: CategoryCatalog = .builtIn) -> String {
+        items.map { "\(catalog.name(of: $0.category)) \(YenFormatter.string(from: $0.amount))（\($0.percent)%）" }
             .joined(separator: "、")
     }
 

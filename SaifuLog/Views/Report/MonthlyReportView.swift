@@ -390,6 +390,7 @@ struct BreakdownCard: View {
 private struct BreakdownChart: View {
     let items: [CategoryBreakdown.Item]
 
+    @Environment(\.categoryCatalog) private var catalog
     @ScaledMetric(relativeTo: .body) private var rowHeight = 30
 
     var body: some View {
@@ -398,9 +399,9 @@ private struct BreakdownChart: View {
                 x: .value("金額", item.amount),
                 y: .value("カテゴリ", item.category.rawValue)
             )
-            .foregroundStyle(Theme.color(for: item.category))
+            .foregroundStyle(catalog.color(for: item.category))
             .cornerRadius(4)
-            .accessibilityLabel(Text(item.category.label))
+            .accessibilityLabel(catalog.label(for: item.category))
             .accessibilityValue(Text(verbatim: item.spokenValue))
         }
         // 並びは内訳の順（多い順）に固定する。
@@ -409,7 +410,7 @@ private struct BreakdownChart: View {
             AxisMarks { value in
                 AxisValueLabel {
                     if let rawValue = value.as(String.self), let category = EntryCategory(rawValue: rawValue) {
-                        Text(category.label)
+                        catalog.label(for: category)
                             .font(.caption)
                             .foregroundStyle(Theme.ink)
                     }
@@ -435,6 +436,7 @@ private struct BreakdownRow: View {
     let action: (() -> Void)?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.categoryCatalog) private var catalog
 
     var body: some View {
         if let action {
@@ -443,13 +445,13 @@ private struct BreakdownRow: View {
             }
             // 文字の色は行の中で決めているので、tint に染めない形にする（押している間は薄くなる）。
             .buttonStyle(.plain)
-            .accessibilityLabel(Text(category.label))
+            .accessibilityLabel(catalog.label(for: category))
             .accessibilityValue(Text(verbatim: spokenValue))
             .accessibilityHint(Text(hint))
         } else {
             content
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(Text(category.label))
+                .accessibilityLabel(catalog.label(for: category))
                 .accessibilityValue(Text(verbatim: spokenValue))
         }
     }
@@ -490,7 +492,7 @@ private struct BreakdownRow: View {
     }
 
     private var name: some View {
-        Text(category.label)
+        catalog.label(for: category)
             .foregroundStyle(Theme.ink)
     }
 
@@ -674,14 +676,15 @@ extension BudgetStatus {
 struct CategoryIcon: View {
     let category: EntryCategory
 
+    @Environment(\.categoryCatalog) private var catalog
     @ScaledMetric(relativeTo: .body) private var size = 28
 
     var body: some View {
-        Image(systemName: category.symbolName)
+        Image(systemName: catalog.symbolName(for: category))
             .font(.system(size: size * 0.5, weight: .semibold))
             .foregroundStyle(Theme.onCategory)
             .frame(width: size, height: size)
-            .background(Theme.color(for: category), in: .circle)
+            .background(catalog.color(for: category), in: .circle)
             // 丸はダークでもライトの色で塗る（EntryBubble と同じ理由。ダークの色に白い記号は読めない）。
             .environment(\.colorScheme, .light)
             .accessibilityHidden(true)

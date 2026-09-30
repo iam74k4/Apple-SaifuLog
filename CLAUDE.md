@@ -44,7 +44,10 @@
     家計への質問（ひとこと入力と同じ入力欄。記録か質問かはコアの `InputIntentClassifier` が決め、誤って記録しないことを優先し、
     決められない文は記録せずに書き直しを案内する。端末内 AI は `SaifuLog/AI/FoundationModelsQuestionAnswerer` のツール呼び出しで期間・知りたいこと・
     カテゴリを選択肢から選ぶだけで、数字はコアの `LedgerQuestionAnswerer` が計算し、AI の一言の数字はコアの `AnswerSentenceCheck` で照合する。
-    AI が使えないときはコアの `QuestionParser`。答えはホームのタイムラインの回答カード（`SaifuLog/Views/Question/`）で、保存しない。無料は月 10 回で、
+    AI が使えないときはコアの `QuestionParser`。答えはホームのタイムラインの回答カード（`SaifuLog/Views/Question/`）で、保存しない。
+    金額と件数の答えには前の期間との比べ（途中の期間は前の期間の同じところまで。コアの `LedgerComparison`。AI に渡す文にも書く）、今月・先月の
+    金額には 6 か月の推移（`LedgerTrend`、`AnswerTrendChart`）、いちばん新しい答えには続けて聞ける質問のボタン（`QuestionFollowUp`。質問の読み取りが
+    同じ質問に読める日本語の文を送る。`HomeModel.askFollowUp`）。無料は月 10 回で、
     答えを出せたときだけ数え、使い切ったら ⑨ への案内。実機でのモデルの答え方の確認はまだ）。
     週のふりかえり（週が替わって最初に開いたときだけ、ホームのタイムラインの出した日時の位置に「先週のふりかえり」のカードを出し、出した日時を
     `AppSettings.weeklyRecapShownAt` に書いて同じ週にはもう出さない（閉じても開き直しても）。記録を始める前の週には出さない。定型文（先週の支出と
@@ -121,6 +124,21 @@
     読み取った後に AI と辞書のどちらの記録にも当てる（AI への手がかりには渡さない）。当て方はコアの `CategoryMemory`、保存は
     `LearnedCategory`（暗号化フィールド）と `LearnedCategoryStore`、状態は `HomeModel.categoryQuestionIDs`・`chooseCategory`。⑧ の
     「覚えたカテゴリ」（`LearnedCategoriesView`・`LearnedCategoriesModel`）で一覧・変える・忘れる）。
+    作ったカテゴリ（利用者が 20 個まで作る。記録は ID だけを持つ `EntryCategory.custom`（rawValue は「custom:」と ID）で、名前・記号・色・
+    並びは `CustomCategory`（暗号化フィールド）と `CustomCategoryStore`。一覧はコアの `CategoryCatalog` で、ホームが `CategoryCatalogModel` を
+    1 つ持ち、画面へは環境の `categoryCatalog` で渡す（名前・色・記号は `CategoryCatalog` の拡張から引き、`EntryCategory.displayName` を
+    直接出さない）。AI の選択肢は組み込みの 8 種のままで、作ったカテゴリは文の中の名前（「衣服 3000」）・覚えたカテゴリ・返事の聞き返しの
+    「カテゴリを作る」・⑥・⑤ で付く。削除すると記録は「その他」、カテゴリ別の予算は 0、覚えたカテゴリからも外す。家族の家計には持ち込まない
+    （「その他」にする）。⑧ の「カテゴリ」（`Views/Categories/` の `CategoryListView`・`CategoryListModel`、作る・直すシートは
+    `CategoryEditorSheet`・`CategoryEditorModel`）。`docs/design.md` §8）。
+    くり返しの記録（家賃・サブスク・給料のように毎月同じ記録。決めた日（1〜31。無い日は月末）を過ぎて最初に開いたとき（ホームが出た・前面に戻った・
+    日付が変わった・足したり直したりした）に `HomeModel.recordDueRecurringEntries` が記録し、返事のカード（「くり返しの記録」。自分の吹き出しは出さない。
+    元の文は空・入力元 `.recurring`）と「取り消す」で知らせる。開かなかった月も 12 か月までさかのぼる。記録した月は決まりに覚え（取り消した月も）、
+    記録には印 `Entry.recurrenceKey`（「決まりの ID/202610」）を付けて、iCloud で 2 台が同じ月を記録したら記録した日時の古い 1 件を残す
+    （`RecurringDuplicates`。ほかの端末の変更が届いたときと記録する前）。決まりは `RecurringEntry`（暗号化フィールド）と `RecurringEntryStore`、日付は
+    コアの `RecurringSchedule`・`RecurringMonth`（西暦で数える）。⑧ の「毎月の記録」の「くり返しの記録」（`Views/Recurring/` の `RecurringListView`・
+    `RecurringListModel`、足す・直すシートは `RecurringEditorSheet`・`RecurringEditorModel`）と、返事の行の長押しの「毎月くり返す」（その記録の月の次の
+    月から）。自分の記録だけ。無料。`docs/design.md` §9）。
     よく使うひとこと（入力欄の上に、直近 90 日のよく記録する品目を「品目 ¥金額」のボタンで並べ、押すと入力欄に入る。送信は利用者。
     候補はコアの `QuickPhrases`、画面は `QuickPhraseBar`、`HomeModel.quickPhrases`）。
     アプリのロック（⑧ の「セキュリティ」の「Face ID でロック」。既定はオフで `AppSettings.appLockEnabled`。起動と裏から戻ったときに
@@ -131,9 +149,8 @@
     保存先のデータ保護は NSFileProtectionComplete（ロック中は読めないようにする。実機での確認はまだ。
     release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
     main で `mode=export` の照合が通るかの確認はまだ。`docs/design.md` §5-4）。
-  - **未実装:** 週のふりかえりの通知・家族との共有の提供（試作は機能フラグで隠している）・カテゴリの追加（いまは 8 種で固定）・
-    くり返しの記録・金額が読めないときの聞き返し・CSV の読み込み（カテゴリの追加とくり返しの記録は、デザイン案にあるが未決。
-    `docs/design.md` §13）。
+  - **未実装:** 週のふりかえりの通知・家族との共有の提供（試作は機能フラグで隠している）・
+    金額が読めないときの聞き返し・CSV の読み込み。
   - 実機での確認の手段: release.yml の手動実行 `mode=testflight` で、develop のビルドを診断画面入りで TestFlight の
     社内テスト専用に送れるようにした（審査には出ない。Environment `release` の配備ブランチは `main` と `develop`）。
     実際に TestFlight で入れての確認はまだ（`docs/release-flow.md` の「TestFlight で実機に入れる（社内テスト）」）。

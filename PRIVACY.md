@@ -83,6 +83,25 @@ iPhone の上で行います。**記録や計算した数字、一言を外部�
 ありません。** 端末内 AI に渡すこともありません（読み取った後に、本アプリが覚えたカテゴリへ置き換えます）。
 覚えたものは、設定の「覚えたカテゴリ」でいつでも確かめ、カテゴリを変えたり、1 つずつ、またはすべて忘れさせたりできます。
 
+### 作ったカテゴリ
+
+設定の「カテゴリ」や記録の返事から作ったカテゴリ（名前・記号・色・並び順・作った日時・直した日時）は、上の「入力した家計の記録」と
+同じ場所（お使いの iPhone の中の本アプリ専用の保存先。「iCloud で同期」をオンにしているときは、記録と同じく暗号化フィールドとして
+利用者自身の iCloud にも）に保存し、**開発者や第三者へ送信することはありません。** 記録にはカテゴリの名前ではなく、作ったカテゴリを
+見分ける番号だけを保存します。週のふりかえりや月のまとめの一言、質問の答えの一言を端末内 AI に書かせるときは、ほかのカテゴリと同じく
+作ったカテゴリの名前も渡しますが、この処理もお使いの iPhone の上で行います。CSV に書き出すときは、カテゴリの列に作ったカテゴリの名前を
+書きます。カテゴリを削除すると、そのカテゴリの記録は「その他」になります。家族・パートナーとの家計には、作ったカテゴリを持ち込みません
+（家計の記録では「その他」になります）。
+
+### くり返しの記録
+
+設定の「くり返しの記録」や記録の長押しから作った、毎月同じ記録の決まり（金額・品目・支出か収入か・カテゴリ・毎月の日・最初の月・記録を
+済ませた月・作った日時・直した日時）は、上の「入力した家計の記録」と同じ場所（お使いの iPhone の中の本アプリ専用の保存先。「iCloud で同期」を
+オンにしているときは、記録と同じく暗号化フィールドとして利用者自身の iCloud にも）に保存し、**開発者や第三者へ送信することはありません。**
+決めた日を過ぎてアプリを開いたときに、本アプリがお使いの iPhone の中で記録を作ります（サーバーは使いません）。作った記録は、ほかの記録と
+同じく保存し、どの決まりのどの月の分かを見分ける印を付けます（iCloud で同期している端末どうしで同じ月を二重に記録したときに、1 件にまとめるため）。
+決まりをやめても、作った記録は残ります。
+
 ### レシート・スクリーンショットの取り扱い
 
 利用者がレシートを撮影したり、写真（スクリーンショットを含む）を選んだりしたときは、明細を読み取るために、その画像の文字を
@@ -116,7 +135,7 @@ iOS が管理し、ほかのアプリと共有されます）。このダウン�
 ### CSV 書き出し
 
 設定の画面で利用者が「CSV ファイルを書き出す」を押したときだけ、選んだ期間（今月・先月・今年・すべて）の
-記録（日付・時刻・支出か収入か・カテゴリ・品目・金額・入力した文章）を CSV ファイルにします。ファイルは
+記録（日付・時刻・支出か収入か・カテゴリ（作ったカテゴリはその名前）・品目・金額・入力した文章）を CSV ファイルにします。ファイルは
 iOS の共有の画面に渡され、**利用者が選んだ共有先（アプリ、「ファイル」の保存先、AirDrop など）にだけ渡ります。**
 本アプリが自動で書き出したり、外部へ送信したりすることはありません。開発者へ送信することもありません。
 
@@ -127,7 +146,7 @@ iOS の共有の画面に渡され、**利用者が選んだ共有先（アプ�
 ### iCloud での同期（任意）
 
 設定の「iCloud で同期」は、既定ではオフです。利用者がオンにしたときだけ、記録（金額・日付・カテゴリ・メモ・入力した文章など、
-上の「入力した家計の記録」と同じもの）と予算の金額と覚えたカテゴリを、Apple の iCloud の利用者自身の領域（CloudKit の非公開データベース）に
+上の「入力した家計の記録」と同じもの）と予算の金額と覚えたカテゴリと作ったカテゴリとくり返しの記録を、Apple の iCloud の利用者自身の領域（CloudKit の非公開データベース）に
 保存し、同じ Apple アカウントでサインインしている端末どうしでそろえます。オンにした時点でお使いの端末にある記録も、iCloud に
 保存されます。上に書いた iPhone 自体のバックアップとは別の機能です。
 
@@ -135,7 +154,8 @@ iOS の共有の画面に渡され、**利用者が選んだ共有先（アプ�
   利用者の端末のあいだでだけやり取りされます。iCloud での保存には、Apple のプライバシーポリシーと iCloud の利用規約が
   適用されます。
 - **暗号化について。** 記録と予算の中身（本アプリが保存する項目のすべて。金額・収入か支出か・日付・カテゴリ・メモ・入力した
-  文章・入力の方法（文字・レシート・声）・記録した日時と、予算の対象・金額・決めた日時と、覚えたカテゴリの言葉・カテゴリ・覚えた日時）は、
+  文章・入力の方法（文字・レシート・声・くり返しの記録）・記録した日時と、予算の対象・金額・決めた日時と、覚えたカテゴリの言葉・カテゴリ・覚えた日時と、
+  作ったカテゴリの名前・記号・色・並び順・作った日時・直した日時と、くり返しの記録の決まりのすべての項目と記録に付けた印）は、
   CloudKit の暗号化フィールドとして、お使いの端末の中で暗号化してから iCloud に保存します。Apple の「高度なデータ保護」をオンにしている場合は、エンドツーエンドで
   暗号化され、暗号の鍵は利用者の信頼できるデバイスだけが持ちます。オフの場合（標準のデータ保護）は、通信中と Apple のサーバー上で
   暗号化され、暗号の鍵は Apple が管理します。記録の件数や、iCloud に保存・変更した日時などの管理用の情報は、暗号化フィールドに
@@ -324,6 +344,28 @@ on, also in your own iCloud as encrypted fields, like your records). **They are 
 They are not passed to the on-device AI either (the app replaces the category with the learned one after reading).
 You can review them at any time in Learned Categories in Settings, change their categories, and forget them one by one or all at once.
 
+### Categories You Create
+
+Categories you create in Categories in Settings or from a reply (their names, symbols, colors, order, and when they were created and
+last edited) are stored in the same place as your records described above (in an area reserved for this app on your iPhone, and, when
+Sync with iCloud is on, also in your own iCloud as encrypted fields, like your records). **They are never sent to the developer or to
+any third party.** Each record stores only an identifier of the category you created, not its name. When the app asks the on-device AI
+to write a remark for Last Week in Review or the monthly summary, or for an answer to a question, the names of categories you created
+are passed along with the other categories, and this also happens on your iPhone. When you export a CSV file, the category column
+contains the name of the category you created. If you delete a category, its records move to Other. Categories you create are not
+brought into a household shared with family or a partner (such records use Other there).
+
+### Recurring Entries
+
+The rules for entries that repeat every month, which you create in Recurring Entries in Settings or from a record's menu (the amount,
+item, whether it is income or an expense, category, day of the month, first month, the latest month already recorded, and when the rule
+was created and last edited), are stored in the same place as your records described above (in an area reserved for this app on your
+iPhone, and, when Sync with iCloud is on, also in your own iCloud as encrypted fields, like your records). **They are never sent to the
+developer or to any third party.** When you open the app on or after the chosen day, the app creates the record on your iPhone (no server
+is involved). The created records are stored like your other records, with a marker that tells which rule and month each one is for (so
+that if two of your devices synced with iCloud both record the same month, they can be merged into one). Stopping a rule keeps the records
+already created.
+
 ### Receipts and Screenshots
 
 When you photograph a receipt or choose a photo (including a screenshot), the app reads the text in the image with the
@@ -363,7 +405,7 @@ sent.
 
 Only when you tap Export CSV File in Settings, the records in the period you choose (this
 month, last month, this year, or all) are written to a CSV file, including the date, time,
-expense or income, category, item, amount, and the text you entered. The file is handed to the
+expense or income, category (for a category you created, its name), item, amount, and the text you entered. The file is handed to the
 iOS share sheet and **goes only to the destination you choose there (an app, a location in
 Files, AirDrop, and so on).** The app never exports or sends your records on its own, and
 nothing is sent to the developer.
@@ -376,7 +418,7 @@ quits while the share sheet is open, it is deleted the next time you open Settin
 ### Sync with iCloud (Optional)
 
 Sync with iCloud in Settings is off by default. Only when you turn it on, your records (the same items as in Your Records
-above, such as amounts, dates, categories, notes, and the text you entered), budget amounts, and learned categories are saved in your own space in
+above, such as amounts, dates, categories, notes, and the text you entered), budget amounts, learned categories, categories you create, and recurring entries are saved in your own space in
 Apple's iCloud (the CloudKit private database) and kept in sync across devices signed in to the same Apple Account. Records
 already on your device when you turn it on are saved to iCloud as well. This is separate from the iPhone backup described above.
 
@@ -384,8 +426,10 @@ already on your device when you turn it on are saved to iCloud as well. This is 
   are exchanged only between Apple's iCloud and your devices. Saving in iCloud is covered by Apple's privacy policy and the
   iCloud terms.
 - **About encryption.** The contents of your records and budgets (every item the app saves: amounts, whether each is income or an
-  expense, dates, categories, notes, the text you entered, how it was entered (text, receipt, or voice), when it was recorded,
-  each budget's target, amount, and when it was set, and each learned category's words, category, and when it was learned) are
+  expense, dates, categories, notes, the text you entered, how it was entered (text, receipt, voice, or a recurring entry), when it was recorded,
+  each budget's target, amount, and when it was set, each learned category's words, category, and when it was learned, and each
+  category you create's name, symbol, color, order, and when it was created and last edited, and every item of each recurring entry rule
+  and the marker on records created from it) are
   saved to iCloud as CloudKit encrypted fields, encrypted on your
   device first. If Apple's Advanced Data Protection is on, they are end-to-end encrypted, and only your trusted devices have the
   keys. If it is off (standard data protection), they are encrypted in transit and on Apple's servers, and Apple manages the keys.

@@ -32,7 +32,7 @@ enum QuestionRemark: Equatable, Sendable {
 /// キーワード辞書で読んで答える（AI が使えない端末と、AI が失敗したとき）。
 struct RuleBasedQuestionAnswerer: QuestionAnswering {
     func answer(_ text: String, ledger: QuestionLedger, now: Date, calendar: Calendar) async throws -> QuestionReply {
-        guard let question = QuestionParser.question(from: text, now: now, calendar: calendar),
+        guard let question = QuestionParser.question(from: text, now: now, calendar: calendar, catalog: ledger.catalog),
               let answer = LedgerQuestionAnswerer.answer(question, ledger: ledger, now: now, calendar: calendar)
         else { return .unreadable }
         return .answered(answer, remark: nil)

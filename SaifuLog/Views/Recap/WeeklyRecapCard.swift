@@ -19,6 +19,8 @@ struct WeeklyRecapCard: View {
     /// 予算を決める画面を出す。
     let setBudget: () -> Void
 
+    @Environment(\.categoryCatalog) private var catalog
+
     var body: some View {
         if let recap = model.recap {
             card(recap)
@@ -46,7 +48,7 @@ struct WeeklyRecapCard: View {
                 // 文字の色は中で決めているので、tint に染めない形にする（押している間は薄くなる）。
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text(verbatim: RecapTexts.spokenSummary(
-                    for: recap, remark: model.remark.state.sentence, calendar: model.calendar
+                    for: recap, remark: model.remark.state.sentence, calendar: model.calendar, catalog: catalog
                 )))
                 .accessibilityHint("先週の内訳を開きます")
             }

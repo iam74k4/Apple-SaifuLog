@@ -128,7 +128,10 @@ public enum QuestionParser {
     /// - Parameters:
     ///   - now: 日付の言い回し（「9/26」など、答えられない書き方）を見分ける基準の日時。
     ///   - calendar: 同じく日付を見分ける暦。
-    public static func read(_ text: String, now: Date, calendar: Calendar) -> QuestionReading {
+    ///   - catalog: カテゴリの一覧。作ったカテゴリの名前（「衣服」）も読む（組み込みの語より先に見る。利用者が決めた名前のため）。
+    public static func read(
+        _ text: String, now: Date, calendar: Calendar, catalog: CategoryCatalog = .builtIn
+    ) -> QuestionReading {
         let normalized = TextNormalizer.normalize(text)
         var chars = Array(normalized)
         var reading = QuestionReading()
@@ -203,13 +206,15 @@ public enum QuestionParser {
             }?.metric
         }
         reading.asksAmount = amountWords.contains { rest.contains($0) }
-        reading.category = EntryCategory.matched(in: rest)
+        reading.category = catalog.customCategory(namedIn: rest) ?? EntryCategory.matched(in: rest)
         return reading
     }
 
     /// 読めた質問。読めなければ nil。
-    public static func question(from text: String, now: Date, calendar: Calendar) -> LedgerQuestion? {
-        read(text, now: now, calendar: calendar).question
+    public static func question(
+        from text: String, now: Date, calendar: Calendar, catalog: CategoryCatalog = .builtIn
+    ) -> LedgerQuestion? {
+        read(text, now: now, calendar: calendar, catalog: catalog).question
     }
 
     // MARK: - 辞書

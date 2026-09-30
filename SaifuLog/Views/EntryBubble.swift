@@ -524,14 +524,24 @@ extension LedgerEntryDisplaying {
         !calendar.isDate(spentAt, equalTo: today, toGranularity: .year)
     }
 
-    /// 種別の名前（「収入」かカテゴリ名）。
+    /// 種別の名前（「収入」かカテゴリ名。組み込みのカテゴリだけの記録（家計の記録）に使う）。
     var kindText: String {
-        isIncome ? String(localized: "収入") : String(localized: category.label)
+        kindText(in: .builtIn)
+    }
+
+    /// 種別の名前（「収入」かカテゴリ名。作ったカテゴリは一覧から名前を引く）。
+    func kindText(in catalog: CategoryCatalog) -> String {
+        isIncome ? String(localized: "収入") : catalog.localizedName(for: category)
     }
 
     /// 削除の確認や入力欄の VoiceOver の「直す: …」に出す「ランチ ¥850」。品目が無ければ種別の名前にする（返事の行と吹き出しの
-    /// 見出しと同じ）。
+    /// 見出しと同じ）。組み込みのカテゴリだけの記録（家計の記録）に使う。
     var summaryText: String {
-        "\(memo.isEmpty ? kindText : memo) \(YenFormatter.string(from: amount))"
+        summaryText(in: .builtIn)
+    }
+
+    /// 「ランチ ¥850」（作ったカテゴリは一覧から名前を引く）。
+    func summaryText(in catalog: CategoryCatalog) -> String {
+        "\(memo.isEmpty ? kindText(in: catalog) : memo) \(YenFormatter.string(from: amount))"
     }
 }

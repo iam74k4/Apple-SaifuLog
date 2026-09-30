@@ -109,7 +109,9 @@ final class WeeklyRecapModel: Identifiable {
                 weekEntries = []
             }
             loadFailed = false
-            remark.update(facts: recap.flatMap { RecapFacts.text(for: $0, calendar: calendar) })
+            // AI に渡す文にも作ったカテゴリの名前を書く（読めなければ組み込みの名前だけ）。
+            let catalog = (try? CustomCategoryStore(context: context).catalog()) ?? .builtIn
+            remark.update(facts: recap.flatMap { RecapFacts.text(for: $0, calendar: calendar, catalog: catalog) })
         } catch {
             recap = nil
             suggestion = nil

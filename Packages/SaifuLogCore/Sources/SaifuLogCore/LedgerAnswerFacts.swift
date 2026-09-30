@@ -7,19 +7,57 @@ import Foundation
 /// 金額は画面と同じ「¥1,280」の形（`YenFormatter`）で書き、モデルが表記を写しやすいようにする。
 public enum LedgerAnswerFacts {
     /// ツールの結果の文。
-    /// - Parameter calendar: 期間の日付を書く暦（期間を区切った暦）。日付は西暦で書く。
-    public static func text(for answer: LedgerAnswer, calendar: Calendar) -> String {
+    /// - Parameters:
+    ///   - calendar: 期間の日付を書く暦（期間を区切った暦）。日付は西暦で書く。
+    ///   - catalog: カテゴリの一覧（作ったカテゴリの名前を書く）。
+    public static func text(for answer: LedgerAnswer, calendar: Calendar, catalog: CategoryCatalog = .builtIn) -> String {
         var lines = [
             "期間: \(periodName(answer.period))（\(dateRange(answer.interval, calendar: calendar))）",
-            "知りたいこと: \(metricName(answer.question))",
-            "結果: \(result(answer.value))",
+            "知りたいこと: \(metricName(answer.question, catalog: catalog))",
+            "結果: \(result(answer.value, catalog: catalog))",
             "元になった記録: \(answer.recordCount)件",
         ]
         if answer.period != answer.question.period {
             // 予算は月で数えるので、聞かれた期間と違う期間で答えたことを、モデルにも伝える。
             lines.insert("聞かれた期間: \(periodName(answer.question.period))（予算は月ごとなので、上の期間で数えた）", at: 1)
         }
+        if let comparison = answer.comparison {
+            lines.append("前の期間との比べ: \(comparisonText(comparison, value: answer.value))")
+        }
         return lines.joined(separator: "\n")
+    }
+
+    /// 前の期間との比べの文（「先月の同じ日まで（¥5,400）より ¥1,800 多い」）。比べた期間の日付は書かない（一言に期間の日付の
+    /// 数字を増やさないため）。
+    static func comparisonText(_ comparison: LedgerComparison, value: LedgerAnswer.Value) -> String {
+        let name = baselineName(comparison.baseline)
+        guard comparison.previousRecordCount > 0 else { return "\(name)は記録が無いので、比べられない" }
+        let figure: (Int) -> String
+        if case .count = value {
+            figure = { "\($0)件" }
+        } else {
+            figure = YenFormatter.string(from:)
+        }
+        let previous = figure(comparison.previous)
+        switch comparison.difference {
+        case 1...: return "\(name)（\(previous)）より \(figure(comparison.difference)) 多い"
+        case ..<0: return "\(name)（\(previous)）より \(figure(-comparison.difference)) 少ない"
+        default: return "\(name)（\(previous)）と同じ"
+        }
+    }
+
+    /// 比べた期間の名前（AI に渡す日本語）。
+    public static func baselineName(_ baseline: LedgerComparison.Baseline) -> String {
+        switch baseline {
+        case .yesterdaySameTime: "昨日の同じ時刻まで"
+        case .dayBeforeYesterday: "一昨日"
+        case .lastWeekToDate: "先週の同じ曜日の同じ時刻まで"
+        case .weekBeforeLast: "先々週"
+        case .lastMonthToDate: "先月の同じ日まで"
+        case .monthBeforeLast: "先々月"
+        case .lastYearToDate: "去年の同じ日まで"
+        case .previousDays(let days): "その前の\(days)日"
+        }
     }
 
     /// 期間の名前（AI に渡す日本語）。
@@ -36,22 +74,22 @@ public enum LedgerAnswerFacts {
         }
     }
 
-    static func metricName(_ question: LedgerQuestion) -> String {
+    static func metricName(_ question: LedgerQuestion, catalog: CategoryCatalog = .builtIn) -> String {
         switch question.metric {
         case .expenseTotal: "支出の合計"
-        case .categoryExpense: "\((question.category ?? .other).displayName)の支出の合計"
+        case .categoryExpense: "\(catalog.name(of: question.category ?? .other))の支出の合計"
         case .incomeTotal: "収入の合計"
         case .balance: "収支（収入から支出を引いた額）"
         case .expenseByCategory: "支出のカテゴリ別の内訳"
         case .entryCount:
-            question.category.map { "\($0.displayName)の支出の記録の件数" } ?? "記録の件数（支出と収入）"
+            question.category.map { "\(catalog.name(of: $0))の支出の記録の件数" } ?? "記録の件数（支出と収入）"
         case .remainingBudget: "月の予算の残り"
         case .dailyAllowance: "今日から月末まで、1日あたりに使える額"
         case .topCategory: "いちばん多く使ったカテゴリ"
         }
     }
 
-    static func result(_ value: LedgerAnswer.Value) -> String {
+    static func result(_ value: LedgerAnswer.Value, catalog: CategoryCatalog = .builtIn) -> String {
         let yen = YenFormatter.string(from:)
         switch value {
         case .amount(let amount):
@@ -63,11 +101,11 @@ public enum LedgerAnswerFacts {
             return "\(count)件"
         case .breakdown(let breakdown):
             guard !breakdown.isEmpty else { return "この期間の支出はありません" }
-            let items = breakdown.items.map { "\($0.category.displayName) \(yen($0.amount))（\($0.percent)%）" }
+            let items = breakdown.items.map { "\(catalog.name(of: $0.category)) \(yen($0.amount))（\($0.percent)%）" }
             return "支出の合計 \(yen(breakdown.total))。" + items.joined(separator: "、")
         case .topCategory(let item):
             guard let item else { return "この期間の支出はありません" }
-            return "いちばん多いのは\(item.category.displayName)で \(yen(item.amount))（支出全体の\(item.percent)%）"
+            return "いちばん多いのは\(catalog.name(of: item.category))で \(yen(item.amount))（支出全体の\(item.percent)%）"
         case .budget(let status):
             if status.isOver {
                 return "予算 \(yen(status.budget)) を \(yen(status.overspent)) 超えています（使った額 \(yen(status.spent))）"

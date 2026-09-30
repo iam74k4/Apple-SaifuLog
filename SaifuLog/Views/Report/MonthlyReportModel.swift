@@ -157,7 +157,9 @@ final class MonthlyReportModel {
             monthEntries = records.filter { $0.spentAt >= month.start && $0.spentAt < month.end }
             loadFailed = false
             // 数字の文が変わったときだけ書き直す（同じ月を読み直すたびに AI を呼ばない）。
-            remark.update(facts: report.flatMap { RecapFacts.text(for: $0, calendar: calendar) })
+            // AI に渡す文にも作ったカテゴリの名前を書く（読めなければ組み込みの名前だけ）。
+            let catalog = (try? CustomCategoryStore(context: store.context).catalog()) ?? .builtIn
+            remark.update(facts: report.flatMap { RecapFacts.text(for: $0, calendar: calendar, catalog: catalog) })
         } catch {
             report = nil
             monthEntries = []

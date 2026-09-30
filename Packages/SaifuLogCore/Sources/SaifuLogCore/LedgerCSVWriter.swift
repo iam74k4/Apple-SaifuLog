@@ -95,7 +95,11 @@ public enum LedgerCSVWriter {
     }
 
     /// カテゴリの列の値。アプリの画面の名前と同じにする（英語はアプリの String Catalog の訳と同じ。アプリのテストで照合する）。
-    public static func categoryName(_ category: EntryCategory, language: Language) -> String {
+    /// 作ったカテゴリは、利用者が決めた名前のまま（どちらの言語でも）。一覧に無い作ったカテゴリは「その他」。
+    public static func categoryName(
+        _ category: EntryCategory, language: Language, catalog: CategoryCatalog = .builtIn
+    ) -> String {
+        if let custom = catalog.info(for: category) { return custom.name }
         switch language {
         case .japanese:
             return category.displayName
@@ -108,7 +112,7 @@ public enum LedgerCSVWriter {
             case .entertainment: return "Entertainment"
             case .utilities: return "Utilities & phone"
             case .medical: return "Medical"
-            case .other: return "Other"
+            case .other, .custom: return "Other"
             }
         }
     }
@@ -131,7 +135,7 @@ public enum LedgerCSVWriter {
 
     /// CSV の本文（BOM なし）。記録は渡された順に書く（並べ替えと絞り込みは `records(_:in:now:calendar:)`）。
     public static func text<Records: Sequence>(
-        _ records: Records, language: Language, timeZone: TimeZone
+        _ records: Records, language: Language, timeZone: TimeZone, catalog: CategoryCatalog = .builtIn
     ) -> String where Records.Element: LedgerCSVRecord {
         let calendar = gregorian(timeZone: timeZone)
         var text = line(header(language: language))
@@ -143,7 +147,7 @@ public enum LedgerCSVWriter {
                 kindName(isIncome: record.isIncome, language: language),
                 // 収入は支出とは別の種別で、カテゴリで分けていない（ひとこと入力は「その他」で保存する）。
                 // 「その他」と書くと、支出のその他と見分けが付かず、分けたように見えるので空にする。
-                record.isIncome ? "" : categoryName(record.category, language: language),
+                record.isIncome ? "" : categoryName(record.category, language: language, catalog: catalog),
                 record.memo,
                 // 金額は符号なしの数字だけにする（支出か収入かは種類の列で分かる。アプリは正の整数しか保存しない）。
                 // 数字だけなので数式にならず、数として合計できるよう、先頭に ' を付けない。
@@ -156,9 +160,9 @@ public enum LedgerCSVWriter {
 
     /// 書き出すファイルの中身（BOM ＋ CSV の本文）。
     public static func data<Records: Sequence>(
-        _ records: Records, language: Language, timeZone: TimeZone
+        _ records: Records, language: Language, timeZone: TimeZone, catalog: CategoryCatalog = .builtIn
     ) -> Data where Records.Element: LedgerCSVRecord {
-        Data(byteOrderMark) + Data(text(records, language: language, timeZone: timeZone).utf8)
+        Data(byteOrderMark) + Data(text(records, language: language, timeZone: timeZone, catalog: catalog).utf8)
     }
 
     /// 書き出すファイルの名前（`saifulog-20260928.csv`）。日付は書き出した日（渡された時間帯の西暦）。

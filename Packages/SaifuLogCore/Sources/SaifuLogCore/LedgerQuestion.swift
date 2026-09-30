@@ -145,12 +145,23 @@ public struct LedgerAnswer: Hashable, Sendable {
     /// 答えの元になった記録の件数（何を数えたかは指標による。`LedgerQuestionAnswerer`）。
     public let recordCount: Int
     public let value: Value
+    /// 前の期間との比べ（金額と件数の答えで、比べられる期間のとき。`LedgerComparison`）。
+    public var comparison: LedgerComparison?
+    /// 月ごとの推移（今月・先月の金額の答えで、前の月に記録があるとき。`LedgerTrend`）。
+    public var trend: LedgerTrend?
+    /// 続けて聞ける質問（`QuestionFollowUp`）。
+    public var followUps: [QuestionFollowUp] = []
 
-    public init(question: LedgerQuestion, period: QuestionPeriod, interval: DateInterval, recordCount: Int, value: Value) {
+    public init(
+        question: LedgerQuestion, period: QuestionPeriod, interval: DateInterval, recordCount: Int, value: Value,
+        comparison: LedgerComparison? = nil, trend: LedgerTrend? = nil
+    ) {
         self.question = question
         self.period = period
         self.interval = interval
         self.recordCount = recordCount
         self.value = value
+        self.comparison = comparison
+        self.trend = trend
     }
 }

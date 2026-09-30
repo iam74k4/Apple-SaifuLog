@@ -69,6 +69,12 @@ final class SettingsModel {
     /// 「覚えたカテゴリ」（修正の記憶の一覧）の状態と操作。行には覚えた言葉の数を出す。
     let learnedCategories: LearnedCategoriesModel
 
+    /// 「カテゴリ」（組み込みと作ったカテゴリの一覧。作る・直す・並べ替える・削除する）の状態と操作。
+    let categoryList: CategoryListModel
+
+    /// 「くり返しの記録」（毎月同じ記録の一覧。足す・直す・やめる）の状態と操作。
+    let recurringList: RecurringListModel
+
     /// 「家族と共有」の節を出すか。
     var showsHousehold: Bool { household != nil }
 
@@ -95,6 +101,8 @@ final class SettingsModel {
 
     /// - Parameters:
     ///   - budgetStore: 予算の読み書き。渡さなければ `context` を使う。
+    ///   - categories: いまのカテゴリの一覧。アプリはホームと同じもの（作ったカテゴリをホームにもすぐ出すため）を渡す。
+    ///     渡さなければ `context` から読む。
     ///   - purchases: プレミアムの購入と状態。アプリはホームから同じもの（`SaifuLogApp` の 1 つ）を渡す。渡さなければ
     ///     購入の無い状態（テストとプレビュー用）。
     ///   - storeHost: 保存先を開いたもの。「iCloud で同期」の切り替えを頼む。渡さなければ iCloud の節を出さない。
@@ -109,9 +117,11 @@ final class SettingsModel {
     ///   - bundleInfo: 版とビルド番号を読む Info.plist の中身。テストで決める。
     ///   - now: 書き出す期間の基準とファイル名の日付。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる（予算を決める画面に渡す）。
+    ///   - recurringDidChange: くり返しの記録を足した・直した・やめたあとに呼ぶ（ホームが、記録する日を過ぎた分をすぐ記録する）。
     init(
         context: ModelContext,
         budgetStore: BudgetStore? = nil,
+        categories: CategoryCatalogModel? = nil,
         purchases: PurchaseManager? = nil,
         storeHost: StoreHost? = nil,
         householdHost: HouseholdHost? = nil,
@@ -122,13 +132,21 @@ final class SettingsModel {
         systemFirstWeekday: Int = Calendar.autoupdatingCurrent.firstWeekday,
         bundleInfo: [String: Any] = Bundle.main.infoDictionary ?? [:],
         now: @escaping () -> Date = { .now },
-        announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
+        announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
+        recurringDidChange: @escaping @MainActor () -> Void = {}
     ) {
         self.budgetStore = budgetStore ?? BudgetStore(context: context)
         self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
         self.storeHost = storeHost
         self.household = householdHost.flatMap { $0.isAvailable ? HouseholdSettingsModel(host: $0) : nil }
         self.learnedCategories = LearnedCategoriesModel(store: LearnedCategoryStore(context: context, now: now), announce: announce)
+        let categoryStore = CustomCategoryStore(context: context, now: now)
+        self.categoryList = CategoryListModel(
+            store: categoryStore, categories: categories ?? CategoryCatalogModel(store: categoryStore), announce: announce
+        )
+        self.recurringList = RecurringListModel(
+            store: RecurringEntryStore(context: context, now: now), now: now, announce: announce, didChange: recurringDidChange
+        )
         self.accountStatus = accountStatus
         self.isICloudSyncEnabled = storeHost?.cloudKitDatabase.isSyncEnabled ?? false
         self.defaults = defaults
@@ -210,7 +228,8 @@ final class SettingsModel {
     /// 「予算を決める」のシートを出す（ホームの帯のボタンと同じ画面）。カテゴリ別の予算はプレミアムと体験中だけ出す。
     func presentBudgetSetup() {
         budgetSetup = BudgetSetupModel(
-            store: budgetStore, showsCategoryBudgets: purchases.status.unlocksPremium, announce: announce
+            store: budgetStore, showsCategoryBudgets: purchases.status.unlocksPremium, catalog: categoryList.catalog,
+            announce: announce
         )
     }
 

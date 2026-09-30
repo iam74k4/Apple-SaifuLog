@@ -26,7 +26,9 @@ public protocol LearnedCategoryRecord {
 ///   1 文字の言葉を部分一致に使わないのは、「薬」を覚えたときに「薬局」「目薬」まで同じカテゴリにしないため（辞書の 1 文字の語を
 ///   絞っているのと同じ考え方。`EntryCategory.keywords`）。
 /// - 覚えは、読み取ったカテゴリ（AI・辞書）より優先する。利用者がはっきり選んだものだから。ただし、品目にカテゴリの名前
-///   （「日用品」など）が書かれていれば、その記録には当てない（その場で書いたカテゴリを、前の覚えで変えないため）。
+///   （「日用品」など）が書かれていれば、その記録には当てない（その場で書いたカテゴリを、前の覚えで変えないため）。品目に作った
+///   カテゴリの名前（「衣服」など）が書かれていれば、そのカテゴリにする（`CategoryCatalog.customCategory(namedIn:)`）。
+/// - 一覧に無い作ったカテゴリ（消した・まだ iCloud から届いていない）を指す覚えは当てない。
 /// - 収入には当てない（収入はカテゴリを持たず、いつも「その他」。`ParsedEntry.assemble`）。
 /// - 同じ言葉の覚えが複数あれば（iCloud で別々の端末から届いた）、書いた日時の新しいものを採る。同じ日時ならカテゴリの
 ///   rawValue の順で先のもの（端末ごとに違うカテゴリにならないように。予算の行と同じ考え方。`BudgetPlan.preferred`）。
@@ -133,34 +135,50 @@ public struct CategoryMemory: Sendable, Hashable {
         return best?.category
     }
 
-    /// 読み取った記録のカテゴリを、覚えで置き換える（上の決め事。収入と、品目にカテゴリの名前が書かれた記録は置き換えない）。
-    public func applying(to entries: [ParsedEntry]) -> [ParsedEntry] {
-        guard !rules.isEmpty else { return entries }
+    /// 読み取った記録のカテゴリを、作ったカテゴリの名前と覚えで置き換える（上の決め事。収入と、品目に組み込みのカテゴリの名前が
+    /// 書かれた記録は置き換えない）。
+    ///
+    /// - Parameter catalog: カテゴリの一覧（作ったカテゴリの名前を品目から探し、覚えが一覧に無いカテゴリを指していないかを見る）。
+    public func applying(to entries: [ParsedEntry], catalog: CategoryCatalog = .builtIn) -> [ParsedEntry] {
+        guard !rules.isEmpty || !catalog.customs.isEmpty else { return entries }
         return entries.map { entry in
             guard !entry.isIncome else { return entry }
             let item = Self.item(ofMemo: entry.memo, amount: entry.amount, isIncome: false)
-            guard !Self.namesCategory(item), let learned = category(forItem: item) else { return entry }
-            var resolved = entry
-            resolved.category = learned
-            return resolved
+            let resolved: EntryCategory? = if let named = catalog.customCategory(namedIn: item) {
+                named
+            } else if Self.namesCategory(item) {
+                nil
+            } else {
+                category(forItem: item).flatMap { catalog.contains($0) ? $0 : nil }
+            }
+            guard let resolved else { return entry }
+            var result = entry
+            result.category = resolved
+            return result
         }
     }
 
     /// 記録の返事で、カテゴリを聞き返すか（「その他」になった支出で、品目が辞書にも覚えにも当たらないとき）。
     ///
     /// 辞書の「その他」の語（「洋服」「美容院」など）やカテゴリの名前に当たった品目は、その他と読んだ理由があるので聞き返さない
-    /// （`EntryCategory.matched(in:)`）。覚えた言葉（「その他のまま」を選んだ言葉も）は聞き返さない。品目の無い記録（金額だけ）は
+    /// （`EntryCategory.matched(in:)`）。覚えた言葉（「その他のまま」を選んだ言葉も）は聞き返さない。ただし、一覧に無い作ったカテゴリを
+    /// 指す覚え（ほかの端末で消した・まだ届いていない）は、当てない（`applying`）ので無いものとして聞き返す。品目の無い記録（金額だけ）は
     /// 聞き返す（覚えられないが、その記録のカテゴリは選べる）。自信が無いときだけ聞き返し、一行入力の軽さを保つ（§3-2）。
-    public func asksCategory(memo: String, amount: Int, category: EntryCategory, isIncome: Bool) -> Bool {
+    ///
+    /// - Parameter catalog: カテゴリの一覧（作ったカテゴリの名前が書かれた品目は聞き返さない）。
+    public func asksCategory(
+        memo: String, amount: Int, category: EntryCategory, isIncome: Bool, catalog: CategoryCatalog = .builtIn
+    ) -> Bool {
         guard !isIncome, category == .other else { return false }
         let item = Self.item(ofMemo: memo, amount: amount, isIncome: false)
-        guard self.category(forItem: item) == nil else { return false }
+        let learned = self.category(forItem: item).flatMap { catalog.contains($0) ? $0 : nil }
+        guard learned == nil, catalog.customCategory(namedIn: item) == nil else { return false }
         return EntryCategory.matched(in: item) == nil
     }
 
-    /// 品目にカテゴリの名前（「食費」「日用品」など）が書かれているか。
+    /// 品目に組み込みのカテゴリの名前（「食費」「日用品」など）が書かれているか。
     static func namesCategory(_ item: String) -> Bool {
         let haystack = KeywordMatcher.fold(item)
-        return EntryCategory.allCases.contains { haystack.contains(KeywordMatcher.fold($0.displayName)) }
+        return EntryCategory.builtIns.contains { haystack.contains(KeywordMatcher.fold($0.displayName)) }
     }
 }

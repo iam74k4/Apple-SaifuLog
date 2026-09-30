@@ -169,9 +169,9 @@ struct LedgerCSVWriterTests {
 
     @Test("カテゴリはすべて、言語ごとの名前で書く")
     func categoryNames() {
-        #expect(EntryCategory.allCases.map { LedgerCSVWriter.categoryName($0, language: .japanese) }
+        #expect(EntryCategory.builtIns.map { LedgerCSVWriter.categoryName($0, language: .japanese) }
             == ["食費", "日用品", "交通", "カフェ", "娯楽", "光熱・通信", "医療", "その他"])
-        #expect(EntryCategory.allCases.map { LedgerCSVWriter.categoryName($0, language: .english) }
+        #expect(EntryCategory.builtIns.map { LedgerCSVWriter.categoryName($0, language: .english) }
             == ["Food", "Daily goods", "Transport", "Café", "Entertainment", "Utilities & phone", "Medical", "Other"])
     }
 

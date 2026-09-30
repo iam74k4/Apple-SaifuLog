@@ -90,6 +90,8 @@ final class ReceiptResultModel: Identifiable {
     @ObservationIgnored private let announce: @MainActor (String) -> Void
     @ObservationIgnored private let record: @MainActor (Submission) -> RecordOutcome
     @ObservationIgnored private let retakeAction: @MainActor () -> Void
+    /// いまのカテゴリの一覧（品名の無い行を、作ったカテゴリの名前で呼ぶ）。
+    @ObservationIgnored private let catalog: @MainActor () -> CategoryCatalog
     /// 読み取れたときの直せる中身（直したかを比べる元）。読み取れるまでは nil。
     @ObservationIgnored private var loaded: Editable?
 
@@ -108,6 +110,7 @@ final class ReceiptResultModel: Identifiable {
     ///   - firstSkippedPage: 書類カメラで上限より多く撮ったとき、読み取らなかった最初のページ。
     ///   - record: 記録する（ホームが保存し、無料の回数を数える）。
     ///   - retake: 撮り直す（ホームがシートを閉じて、同じ取り込み口をもう一度開く）。
+    ///   - catalog: いまのカテゴリの一覧（作ったカテゴリの名前を引く）。
     init(
         source: ReceiptCaptureSource,
         readAt: Date,
@@ -115,7 +118,8 @@ final class ReceiptResultModel: Identifiable {
         firstSkippedPage: Int? = nil,
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
         record: @escaping @MainActor (Submission) -> RecordOutcome,
-        retake: @escaping @MainActor () -> Void
+        retake: @escaping @MainActor () -> Void,
+        catalog: @escaping @MainActor () -> CategoryCatalog = { .builtIn }
     ) {
         self.source = source
         self.day = readAt
@@ -125,6 +129,7 @@ final class ReceiptResultModel: Identifiable {
         self.announce = announce
         self.record = record
         self.retakeAction = retake
+        self.catalog = catalog
     }
 
     // MARK: - 読み取りの結果
@@ -324,7 +329,7 @@ final class ReceiptResultModel: Identifiable {
     func displayName(of line: Line) -> String {
         let name = line.name.trimmingCharacters(in: .whitespacesAndNewlines)
         if !name.isEmpty { return name }
-        return line.kind == .taxAndOther ? String(localized: "税・その他") : String(localized: line.category.label)
+        return line.kind == .taxAndOther ? String(localized: "税・その他") : catalog().localizedName(for: line.category)
     }
 
     /// 記録のメモにする名前（「税・その他」の行は、その名前をメモにする）。

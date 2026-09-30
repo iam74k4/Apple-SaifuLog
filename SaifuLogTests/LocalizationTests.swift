@@ -49,7 +49,7 @@ struct LocalizationTests {
             english.localizedString(forKey: key, value: nil, table: nil)
         }
 
-        for category in EntryCategory.allCases {
+        for category in EntryCategory.builtIns {
             let key = category.label.key
             #expect(LedgerCSVWriter.categoryName(category, language: .japanese) == key)
             #expect(LedgerCSVWriter.categoryName(category, language: .english) == en(key))

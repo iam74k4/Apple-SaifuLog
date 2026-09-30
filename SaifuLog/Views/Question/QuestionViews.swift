@@ -13,6 +13,8 @@ struct QuestionExchangeView: View {
     let setBudget: () -> Void
     /// プレミアムのシートを出す（無料の回数を使い切ったとき）。
     let openPremium: () -> Void
+    /// 続けて聞く質問を送る。nil なら候補を出さない（いちばん新しい答えにだけ出す）。
+    var askFollowUp: ((QuestionFollowUp) -> Void)?
 
     var body: some View {
         // 吹き出しと返事の間は、タイムラインの行どうしの間（12pt）と同じにする（記録の送信は吹き出しと返事が別の行）。
@@ -23,7 +25,10 @@ struct QuestionExchangeView: View {
                 // でした」と言うのに、吹き出しが質問と名乗ると食い違うため。
                 accessibilityLabel: exchange.state == .unclear ? Text("送った文: \(exchange.text)") : Text("質問: \(exchange.text)")
             )
-            QuestionReplyCard(state: exchange.state, openReport: openReport, setBudget: setBudget, openPremium: openPremium)
+            QuestionReplyCard(
+                state: exchange.state, openReport: openReport, setBudget: setBudget, openPremium: openPremium,
+                askFollowUp: askFollowUp
+            )
         }
     }
 }
@@ -38,6 +43,7 @@ private struct QuestionReplyCard: View {
     let openReport: (Date) -> Void
     let setBudget: () -> Void
     let openPremium: () -> Void
+    var askFollowUp: ((QuestionFollowUp) -> Void)?
 
     var body: some View {
         content
@@ -60,7 +66,7 @@ private struct QuestionReplyCard: View {
         case .answered(let answer, let remark, let freeQuestionsLeft):
             AnswerContent(
                 answer: answer, remark: remark, freeQuestionsLeft: freeQuestionsLeft,
-                openReport: openReport, setBudget: setBudget
+                openReport: openReport, setBudget: setBudget, askFollowUp: askFollowUp
             )
         case .unreadable:
             NoticeContent(
@@ -95,14 +101,19 @@ private struct QuestionReplyCard: View {
 }
 
 /// 答えの中身。今月・先月の答えは、カード全体を押すと月のまとめへ進む。
+///
+/// 金額と件数の答えには、前の期間との比べの一文（コードが計算したもの。「先月の同じ日までより ¥1,800 多い」）を、今月・先月の
+/// 金額の答えには 6 か月の推移の小さな棒を添える。いちばん新しい答えの下には、続けて聞ける質問のボタンを並べる。
 private struct AnswerContent: View {
     let answer: LedgerAnswer
     let remark: QuestionRemark?
     let freeQuestionsLeft: Int?
     let openReport: (Date) -> Void
     let setBudget: () -> Void
+    var askFollowUp: ((QuestionFollowUp) -> Void)?
 
     @Environment(\.calendar) private var calendar
+    @Environment(\.categoryCatalog) private var catalog
 
     /// その月の月のまとめへ進めるか（数えた期間が暦の月まるごとのとき）。
     private var opensReport: Bool {
@@ -143,6 +154,9 @@ private struct AnswerContent: View {
                     .font(.footnote)
                     .foregroundStyle(Theme.inkSecondary)
             }
+            if let askFollowUp, !answer.followUps.isEmpty {
+                FollowUpQuestions(followUps: answer.followUps, ask: askFollowUp)
+            }
         }
     }
 
@@ -159,10 +173,17 @@ private struct AnswerContent: View {
             }
             .font(.caption)
             .foregroundStyle(Theme.inkSecondary)
-            Text(verbatim: QuestionTexts.title(for: answer.question))
+            Text(verbatim: QuestionTexts.title(for: answer.question, catalog: catalog))
                 .font(.subheadline.weight(.semibold))
             headline
             details
+            if let comparison = answer.comparison {
+                comparisonLine(comparison)
+            }
+            if let trend = answer.trend {
+                AnswerTrendChart(trend: trend)
+                    .padding(.vertical, 4)
+            }
             Text(verbatim: QuestionTexts.recordCount(answer.recordCount))
                 .font(.caption)
                 .foregroundStyle(Theme.inkSecondary)
@@ -207,6 +228,24 @@ private struct AnswerContent: View {
         }
     }
 
+    /// 前の期間との比べ（上がった・下がった・同じを記号でも示す。色だけに頼らない）。
+    private func comparisonLine(_ comparison: LedgerComparison) -> some View {
+        Label {
+            Text(verbatim: QuestionTexts.comparison(comparison, value: answer.value))
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: comparisonSymbol(comparison))
+                .accessibilityHidden(true)
+        }
+        .font(.subheadline)
+        .foregroundStyle(Theme.inkSecondary)
+    }
+
+    private func comparisonSymbol(_ comparison: LedgerComparison) -> String {
+        guard comparison.previousRecordCount > 0 else { return "minus" }
+        return comparison.difference > 0 ? "arrow.up.right" : comparison.difference < 0 ? "arrow.down.right" : "equal"
+    }
+
     private var overIcon: some View {
         Image(systemName: "exclamationmark.triangle.fill")
             .accessibilityHidden(true)
@@ -226,7 +265,7 @@ private struct AnswerContent: View {
         case .topCategory(let item?):
             HStack(spacing: 8) {
                 CategoryIcon(category: item.category)
-                Text(item.category.label)
+                catalog.label(for: item.category)
                 Text(verbatim: item.percentText)
                     .foregroundStyle(Theme.inkSecondary)
                     .accessibilityLabel(Text(verbatim: item.spokenPercent))
@@ -288,6 +327,101 @@ private struct AnswerContent: View {
     }
 }
 
+/// 月ごとの推移の小さな棒（答えの月を墨、前の月を補足の文字の色で塗る）。山吹は使わない（回答カードに塗りの主ボタンが無いため）。
+/// 棒の下に細い基準線を引き、記録の無い月（0 円）も並びの中で分かるようにする。VoiceOver では、月と金額を並べた 1 つの要素として読ませる。
+struct AnswerTrendChart: View {
+    let trend: LedgerTrend
+
+    @Environment(\.calendar) private var calendar
+    @ScaledMetric(relativeTo: .caption) private var barAreaHeight = 44
+    @ScaledMetric(relativeTo: .caption) private var barWidth = 18
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 0) {
+            ForEach(Array(trend.points.enumerated()), id: \.offset) { index, point in
+                VStack(spacing: 4) {
+                    VStack(spacing: 0) {
+                        bar(point, isLatest: index == trend.points.count - 1)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .frame(height: barAreaHeight, alignment: .bottom)
+                        Rectangle()
+                            .fill(Theme.track)
+                            .frame(height: 1)
+                    }
+                    Text(verbatim: monthLabel(point))
+                        .font(.caption2)
+                        .foregroundStyle(index == trend.points.count - 1 ? Theme.ink : Theme.inkSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: QuestionTexts.spokenTrend(trend, calendar: calendar)))
+    }
+
+    private func bar(_ point: LedgerTrend.Point, isLatest: Bool) -> some View {
+        let ratio = trend.maximum > 0 ? CGFloat(point.value) / CGFloat(trend.maximum) : 0
+        // 0 円でない月は、低くても見えるよう最低の高さを付ける。
+        let height = point.value > 0 ? max(3, barAreaHeight * ratio) : 0
+        return UnevenRoundedRectangle(topLeadingRadius: 4, topTrailingRadius: 4)
+            .fill(isLatest ? Theme.ink : Theme.inkSecondary.opacity(0.45))
+            .frame(width: barWidth, height: height)
+    }
+
+    private func monthLabel(_ point: LedgerTrend.Point) -> String {
+        var style = Date.FormatStyle.dateTime.month()
+        style.calendar = calendar
+        style.timeZone = calendar.timeZone
+        return point.month.start.formatted(style)
+    }
+}
+
+/// 回答カードの下の、続けて聞ける質問のボタン（「先月のカフェはいくら?」）。押すとその文を送る（ふつうの質問と同じ流れ）。
+/// 文は質問の読み取りが読める日本語のまま出す（質問の例の文と同じく訳さない。送った文として吹き出しにも出るため）。
+/// 横に送れる 1 行に並べる（返事のカテゴリの聞き返しのボタンと同じ形）。
+struct FollowUpQuestions: View {
+    let followUps: [QuestionFollowUp]
+    let ask: (QuestionFollowUp) -> Void
+
+    var body: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(followUps, id: \.text) { followUp in
+                    Button {
+                        ask(followUp)
+                    } label: {
+                        Text(verbatim: followUp.text)
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.ink)
+                            .lineLimit(1)
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 36)
+                            .background {
+                                Capsule()
+                                    .fill(Theme.background)
+                                    .stroke(Theme.track, lineWidth: 1)
+                            }
+                            // 見た目は 36pt、押せる範囲は 44pt（カテゴリの聞き返しのボタンと同じ）。
+                            .padding(.vertical, 4)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("この質問を送ります")
+                }
+            }
+        }
+        .scrollIndicators(.hidden)
+        // カードの左右の余白の外まで送れるようにする（カテゴリの聞き返しのボタンと同じ）。
+        .contentMargins(.horizontal, 16, for: .scrollContent)
+        .padding(.horizontal, -16)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text("続けて聞く"))
+    }
+}
+
 /// 内訳の 1 行（色と記号の丸・名前・金額・割合）。1 行に収まらなければ金額を名前の下に積み、それでも収まらなければ
 /// 割合を金額の下に積む（縮めて読めなくしない）。アクセシビリティサイズの文字では、名前と金額に幅を使わせるため丸を省く
 /// （記録の返事の行の印と同じ。名前はいつも出る）。先週のふりかえりのカードの上位のカテゴリでも使う。
@@ -295,6 +429,7 @@ struct BreakdownLine: View {
     let item: CategoryBreakdown.Item
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.categoryCatalog) private var catalog
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -323,12 +458,12 @@ struct BreakdownLine: View {
         }
         .font(.subheadline)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(item.category.label))
+        .accessibilityLabel(catalog.label(for: item.category))
         .accessibilityValue(Text(verbatim: item.spokenValue))
     }
 
     private var name: some View {
-        Text(item.category.label)
+        catalog.label(for: item.category)
     }
 
     private var amount: some View {

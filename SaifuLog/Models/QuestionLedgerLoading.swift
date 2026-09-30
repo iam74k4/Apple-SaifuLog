@@ -16,7 +16,9 @@ extension QuestionLedger {
         return QuestionLedger(
             records: entries.map(LedgerRecordValue.init),
             budget: BudgetPlan.resolve(budgets),
-            budgetDecidedAt: BudgetPlan.decidedAt(.total, in: budgets)
+            budgetDecidedAt: BudgetPlan.decidedAt(.total, in: budgets),
+            // 作ったカテゴリの名前でも聞けるように（「今月の衣服いくら?」）。読めなければ組み込みのカテゴリだけで答える。
+            catalog: (try? CustomCategoryStore(context: context).catalog()) ?? .builtIn
         )
     }
 }

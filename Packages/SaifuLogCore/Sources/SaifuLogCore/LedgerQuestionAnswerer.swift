@@ -10,22 +10,32 @@ public struct QuestionLedger: Sendable, Hashable {
     public var budget: BudgetPlan
     /// いまの全体の予算をその額に決めた日時（`BudgetPlan.decidedAt`）。先月の予算の残りを出してよいかに使う。
     public var budgetDecidedAt: Date?
+    /// カテゴリの一覧。質問の文から作ったカテゴリの名前を読み、AI に渡す結果の文に名前を書くのに使う。
+    public var catalog: CategoryCatalog
 
-    public init(records: [LedgerRecordValue] = [], budget: BudgetPlan = BudgetPlan(), budgetDecidedAt: Date? = nil) {
+    public init(
+        records: [LedgerRecordValue] = [], budget: BudgetPlan = BudgetPlan(), budgetDecidedAt: Date? = nil,
+        catalog: CategoryCatalog = .builtIn
+    ) {
         self.records = records
         self.budget = budget
         self.budgetDecidedAt = budgetDecidedAt
+        self.catalog = catalog
     }
 
     /// 質問で答えうる期間（今日〜今年と、直近 N 日のいちばん長いもの）をすべて覆う範囲。終わりの時刻は含まない。
     ///
     /// AI のツールは、どの期間を聞かれるかを読み込む前には知らないので、どれを聞かれても足りる範囲を先に読む。
+    ///
+    /// 前の期間との比べ（`QuestionPeriod.comparison`）の期間も覆う（今年と比べる去年の同じ日までの分だけ、前へ広がる）。直近 N 日の
+    /// 比べは、N が `LedgerComparison.maximumComparedDays` までなので、直近 366 日の中に収まる。
     public static func window(now: Date, calendar: Calendar) -> DateInterval? {
         let periods: [QuestionPeriod] = [
             .today, .yesterday, .thisWeek, .lastWeek, .thisMonth, .lastMonth, .thisYear,
             .recentDays(QuestionPeriod.recentDaysRange.upperBound),
         ]
         let intervals = periods.compactMap { $0.interval(now: now, calendar: calendar) }
+            + periods.compactMap { $0.comparison(now: now, calendar: calendar)?.interval }
         guard let start = intervals.map(\.start).min(), let end = intervals.map(\.end).max() else { return nil }
         return DateInterval(start: start, end: end)
     }
@@ -66,10 +76,12 @@ public struct LedgerRecordValue: LedgerRecord, Sendable, Hashable {
 public enum LedgerQuestionAnswerer {
     /// 質問に答える。期間を暦で区切れなければ nil。
     public static func answer(_ question: LedgerQuestion, ledger: QuestionLedger, now: Date, calendar: Calendar) -> LedgerAnswer? {
-        answer(
+        guard var answer = answer(
             question, records: ledger.records, budget: ledger.budget, budgetDecidedAt: ledger.budgetDecidedAt,
             now: now, calendar: calendar
-        )
+        ) else { return nil }
+        answer.followUps = QuestionFollowUp.suggestions(for: answer, hasBudget: ledger.budget.total != nil, catalog: ledger.catalog)
+        return answer
     }
 
     /// 質問に答える。期間を暦で区切れなければ nil。
@@ -88,6 +100,8 @@ public enum LedgerQuestionAnswerer {
         now: Date,
         calendar: Calendar
     ) -> LedgerAnswer? where Records.Element: LedgerRecord {
+        // 比べと推移で何度も数えるので、1 回で読み切れない列（Sequence）も数えられるよう配列にする。
+        let records = Array(records)
         let period = countedPeriod(for: question)
         guard let interval = period.interval(now: now, calendar: calendar) else { return nil }
         let summary = LedgerSummary(records: records, interval: interval, calendar: calendar)
@@ -125,7 +139,68 @@ public enum LedgerQuestionAnswerer {
                 budgetDecidedAt: budgetDecidedAt, now: now, calendar: calendar
             )
         }
-        return LedgerAnswer(question: question, period: period, interval: interval, recordCount: recordCount, value: value)
+        return LedgerAnswer(
+            question: question, period: period, interval: interval, recordCount: recordCount, value: value,
+            comparison: comparison(for: question, period: period, value: value, records: records, now: now, calendar: calendar),
+            trend: trend(for: question, period: period, interval: interval, records: records, calendar: calendar)
+        )
+    }
+
+    /// 比べる値と、その元になった記録の件数（金額と件数の指標だけ。内訳・いちばん多いカテゴリ・予算・収支は比べない）。
+    static func comparedValue(of question: LedgerQuestion, in summary: LedgerSummary) -> (value: Int, recordCount: Int)? {
+        switch question.metric {
+        case .expenseTotal:
+            return (summary.expense, summary.expenseCount)
+        case .categoryExpense:
+            let category = question.category ?? .other
+            return (summary.expense(in: category), summary.expenseCount(in: category))
+        case .incomeTotal:
+            return (summary.income, summary.incomeCount)
+        case .entryCount:
+            let count = question.category.map { summary.expenseCount(in: $0) } ?? summary.recordCount
+            return (count, count)
+        case .balance, .expenseByCategory, .topCategory, .remainingBudget, .dailyAllowance:
+            return nil
+        }
+    }
+
+    /// 前の期間との比べ（`QuestionPeriod.comparison` の期間で、同じ指標を数える）。
+    static func comparison<Records: Sequence>(
+        for question: LedgerQuestion, period: QuestionPeriod, value: LedgerAnswer.Value, records: Records, now: Date,
+        calendar: Calendar
+    ) -> LedgerComparison? where Records.Element: LedgerRecord {
+        let current: Int
+        switch value {
+        case .amount(let amount): current = amount
+        case .count(let count): current = count
+        default: return nil
+        }
+        guard let (baseline, interval) = period.comparison(now: now, calendar: calendar) else { return nil }
+        let summary = LedgerSummary(records: records, interval: interval, calendar: calendar)
+        guard let previous = comparedValue(of: question, in: summary) else { return nil }
+        return LedgerComparison(
+            baseline: baseline, interval: interval, previous: previous.value, previousRecordCount: previous.recordCount,
+            difference: current - previous.value
+        )
+    }
+
+    /// 月ごとの推移（今月・先月の支出の合計・カテゴリの支出・収入の合計だけ）。答えの月を最後に `LedgerTrend.monthCount` か月。
+    /// 前の月のどれにも値が無ければ出さない（使い始めたばかりの人に、空の棒を並べないため）。
+    static func trend<Records: Sequence>(
+        for question: LedgerQuestion, period: QuestionPeriod, interval: DateInterval, records: Records, calendar: Calendar
+    ) -> LedgerTrend? where Records.Element: LedgerRecord {
+        guard period.isWholeMonth,
+              [.expenseTotal, .categoryExpense, .incomeTotal].contains(question.metric) else { return nil }
+        var points: [LedgerTrend.Point] = []
+        for offset in stride(from: LedgerTrend.monthCount - 1, through: 0, by: -1) {
+            guard let day = calendar.date(byAdding: .month, value: -offset, to: interval.start),
+                  let month = calendar.dateInterval(of: .month, for: day),
+                  let value = comparedValue(of: question, in: LedgerSummary(records: records, interval: month, calendar: calendar))
+            else { return nil }
+            points.append(LedgerTrend.Point(month: month, value: value.value))
+        }
+        guard points.dropLast().contains(where: { $0.value > 0 }) else { return nil }
+        return LedgerTrend(points: points)
     }
 
     /// 実際に数える期間。予算の指標だけ、聞かれた期間から月に置き換える（上の決め事）。

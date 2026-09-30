@@ -77,11 +77,13 @@ enum RecapTexts {
     }
 
     /// VoiceOver に読ませるカードの中身（見出し・期間・定型文・AI の一言・上位のカテゴリ・目安との比べ）。
-    static func spokenSummary(for recap: WeeklyRecap, remark: String?, calendar: Calendar) -> String {
+    static func spokenSummary(
+        for recap: WeeklyRecap, remark: String?, calendar: Calendar, catalog: CategoryCatalog = .builtIn
+    ) -> String {
         var parts = [String(localized: title), QuestionTexts.dateRange(recap.week, calendar: calendar), fixedSentence(for: recap)]
         if let remark { parts.append(remark) }
         for item in recap.topCategories() {
-            parts.append("\(String(localized: item.category.label)) \(item.spokenValue)")
+            parts.append("\(catalog.localizedName(for: item.category)) \(item.spokenValue)")
         }
         if let pace = paceComparison(for: recap) { parts.append(pace.text) }
         return parts.joined(separator: String(localized: LocalizedStringResource(

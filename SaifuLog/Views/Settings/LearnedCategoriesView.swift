@@ -8,6 +8,8 @@ import SwiftUI
 struct LearnedCategoriesView: View {
     @Bindable var model: LearnedCategoriesModel
 
+    @Environment(\.categoryCatalog) private var catalog
+
     var body: some View {
         List {
             if model.rules.isEmpty {
@@ -68,9 +70,12 @@ struct LearnedCategoriesView: View {
     /// 覚えた言葉と、いまのカテゴリ。押すとカテゴリを選ぶメニューを開く。
     private func row(_ rule: LearnedCategoryStore.Rule) -> some View {
         Menu {
-            Picker(selection: Binding(get: { rule.category }, set: { model.change(rule, to: $0) })) {
-                ForEach(EntryCategory.allCases) { category in
-                    Text(category.label).tag(category)
+            Picker(selection: Binding(
+                get: { rule.category },
+                set: { model.change(rule, to: $0, named: catalog.localizedName(for: $0)) }
+            )) {
+                ForEach(catalog.all) { category in
+                    catalog.label(for: category).tag(category)
                 }
             } label: {
                 Text("カテゴリ")
@@ -94,7 +99,7 @@ struct LearnedCategoriesView: View {
             .contentShape(.rect)
         }
         .accessibilityLabel(Text(verbatim: rule.phrase))
-        .accessibilityValue(Text(rule.category.label))
+        .accessibilityValue(catalog.label(for: rule.category))
         .accessibilityHint("カテゴリを選び直します")
     }
 
@@ -107,9 +112,9 @@ struct LearnedCategoriesView: View {
     private func category(_ rule: LearnedCategoryStore.Rule) -> some View {
         HStack(spacing: 6) {
             Circle()
-                .fill(Theme.color(for: rule.category))
+                .fill(catalog.color(for: rule.category))
                 .frame(width: 8, height: 8)
-            Text(rule.category.label)
+            catalog.label(for: rule.category)
             Image(systemName: "chevron.up.chevron.down")
                 .imageScale(.small)
         }

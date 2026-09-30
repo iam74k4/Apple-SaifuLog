@@ -67,6 +67,17 @@
         }
       }
     },
+    "%@と同じ" : {
+      "comment" : "家計への質問の回答カードの、前の期間との比べの一文。%@ は比べた期間の名前（「先月の同じ日まで」）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Same as %@"
+          }
+        }
+      }
+    },
     "%@にしました" : {
       "comment" : "ホームの返事でカテゴリを選んだ後に VoiceOver で読み上げる内容（品目の無い記録で、覚えないとき）。%@ はカテゴリの名前",
       "localizations" : {
@@ -133,6 +144,85 @@
         }
       }
     },
+    "%@は記録がありません" : {
+      "comment" : "家計への質問の回答カードの、前の期間との比べの一文。比べた期間に記録が無いとき。%@ は比べた期間の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No entries %@"
+          }
+        }
+      }
+    },
+    "%@より %@ 多い" : {
+      "comment" : "家計への質問の回答カードの、前の期間との比べの一文。1 つ目の %@ は比べた期間の名前、2 つ目は差の金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ more than %1$@"
+          }
+        }
+      }
+    },
+    "%@より %@ 少ない" : {
+      "comment" : "家計への質問の回答カードの、前の期間との比べの一文。1 つ目の %@ は比べた期間の名前、2 つ目は差の金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ less than %1$@"
+          }
+        }
+      }
+    },
+    "%@より %lld 件多い" : {
+      "comment" : "家計への質問の回答カードの、前の期間との比べの一文。%@ は比べた期間の名前、%lld は件数の差",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%2$lld more entry than %1$@"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%2$lld more entries than %1$@"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%@より %lld 件少ない" : {
+      "comment" : "家計への質問の回答カードの、前の期間との比べの一文。%@ は比べた期間の名前、%lld は件数の差",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%2$lld fewer entry than %1$@"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%2$lld fewer entries than %1$@"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%@・" : {
       "comment" : "ホームのタイムラインの返事の行の、種別（カテゴリ名か「収入」）と使った日の間の区切り（「食費・9月27日」。使った日が送った日と違うときだけ日付を添える）。%@ は種別。日付は後ろに続けて出し、1 行に収まらなければ日付を次の行に移すので、区切りは種別の側に付ける（日本語では「・」を行の頭に置かない）。英語は中点の前後に空白を入れる（後ろの空白も消さない）",
       "localizations" : {
@@ -151,6 +241,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@・%@・次は%@" : {
+      "comment" : "設定の「くり返しの記録」の行の下の文。1 つ目の %@ は毎月の日（「毎月25日」）、2 つ目はカテゴリ、3 つ目は次に記録する日",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · %@ · Next: %@"
+          }
+        }
+      }
+    },
+    "%lld か月の推移: %@" : {
+      "comment" : "家計への質問の回答カードの推移の棒を VoiceOver で読むときの文。%lld は月の数、%@ は月と金額の一覧",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trend over %lld months: %@"
           }
         }
       }
@@ -174,6 +286,64 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld 件（くり返しの記録）" : {
+      "comment" : "設定の「くり返しの記録」の行の右に出す、くり返しの記録の数。%lld は数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld item"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld items"
+                }
+              }
+            }
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 件"
+          }
+        }
+      }
+    },
+    "%lld 件（カテゴリ）" : {
+      "comment" : "設定の「カテゴリ」の行の右に出す、カテゴリの数（はじめからあるものと作ったもの）。%lld は数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld category"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld categories"
+                }
+              }
+            }
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 件"
           }
         }
       }
@@ -230,6 +400,17 @@
         }
       }
     },
+    "%lld 番目にしました" : {
+      "comment" : "設定の「カテゴリ」で、VoiceOver の操作で作ったカテゴリを動かした後に読み上げる位置。%lld は何番目か",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moved to position %lld"
+          }
+        }
+      }
+    },
     "%lldページ目からは読み取っていません。合計や品目が足りないときは、%lldページまでで撮り直してください。" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。書類カメラで上限より多く撮ったときの注意（画面のいちばん上と VoiceOver の読み上げ）。1 つ目の %lld は読み取らなかった最初のページ、2 つ目は読み取るページの上限",
       "localizations" : {
@@ -248,6 +429,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Recorded as your share of a %lld-way split."
+          }
+        }
+      }
+    },
+    "%lld日" : {
+      "comment" : "くり返しの記録を作る・直すシートの、記録する日を選ぶメニューの 1 つ。%lld は毎月の何日か",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day %lld"
           }
         }
       }
@@ -725,6 +917,17 @@
         }
       }
     },
+    "「%@」のくり返しの記録をやめますか？" : {
+      "comment" : "設定の「くり返しの記録」で、左へのスワイプでやめる前の確認の題。%@ は品目かカテゴリ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop repeating “%@”?"
+          }
+        }
+      }
+    },
     "「%@」を%@にしました" : {
       "comment" : "設定の「覚えたカテゴリ」で、覚えた言葉のカテゴリを変えた後に VoiceOver で読み上げる内容。1 つ目の %@ は言葉、2 つ目はカテゴリの名前",
       "localizations" : {
@@ -732,6 +935,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Set “%@” to %@"
+          }
+        }
+      }
+    },
+    "「%@」を削除しますか？" : {
+      "comment" : "設定の「カテゴリ」で、作ったカテゴリを削除する前の確認の題。%@ はカテゴリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete “%@”?"
           }
         }
       }
@@ -765,6 +979,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Include the amount as a number, like “ランチ 850”."
+          }
+        }
+      }
+    },
+    "「衣服 3000」のようにカテゴリの名前を書いて送ると、そのカテゴリで記録します。%lld 個まで作れます。" : {
+      "comment" : "設定の「カテゴリ」の、作ったカテゴリの節の注記。%lld は作れる数",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send the category name with an amount, like “Clothing 3000”, to record it in that category. You can create up to %lld categories."
+          }
+        }
+      }
+    },
+    "「衣服 3000」のように名前を書いて送ると、このカテゴリで記録します。" : {
+      "comment" : "カテゴリを作る・直すシートの、名前の欄の下の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send the name with an amount, like “Clothing 3000”, to record it in this category."
           }
         }
       }
@@ -978,6 +1214,155 @@
         }
       }
     },
+    "かばん" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bag"
+          }
+        }
+      }
+    },
+    "きらめき" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sparkles"
+          }
+        }
+      }
+    },
+    "くり返しの記録" : {
+      "comment" : "設定の行と、その一覧の画面の題名。家賃・サブスク・給料のように毎月同じ記録を、決めた日に自動で記録する",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recurring Entries"
+          }
+        }
+      }
+    },
+    "くり返しの記録から記録したものを消します。その月の分はもう記録しません" : {
+      "comment" : "くり返しの記録の返事の「取り消す」の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deletes the recurring entries just recorded. Those months won’t be recorded again"
+          }
+        }
+      }
+    },
+    "くり返しの記録から記録しました。ここで直しても、次の月からの記録は変わりません（設定の「くり返しの記録」で直せます）。" : {
+      "comment" : "直すシート（⑥）の上の注記。くり返しの記録から記録したものを開いたとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded from a recurring entry. Editing it here doesn’t change future months (edit those in Recurring Entries in Settings)."
+          }
+        }
+      }
+    },
+    "くり返しの記録をしました: %@" : {
+      "comment" : "くり返しの記録から記録したときに VoiceOver で読み上げる内容。%@ は記録したものの一覧",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded recurring entries: %@"
+          }
+        }
+      }
+    },
+    "くり返しの記録をやめました" : {
+      "comment" : "くり返しの記録をやめた後に VoiceOver で読み上げる内容",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopped the recurring entry"
+          }
+        }
+      }
+    },
+    "くり返しの記録を直しました" : {
+      "comment" : "くり返しの記録を直した後に VoiceOver で読み上げる内容",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated the recurring entry"
+          }
+        }
+      }
+    },
+    "くり返しの記録を直す" : {
+      "comment" : "くり返しの記録を直すシートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Recurring Entry"
+          }
+        }
+      }
+    },
+    "くり返しの記録を足しました" : {
+      "comment" : "くり返しの記録を足した後に VoiceOver で読み上げる内容",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added a recurring entry"
+          }
+        }
+      }
+    },
+    "くり返しの記録を足す" : {
+      "comment" : "設定の「くり返しの記録」の、足すボタンと、足すシートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Recurring Entry"
+          }
+        }
+      }
+    },
+    "くり返しの記録（%lld件）" : {
+      "comment" : "ホームの返事の見出し。くり返しの記録から 2 件以上を記録したとき。%lld は件数",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recurring entries (%lld)"
+          }
+        }
+      }
+    },
+    "くり返しの記録（返事の見出し）" : {
+      "comment" : "ホームの返事の見出し。くり返しの記録から 1 件を記録したとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recurring entry"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "くり返しの記録"
+          }
+        }
+      }
+    },
     "この Apple アカウントで購入したプレミアムは見つかりませんでした。購入したときの Apple アカウントでサインインしているか、お確かめください。" : {
       "comment" : "購入の復元で、プレミアムの購入が無かったときのアラートの本文",
       "localizations" : {
@@ -1110,6 +1495,28 @@
         }
       }
     },
+    "このくり返しの記録をやめますか？" : {
+      "comment" : "くり返しの記録を直すシートで、やめる前の確認の題",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop this recurring entry?"
+          }
+        }
+      }
+    },
+    "このくり返しの記録をやめる" : {
+      "comment" : "くり返しの記録を直すシートの、やめるボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop This Recurring Entry"
+          }
+        }
+      }
+    },
     "このアプリについて" : {
       "comment" : "設定の節の見出し。プライバシーポリシー・ライセンス・バージョンの行",
       "localizations" : {
@@ -1117,6 +1524,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "About"
+          }
+        }
+      }
+    },
+    "このカテゴリの記録 %lld 件は「その他」になります。カテゴリ別の予算と覚えたカテゴリからも外します。" : {
+      "comment" : "作ったカテゴリを削除する前の確認の説明。%lld は、そのカテゴリの記録の件数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld entry in this category will move to Other. The category is also removed from category budgets and learned categories."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld entries in this category will move to Other. The category is also removed from category budgets and learned categories."
+                }
+              }
+            }
           }
         }
       }
@@ -1275,6 +1705,17 @@
         }
       }
     },
+    "この質問を送ります" : {
+      "comment" : "家計への質問の回答カードの、続けて聞く質問のボタンの VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sends this question"
+          }
+        }
+      }
+    },
     "この週の支出の記録はありません" : {
       "comment" : "先週のふりかえりの内訳のカテゴリ別の支出の欄。先週に収入の記録しかないとき",
       "localizations" : {
@@ -1385,6 +1826,40 @@
         }
       }
     },
+    "その前の %lld 日" : {
+      "comment" : "家計への質問の回答カードの、比べた期間の名前（直近 N 日と比べる、その前の N 日）。%lld は日数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "the previous %lld day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "the previous %lld days"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "その日が無い月は、月末に記録します。" : {
+      "comment" : "くり返しの記録を作る・直すシートで、29 日か 30 日を選んだときの説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In months without that day, it’s recorded on the last day of the month."
+          }
+        }
+      }
+    },
     "なし" : {
       "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表で、その機能が無いこと",
       "localizations" : {
@@ -1415,6 +1890,39 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "はさみ" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scissors"
+          }
+        }
+      }
+    },
+    "はじめからあるカテゴリ" : {
+      "comment" : "設定の「カテゴリ」の節の見出し。アプリにはじめからある 8 つのカテゴリ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Built-in Categories"
+          }
+        }
+      }
+    },
+    "はじめからあるカテゴリは、名前を変えたり削除したりできません。どれにも当てはまらない記録は「その他」になります。" : {
+      "comment" : "設定の「カテゴリ」の、はじめからあるカテゴリの節の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Built-in categories can’t be renamed or deleted. Entries that don’t fit any category go to Other."
           }
         }
       }
@@ -1492,6 +2000,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Already in Another Household"
+          }
+        }
+      }
+    },
+    "まだありません。家賃・サブスク・給料のように毎月同じ記録を足すと、決めた日に自動で記録します。" : {
+      "comment" : "設定の「くり返しの記録」に何も無いときの案内",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None yet. Add entries that repeat every month, such as rent, subscriptions, or salary, and SaifuLog records them on the day you choose."
+          }
+        }
+      }
+    },
+    "まだ作ったカテゴリはありません。家賃・服・美容など、よく使う分け方を作れます。" : {
+      "comment" : "設定の「カテゴリ」に作ったカテゴリが無いときの案内",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You haven’t created any categories yet. Create the ones you use often, such as rent, clothing, or beauty."
           }
         }
       }
@@ -1595,6 +2125,28 @@
         }
       }
     },
+    "やめられませんでした" : {
+      "comment" : "くり返しの記録をやめられなかったときのアラートの題",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Stop"
+          }
+        }
+      }
+    },
+    "やめる" : {
+      "comment" : "くり返しの記録をやめる確認のボタンと、設定の一覧の左へのスワイプのボタン・VoiceOver の操作",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop"
+          }
+        }
+      }
+    },
     "よく使うひとこと" : {
       "comment" : "ホームの入力欄の上の、よく記録する品目の候補の並びの VoiceOver の名前",
       "localizations" : {
@@ -1602,6 +2154,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Frequent entries"
+          }
+        }
+      }
+    },
+    "よく使うカテゴリ" : {
+      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggestions"
           }
         }
       }
@@ -1749,6 +2312,39 @@
         }
       }
     },
+    "カテゴリ「%@」を作りました" : {
+      "comment" : "カテゴリを作った後に VoiceOver で読み上げる内容。%@ はカテゴリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Created category “%@”"
+          }
+        }
+      }
+    },
+    "カテゴリ「%@」を削除しました" : {
+      "comment" : "作ったカテゴリを削除した後に VoiceOver で読み上げる内容。%@ はカテゴリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleted category “%@”"
+          }
+        }
+      }
+    },
+    "カテゴリ「%@」を直しました" : {
+      "comment" : "作ったカテゴリを直した後に VoiceOver で読み上げる内容。%@ はカテゴリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated category “%@”"
+          }
+        }
+      }
+    },
     "カテゴリごとにも上限を決められます。空欄のカテゴリは予算なしになります。使った額との比べは、月のまとめのカテゴリの行に出ます。" : {
       "comment" : "予算を決める画面のカテゴリ別の予算の説明（プレミアムの機能）",
       "localizations" : {
@@ -1756,6 +2352,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "You can also set a limit for each category. Categories left blank have no budget. The monthly summary shows your spending against each one in its category row."
+          }
+        }
+      }
+    },
+    "カテゴリの一覧を開きます。カテゴリを作ったり直したりできます" : {
+      "comment" : "設定の「カテゴリ」の行の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the list of categories, where you can create and edit categories"
           }
         }
       }
@@ -1771,6 +2378,17 @@
         }
       }
     },
+    "カテゴリを作る" : {
+      "comment" : "カテゴリを作るシートの題名と、設定の「カテゴリ」とホームの返事の聞き返しの、カテゴリを作るボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Category"
+          }
+        }
+      }
+    },
     "カテゴリを変えられませんでした" : {
       "comment" : "ホームの返事でカテゴリを選んだが、保存できなかったときのアラートの題名",
       "localizations" : {
@@ -1778,6 +2396,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t Change Category"
+          }
+        }
+      }
+    },
+    "カテゴリを直す" : {
+      "comment" : "作ったカテゴリを直すシートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Category"
           }
         }
       }
@@ -1800,6 +2429,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Budgets by category"
+          }
+        }
+      }
+    },
+    "カテゴリ別の予算と覚えたカテゴリからも外します。" : {
+      "comment" : "記録の無い作ったカテゴリを削除する前の確認の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The category is also removed from category budgets and learned categories."
           }
         }
       }
@@ -1849,6 +2489,23 @@
         }
       }
     },
+    "カテゴリ（設定）" : {
+      "comment" : "設定の節の見出しと行、その一覧の画面の題名。はじめからあるカテゴリと作ったカテゴリを並べ、作る・直す・削除する",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Categories"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カテゴリ"
+          }
+        }
+      }
+    },
     "カフェ" : {
       "comment" : "カテゴリ",
       "localizations" : {
@@ -1856,6 +2513,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Café"
+          }
+        }
+      }
+    },
+    "カメラ" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camera"
           }
         }
       }
@@ -1889,6 +2557,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "グラス" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Glass"
+          }
+        }
+      }
+    },
+    "ゲーム" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Game Controller"
           }
         }
       }
@@ -1933,6 +2623,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SaifuLog is a budget app where you record spending by sending a single line, like “ランチ 850”. The app takes care of the categories and the math, and you can ask about your spending in the same field."
+          }
+        }
+      }
+    },
+    "シャツ" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shirt"
+          }
+        }
+      }
+    },
+    "ジム" : {
+      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gym"
           }
         }
       }
@@ -2010,6 +2722,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Double-tap to include this item again."
+          }
+        }
+      }
+    },
+    "ダンベル" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dumbbell"
+          }
+        }
+      }
+    },
+    "ハート" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heart"
           }
         }
       }
@@ -2175,6 +2909,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Help & Contact"
+          }
+        }
+      }
+    },
+    "ペット" : {
+      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pets"
           }
         }
       }
@@ -2432,6 +3177,17 @@
         }
       }
     },
+    "一昨日" : {
+      "comment" : "家計への質問の回答カードの、比べた期間の名前（昨日と比べる）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the day before yesterday"
+          }
+        }
+      }
+    },
     "下の入力欄に、こんなふうに送るだけで記録できます。" : {
       "comment" : "記録が無いときの案内の本文",
       "localizations" : {
@@ -2630,6 +3386,17 @@
         }
       }
     },
+    "交際" : {
+      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Social"
+          }
+        }
+      }
+    },
     "今年" : {
       "comment" : "設定の書き出す期間の選択肢。今年の 1 月 1 日から",
       "localizations" : {
@@ -2795,6 +3562,17 @@
         }
       }
     },
+    "今月の分も記録する" : {
+      "comment" : "くり返しの記録を作るシートで、今月の記録する日を過ぎているときの切り替え",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Also Record This Month"
+          }
+        }
+      }
+    },
     "今月の収入" : {
       "comment" : "ホームの上の見出し",
       "localizations" : {
@@ -2912,6 +3690,17 @@
         }
       }
     },
+    "住居" : {
+      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Housing"
+          }
+        }
+      }
+    },
     "体験を始めています…" : {
       "comment" : "プレミアムのシート（⑨）。体験を始めるボタン（手続き中）",
       "localizations" : {
@@ -2942,6 +3731,28 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "作ったカテゴリ" : {
+      "comment" : "設定の「カテゴリ」の節の見出し。利用者が作ったカテゴリ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Categories"
+          }
+        }
+      }
+    },
+    "作れるのは %lld 個までです。使わないカテゴリを削除すると、新しく作れます。" : {
+      "comment" : "設定の「カテゴリ」で、作れる数に届いたときの注記。%lld は作れる数",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can create up to %lld categories. Delete one you don’t use to create a new one."
           }
         }
       }
@@ -3045,6 +3856,17 @@
         }
       }
     },
+    "保存すると、%@の分をすぐ記録します。" : {
+      "comment" : "くり返しの記録を作る・直すシートの説明。%@ は記録する日",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When you save, the entry for %@ is recorded right away."
+          }
+        }
+      }
+    },
     "保存すると、次から「%@」の記録も%@にします。" : {
       "comment" : "直すシートで、カテゴリを変えたときにカテゴリの下に出す注記（修正の記憶）。1 つ目の %@ は品目、2 つ目はカテゴリの名前",
       "localizations" : {
@@ -3111,6 +3933,17 @@
         }
       }
     },
+    "保険" : {
+      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insurance"
+          }
+        }
+      }
+    },
     "値引 %@" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。品目の行の注記。%@ は「¥20」のような、その品目から引いた値引きの額",
       "localizations" : {
@@ -3145,6 +3978,28 @@
         }
       }
     },
+    "先々月" : {
+      "comment" : "家計への質問の回答カードの、比べた期間の名前（先月と比べる）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the month before last"
+          }
+        }
+      }
+    },
+    "先々週" : {
+      "comment" : "家計への質問の回答カードの、比べた期間の名前（先週と比べる）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the week before last"
+          }
+        }
+      }
+    },
     "先月" : {
       "comment" : "設定の書き出す期間の選択肢。前の月の 1 日から末日まで",
       "localizations" : {
@@ -3152,6 +4007,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Last Month"
+          }
+        }
+      }
+    },
+    "先月の同じ日まで" : {
+      "comment" : "家計への質問の回答カードの、比べた期間の名前（今月と比べる、先月の同じ日まで）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "last month to date"
           }
         }
       }
@@ -3218,6 +4084,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Opens last week’s details."
+          }
+        }
+      }
+    },
+    "先週の同じ曜日まで" : {
+      "comment" : "家計への質問の回答カードの、比べた期間の名前（今週と比べる、先週の同じ曜日まで）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "last week to date"
           }
         }
       }
@@ -3541,6 +4418,17 @@
         }
       }
     },
+    "前へ移動" : {
+      "comment" : "設定の「カテゴリ」で、作ったカテゴリを 1 つ前へ動かす VoiceOver の操作",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move Up"
+          }
+        }
+      }
+    },
     "前月と同じ" : {
       "comment" : "月のまとめ。その月の支出が前の月の支出と同じとき",
       "localizations" : {
@@ -3581,6 +4469,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Medical"
+          }
+        }
+      }
+    },
+    "去年の同じ日まで" : {
+      "comment" : "家計への質問の回答カードの、比べた期間の名前（今年と比べる、去年の同じ日まで）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "last year to date"
           }
         }
       }
@@ -3739,6 +4638,17 @@
         }
       }
     },
+    "同じ名前のカテゴリがあります。" : {
+      "comment" : "カテゴリを作る・直すシートで、同じ名前のカテゴリがあるときの知らせ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A category with this name already exists."
+          }
+        }
+      }
+    },
     "同じ言葉の記録を、次からこのカテゴリで記録します。前に記録したものは変わりません。覚えた言葉は記録と同じ場所（この iPhone、iCloud で同期しているときはあなたの iCloud）に保存し、外へ送りません。" : {
       "comment" : "設定の「覚えたカテゴリ」の一覧の注記",
       "localizations" : {
@@ -3772,6 +4682,28 @@
         }
       }
     },
+    "名前" : {
+      "comment" : "カテゴリを作る・直すシートの、名前の欄の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        }
+      }
+    },
+    "名前と記号を入れます" : {
+      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補のボタンの VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fills in the name and symbol"
+          }
+        }
+      }
+    },
     "名前なし" : {
       "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。ホームの家計の記録の吹き出しで、記録した人の名前が空のときの表示",
       "localizations" : {
@@ -3779,6 +4711,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No name"
+          }
+        }
+      }
+    },
+    "名前は %lld 文字までにしてください。" : {
+      "comment" : "カテゴリを作る・直すシートで、名前が長すぎるときの知らせ。%lld は文字数の上限",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Names can be up to %lld characters."
+          }
+        }
+      }
+    },
+    "名前を入れてください。" : {
+      "comment" : "カテゴリを作る・直すシートで、名前が空のときの知らせ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter a name."
+          }
+        }
+      }
+    },
+    "名前・色・記号を決めて、新しいカテゴリを作ります" : {
+      "comment" : "設定の「カテゴリ」の「カテゴリを作る」の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a name, color, and symbol to create a new category"
+          }
+        }
+      }
+    },
+    "名前・色・記号を直します" : {
+      "comment" : "設定の「カテゴリ」の、作ったカテゴリの行の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edits the name, color, and symbol"
           }
         }
       }
@@ -3856,6 +4832,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Items read: %lld. %@"
+          }
+        }
+      }
+    },
+    "墨" : {
+      "comment" : "カテゴリを作る・直すシートの色の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ink"
           }
         }
       }
@@ -3999,6 +4986,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Entertainment"
+          }
+        }
+      }
+    },
+    "学帽" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Graduation Cap"
+          }
+        }
+      }
+    },
+    "家" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "House"
           }
         }
       }
@@ -4465,6 +5474,50 @@
         }
       }
     },
+    "家賃・サブスク・給料 など" : {
+      "comment" : "くり返しの記録を作る・直すシートの、品目の欄が空のときの例",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "e.g. Rent, Subscription, Salary"
+          }
+        }
+      }
+    },
+    "家賃・サブスク・給料のように毎月同じ記録を、決めた日に自動で記録します。" : {
+      "comment" : "設定の「毎月の記録」の節の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Records entries that repeat every month, such as rent, subscriptions, or salary, on the day you choose."
+          }
+        }
+      }
+    },
+    "家賃・服・美容など、カテゴリは作って増やせます。記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。" : {
+      "comment" : "設定の「カテゴリ」の節の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can create categories such as rent, clothing, or beauty. When you choose a category in a reply or change one on the edit screen, SaifuLog records the same words in that category from now on."
+          }
+        }
+      }
+    },
+    "工具" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tools"
+          }
+        }
+      }
+    },
     "差額 %@ を「税・その他」として足す" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。合計が足りないとき、差額を 1 行として足すボタン。%@ は「¥120」のような差額",
       "localizations" : {
@@ -4487,6 +5540,17 @@
         }
       }
     },
+    "常盤" : {
+      "comment" : "カテゴリを作る・直すシートの色の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Evergreen"
+          }
+        }
+      }
+    },
     "店名" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。店名の欄の見出しと入力欄の名前",
       "localizations" : {
@@ -4505,6 +5569,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Store (optional)"
+          }
+        }
+      }
+    },
+    "建物" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Building"
+          }
+        }
+      }
+    },
+    "後ろへ移動" : {
+      "comment" : "設定の「カテゴリ」で、作ったカテゴリを 1 つ後ろへ動かす VoiceOver の操作",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move Down"
           }
         }
       }
@@ -4696,6 +5782,17 @@
         }
       }
     },
+    "教育" : {
+      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Education"
+          }
+        }
+      }
+    },
     "数字はアプリが記録から計算しました。" : {
       "comment" : "家計への質問の回答カード。端末内 AI の一言に、計算した結果に無い数字が入っていて捨てたときに、代わりに出す定型文",
       "localizations" : {
@@ -4736,6 +5833,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Free of charge. The App Store will ask you to confirm."
+          }
+        }
+      }
+    },
+    "新しいカテゴリを作って、この記録のカテゴリにします" : {
+      "comment" : "ホームの返事の聞き返しの「カテゴリを作る」の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creates a new category and uses it for this entry"
+          }
+        }
+      }
+    },
+    "旅行" : {
+      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Travel"
           }
         }
       }
@@ -4857,6 +5976,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yesterday"
+          }
+        }
+      }
+    },
+    "昨日の同じ時刻まで" : {
+      "comment" : "家計への質問の回答カードの、比べた期間の名前（今日と比べる、昨日の同じ時刻まで）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "yesterday at this time"
           }
         }
       }
@@ -5087,6 +6217,17 @@
         }
       }
     },
+    "月末" : {
+      "comment" : "くり返しの記録の、記録する日を選ぶメニューの 1 つ（毎月の最後の日）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last Day"
+          }
+        }
+      }
+    },
     "期間" : {
       "comment" : "設定の「記録を書き出す」の、書き出す期間の選択の見出し（今月・先月・今年・すべて）",
       "localizations" : {
@@ -5105,6 +6246,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Not Set"
+          }
+        }
+      }
+    },
+    "本" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Book"
+          }
+        }
+      }
+    },
+    "柿" : {
+      "comment" : "カテゴリを作る・直すシートの色の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Persimmon"
+          }
+        }
+      }
+    },
+    "栗" : {
+      "comment" : "カテゴリを作る・直すシートの色の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chestnut"
+          }
+        }
+      }
+    },
+    "桔梗" : {
+      "comment" : "カテゴリを作る・直すシートの色の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bellflower"
           }
         }
       }
@@ -5164,6 +6349,28 @@
         }
       }
     },
+    "次の月から記録しなくなります。これまでに記録したものは残ります。" : {
+      "comment" : "くり返しの記録をやめる前の確認の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It won’t be recorded from next month on. Entries already recorded are kept."
+          }
+        }
+      }
+    },
+    "次は%@に記録します。" : {
+      "comment" : "くり返しの記録を作る・直すシートの説明。%@ は次に記録する日",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next entry: %@."
+          }
+        }
+      }
+    },
     "残り" : {
       "comment" : "月のまとめの予算の行の見出し。予算から使った額を引いた額",
       "localizations" : {
@@ -5186,6 +6393,61 @@
         }
       }
     },
+    "毎月%lld日" : {
+      "comment" : "くり返しの記録の記録する日（毎月の何日か）。%lld は日",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly on day %lld"
+          }
+        }
+      }
+    },
+    "毎月くり返す" : {
+      "comment" : "ホームの返事の行の長押しのメニューと VoiceOver の操作。その記録の中身で、くり返しの記録を作る",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repeat Monthly"
+          }
+        }
+      }
+    },
+    "毎月の記録" : {
+      "comment" : "設定の節の見出し（くり返しの記録）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly Entries"
+          }
+        }
+      }
+    },
+    "毎月同じ記録の一覧を開きます" : {
+      "comment" : "設定の「くり返しの記録」の行の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the list of entries that repeat every month"
+          }
+        }
+      }
+    },
+    "毎月末" : {
+      "comment" : "くり返しの記録の記録する日（毎月の最後の日）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly on the last day"
+          }
+        }
+      }
+    },
     "決まった短い文で、端末内 AI に 1 回だけ生成させます（最大 %lld 秒）。記録の中身は渡しません。" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。端末内 AI の区切りの下の説明（「生成を試す」のボタンについて）。%lld は待つ上限の秒数",
       "localizations" : {
@@ -5193,6 +6455,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Asks the on-device AI to generate once from a fixed short prompt (up to %lld seconds). Your records are not sent."
+          }
+        }
+      }
+    },
+    "海松" : {
+      "comment" : "カテゴリを作る・直すシートの色の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seaweed Green"
           }
         }
       }
@@ -5585,6 +6858,39 @@
         }
       }
     },
+    "続けて聞く" : {
+      "comment" : "家計への質問の回答カードの、続けて聞く質問のボタンの並びの VoiceOver の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask next"
+          }
+        }
+      }
+    },
+    "美容" : {
+      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beauty"
+          }
+        }
+      }
+    },
+    "群青" : {
+      "comment" : "カテゴリを作る・直すシートの色の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ultramarine"
+          }
+        }
+      }
+    },
     "聞いています…" : {
       "comment" : "声の入力の間、まだ何も聞き取れていないときに入力欄の代わりに出す文と、その間の表示の VoiceOver の名前（値に書き起こしの文を読む）",
       "localizations" : {
@@ -5603,6 +6909,72 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Me"
+          }
+        }
+      }
+    },
+    "色" : {
+      "comment" : "カテゴリを作る・直すシートの、色の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Color"
+          }
+        }
+      }
+    },
+    "葉" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leaf"
+          }
+        }
+      }
+    },
+    "薔薇" : {
+      "comment" : "カテゴリを作る・直すシートの色の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rose"
+          }
+        }
+      }
+    },
+    "蘇芳" : {
+      "comment" : "カテゴリを作る・直すシートの色の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sappanwood Red"
+          }
+        }
+      }
+    },
+    "衣服" : {
+      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clothing"
+          }
+        }
+      }
+    },
+    "衣服・住居・美容 など" : {
+      "comment" : "カテゴリを作る・直すシートの、名前の欄が空のときの例",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "e.g. Clothing, Housing, Beauty"
           }
         }
       }
@@ -5669,6 +7041,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Calculating…"
+          }
+        }
+      }
+    },
+    "記号" : {
+      "comment" : "カテゴリを作る・直すシートの、記号の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Symbol"
           }
         }
       }
@@ -5768,6 +7151,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Switches where entries are recorded and which entries are shown"
+          }
+        }
+      }
+    },
+    "記録する日" : {
+      "comment" : "くり返しの記録を作る・直すシートの、記録する日の欄の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day to Record"
+          }
+        }
+      }
+    },
+    "記録する日を過ぎて、最初にアプリを開いたときに記録し、ホームの返事でお知らせします。取り消すと、その月の分はもう記録しません。" : {
+      "comment" : "設定の「くり返しの記録」の一覧の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SaifuLog records them the first time you open the app on or after the day, and tells you in a reply on Home. If you undo it, that month isn’t recorded again."
+          }
+        }
+      }
+    },
+    "記録する日を過ぎて、最初にアプリを開いたときに記録します。" : {
+      "comment" : "くり返しの記録を作る・直すシートの説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It’s recorded the first time you open the app on or after the day."
           }
         }
       }
@@ -5884,28 +7300,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SaifuLog couldn’t open the storage for your records. Make sure your iPhone has free space, then try again."
-          }
-        }
-      }
-    },
-    "記録の読み取り" : {
-      "comment" : "設定の節の見出し（覚えたカテゴリ）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reading Entries"
-          }
-        }
-      }
-    },
-    "記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。" : {
-      "comment" : "設定の「記録の読み取り」の節の注記",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "When you choose a category in a reply or change one on the edit screen, SaifuLog records the same words in that category from now on."
           }
         }
       }
@@ -6378,6 +7772,50 @@
         }
       }
     },
+    "贈り物" : {
+      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前と、記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gifts"
+          }
+        }
+      }
+    },
+    "趣味" : {
+      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hobbies"
+          }
+        }
+      }
+    },
+    "足あと" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paw Print"
+          }
+        }
+      }
+    },
+    "車" : {
+      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前と、記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Car"
+          }
+        }
+      }
+    },
     "軽減税率" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。品目の行の注記（軽減税率の印があった品目）",
       "localizations" : {
@@ -6565,6 +8003,17 @@
         }
       }
     },
+    "金額と毎月の日を決めて、くり返しの記録を足します" : {
+      "comment" : "設定の「くり返しの記録を足す」の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose an amount and a day of the month to add a recurring entry"
+          }
+        }
+      }
+    },
     "金額の書かれたレシートの画像を選んでください。" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。読み取れなかったときのこつ",
       "localizations" : {
@@ -6587,6 +8036,17 @@
         }
       }
     },
+    "金額や毎月の日を直します" : {
+      "comment" : "設定の「くり返しの記録」の行の VoiceOver の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edits the amount and day of the month"
+          }
+        }
+      }
+    },
     "金額を入れてください。" : {
       "comment" : "直すシートで金額の欄が空のとき、保存できない理由として出す",
       "localizations" : {
@@ -6605,6 +8065,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Amount in yen"
+          }
+        }
+      }
+    },
+    "鉄紺" : {
+      "comment" : "カテゴリを作る・直すシートの色の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iron Navy"
           }
         }
       }
@@ -6650,6 +8121,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Speech transcription (SpeechTranscriber)"
+          }
+        }
+      }
+    },
+    "音符" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Music Note"
+          }
+        }
+      }
+    },
+    "飛行機" : {
+      "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airplane"
           }
         }
       }

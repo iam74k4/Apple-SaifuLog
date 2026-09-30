@@ -86,7 +86,7 @@ struct GeneratedReceiptItem {
     @Guide(description: "整えた品名。金額・数量・記号は含めない")
     var name: String
 
-    @Guide(description: "品目のカテゴリ", .anyOf(EntryCategory.allCases.map(\.displayName)))
+    @Guide(description: "品目のカテゴリ", .anyOf(EntryCategory.builtIns.map(\.displayName)))
     var category: String
 
     @Guide(description: "一覧に書かれたその品目の金額の部分を、書かれた文字のまま写す")

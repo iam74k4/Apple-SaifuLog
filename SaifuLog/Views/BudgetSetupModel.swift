@@ -16,6 +16,8 @@ final class BudgetSetupModel: Identifiable {
     var totalText: String
     /// カテゴリ別の予算の入力欄（プレミアム）。空欄は設定なし。
     var categoryTexts: [EntryCategory: String]
+    /// カテゴリ別の予算の欄に並べるカテゴリ（組み込みと作ったカテゴリ。画面の並び）。
+    let categories: [EntryCategory]
     /// 保存に失敗した（アラートを出す）。
     var showsSaveFailure = false
     /// カテゴリ別の予算の欄を出すか。プレミアムの機能で、プレミアムと体験中だけ出す（開く側が `PremiumStatus` で決める）。
@@ -30,10 +32,12 @@ final class BudgetSetupModel: Identifiable {
 
     /// - Parameters:
     ///   - showsCategoryBudgets: カテゴリ別の予算の欄を出すか（プレミアム）。
+    ///   - catalog: カテゴリの一覧（作ったカテゴリにも予算を決められる）。
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     init(
         store: BudgetStore,
         showsCategoryBudgets: Bool = false,
+        catalog: CategoryCatalog = .builtIn,
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
     ) {
         // 読めなければ決めていないものとして始める。保存するときは保存先を読み直して対象ごとに 1 行へ書く
@@ -43,10 +47,11 @@ final class BudgetSetupModel: Identifiable {
         self.store = store
         self.announce = announce
         self.showsCategoryBudgets = showsCategoryBudgets
+        self.categories = catalog.all
         self.initialPlan = plan
         self.hadTotalBudget = plan.total != nil
         self.totalText = BudgetAmountInput.text(for: plan.total ?? 0)
-        self.categoryTexts = Dictionary(uniqueKeysWithValues: EntryCategory.allCases.map { category in
+        self.categoryTexts = Dictionary(uniqueKeysWithValues: catalog.all.map { category in
             (category, BudgetAmountInput.text(for: plan.byCategory[category] ?? 0))
         })
     }
@@ -96,7 +101,7 @@ final class BudgetSetupModel: Identifiable {
             changes[.total] = totalAmount
         }
         if showsCategoryBudgets {
-            for category in EntryCategory.allCases {
+            for category in categories {
                 let amount = BudgetAmountInput.amount(from: categoryTexts[category] ?? "") ?? 0
                 if amount != initialPlan.byCategory[category] ?? 0 {
                     changes[.category(category)] = amount

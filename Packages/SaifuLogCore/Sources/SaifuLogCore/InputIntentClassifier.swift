@@ -29,7 +29,10 @@ public enum InputIntentClassifier {
     /// - Parameters:
     ///   - now: 日付の言い回し（「9/26」「3日前」を金額と見分ける）の基準の日時。送った瞬間の日時を渡す。
     ///   - calendar: 同じく日付を見分ける暦。
-    public static func classify(_ text: String, now: Date, calendar: Calendar) -> InputIntent {
+    ///   - catalog: カテゴリの一覧。期間の語に続く作ったカテゴリの名前（「先月の衣服」）も、質問の手がかりにする。
+    public static func classify(
+        _ text: String, now: Date, calendar: Calendar, catalog: CategoryCatalog = .builtIn
+    ) -> InputIntent {
         let normalized = TextNormalizer.normalize(text)
         if containsStrongQuestionWord(normalized) { return .question }
 
@@ -46,7 +49,8 @@ public enum InputIntentClassifier {
         if hasAmount {
             return containsAmbiguousWord(normalized) ? .unclear : .record
         }
-        if containsAmbiguousWord(normalized) || containsQuestionWord(normalized) || asksAboutPeriod(normalized) {
+        if containsAmbiguousWord(normalized) || containsQuestionWord(normalized)
+            || asksAboutPeriod(normalized, customNames: catalog.customs.map(\.name)) {
             return .question
         }
         return .record
@@ -74,7 +78,7 @@ public enum InputIntentClassifier {
     ]
 
     /// カテゴリの表示名（「光熱・通信」は「光熱費」「通信費」とも書くので、分けた語も）。
-    static let categoryNames = EntryCategory.allCases.map(\.displayName) + ["光熱", "通信"]
+    static let categoryNames = EntryCategory.builtIns.map(\.displayName) + ["光熱", "通信"]
 
     static func containsStrongQuestionWord(_ text: String) -> Bool {
         var haystack = text
@@ -103,7 +107,7 @@ public enum InputIntentClassifier {
     /// 期間の語に、カテゴリの表示名が続くか、期間の語だけの文か（「先月の食費」「今日のカフェ」「先月」「年初からの食費」）。
     ///
     /// カテゴリはキーワードではなく表示名だけを見る。「昨日 ランチ」のような、金額を書き忘れた記録を質問として答えないため。
-    static func asksAboutPeriod(_ text: String) -> Bool {
+    static func asksAboutPeriod(_ text: String, customNames: [String] = []) -> Bool {
         var chars = Array(text)
         let words = QuestionParser.sinceYearStartPhrases + QuestionParser.periodWords.map(\.0) + ["直近", "過去", "最近"]
         let found = QuestionParser.ranges(of: words, in: chars)
@@ -113,7 +117,8 @@ public enum InputIntentClassifier {
             for index in range { chars[index] = " " }
         }
         let rest = String(chars)
-        if categoryNames.contains(where: { rest.contains($0) }) {
+        let names = categoryNames + customNames.map(TextNormalizer.normalize).filter { !$0.isEmpty }
+        if names.contains(where: { rest.contains($0) }) {
             return true
         }
         // 期間の語のほかに、助詞・記号・空白しか無い。

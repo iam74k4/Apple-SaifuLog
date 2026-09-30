@@ -21,7 +21,7 @@ struct FoundationModelsQuestionAnswerer: QuestionAnswering {
     var respond: Respond = Self.respondWithModel
 
     func answer(_ text: String, ledger: QuestionLedger, now: Date, calendar: Calendar) async throws -> QuestionReply {
-        let reading = QuestionParser.read(text, now: now, calendar: calendar)
+        let reading = QuestionParser.read(text, now: now, calendar: calendar, catalog: ledger.catalog)
         guard !reading.hasUnsupportedPart else { return .unreadable }
         let recorder = LedgerToolRecorder()
         let tool = LedgerQuestionTool(reading: reading, ledger: ledger, now: now, calendar: calendar, recorder: recorder)
@@ -71,7 +71,7 @@ struct LedgerQuestionTool: Tool {
         guard let question = reading.resolved(with: arguments.choice),
               let answer = LedgerQuestionAnswerer.answer(question, ledger: ledger, now: now, calendar: calendar)
         else { throw QuestionAIError.unanswerable }
-        let facts = LedgerAnswerFacts.text(for: answer, calendar: calendar)
+        let facts = LedgerAnswerFacts.text(for: answer, calendar: calendar, catalog: ledger.catalog)
         recorder.record(answer: answer, facts: facts)
         return facts
     }

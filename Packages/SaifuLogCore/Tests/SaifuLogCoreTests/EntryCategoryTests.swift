@@ -5,18 +5,18 @@ import Testing
 struct EntryCategoryTests {
     @Test("v1 は 8 種で、表示名の順も決まっている")
     func eightCategories() {
-        #expect(EntryCategory.allCases.map(\.displayName) == [
+        #expect(EntryCategory.builtIns.map(\.displayName) == [
             "食費", "日用品", "交通", "カフェ", "娯楽", "光熱・通信", "医療", "その他",
         ])
     }
 
     @Test("保存に使う rawValue は重ならない")
     func rawValuesAreUnique() {
-        let rawValues = EntryCategory.allCases.map(\.rawValue)
+        let rawValues = EntryCategory.builtIns.map(\.rawValue)
         #expect(Set(rawValues).count == rawValues.count)
     }
 
-    @Test("表示名からカテゴリに戻せる", arguments: EntryCategory.allCases)
+    @Test("表示名からカテゴリに戻せる", arguments: EntryCategory.builtIns)
     func roundTripsDisplayName(category: EntryCategory) {
         #expect(EntryCategory(displayName: category.displayName) == category)
         #expect(!category.symbolName.isEmpty)
