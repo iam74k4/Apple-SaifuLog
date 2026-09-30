@@ -332,7 +332,7 @@ App ID の In-App Purchase の Capability は、明示的な App ID なら最初
    審査メモも合わせて書き直してから出す。
 3. 表示名と説明（ja と en）。アプリの中の表示（`Config/SaifuLog.storekit` のローカライズ）と食い違わないようにする。体験の英語の
    表示名は、ガイドライン 3.1.1 の名前の決まり（「XX-day Trial」）に合わせた「14-day Trial」（`app-store/review-notes.md`）。
-   App Store Connect の英語のローカライズを直すのは所有者の作業（[`app-store/README.md`](app-store/README.md) の「App Store Connect で所有者がすること」）。
+   App Store Connect の説明は 55 文字までなので、`Config/SaifuLog.storekit` より短い文を入れている（`app-store/review-notes.md` の表）。
 4. 審査の前に、Sandbox のテスター（ユーザとアクセス → Sandbox）で実機に TestFlight のビルドを入れ、購入・体験・復元を一通り試す
    （`docs/design.md` §15 の「これから」）。
 

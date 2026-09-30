@@ -108,8 +108,7 @@ Privacy Policy: https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md
 - **例文:** 入力の例は日本語のまま書き、意味を英語で括弧に添える（アプリの画面の例も日本語のまま出している）。
 - **体験の名前:** 説明の文では「Try Premium free for 14 days」と書く。課金アイテムそのものの英語の表示名（App Store の購入の確認に
   出る名前）は、ガイドライン 3.1.1 の形の「14-day Trial」で、説明とは別に App Store Connect の課金アイテムの英語のローカライズに入れる
-  （`Config/SaifuLog.storekit` と同じ。[`review-notes.md`](review-notes.md) の「課金アイテムの審査メモ」。入力は所有者の作業で、
-  [`README.md`](README.md) の「App Store Connect で所有者がすること」）。
+  （`Config/SaifuLog.storekit` と同じ。[`review-notes.md`](review-notes.md) の「課金アイテムの審査メモ」。App Store Connect に入力済み）。
 
 ## キーワード
 

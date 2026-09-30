@@ -25,7 +25,7 @@ App Store に出す前の掲載情報・審査用の資料・スクリーンシ�
 
 | いつ | どこで | すること |
 |---|---|---|
-| 課金アイテムを審査に出す前 | 収益化 → App 内課金 → 14日間の無料体験（`com.iam74k4.SaifuLog.trial14`）→ App Store のローカライズ → 英語（米国） | 表示名を「14-Day Free Trial」から **「14-day Trial」** に替える（ガイドライン 3.1.1 の「XX-day Trial」の形。`Config/SaifuLog.storekit` の en と同じ）。説明は `Config/SaifuLog.storekit` の en のまま（「Try every Premium feature free for 14 days. You won't be charged when it ends.」）。日本語の表示名「14日間の無料体験」は替えない。英語のローカライズがまだ無ければ、この表示名と説明で足す |
+| 審査に出す前 | 配信 → iOS アプリのバージョン → App Review に関する情報 → 連絡先情報 | 名前・電話番号・メールアドレスを入れる（審査の担当者が連絡に使う。リポジトリは公開なので、ここには書かない） |
 
 ## スクリーンショット
 

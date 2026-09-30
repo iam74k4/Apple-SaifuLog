@@ -81,9 +81,16 @@ App Store Connect → 収益化 → App 内課金 → 各アイテム → 「審
 
 体験の名前: ガイドライン 3.1.1 は、価格 0 の体験の非消耗型に「XX-day Trial」の形の名前を求めている。英語の表示名はこの形に
 そろえて「14-day Trial」にした（`Config/SaifuLog.storekit`。前は「14-Day Free Trial」で、「Free」が入っていた）。日本語の表示名
-「14日間の無料体験」はそのまま。App Store Connect の英語のローカライズの表示名は所有者が直す（[`README.md`](README.md) の
-「App Store Connect で所有者がすること」）。表示名を変えるときは、App Store Connect と `Config/SaifuLog.storekit` と
-`SaifuLogTests/StoreKitConfigurationTests.swift` を一緒に直す。
+「14日間の無料体験」はそのまま。App Store Connect の英語のローカライズにも「14-day Trial」で入れてある。表示名を変えるときは、
+App Store Connect と `Config/SaifuLog.storekit` と `SaifuLogTests/StoreKitConfigurationTests.swift` を一緒に直す。
+
+App Store Connect の課金アイテムの説明は **55 文字まで**なので、`Config/SaifuLog.storekit` の説明（アプリの中と Xcode の StoreKit の
+テストで使う文。en は 78 文字）より短い文を入れている。説明を変えるときは、この表を直してから App Store Connect に入れる。
+
+| 製品 ID | 説明（ja） | 説明（en） |
+|---|---|---|
+| `com.iam74k4.SaifuLog.premium` | レシート読み取りと質問が無制限。AIのふりかえりつきの買い切り | Unlimited receipts and questions, one-time purchase. |
+| `com.iam74k4.SaifuLog.trial14` | プレミアムの機能を14日間無料で試せます。自動で課金されません | Try Premium free for 14 days. No charge when it ends. |
 
 ### プレミアム（`com.iam74k4.SaifuLog.premium`）
 
