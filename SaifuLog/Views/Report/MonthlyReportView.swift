@@ -51,6 +51,9 @@ struct MonthlyReportView: View {
         .navigationDestination(item: $model.selectedCategory) { category in
             CategoryEntriesView(model: model, category: category)
         }
+        .sheet(item: $model.premiumSheet) { premium in
+            PremiumSheet(model: premium)
+        }
         // 保存先に書き込まれたら読み直す。まとめを開く直前に送った文の読み取り（AI だと 1 秒以上かかる）が、
         // 開いた後に記録されることがあるため。ここから直したり消したりしたときは、モデルが自分で読み直す。
         .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { _ in
@@ -92,8 +95,52 @@ struct MonthlyReportView: View {
                     budgetedCategoriesWithoutExpense: model.budgetedCategoriesWithoutExpense,
                     select: { model.showEntries(in: $0) }
                 )
+                if model.showsCategoryBudgetUpsell {
+                    CategoryBudgetUpsell(canStartTrial: model.canStartTrial, open: { model.presentPremium() })
+                }
             }
         }
+    }
+}
+
+// MARK: - カテゴリ別の予算の案内
+
+/// 無料の人への、カテゴリ別の予算（プレミアム）の案内。カテゴリ別の支出の下に 1 枚だけ置き、押すとプレミアム（⑨）を開く。
+/// 閉じるボタンは付けない（押さなければ何も起きず、1 枚だけで場所も取らないため）。
+private struct CategoryBudgetUpsell: View {
+    let canStartTrial: Bool
+    let open: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            HStack(spacing: 12) {
+                PremiumSymbolTile(symbolName: PremiumFeature.categoryBudget.symbolName)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("カテゴリごとに予算を決める")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.ink)
+                    Group {
+                        if canStartTrial {
+                            Text("プレミアムの機能です。14日間 無料で試せます。")
+                        } else {
+                            Text("プレミアムの機能です。")
+                        }
+                    }
+                    .font(.footnote)
+                    .foregroundStyle(Theme.inkSecondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.inkSecondary)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .reportCard()
+        .accessibilityHint("プレミアムの画面を開きます")
     }
 }
 

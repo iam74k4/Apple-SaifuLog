@@ -12,13 +12,13 @@
         }
       }
     },
-    "%@ で購入する" : {
-      "comment" : "プレミアムのシート（⑨）。買い切りの購入のボタン。%@ は App Store の価格の表示（「¥1,800」）",
+    "%@ で購入する（買い切り）" : {
+      "comment" : "プレミアムのシート（⑨）の下の帯の購入のボタン。%@ は App Store の価格の表示（「¥1,800」）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buy for %@"
+            "value" : "Buy for %@ (One-Time)"
           }
         }
       }
@@ -477,6 +477,39 @@
         }
       }
     },
+    "0円。体験が終わっても自動で課金されません。" : {
+      "comment" : "プレミアムのシート（⑨）の下の帯の、体験のボタンの下の一言",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free. You won’t be charged when the trial ends."
+          }
+        }
+      }
+    },
+    "14日間 無料で試す" : {
+      "comment" : "プレミアムのシート（⑨）の下の帯の体験のボタン（山吹の塗り）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try Free for 14 Days"
+          }
+        }
+      }
+    },
+    "14日間 無料で試せます" : {
+      "comment" : "設定の「サイフログ プレミアム」の行の 2 行目（まだ体験していないとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try free for 14 days"
+          }
+        }
+      }
+    },
     "14日間、プレミアムの機能をすべて無料で使えます。体験は無料で、終わっても自動で課金されることはありません（続けて使うときだけ、プレミアムを購入してください）。体験が終わると、プレミアムの機能は使えなくなります（記録や決めた予算は消えません）。体験は1つの Apple アカウントにつき1回です。始めるときに App Store の確認が出ます（0円）。" : {
       "comment" : "プレミアムのシート（⑨）。無料体験の説明（審査ガイドライン 3.1.1: 期間・終わった後に使えなくなるもの・料金がかからないこと）",
       "localizations" : {
@@ -488,13 +521,13 @@
         }
       }
     },
-    "14日間の無料体験" : {
-      "comment" : "プレミアムのシート（⑨）。無料体験の節の見出し",
+    "14日間の無料体験について" : {
+      "comment" : "プレミアムのシート（⑨）の体験の説明の見出し",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "14-Day Free Trial"
+            "value" : "About the 14-Day Free Trial"
           }
         }
       }
@@ -517,17 +550,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Started your 14-day free trial"
-          }
-        }
-      }
-    },
-    "14日間の無料体験を始める" : {
-      "comment" : "プレミアムのシート（⑨）。無料体験を始めるボタン（価格 0 の体験の商品を買う）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Start 14-Day Free Trial"
           }
         }
       }
@@ -748,6 +770,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Recorded from an Apple Pay payment. The item is the merchant name."
+          }
+        }
+      }
+    },
+    "Apple Pay の支払いとくり返しの記録" : {
+      "comment" : "プレミアムのシート（⑨）の「無料のまま使えること」の行",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Pay payments and recurring entries"
           }
         }
       }
@@ -1099,6 +1132,17 @@
         }
       }
     },
+    "iCloud 同期と CSV 書き出し" : {
+      "comment" : "プレミアムのシート（⑨）の「無料のまま使えること」の行",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud sync and CSV export"
+          }
+        }
+      }
+    },
     "iPhone の設定でパスコードを設定すると、使えるようになります。" : {
       "comment" : "アプリのロックをオンにしようとしたが、端末にパスコードが設定されていなかったときのアラートの本文",
       "localizations" : {
@@ -1231,6 +1275,17 @@
         }
       }
     },
+    "「今月カフェにいくら？」のように聞くと、数字はアプリが計算して答えます。" : {
+      "comment" : "プレミアムのシート（⑨）の「家計への質問が無制限」の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask things like “How much did I spend on cafés this month?” The app calculates the numbers."
+          }
+        }
+      }
+    },
     "「新規の空のオートメーション」から「アクションを追加」を押し、「サイフログ」の「支払いを記録」を選びます。" : {
       "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の手順 3",
       "localizations" : {
@@ -1337,17 +1392,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enter your name to continue."
-          }
-        }
-      }
-    },
-    "あり" : {
-      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表で、その機能があること",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Included"
           }
         }
       }
@@ -2174,17 +2218,6 @@
         }
       }
     },
-    "なし" : {
-      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表で、その機能が無いこと",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "None"
-          }
-        }
-      }
-    },
     "のこり %lld 日" : {
       "comment" : "ホームの上の帯。月末までの日数（今日を含む）。%lld は日数",
       "localizations" : {
@@ -2285,13 +2318,13 @@
         }
       }
     },
-    "ひとこと入力と AI の文章の読み取り、CSV 書き出しは、無料のまま回数の制限なく使えます。広告はありません。" : {
-      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の下の注記",
+    "ひとこと入力と AI の読み取り（回数の制限なし）" : {
+      "comment" : "プレミアムのシート（⑨）の「無料のまま使えること」の行",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "One-line entry, AI reading of your text, and CSV export stay free with no limits. No ads."
+            "value" : "One-line entry and AI reading (no limits)"
           }
         }
       }
@@ -2725,6 +2758,17 @@
         }
       }
     },
+    "カテゴリごとに予算を決める" : {
+      "comment" : "月のまとめのカテゴリ別の支出の下の、無料の人へのカテゴリ別の予算（プレミアム）の案内の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set Budgets by Category"
+          }
+        }
+      }
+    },
     "カテゴリの一覧を開きます。カテゴリを作ったり直したりできます" : {
       "comment" : "設定の「カテゴリ」の行の VoiceOver の説明",
       "localizations" : {
@@ -2814,7 +2858,7 @@
       }
     },
     "カテゴリ別の予算（プレミアムの表）" : {
-      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の行",
+      "comment" : "プレミアムのシート（⑨）。プレミアムでできることの行の名前",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3227,6 +3271,28 @@
         }
       }
     },
+    "プレミアムでできること" : {
+      "comment" : "プレミアムのシート（⑨）の見出し。プレミアムで加わる機能の一覧",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What Premium Adds"
+          }
+        }
+      }
+    },
+    "プレミアムでできることと購入の画面を開きます" : {
+      "comment" : "設定の「サイフログ プレミアム」の行の VoiceOver のヒント",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens what Premium adds and the purchase screen."
+          }
+        }
+      }
+    },
     "プレミアムなら、回数の制限なく質問できます。記録はこれまでどおり無料で、回数の制限なく続けられます。" : {
       "comment" : "家計への質問の回答カード。今月の無料の質問を使い切ったときの案内の本文",
       "localizations" : {
@@ -3234,6 +3300,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "With Premium, you can ask as many questions as you like. Recording stays free and unlimited, as always."
+          }
+        }
+      }
+    },
+    "プレミアムの機能です。" : {
+      "comment" : "月のまとめのカテゴリ別の予算の案内の説明（体験を使った後）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A Premium feature."
+          }
+        }
+      }
+    },
+    "プレミアムの機能です。14日間 無料で試せます。" : {
+      "comment" : "月のまとめのカテゴリ別の予算の案内の説明（まだ体験していないとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A Premium feature. Try it free for 14 days."
+          }
+        }
+      }
+    },
+    "プレミアムの画面を開きます" : {
+      "comment" : "月のまとめのカテゴリ別の予算の案内の VoiceOver のヒント",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the Premium screen."
           }
         }
       }
@@ -3447,6 +3546,28 @@
         }
       }
     },
+    "レシートの読み取りが無制限" : {
+      "comment" : "プレミアムのシート（⑨）のプレミアムでできることの行の名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlimited Receipt Scans"
+          }
+        }
+      }
+    },
+    "レシートも家計への質問も、回数を気にせず使えます。カテゴリ別の予算と AI の一言も加わります。" : {
+      "comment" : "プレミアムのシート（⑨）の見出しの下の一文（無料のとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan receipts and ask about your spending as often as you like. Budgets by category and AI remarks are included too."
+          }
+        }
+      }
+    },
     "レシートを読み取っています…" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。文字を読み取っている間の文",
       "localizations" : {
@@ -3476,17 +3597,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t read the receipt"
-          }
-        }
-      }
-    },
-    "レシート・スクショの読み取り" : {
-      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の行（近日の機能）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reading Receipts and Screenshots"
           }
         }
       }
@@ -5404,6 +5514,17 @@
         }
       }
     },
+    "声の入力と Siri・ショートカット" : {
+      "comment" : "プレミアムのシート（⑨）の「無料のまま使えること」の行",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice input, Siri, and Shortcuts"
+          }
+        }
+      }
+    },
     "声の入力を使えませんでした。もう一度お試しください。" : {
       "comment" : "声の入力を始められなかった・途中で失敗したときに、入力欄の上に少しの間だけ出す知らせ。VoiceOver にも読み上げる",
       "localizations" : {
@@ -5932,13 +6053,13 @@
         }
       }
     },
-    "家計への質問" : {
-      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の行（近日の機能）",
+    "家計への質問が無制限" : {
+      "comment" : "プレミアムのシート（⑨）のプレミアムでできることの行の名前",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Questions About Your Spending"
+            "value" : "Unlimited Questions"
           }
         }
       }
@@ -6093,6 +6214,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Evergreen"
+          }
+        }
+      }
+    },
+    "広告は出しません。家計のデータは、この iPhone（iCloud 同期をオンにしたときは、あなたの iCloud）の外へ出ません。" : {
+      "comment" : "プレミアムのシート（⑨）の「無料のまま使えること」の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No ads. Your household data stays on this iPhone (and in your own iCloud if you turn on iCloud sync)."
           }
         }
       }
@@ -6295,13 +6427,13 @@
         }
       }
     },
-    "撮るか写真から選ぶと、品目ごとに仕分けて記録できます。数えるのは記録したときだけです。" : {
-      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の、レシート・スクショの読み取りの行の説明",
+    "撮るか写真から選ぶだけで、品目ごとに仕分けて記録します。数えるのは記録したときだけです。" : {
+      "comment" : "プレミアムのシート（⑨）の「レシートの読み取りが無制限」の説明",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Take a photo or choose one to record each item by category. Only scans you record are counted."
+            "value" : "Take or pick a photo and each item is recorded separately. Only receipts you record are counted."
           }
         }
       }
@@ -6647,17 +6779,6 @@
         }
       }
     },
-    "月%lld回" : {
-      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の、無料で使える回数。%lld は回数",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld per month"
-          }
-        }
-      }
-    },
     "月のまとめ" : {
       "comment" : "月のまとめの画面のタイトル。月ごとの支出・収入とカテゴリ別の内訳",
       "localizations" : {
@@ -6753,6 +6874,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Continues to setting your monthly budget."
+          }
+        }
+      }
+    },
+    "月の予算・月のまとめ・週のふりかえり" : {
+      "comment" : "プレミアムのシート（⑨）の「無料のまま使えること」の行",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly budget, monthly report, and weekly recap"
           }
         }
       }
@@ -7038,28 +7170,6 @@
         }
       }
     },
-    "無制限" : {
-      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の、プレミアムで回数の上限が無いこと",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unlimited"
-          }
-        }
-      }
-    },
-    "無料" : {
-      "comment" : "設定の「プレミアム」の行の値（無料・体験が終わった後）と、無料とプレミアムの違いの表の列の名前",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Free"
-          }
-        }
-      }
-    },
     "無料との違いと購入の画面を開きます" : {
       "comment" : "設定の「プレミアム」の行の VoiceOver の説明",
       "localizations" : {
@@ -7071,13 +7181,46 @@
         }
       }
     },
-    "無料とプレミアムの違い" : {
-      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の見出し",
+    "無料のまま使えること" : {
+      "comment" : "プレミアムのシート（⑨）の見出し。プレミアムを買わなくても使える機能の一覧",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Free vs. Premium"
+            "value" : "What Stays Free"
+          }
+        }
+      }
+    },
+    "無料は全体の予算だけ" : {
+      "comment" : "プレミアムのシート（⑨）のカテゴリ別の予算の行の、無料との違い",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free: overall budget only"
+          }
+        }
+      }
+    },
+    "無料は月%lld回まで" : {
+      "comment" : "プレミアムのシート（⑨）のレシートと質問の行の、無料との違い。%lld は回数",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free: up to %lld a month"
+          }
+        }
+      }
+    },
+    "無料は決まった文だけ" : {
+      "comment" : "プレミアムのシート（⑨）のふりかえりの AI の一言の行の、無料との違い",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free: standard summary only"
           }
         }
       }
@@ -8241,13 +8384,13 @@
         }
       }
     },
-    "買い切りで、プレミアムの機能をすべて使えます。" : {
-      "comment" : "プレミアムのシート（⑨）。見出しの下の状態の文（無料で、まだ体験していないとき）",
+    "買い切りで、レシートと質問が無制限に" : {
+      "comment" : "設定の「サイフログ プレミアム」の行の 2 行目（体験が終わった後）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Get every Premium feature with a one-time purchase."
+            "value" : "One-time purchase for unlimited receipts and questions"
           }
         }
       }

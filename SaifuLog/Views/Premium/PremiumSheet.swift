@@ -3,14 +3,17 @@ import StoreKit
 import SwiftUI
 
 /// ⑨ プレミアム。下から出すシート（用が済めば閉じる一時的な画面のため）。入口は設定（⑧）と、無料体験が終わった後の
-/// 最初の起動（一度だけ）。
+/// 最初の起動（一度だけ）と、無料の回数を使い切ったとき。
 ///
-/// 無料との違い（まだ出していない機能があれば「近日」と書く）、価格（App Store の表示のまま）、買い切り・ファミリー共有、
-/// 無料体験（まだ体験していないときだけ。体験は無料で、終わっても自動で課金されないこと）、購入の復元、利用規約と
-/// プライバシーポリシーを出す。状態と操作は `PremiumSheetModel`（購入そのものは `PurchaseManager`）。
+/// 上から、プレミアムでできること（機能ごとの効きめと、無料との違い。まだ出していない機能があれば「近日」と書く）、価格
+/// （App Store の表示のまま）と買い切り・ファミリー共有、無料のまま使えること、無料体験の説明（まだ体験していないときだけ。
+/// 体験は無料で、終わっても自動で課金されないこと）、購入の復元、利用規約とプライバシーポリシーを並べる。状態と操作は
+/// `PremiumSheetModel`（購入そのものは `PurchaseManager`）。
 ///
-/// 山吹の塗りは購入のボタンにだけ使う。体験のボタンは塗らない（主の操作を 1 つに見せ、0 円の体験と買い切りの購入を
-/// 取り違えさせないため）。
+/// 体験と購入のボタンは、下に固定したガラスの帯に置く（どこまで読んでいても押せるように。内容はその下を流れる）。山吹の塗りは
+/// いちばん先に押してほしいボタン 1 つにだけ使う。まだ体験していなければ体験（0 円で全部を試せるので、買う前に使ってみてもらう
+/// のがいちばん確かな案内になるため）、体験の後と体験中は購入。体験と購入は、塗りではなくボタンの文（「無料で試す」と価格・
+/// 「買い切り」）と、帯の下の一言（「0円。自動で課金されません」）で見分けさせる。
 struct PremiumSheet: View {
     @Bindable var model: PremiumSheetModel
 
@@ -25,13 +28,15 @@ struct PremiumSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
-                    header
-                    comparison
+                    hero
+                    benefits
                     if model.status.canPurchase {
-                        purchaseSection
+                        priceSection
                     }
+                    freeFeatures
+                    // 体験の説明は、下の帯の体験のボタンのすぐ上に来るよう、後ろの方に置く。
                     if model.showsTrial {
-                        trialSection
+                        trialTerms
                     }
                     restoreSection
                     links
@@ -45,6 +50,11 @@ struct PremiumSheet: View {
             .defaultScrollAnchor(model.screenshotScrollsToBottom ? .bottom : nil)
             #endif
             .background(Theme.background)
+            .safeAreaBar(edge: .bottom) {
+                if model.status.canPurchase {
+                    actionBar
+                }
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -82,10 +92,11 @@ struct PremiumSheet: View {
 
     // MARK: - 見出し
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
+    private var hero: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            PremiumSymbolTile(symbolName: "sparkles", size: 60)
             Text("サイフログ プレミアム")
-                .font(.title.bold())
+                .font(.largeTitle.bold())
                 .accessibilityAddTraits(.isHeader)
             statusText
                 .foregroundStyle(Theme.inkSecondary)
@@ -95,7 +106,7 @@ struct PremiumSheet: View {
     private var statusText: Text {
         switch model.status {
         case .free:
-            Text("買い切りで、プレミアムの機能をすべて使えます。")
+            Text("レシートも家計への質問も、回数を気にせず使えます。カテゴリ別の予算と AI の一言も加わります。")
         case .trial(let days, let endsAt):
             Text("無料体験中です。あと \(days) 日（\(endsAt.formatted(.dateTime.month().day().hour().minute())) まで）使えます。")
         case .trialEnded:
@@ -107,70 +118,35 @@ struct PremiumSheet: View {
         }
     }
 
-    // MARK: - 無料との違い
+    // MARK: - プレミアムでできること
 
-    private var comparison: some View {
+    private var benefits: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("無料とプレミアムの違い")
+            Text("プレミアムでできること")
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
             VStack(spacing: 0) {
                 ForEach(PremiumFeature.allCases) { feature in
-                    PremiumFeatureRow(feature: feature)
+                    PremiumBenefitRow(feature: feature)
                     if feature != PremiumFeature.allCases.last {
                         Divider()
                     }
                 }
             }
             .padding(.horizontal, 16)
-            .background(Theme.surface, in: .rect(cornerRadius: 16))
-            Text("ひとこと入力と AI の文章の読み取り、CSV 書き出しは、無料のまま回数の制限なく使えます。広告はありません。")
-                .font(.footnote)
-                .foregroundStyle(Theme.inkSecondary)
+            .background(Theme.surface, in: .rect(cornerRadius: 20))
         }
     }
 
-    // MARK: - 購入
+    // MARK: - 価格
 
-    private var purchaseSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+    private var priceSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
             priceRow
             Text("一度の購入でずっと使えます（サブスクではありません）。ファミリー共有に対応しているので、家族も追加の購入なしで使えます。")
                 .font(.footnote)
                 .foregroundStyle(Theme.inkSecondary)
-            Button {
-                Task { await model.buyPremium(using: { try await purchase($0) }) }
-            } label: {
-                HStack(spacing: 8) {
-                    if model.inFlight == .premium {
-                        ProgressView()
-                            .tint(purchaseLabelColor)
-                            .accessibilityHidden(true)
-                    }
-                    if model.inFlight == .premium {
-                        Text("購入の手続き中…")
-                    } else if let price = model.premiumPrice {
-                        Text("\(price) で購入する")
-                    } else {
-                        Text("購入する")
-                    }
-                }
-                .fontWeight(.semibold)
-                .foregroundStyle(purchaseLabelColor)
-                .frame(maxWidth: .infinity, minHeight: 44)
-            }
-            .buttonStyle(.glassProminent)
-            .tint(Theme.accentFill)
-            .disabled(!model.canPurchase)
-            .accessibilityHint("App Store の購入の確認が出ます")
         }
-    }
-
-    /// 購入のボタンの文字と進行中の印の色。押せるときは山吹の塗りの上なので墨。押せないとき（手続き中を含む）は塗りが
-    /// 灰色のガラスに変わるので、補足の文字の色にする（入力欄の送信・予算の保存と同じ）。手続き中も墨のままだと、ダークでは
-    /// 暗い灰色の上に墨が載り、「購入の手続き中…」と進行中の印が地に沈んで読めないため。
-    private var purchaseLabelColor: Color {
-        model.canPurchase ? Theme.onAccent : Theme.inkSecondary
     }
 
     @ViewBuilder
@@ -220,37 +196,147 @@ struct PremiumSheet: View {
         }
     }
 
-    // MARK: - 無料体験
+    // MARK: - 無料体験の説明
 
-    private var trialSection: some View {
+    private var trialTerms: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("14日間の無料体験")
+            Text("14日間の無料体験について")
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
             // 審査ガイドライン 3.1.1 の、期間限定の体験の説明（期間・終わった後に使えなくなるもの・料金がかかるか）。
             Text("14日間、プレミアムの機能をすべて無料で使えます。体験は無料で、終わっても自動で課金されることはありません（続けて使うときだけ、プレミアムを購入してください）。体験が終わると、プレミアムの機能は使えなくなります（記録や決めた予算は消えません）。体験は1つの Apple アカウントにつき1回です。始めるときに App Store の確認が出ます（0円）。")
                 .font(.footnote)
                 .foregroundStyle(Theme.inkSecondary)
-            Button {
-                Task { await model.startTrial(using: { try await purchase($0) }) }
-            } label: {
-                HStack(spacing: 8) {
-                    if model.inFlight == .trial14 {
-                        ProgressView()
-                            .accessibilityHidden(true)
-                        Text("体験を始めています…")
-                    } else {
-                        Text("14日間の無料体験を始める")
-                    }
-                }
-                .fontWeight(.semibold)
-                .foregroundStyle(model.canStartTrial || model.inFlight == .trial14 ? Theme.ink : Theme.inkSecondary)
-                .frame(maxWidth: .infinity, minHeight: 44)
-            }
-            .buttonStyle(.glass)
-            .disabled(!model.canStartTrial)
-            .accessibilityHint("料金はかかりません。App Store の確認が出ます")
         }
+    }
+
+    // MARK: - 無料のまま使えること
+
+    /// 記録は無料で無制限（docs/design.md §6）であることを、買う前に伝える。プレミアムが記録の上に足すものだと分かるように。
+    private var freeFeatures: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("無料のまま使えること")
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+            VStack(alignment: .leading, spacing: 10) {
+                freeItem(Text("ひとこと入力と AI の読み取り（回数の制限なし）"))
+                freeItem(Text("声の入力と Siri・ショートカット"))
+                freeItem(Text("Apple Pay の支払いとくり返しの記録"))
+                freeItem(Text("月の予算・月のまとめ・週のふりかえり"))
+                freeItem(Text("iCloud 同期と CSV 書き出し"))
+            }
+            Text("広告は出しません。家計のデータは、この iPhone（iCloud 同期をオンにしたときは、あなたの iCloud）の外へ出ません。")
+                .font(.footnote)
+                .foregroundStyle(Theme.inkSecondary)
+        }
+    }
+
+    private func freeItem(_ text: Text) -> some View {
+        Label {
+            text
+        } icon: {
+            Image(systemName: "checkmark")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(Theme.income)
+                .accessibilityHidden(true)
+        }
+        .font(.subheadline)
+    }
+
+    // MARK: - 体験と購入のボタン（下の帯）
+
+    private var actionBar: some View {
+        VStack(spacing: 8) {
+            if model.showsTrial {
+                trialButton
+                Text("0円。体験が終わっても自動で課金されません。")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.inkSecondary)
+                    .multilineTextAlignment(.center)
+                purchaseButton(isPrimary: false)
+            } else {
+                purchaseButton(isPrimary: true)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+    }
+
+    private var trialButton: some View {
+        Button {
+            Task { await model.startTrial(using: { try await purchase($0) }) }
+        } label: {
+            HStack(spacing: 8) {
+                if model.inFlight == .trial14 {
+                    ProgressView()
+                        .tint(trialLabelColor)
+                        .accessibilityHidden(true)
+                    Text("体験を始めています…")
+                } else {
+                    Text("14日間 無料で試す")
+                }
+            }
+            .fontWeight(.semibold)
+            .foregroundStyle(trialLabelColor)
+            .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.glassProminent)
+        // tint は塗りの色になる。AccentColor（ライトは濃い琥珀）のままにせず、塗り用の山吹にする。
+        .tint(Theme.accentFill)
+        .disabled(!model.canStartTrial)
+        .accessibilityHint("料金はかかりません。App Store の確認が出ます")
+    }
+
+    /// 体験のボタンの文字の色。押せるときは山吹の塗りの上なので墨、押せないとき（手続き中を含む）は塗りが灰色のガラスに
+    /// 変わるので補足の文字の色（購入のボタンと同じ）。
+    private var trialLabelColor: Color {
+        model.canStartTrial ? Theme.onAccent : Theme.inkSecondary
+    }
+
+    /// 購入のボタン。体験のボタンを出しているときは塗らないガラスのボタン（主の操作を 1 つに見せるため）。
+    @ViewBuilder
+    private func purchaseButton(isPrimary: Bool) -> some View {
+        let button = Button {
+            Task { await model.buyPremium(using: { try await purchase($0) }) }
+        } label: {
+            HStack(spacing: 8) {
+                if model.inFlight == .premium {
+                    ProgressView()
+                        .tint(purchaseLabelColor(isPrimary: isPrimary))
+                        .accessibilityHidden(true)
+                }
+                if model.inFlight == .premium {
+                    Text("購入の手続き中…")
+                } else if let price = model.premiumPrice {
+                    Text("\(price) で購入する（買い切り）")
+                } else {
+                    Text("購入する")
+                }
+            }
+            .fontWeight(.semibold)
+            .foregroundStyle(purchaseLabelColor(isPrimary: isPrimary))
+            .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        if isPrimary {
+            button
+                .buttonStyle(.glassProminent)
+                .tint(Theme.accentFill)
+                .disabled(!model.canPurchase)
+                .accessibilityHint("App Store の購入の確認が出ます")
+        } else {
+            button
+                .buttonStyle(.glass)
+                .disabled(!model.canPurchase)
+                .accessibilityHint("App Store の購入の確認が出ます")
+        }
+    }
+
+    /// 購入のボタンの文字と進行中の印の色。塗りのボタンで押せるときは山吹の上なので墨、ガラスのボタンで押せるときも墨。
+    /// 押せないとき（手続き中を含む）は補足の文字の色にする（入力欄の送信・予算の保存と同じ）。手続き中も墨のままだと、ダークでは
+    /// 暗い灰色の上に墨が載り、「購入の手続き中…」と進行中の印が地に沈んで読めないため。
+    private func purchaseLabelColor(isPrimary: Bool) -> Color {
+        guard model.canPurchase else { return Theme.inkSecondary }
+        return isPrimary ? Theme.onAccent : Theme.ink
     }
 
     // MARK: - 復元とリンク
@@ -309,7 +395,23 @@ struct PremiumSheet: View {
     }
 }
 
-/// 無料とプレミアムの違いの行。
+/// プレミアムの印（山吹の角丸の四角に墨の記号）。プレミアムのシートの見出しと機能の行、設定のプレミアムの行で使う。
+/// 山吹は塗りにだけ使い、上の記号は墨にする（Theme の決め事）。記号は飾りなので読ませない。
+struct PremiumSymbolTile: View {
+    let symbolName: String
+    var size: CGFloat = 36
+
+    var body: some View {
+        Image(systemName: symbolName)
+            .font(.system(size: size * 0.45, weight: .semibold))
+            .foregroundStyle(Theme.onAccent)
+            .frame(width: size, height: size)
+            .background(Theme.accentFill, in: .rect(cornerRadius: size * 0.28))
+            .accessibilityHidden(true)
+    }
+}
+
+/// プレミアムでできることの行（機能の名前・効きめ・無料との違い）。
 enum PremiumFeature: CaseIterable, Identifiable {
     case receiptScan
     case question
@@ -325,78 +427,43 @@ enum PremiumFeature: CaseIterable, Identifiable {
         case .receiptScan, .question, .categoryBudget, .recapAI: false
         }
     }
+
+    /// 行の印（SF Symbols）。
+    var symbolName: String {
+        switch self {
+        case .receiptScan: "doc.text.viewfinder"
+        case .question: "bubble.left.and.text.bubble.right"
+        case .categoryBudget: "chart.pie"
+        case .recapAI: "sparkles"
+        }
+    }
 }
 
-private struct PremiumFeatureRow: View {
+private struct PremiumBenefitRow: View {
     let feature: PremiumFeature
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            // アクセシビリティサイズの文字では、名前と「近日」、無料とプレミアムを横に並べずに縦に積む。横に並べると、
-            // 名前が 2〜3 文字ごとに折り返し、「プレミアム」の語も途中で切れた（シミュレータの iOS 26.2 の AX5 で確かめた）。
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 4) {
-                    titleText
-                    comingSoonBadge
-                }
-            } else {
+        HStack(alignment: .top, spacing: 14) {
+            PremiumSymbolTile(symbolName: feature.symbolName)
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    titleText
+                    title
+                        .font(.body.weight(.semibold))
                     comingSoonBadge
                 }
-            }
-            if let note {
                 note
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(Theme.inkSecondary)
+                // 無料との違い。強調の色の文字にして、何が増えるのかを一目で分かるようにする。
+                difference
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.accentText)
             }
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 6) { values }
-            } else {
-                // 1 行に収まらなければ（大きな文字サイズ）縦に積む。
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 24) { values }
-                    VStack(alignment: .leading, spacing: 2) { values }
-                }
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        // 名前・近日・補足・無料・プレミアムを 1 つの要素として読ませる。
+        .padding(.vertical, 14)
+        // 名前・近日・効きめ・無料との違いを 1 つの要素として読ませる。
         .accessibilityElement(children: .combine)
-    }
-
-    @ViewBuilder
-    private var values: some View {
-        valueLabel(Text("無料"), free)
-        valueLabel(Text("プレミアム"), premium)
-    }
-
-    @ViewBuilder
-    private func valueLabel(_ label: Text, _ value: Text) -> some View {
-        let labelText = label
-            .font(.footnote)
-            .foregroundStyle(Theme.inkSecondary)
-        let valueText = value
-            .font(.subheadline.weight(.semibold))
-        if dynamicTypeSize.isAccessibilitySize {
-            VStack(alignment: .leading, spacing: 0) {
-                labelText
-                valueText
-            }
-        } else {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                labelText
-                valueText
-            }
-        }
-    }
-
-    private var titleText: some View {
-        title
-            .font(.body.weight(.semibold))
     }
 
     @ViewBuilder
@@ -413,41 +480,35 @@ private struct PremiumFeatureRow: View {
 
     private var title: Text {
         switch feature {
-        case .receiptScan: Text("レシート・スクショの読み取り")
-        case .question: Text("家計への質問")
-        // 予算を決める画面の見出し（英語は Budgets by category）とは別のキーにする。表の行の名前は、英語でほかの行と同じく
+        case .receiptScan: Text("レシートの読み取りが無制限")
+        case .question: Text("家計への質問が無制限")
+        // 予算を決める画面の見出し（英語は Budgets by category）とは別のキーにする。行の名前は、英語でほかの行と同じく
         // 語頭を大文字にするため。
         case .categoryBudget: Text(LocalizedStringResource(
             "カテゴリ別の予算（プレミアムの表）", defaultValue: "カテゴリ別の予算",
-            comment: "プレミアムのシート（⑨）。無料とプレミアムの違いの表の行"
+            comment: "プレミアムのシート（⑨）。プレミアムでできることの行の名前"
         ))
         case .recapAI: Text("ふりかえりの AI の一言")
         }
     }
 
-    private var note: Text? {
+    private var note: Text {
         switch feature {
+        // 読み取った後に確かめてから記録すること、数えるのは記録したときだけであることを添える（無料の 5 回の数え方が分かるように）。
+        case .receiptScan: Text("撮るか写真から選ぶだけで、品目ごとに仕分けて記録します。数えるのは記録したときだけです。")
+        case .question: Text("「今月カフェにいくら？」のように聞くと、数字はアプリが計算して答えます。")
         case .categoryBudget: Text("食費・交通など、カテゴリごとにも月の予算を決められ、月のまとめで使った額と比べられます。")
         // AI の使えない端末では、プレミアムでも一言は付かない。買ってから気づくことが無いよう、ここで書いておく。
         case .recapAI: Text("先週のふりかえりと月のまとめに、端末内の AI が一言を添えます（Apple Intelligence に対応した iPhone のみ。数字はどちらもアプリが計算します）。")
-        // 読み取った後に確かめてから記録すること、数えるのは記録したときだけであることを添える（無料の 5 回の数え方が分かるように）。
-        case .receiptScan: Text("撮るか写真から選ぶと、品目ごとに仕分けて記録できます。数えるのは記録したときだけです。")
-        case .question: nil
         }
     }
 
-    private var free: Text {
+    private var difference: Text {
         switch feature {
-        case .receiptScan: Text("月\(QuotaFeature.receiptScan.freeMonthlyLimit)回")
-        case .question: Text("月\(QuotaFeature.question.freeMonthlyLimit)回")
-        case .categoryBudget, .recapAI: Text("なし")
-        }
-    }
-
-    private var premium: Text {
-        switch feature {
-        case .receiptScan, .question: Text("無制限")
-        case .categoryBudget, .recapAI: Text("あり")
+        case .receiptScan: Text("無料は月\(QuotaFeature.receiptScan.freeMonthlyLimit)回まで")
+        case .question: Text("無料は月\(QuotaFeature.question.freeMonthlyLimit)回まで")
+        case .categoryBudget: Text("無料は全体の予算だけ")
+        case .recapAI: Text("無料は決まった文だけ")
         }
     }
 }
@@ -496,18 +557,6 @@ extension PurchaseFailure {
         case .productUnavailable: Text("この国や地域の App Store では、いま購入できません。時間をおいて、もう一度お試しください。")
         case .unverified: Text("App Store の購入の記録を確かめられなかったため、プレミアムを有効にしていません。「購入の復元」をお試しください。")
         case .cancelled, .unknown: Text("時間をおいて、もう一度お試しください。")
-        }
-    }
-}
-
-extension PremiumStatus {
-    /// 設定の「プレミアム」の行の値（無料／体験中 あと N 日／購入済み／ファミリー共有）。
-    var summaryText: Text {
-        switch self {
-        case .free, .trialEnded: Text("無料")
-        case .trial(let days, _): Text("体験中 あと \(days) 日")
-        case .premium(.purchased): Text("購入済み")
-        case .premium(.familyShared): Text("ファミリー共有")
         }
     }
 }

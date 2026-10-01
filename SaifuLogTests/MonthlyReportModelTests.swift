@@ -505,6 +505,37 @@ struct MonthlyReportModelTests {
         #expect(try BudgetStore(context: fixture.context).plan().byCategory == [.food: 40_000, .cafe: 5_000, .medical: 5_000])
     }
 
+    /// カテゴリ別の支出を見ているところで、無料の人にだけプレミアムで加わることを案内する。
+    @Test("カテゴリ別の予算の案内は、無料の人（体験の後・返金の後も）にだけ出し、押すとプレミアムを開く", arguments: [
+        ([], true, true),
+        ([TestSupport.trial(startedDaysAgo: 20)], true, false),
+        ([TestSupport.trial(startedDaysAgo: 3)], false, false),
+        ([PremiumPurchase(product: .premium, purchaseDate: TestSupport.date(2026, 9, 1))], false, false),
+    ] as [([PremiumPurchase], Bool, Bool)])
+    func categoryBudgetUpsell(purchases: [PremiumPurchase], shows: Bool, offersTrial: Bool) async throws {
+        let fixture = try Fixture()
+        try Self.insertCategoryBudgetLedger(fixture)
+
+        let model = fixture.makeModel(purchases: await TestSupport.purchases(purchases))
+
+        #expect(model.showsCategoryBudgetUpsell == shows)
+        #expect(model.canStartTrial == offersTrial)
+        model.presentPremium()
+        #expect(model.premiumSheet != nil)
+    }
+
+    @Test("購入の事実を読み終える前と、購入の状態が無いときは、カテゴリ別の予算の案内を出さない")
+    func categoryBudgetUpsellWaitsForPurchases() async throws {
+        let fixture = try Fixture()
+        try Self.insertCategoryBudgetLedger(fixture)
+
+        #expect(!fixture.makeModel(purchases: await TestSupport.purchases([], load: false)).showsCategoryBudgetUpsell)
+        let withoutPurchases = fixture.makeModel()
+        #expect(!withoutPurchases.showsCategoryBudgetUpsell)
+        withoutPurchases.presentPremium()
+        #expect(withoutPurchases.premiumSheet == nil)
+    }
+
     @Test("購入の状態を渡さなければ（無料と同じ）、カテゴリ別の予算の進みを出さない")
     func categoryBudgetsHiddenWithoutPurchases() throws {
         let fixture = try Fixture()
