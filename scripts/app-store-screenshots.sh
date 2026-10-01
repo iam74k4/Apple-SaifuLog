@@ -30,7 +30,9 @@ EXPECTED_HEIGHT=2868
 OUTPUT_DIR="${SCREENSHOT_OUTPUT_DIR:-docs/app-store/screenshots}"
 APP="build/DerivedData/Build/Products/Debug-iphonesimulator/SaifuLog.app"
 # 起動してから撮るまでの秒数（撮影用のデモは、ホームが出てから 0.8 秒待って画面を開く。シートや横に進む動きが済むまで待つ）。
-WAIT_SECONDS="${SCREENSHOT_WAIT_SECONDS:-6}"
+# iOS 27.0 のシミュレータでは、起動して最初の画面が出るまでに 6 秒近くかかることがあり、6 秒では白い画面や、シートを
+# 出す前のホームが写った（2026-10-02）。余裕を見て 12 秒にする。
+WAIT_SECONDS="${SCREENSHOT_WAIT_SECONDS:-12}"
 read -r -a LANGUAGES <<< "${SCREENSHOT_LANGUAGES:-ja en}"
 # 撮る順（ファイル名の番号の順）。App Store に並べる順の案でもある。premium（プレミアムのシートの価格と購入のボタン）と
 # trial（同じシートの 14 日間の無料体験）は課金アイテムの審査用で、ストアには載せない（ガイドライン 2.3.7。ストアの
