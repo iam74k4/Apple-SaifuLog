@@ -25,7 +25,7 @@ final class WalletCaptureModel {
 /// サイフログへ渡す作り方を案内する（アプリからオートメーションは作れないので、手順を出す）。docs/design.md §9。
 ///
 /// 自動の記録は差別化の柱なので、何ができるかを先に一言で見せ（印と「払うだけで、自動で記録」）、この画面ですることは
-/// 「ショートカット」App を開くことだけなので、そのボタンを山吹の主ボタンにして下の帯に置き続ける（手順を読みながら押せるように）。
+/// 「ショートカット」App を開くことだけなので、そのボタンを主ボタン（主の塗り）にして下の帯に置き続ける（手順を読みながら押せるように）。
 struct WalletCaptureView: View {
     let model: WalletCaptureModel
 
@@ -97,7 +97,7 @@ struct WalletCaptureView: View {
         .onAppear { model.reload() }
     }
 
-    /// 「ショートカット」App を開く主ボタン（山吹の塗りに墨の文字。Theme の決め事）。
+    /// 「ショートカット」App を開く主ボタン（主の塗りに onAccent の文字。Theme の決め事）。
     private var openShortcutsButton: some View {
         Button {
             if let url = URL(string: "shortcuts://") { openURL(url) }
@@ -108,7 +108,7 @@ struct WalletCaptureView: View {
                 .frame(maxWidth: .infinity, minHeight: 44)
         }
         .buttonStyle(.glassProminent)
-        // tint は塗りの色になる。AccentColor（ライトは濃い琥珀）のままにせず、塗り用の山吹にする。
+        // tint は塗りの色になる。主の塗り（`accentFill`）を明示する。
         .tint(Theme.accentFill)
         .accessibilityHint("オートメーションを作るために、ショートカット App を開きます")
     }

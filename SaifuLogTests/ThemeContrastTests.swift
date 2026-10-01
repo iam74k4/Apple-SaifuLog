@@ -4,7 +4,7 @@ import Testing
 import UIKit
 @testable import SaifuLog
 
-/// 配色（墨 × 山吹）のコントラスト比を WCAG 2.x の式で確かめる。
+/// 配色（白 × 墨のモノクロ）のコントラスト比を WCAG 2.x の式で確かめる。
 ///
 /// 色の値を変えたときに、文字や記号が読めなくなるのを CI で止めるため。基準は WCAG の AA:
 /// 文字は 4.5:1 以上、大きい文字とアイコン（図形）は 3:1 以上。
@@ -45,7 +45,7 @@ struct ThemeContrastTests {
         .init(name: "danger / surface", foreground: Palette.danger, background: Palette.surface),
         .init(name: "income / background", foreground: Palette.income, background: Palette.background),
         .init(name: "income / surface", foreground: Palette.income, background: Palette.surface),
-        // 山吹の塗りの上の文字（主ボタンの文字など）。
+        // 主の塗りの上の文字（主ボタンの文字など）。
         .init(name: "onAccent / accentFill", foreground: Palette.onAccent, background: Palette.accentFill),
         // タイムラインの自分の吹き出し（送った文・質問）の文字。
         .init(name: "ink / userBubble", foreground: Palette.ink, background: Palette.userBubble),
@@ -57,15 +57,37 @@ struct ThemeContrastTests {
         #expect(ratio >= 4.5, "\(combination.name)（\(mode)）が \(ratio):1")
     }
 
-    /// 山吹の塗りの上の記号（送信ボタンの矢印、進捗バーの上の印）。文字と同じ組なので 3:1 は当然満たすが、
-    /// 記号は細いので、ここでも確かめておく（白を載せないことの裏づけ）。
+    /// 主の塗りの上の記号（送信ボタンの矢印、進捗バーの上の印の縁）。文字と同じ組なので 3:1 は当然満たすが、
+    /// 記号は細いので、ここでも確かめておく。
     @Test(arguments: Mode.allCases)
     func iconOnAccentFill(mode: Mode) {
         let onAccent = Self.contrastRatio(mode.value(of: Palette.onAccent), mode.value(of: Palette.accentFill))
-        let white = Self.contrastRatio(0xFFFFFF, mode.value(of: Palette.accentFill))
         #expect(onAccent >= 3)
-        // 白を載せると 3:1 に届かない。山吹の上の記号を墨にしている理由（Theme の説明）が崩れていないか。
-        #expect(white < 3)
+    }
+
+    /// 主の塗り（送信ボタン・主ボタン・予算の進捗バー）が、地と面の上で形として見分けられる（WCAG 1.4.11 の 3:1 以上）。
+    /// 前の配色の山吹は白地で 1.8:1 しかなく、ボタンの形が地から見分けにくかった（モノクロにした理由の一つ）。
+    @Test(arguments: Mode.allCases)
+    func accentFillStandsOutFromBackground(mode: Mode) {
+        for background in [Palette.background, Palette.surface] {
+            #expect(Self.contrastRatio(mode.value(of: Palette.accentFill), mode.value(of: background)) >= 3)
+        }
+    }
+
+    /// 地・面・文字・主の塗りは色味を持たない灰色（赤・緑・青が同じ値）にする（「白 × 墨」の決め事。docs/design.md §7）。
+    /// 色はカテゴリ・収入・注意の意味のある色にだけ使い、画面の土台に色味を足さないため。
+    @Test(arguments: Mode.allCases)
+    func baseColorsAreNeutralGray(mode: Mode) {
+        let tokens: [(String, ColorPair)] = [
+            ("background", Palette.background), ("surface", Palette.surface), ("ink", Palette.ink),
+            ("inkSecondary", Palette.inkSecondary), ("accentFill", Palette.accentFill), ("onAccent", Palette.onAccent),
+            ("userBubble", Palette.userBubble), ("accentText", Palette.accentText), ("track", Palette.track),
+        ]
+        for (name, pair) in tokens {
+            let value = mode.value(of: pair)
+            let (r, g, b) = ((value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF)
+            #expect(r == g && g == b, "\(name)（\(mode)）が灰色ではない: \(String(value, radix: 16))")
+        }
     }
 
     /// カテゴリの丸（ライトの色で塗る）に白い記号を載せたときに 4:1 以上。アイコンの基準の 3:1 より
@@ -163,7 +185,7 @@ struct ThemeContrastTests {
         #expect(Self.contrastRatio(0x767676, 0xFFFFFF) >= 4.5)
         #expect(Self.contrastRatio(0x777777, 0xFFFFFF) < 4.5)
         // 前景と背景を入れ替えても同じ。
-        #expect(Self.contrastRatio(0x1F1D1A, 0xF8B500) == Self.contrastRatio(0xF8B500, 0x1F1D1A))
+        #expect(Self.contrastRatio(0x111111, 0xF5F5F5) == Self.contrastRatio(0xF5F5F5, 0x111111))
     }
 
     // MARK: - WCAG 2.x のコントラスト比

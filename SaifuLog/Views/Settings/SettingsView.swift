@@ -8,7 +8,7 @@ import SwiftUI
 ///
 /// 状態と操作は `SettingsModel` が持つ。ここは表示と、共有のシート・アラートの出し入れだけ。
 /// 押せる行の名前は墨にし、操作のボタン（「CSV ファイルを書き出す」）だけ、ほかの画面のボタンと同じ tint（AccentColor。
-/// §7 のとおり、ダークでは山吹の文字）にする。山吹の塗りは使わない（塗りの主ボタンが無い画面のため）。
+/// §7 のとおり、墨か白の文字）にし、行の頭の印でボタンだと分かるようにする。主の塗りは使わない（塗りの主ボタンが無い画面のため）。
 struct SettingsView: View {
     @Bindable var model: SettingsModel
 
@@ -37,7 +37,7 @@ struct SettingsView: View {
             exportSection
             aboutSection
         }
-        // リストの地は画面の背景にし、行は面の色にする（ほかの画面と同じ墨 × 山吹の地にそろえる）。
+        // リストの地は画面の背景にし、行は面の色にする（ほかの画面と同じ地にそろえる）。
         .scrollContentBackground(.hidden)
         .background(Theme.background)
         .navigationTitle("設定")
@@ -201,21 +201,17 @@ struct SettingsView: View {
         }
     }
 
-    /// プレミアムの行の 2 行目。まだ体験していなければ体験を勧め（0 円で全部を試せることが、いちばんの案内になるため）、
-    /// 体験中は残りの日数、体験の後は買い切りで増えること、購入済みは購入の形を出す。
+    /// プレミアムの行の 2 行目（補足の文字の色）。まだ体験していなければ体験を勧め（0 円で全部を試せることが、いちばんの案内に
+    /// なるため）、体験中は残りの日数、体験の後は買い切りで増えること、購入済みは購入の形を出す。
     private var premiumRowDetail: Text {
-        switch model.purchases.status {
-        case .free:
-            Text("14日間 無料で試せます").foregroundStyle(Theme.accentText)
-        case .trialEnded:
-            Text("買い切りで、レシートと質問が無制限に").foregroundStyle(Theme.accentText)
-        case .trial(let days, _):
-            Text("体験中 あと \(days) 日").foregroundStyle(Theme.inkSecondary)
-        case .premium(.purchased):
-            Text("購入済み").foregroundStyle(Theme.inkSecondary)
-        case .premium(.familyShared):
-            Text("ファミリー共有").foregroundStyle(Theme.inkSecondary)
+        let text = switch model.purchases.status {
+        case .free: Text("14日間 無料で試せます")
+        case .trialEnded: Text("買い切りで、レシートと質問が無制限に")
+        case .trial(let days, _): Text("体験中 あと \(days) 日")
+        case .premium(.purchased): Text("購入済み")
+        case .premium(.familyShared): Text("ファミリー共有")
         }
+        return text.foregroundStyle(Theme.inkSecondary)
     }
 
     private var showsPurchaseAlert: Binding<Bool> {
@@ -761,7 +757,7 @@ private struct SettingsPickerRow<Value: Hashable, Options: View>: View {
 /// 設定の行の頭の印（iOS の設定 App と同じ、色の付いた角丸の四角に記号）。行を目で探しやすくするための飾りなので読ませない。
 ///
 /// 塗りはライトとダークで同じ濃い色にし、白い記号を載せる（カテゴリの丸と同じく、白い記号に 4:1 以上の濃さの色。
-/// `Palette.category` のライトの値を使う）。プレミアムの行だけ山吹の塗りに墨の記号にする（山吹は塗りにだけ使う決め事）。
+/// `Palette.category` のライトの値を使う）。プレミアムの行だけ主の塗り（墨か白）に onAccent の記号にする（ほかの行と見分けるため）。
 struct SettingsRowIcon: View {
     let symbolName: String
     let fill: Color

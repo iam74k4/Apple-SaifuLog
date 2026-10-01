@@ -3,7 +3,7 @@ import SwiftUI
 
 /// 声で入力するマイクのボタン（入力欄の右。入力欄が空なら送信ボタンの位置）。
 ///
-/// 山吹は送信と止めるボタンの塗りにだけ使うので、カメラのボタンと同じくガラスの地に墨の記号にする。
+/// 主の塗りは送信と止めるボタンにだけ使うので、カメラのボタンと同じくガラスの地に墨の記号にする。
 struct VoiceMicButton: View {
     let isEnabled: Bool
     let action: () -> Void
@@ -28,7 +28,7 @@ struct VoiceMicButton: View {
 /// 声の入力の間、入力欄の代わりに出す表示（ダウンロードの進み・準備・聞いている・文字にしている）。
 ///
 /// 聞いている間は、確定した文を墨で、途中の文を補足の文字の色（薄く）で出す。途中の文は後から変わりうることを、色の濃さで
-/// 伝えるため（VoiceOver では文として読む）。山吹は音の大きさの目安と止めるボタンの塗りにだけ使い、文字には使わない。
+/// 伝えるため（VoiceOver では文として読む）。主の塗りは音の大きさの目安と止めるボタンにだけ使う。
 struct VoiceInputPanel: View {
     let model: VoiceInputModel
     /// 入力欄に打ちかけの文（書き起こしはこの後ろに入る）。
@@ -58,7 +58,7 @@ struct VoiceInputPanel: View {
                 Text("日本語の音声モデルをダウンロードしています")
                     .font(.subheadline)
                     .foregroundStyle(Theme.ink)
-                // 進捗のバーは山吹の塗り（数字の % も VoiceOver の値で読む）。
+                // 進捗のバーは主の塗り（数字の % も VoiceOver の値で読む）。
                 ProgressView(value: progress)
                     .tint(Theme.accentFill)
             }
@@ -139,7 +139,7 @@ struct VoiceInputPanel: View {
                     .font(.body.weight(.bold))
                     .dynamicTypeSize(...DynamicTypeSize.accessibility1)
                     .frame(width: 44, height: 44)
-                    // 山吹の塗りの上なので墨（Theme の説明）。
+                    // 主の塗りの上なので onAccent（Theme の説明）。
                     .foregroundStyle(model.phase == .finishing ? Theme.inkSecondary : Theme.onAccent)
             }
             .buttonStyle(.glassProminent)
@@ -154,7 +154,7 @@ struct VoiceInputPanel: View {
     }
 }
 
-/// マイクの音の大きさの目安（山吹の塗りの棒）。聞こえていることを目で確かめるためのもので、VoiceOver では読まない
+/// マイクの音の大きさの目安（主の塗りの棒）。聞こえていることを目で確かめるためのもので、VoiceOver では読まない
 /// （「聞いています」と書き起こしの文で伝える）。
 struct VoiceLevelMeter: View {
     let level: Double

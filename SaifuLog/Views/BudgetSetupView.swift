@@ -146,7 +146,7 @@ struct BudgetSetupView: View {
         } label: {
             Text("保存")
                 .fontWeight(.semibold)
-                // 押せるときは山吹の塗りの上なので墨（Theme の説明）。押せないときは灰色のガラスの上なので、
+                // 押せるときは主の塗りの上なので onAccent（Theme の説明）。押せないときは灰色のガラスの上なので、
                 // 墨のままだとダークで地に沈む。補足の文字の色にする（送信ボタンと同じ）。
                 .foregroundStyle(model.canSave ? Theme.onAccent : Theme.inkSecondary)
                 .frame(maxWidth: .infinity, minHeight: 44)
@@ -206,7 +206,7 @@ private struct QuickAmountPicker: View {
                     .fixedSize()
                     .padding(.horizontal, 14)
                     .frame(maxWidth: .infinity, minHeight: 44)
-                    // 選んだ額は山吹で塗る（山吹は塗りにだけ使い、上の文字は墨にする）。
+                    // 選んだ額は主の塗りで塗る（上の文字は onAccent）。
                     .foregroundStyle(isSelected ? Theme.onAccent : Theme.ink)
                     .background(isSelected ? Theme.accentFill : Theme.surface, in: .capsule)
                     .contentShape(.capsule)

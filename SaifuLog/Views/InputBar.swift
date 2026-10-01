@@ -40,7 +40,7 @@ struct InputBar: View {
 
     /// 送信ボタンの記号（矢印と読み取り中の印）の色。
     ///
-    /// 押せるときは山吹の塗りの上なので墨にする（白を載せると 2:1 に届かない。Theme の説明）。
+    /// 押せるときは主の塗りの上なので onAccent にする（ライトは白、ダークは墨。Theme の説明）。
     /// 押せないとき（空・読み取り中）は塗りが灰色のガラスに変わり、墨のままだとダークで地に沈んで
     /// ボタンがあることも分からなくなるので、補足の文字の色にする。
     private var sendSymbolColor: Color {
@@ -128,13 +128,13 @@ struct InputBar: View {
         }
         .buttonStyle(.glassProminent)
         .buttonBorderShape(.circle)
-        // tint は塗りの色になる。AccentColor（ライトは濃い琥珀）のままにせず、塗り用の山吹にする。
+        // tint は塗りの色になる。主の塗り（`accentFill`）を明示する（AccentColor と同じ値だが、塗りの役目の色として決めておく）。
         .tint(Theme.accentFill)
         .disabled(!canSend)
         .accessibilityLabel(isSending ? "読み取り中" : "送信")
     }
 
-    /// レシートを読み取るボタン。山吹は送信の塗りにだけ使うので、ガラスの地に墨の記号にする。
+    /// レシートを読み取るボタン。主の塗りは送信にだけ使うので（主の操作を 1 つに見せる）、ガラスの地に墨の記号にする。
     private func receiptButton(_ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: "camera")

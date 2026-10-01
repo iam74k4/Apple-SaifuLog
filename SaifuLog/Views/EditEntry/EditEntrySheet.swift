@@ -307,7 +307,7 @@ struct EditEntrySheet: View {
         } label: {
             Text("保存")
                 .fontWeight(.semibold)
-                // 押せるときは山吹の塗りの上なので墨（Theme の説明）。押せないときは灰色のガラスの上なので、
+                // 押せるときは主の塗りの上なので onAccent（Theme の説明）。押せないときは灰色のガラスの上なので、
                 // 補足の文字の色にする（予算を決める画面・送信ボタンと同じ）。
                 .foregroundStyle(model.canSave ? Theme.onAccent : Theme.inkSecondary)
                 .frame(maxWidth: .infinity, minHeight: 44)
@@ -340,7 +340,7 @@ struct SectionLabel: View {
 
 /// 選べるものの 1 つ（種類・カテゴリ）。選んだものは枠と印で示す（色だけに頼らない）。
 ///
-/// 山吹は保存のボタンの塗りにだけ使うので、選んだ印には使わない（墨の枠とチェックの印にする）。くり返しの記録のシートでも使う。
+/// 主の塗りは保存のボタンにだけ使うので、選んだ印には使わない（墨の枠とチェックの印にする）。くり返しの記録のシートでも使う。
 struct ChoiceChip<Content: View>: View {
     let isSelected: Bool
     let action: () -> Void

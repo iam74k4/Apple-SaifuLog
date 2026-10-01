@@ -885,7 +885,8 @@ private struct HouseholdUndoRow: View {
             Text("記録しました")
                 .foregroundStyle(Theme.inkSecondary)
             Button(action: undo) {
-                Text("取り消す")
+                // 文字の色は本文と同じ墨（ダークは白）なので、取り消しの記号を添えて、押せるボタンだと分かるようにする。
+                Label("取り消す", systemImage: "arrow.uturn.backward")
                     .fontWeight(.semibold)
                     .foregroundStyle(Theme.accentText)
                     .lineLimit(1)

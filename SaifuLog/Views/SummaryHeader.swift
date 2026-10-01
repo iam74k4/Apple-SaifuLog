@@ -5,7 +5,7 @@ import SwiftUI
 /// ホームの上に置く今月の帯。
 ///
 /// 予算を決めていれば「今月あと ¥…」を大きく、「1日あたり ¥… ・のこり N 日」を小さく出し、使った割合を
-/// 山吹のバーで示す。予算を超えたら「¥… オーバー」を注意の色とアイコンと文字で出す（色だけに頼らない）。
+/// 主の塗りのバーで示す。予算を超えたら「¥… オーバー」を注意の色とアイコンと文字で出す（色だけに頼らない）。
 /// 予算を決めていなければ、今月の支出の合計と「予算を決める」のボタンを出す。
 ///
 /// 見出しと数字を押すと「月のまとめ」（⑦）へ進む（`openReport` を渡したとき）。見出しに「›」を添えて、押せば
@@ -411,13 +411,13 @@ private struct LedgerScopePicker: View {
     }
 }
 
-/// 予算のうち使った割合のバー。山吹で塗り、予算を超えたら注意の色で満たす（ホームの帯と月のまとめ）。
+/// 予算のうち使った割合のバー。主の塗り（墨か白）で塗り、予算を超えたら注意の色で満たす（ホームの帯と月のまとめ）。
 ///
 /// 数字（残り・超えた額）は文字で出しているので、バーは目安として添えるだけにし、VoiceOver では読ませない
 /// （割合は帯の要素の「予算」「使った額」や、まとめの行の文字で伝わる）。
 ///
 /// `paceFraction` を渡すと、その位置に日割りの目安の印（墨の縦線）を立てる（月のまとめの今月）。印はバーの上下に
-/// はみ出させる。ダークでは墨が明るい色になり、山吹の塗りの上では見分けにくいので、はみ出した部分で見せるため。
+/// はみ出させ、onAccent の色で縁取る。印と塗りは同じ墨（ダークでは白）なので、縁が無いと塗りの上では印が消えるため。
 struct BudgetProgressBar: View {
     let fraction: Double
     let isOver: Bool
@@ -441,12 +441,19 @@ struct BudgetProgressBar: View {
                 if let paceFraction {
                     GeometryReader { proxy in
                         let width: CGFloat = 2
+                        let outline: CGFloat = 1
                         Capsule()
                             .fill(Theme.ink)
                             .frame(width: width, height: height * 2.5)
-                            // 端でもバーの外に出ないよう、線の幅の分だけ内側に収める。
+                            // 塗りの上でも見えるよう、塗りの上の色（onAccent）で縁取る（印と塗りが同じ墨か白のため）。
+                            .padding(outline)
+                            .background(Theme.onAccent, in: .capsule)
+                            // 端でもバーの外に出ないよう、縁を含めた線の幅の分だけ内側に収める。
                             .position(
-                                x: min(max(proxy.size.width * paceFraction, width / 2), proxy.size.width - width / 2),
+                                x: min(
+                                    max(proxy.size.width * paceFraction, width / 2 + outline),
+                                    proxy.size.width - width / 2 - outline
+                                ),
                                 y: proxy.size.height / 2
                             )
                     }

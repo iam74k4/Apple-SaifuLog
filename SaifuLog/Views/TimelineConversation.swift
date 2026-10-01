@@ -2,7 +2,7 @@ import SaifuLogCore
 import SwiftData
 import SwiftUI
 
-// ホームのタイムラインの会話の部品。送った文を自分の吹き出し（右寄せ・山吹の塗り）に、アプリの返事をカード（左寄せ・面の色）に
+// ホームのタイムラインの会話の部品。送った文を自分の吹き出し（右寄せ・灰色の塗り）に、アプリの返事をカード（左寄せ・面の色）に
 // 出し、日が替わるところに日付の見出しを置く（docs/design.md §2・§9）。
 //
 // タイムラインは行をすべて測る（`HomeView` の `TimelineScrollView`）ので、行ごとの部品は HStack・ViewThatFits の測り直しを
@@ -44,8 +44,8 @@ struct EntrySend: Identifiable {
 // MARK: - 自分の吹き出し
 
 /// 自分が送ったもの（送った文・質問）の吹き出し。右に寄せ、灰色の面（`Theme.userBubble`）に墨の文字で出す。左に寄せる返事の
-/// カード（面の色と細い枠）とは、寄せる側と色で見分ける。山吹の塗りにしていた時期もあったが、送るたびに山吹の大きな塊が並んで、
-/// 山吹を使う送信ボタンや予算の進捗バーより目立ったため、灰色にした（デザイン案の質問の画面と同じ考え方）。押せるものではない。
+/// カード（面の色と細い枠）とは、寄せる側と色で見分ける。前の配色の山吹で塗っていた時期もあったが、送るたびに山吹の大きな塊が並んで、
+/// 送信ボタンや予算の進捗バーより目立ったため、灰色にした（デザイン案の質問の画面と同じ考え方）。押せるものではない。
 struct UserMessageBubble: View {
     let text: String
     /// 文の前に添える記号（声で入れた文のマイク・レシートの印）。nil なら添えない。
@@ -480,7 +480,8 @@ private struct RecordedReplyHeader: View {
 
     private func undoButton(_ undo: @escaping () -> Void) -> some View {
         Button(action: undo) {
-            Text("取り消す")
+            // 文字の色は本文と同じ墨（ダークは白）なので、取り消しの記号を添えて、押せるボタンだと分かるようにする。
+            Label("取り消す", systemImage: "arrow.uturn.backward")
                 .fontWeight(.semibold)
                 .foregroundStyle(Theme.accentText)
                 .lineLimit(1)

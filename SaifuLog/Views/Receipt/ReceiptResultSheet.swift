@@ -6,7 +6,7 @@ import SwiftUI
 /// 店名・日付（直せる）、品目の行（品名・金額・カテゴリを直せ、行ごとに外せる）、品目の合計とレシートの合計の照合、
 /// 「品目ごとに記録」「まとめて 1 件で記録」の切り替え、「記録する」。合計が合わないときは黙って記録せず、確かめてから記録する。
 /// 直した内容があるときは、下へのスワイプでも「閉じる」でも、捨ててよいかを確かめてから閉じる（⑥ 直すと同じ）。
-/// 状態と操作は `ReceiptResultModel`。山吹の塗りは「記録する」のボタンにだけ使う。
+/// 状態と操作は `ReceiptResultModel`。主の塗りは「記録する」のボタンにだけ使う。
 struct ReceiptResultSheet: View {
     @Bindable var model: ReceiptResultModel
 
@@ -145,7 +145,7 @@ private struct ReceiptUnreadableView: View {
                 Text("読み取れなかったときは、無料の回数を使いません。")
                     .font(.footnote)
                     .foregroundStyle(Theme.inkSecondary)
-                // 閉じるのは左上の「閉じる」から（同じボタンを 2 つ並べない）。山吹は塗らない（記録するボタンにだけ使う）。
+                // 閉じるのは左上の「閉じる」から（同じボタンを 2 つ並べない）。主の塗りは使わない（記録するボタンにだけ使う）。
                 Button(action: retake) {
                     retakeLabel
                         .fontWeight(.semibold)
@@ -332,8 +332,9 @@ private struct ReceiptReadyView: View {
                 Button {
                     model.addDifferenceLine()
                 } label: {
-                    Text("差額 \(YenFormatter.string(from: difference)) を「税・その他」として足す")
-                        // 操作のボタンは tint（AccentColor）の文字にする（まわりの墨の文字の色を引き継がせない）。
+                    // 操作のボタンは tint（AccentColor）の文字にし、足す記号を添える（tint は本文と同じ墨なので、記号で押せることを示す）。
+                    Label("差額 \(YenFormatter.string(from: difference)) を「税・その他」として足す", systemImage: "plus.circle")
+                        .fontWeight(.semibold)
                         .foregroundStyle(Theme.accentText)
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         .contentShape(.rect)
@@ -411,7 +412,7 @@ private struct ReceiptReadyView: View {
             } label: {
                 Text("記録する")
                     .fontWeight(.semibold)
-                    // 押せるときは山吹の塗りの上なので墨（Theme の説明）。押せないときは灰色のガラスの上なので補足の文字の色。
+                    // 押せるときは主の塗りの上なので onAccent（Theme の説明）。押せないときは灰色のガラスの上なので補足の文字の色。
                     .foregroundStyle(model.canRecord ? Theme.onAccent : Theme.inkSecondary)
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
@@ -592,7 +593,7 @@ private struct ReceiptSectionLabel: View {
     }
 }
 
-/// 選べるもの（記録のしかた）。選んだものは墨の枠とチェックの印で示す（色だけに頼らない。山吹は記録するボタンの塗りにだけ使う）。
+/// 選べるもの（記録のしかた）。選んだものは墨の枠とチェックの印で示す（色だけに頼らない。主の塗りは記録するボタンにだけ使う）。
 private struct ReceiptChoiceButton<Content: View>: View {
     let isSelected: Bool
     let action: () -> Void

@@ -7,7 +7,7 @@ import SwiftUI
 /// 3 つのカテゴリ、週の目安との比べ、予算についての案内（予算が無ければ「予算を決める」、あれば目安との差が大きいときだけ
 /// 「予算を変更」）を出す。カードを押すと先週の内訳（横に進む）を開き、右上の「閉じる」で引っ込める（同じ週にはもう出さない）。
 ///
-/// 山吹の塗りは使わない（塗りの主ボタンが無いため。回答カードと同じ）。「予算を決める」「予算を変更」は tint の文字。
+/// 主の塗りは使わない（塗りの主ボタンが無いため。回答カードと同じ）。「予算を決める」「予算を変更」は灰色の枠のボタン。
 /// VoiceOver では、見出しから目安との比べまでを 1 つのボタンとして読み（「先週の内訳を開きます」）、「閉じる」と予算の
 /// ボタンは別の要素にする。
 struct WeeklyRecapCard: View {
@@ -162,9 +162,11 @@ struct WeeklyRecapCard: View {
             title
                 .fontWeight(.semibold)
                 .foregroundStyle(Theme.accentText)
-                .frame(minHeight: 44)
-                .contentShape(.rect)
+                .frame(minHeight: 30)
         }
+        // カードの中の操作は灰色の枠のボタンにする（文字の色が本文と同じ墨なので、形で押せることを示す。ガラスは操作の層にだけ使う）。
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
         .accessibilityHint("予算を決める画面を開きます")
     }
 

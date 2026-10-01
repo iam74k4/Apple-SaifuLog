@@ -10,8 +10,8 @@ import SwiftUI
 /// 体験は無料で、終わっても自動で課金されないこと）、購入の復元、利用規約とプライバシーポリシーを並べる。状態と操作は
 /// `PremiumSheetModel`（購入そのものは `PurchaseManager`）。
 ///
-/// 体験と購入のボタンは、下に固定したガラスの帯に置く（どこまで読んでいても押せるように。内容はその下を流れる）。山吹の塗りは
-/// いちばん先に押してほしいボタン 1 つにだけ使う。まだ体験していなければ体験（0 円で全部を試せるので、買う前に使ってみてもらう
+/// 体験と購入のボタンは、下に固定したガラスの帯に置く（どこまで読んでいても押せるように。内容はその下を流れる）。主の塗り
+/// （墨か白）は、いちばん先に押してほしいボタン 1 つにだけ使う。まだ体験していなければ体験（0 円で全部を試せるので、買う前に使ってみてもらう
 /// のがいちばん確かな案内になるため）、体験の後と体験中は購入。体験と購入は、塗りではなくボタンの文（「無料で試す」と価格・
 /// 「買い切り」）と、帯の下の一言（「0円。自動で課金されません」）で見分けさせる。
 struct PremiumSheet: View {
@@ -189,8 +189,9 @@ struct PremiumSheet: View {
                 Button {
                     Task { await model.loadProducts() }
                 } label: {
-                    Text("もう一度読み込む")
-                        // 操作のボタンは、ほかの画面のボタンと同じ文字の強調の色（AccentColor）にする。
+                    // 操作のボタンは文字の強調の色（AccentColor。本文と同じ墨）にし、記号を添えて押せることを示す。
+                    Label("もう一度読み込む", systemImage: "arrow.clockwise")
+                        .fontWeight(.semibold)
                         .foregroundStyle(Theme.accentText)
                         .frame(minHeight: 44)
                         .contentShape(.rect)
@@ -287,13 +288,13 @@ struct PremiumSheet: View {
             .frame(maxWidth: .infinity, minHeight: 44)
         }
         .buttonStyle(.glassProminent)
-        // tint は塗りの色になる。AccentColor（ライトは濃い琥珀）のままにせず、塗り用の山吹にする。
+        // tint は塗りの色になる。主の塗り（`accentFill`）を明示する。
         .tint(Theme.accentFill)
         .disabled(!model.canStartTrial)
         .accessibilityHint("料金はかかりません。App Store の確認が出ます")
     }
 
-    /// 体験のボタンの文字の色。押せるときは山吹の塗りの上なので墨、押せないとき（手続き中を含む）は塗りが灰色のガラスに
+    /// 体験のボタンの文字の色。押せるときは主の塗りの上なので onAccent、押せないとき（手続き中を含む）は塗りが灰色のガラスに
     /// 変わるので補足の文字の色（購入のボタンと同じ）。
     private var trialLabelColor: Color {
         model.canStartTrial ? Theme.onAccent : Theme.inkSecondary
@@ -343,7 +344,7 @@ struct PremiumSheet: View {
         }
     }
 
-    /// 購入のボタンの文字と進行中の印の色。塗りのボタンで押せるときは山吹の上なので墨、ガラスのボタンで押せるときも墨。
+    /// 購入のボタンの文字と進行中の印の色。塗りのボタンで押せるときは主の塗りの上なので onAccent、ガラスのボタンで押せるときは墨。
     /// 押せないとき（手続き中を含む）は補足の文字の色にする（入力欄の送信・予算の保存と同じ）。手続き中も墨のままだと、ダークでは
     /// 暗い灰色の上に墨が載り、「購入の手続き中…」と進行中の印が地に沈んで読めないため。
     private func purchaseLabelColor(isPrimary: Bool) -> Color {
@@ -359,8 +360,10 @@ struct PremiumSheet: View {
                 Task { await model.restore() }
             } label: {
                 HStack(spacing: 8) {
-                    Text("購入の復元")
-                        // 設定の「購入の復元」と同じ、文字の強調の色（AccentColor）。押せないときは薄くする。
+                    // 設定の「購入の復元」と同じ記号と、文字の強調の色（AccentColor。本文と同じ墨なので、記号で押せることを示す）。
+                    // 押せないときは薄くする。
+                    Label("購入の復元", systemImage: "arrow.clockwise")
+                        .fontWeight(.semibold)
                         .foregroundStyle(Theme.accentText)
                         .opacity(model.isBusy ? 0.5 : 1)
                     if model.purchases.isRestoring {
@@ -407,8 +410,8 @@ struct PremiumSheet: View {
     }
 }
 
-/// プレミアムの印（山吹の角丸の四角に墨の記号）。プレミアムのシートの見出しと機能の行、設定のプレミアムの行で使う。
-/// 山吹は塗りにだけ使い、上の記号は墨にする（Theme の決め事）。記号は飾りなので読ませない。
+/// プレミアムの印（主の塗りの角丸の四角に onAccent の記号。ライトは墨の地に白、ダークは白の地に墨）。プレミアムのシートの見出しと
+/// 機能の行・月のまとめの案内で使う。記号は飾りなので読ませない。
 struct PremiumSymbolTile: View {
     let symbolName: String
     var size: CGFloat = 36
@@ -466,10 +469,14 @@ private struct PremiumBenefitRow: View {
                 note
                     .font(.subheadline)
                     .foregroundStyle(Theme.inkSecondary)
-                // 無料との違い。強調の色の文字にして、何が増えるのかを一目で分かるようにする。
+                // 無料との違い。小さな札（灰色の地）にして、何が増えるのかを一目で分かるようにする。
                 difference
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Theme.accentText)
+                    .foregroundStyle(Theme.ink)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Theme.track, in: .capsule)
+                    .padding(.top, 2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

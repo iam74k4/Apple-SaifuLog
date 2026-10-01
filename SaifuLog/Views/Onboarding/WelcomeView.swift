@@ -57,7 +57,7 @@ struct WelcomeView: View {
         // 飾りの印は文字に合わせて大きくするが、最大の文字サイズでは本文の場所を取りすぎないよう上限を設ける。
         let size = min(markSize, 88)
         return VStack(alignment: .leading, spacing: 12) {
-            // 山吹は塗りにだけ使い、上の記号は墨にする（Theme の説明）。
+            // 主の塗りに onAccent の記号（アプリのアイコンと同じ白と黒。Theme の説明）。
             Image(systemName: "wallet.bifold.fill")
                 .font(.system(size: size * 0.45, weight: .semibold))
                 .foregroundStyle(Theme.onAccent)
@@ -90,7 +90,7 @@ struct WelcomeView: View {
         } label: {
             Text("はじめる")
                 .fontWeight(.semibold)
-                // 主ボタンは山吹の塗りに墨の文字（白では読めない。Theme の説明）。
+                // 主ボタンは主の塗りに onAccent の文字（Theme の説明）。
                 .foregroundStyle(Theme.onAccent)
                 .frame(maxWidth: .infinity, minHeight: 44)
         }
