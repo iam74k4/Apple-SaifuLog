@@ -35,7 +35,7 @@
     いちばん上に「プレミアム」（状態）と「購入の復元」の行。週の始まりの下に「同期」の節（「iCloud で同期」））。
     ⑨ プレミアム（StoreKit 2。⑧ の「サイフログ プレミアム」と、体験が終わった後の最初の起動に一度だけ出すシートと、⑦ の無料の人への
     カテゴリ別の予算の案内。プレミアムでできること（機能ごとの効きめと無料との違い）・無料のまま使えること・下に固定したガラスの帯の
-    体験（まだ体験していなければ山吹の主ボタン）と購入のボタン。買い切り
+    体験（まだ体験していなければ主の塗りのボタン）と購入のボタン。買い切り
     `com.iam74k4.SaifuLog.premium`（ファミリー共有）と、価格 0 の非消耗型の 14 日間の体験 `com.iam74k4.SaifuLog.trial14`（購入日時から
     経過時間で 14 日）。価格は App Store の表示のまま。まだ出していない機能は「近日」（いまは無い）。`PremiumSheet` と `PremiumSheetModel`、購入・復元・
     Transaction.updates の購読は `SaifuLog/Purchases/PurchaseManager`（`SaifuLogApp` で 1 つ作り、起動したらすぐ購読）、状態はコアの
@@ -44,7 +44,8 @@
     Apple の不具合で動かないので、`make test-app` から除き、`make test-storekit` が iOS 26.2 のシミュレータで動かす（飛ばされたら失敗。
     CI のランナーで iOS 26.2 のランタイムを入れて通るかはまだ走らせていない）。実機（Sandbox）での購入・復元・返金・ファミリー共有の
     確認はまだ。「カテゴリ別の予算の進みを出すまで App 内課金は審査に出さない」の条件は満たした（⑦ に出した）。審査に出すかどうかの
-    最終判断は所有者。`docs/release-flow.md` の「App 内課金を審査に出す」）。配色は墨 × 山吹。
+    最終判断は所有者。`docs/release-flow.md` の「App 内課金を審査に出す」）。配色は白 × 墨（モノクロ。地はライトが白に近い灰色・ダークが黒、
+    操作の色は墨と白で外観で入れ替わる。色はカテゴリ・収入・注意だけ。`Theme`・`Palette`、`docs/design.md` §7）。
     家計への質問（ひとこと入力と同じ入力欄。記録か質問かはコアの `InputIntentClassifier` が決め、誤って記録しないことを優先し、
     決められない文は記録せずに書き直しを案内する。端末内 AI は `SaifuLog/AI/FoundationModelsQuestionAnswerer` のツール呼び出しで期間・知りたいこと・
     カテゴリを選択肢から選ぶだけで、数字はコアの `LedgerQuestionAnswerer` が計算し、AI の一言の数字はコアの `AnswerSentenceCheck` で照合する。
