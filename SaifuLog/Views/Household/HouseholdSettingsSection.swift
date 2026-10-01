@@ -29,7 +29,11 @@ struct HouseholdSettingsSection: View {
             model.presentCreation()
         } label: {
             HStack(spacing: 12) {
-                Text("家計を作って家族を招待する")
+                Label {
+                    Text("家計を作って家族を招待する")
+                } icon: {
+                    SettingsRowIcon(symbolName: "person.2.fill", fill: SettingsRowIcon.orange)
+                }
                 Spacer(minLength: 0)
                 if model.host.isWorking {
                     ProgressView()
@@ -51,21 +55,10 @@ struct HouseholdSettingsSection: View {
         Button {
             model.presentNamesEdit()
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(verbatim: household.name.isEmpty ? String(localized: "家族の家計") : household.name)
-                    .foregroundStyle(Theme.ink)
-                Group {
-                    if household.memberName.isEmpty {
-                        Text("あなたの名前が未設定です（押して決めてください）")
-                    } else {
-                        Text("あなたの名前: \(household.memberName)")
-                    }
-                }
-                .font(.footnote)
-                .foregroundStyle(Theme.inkSecondary)
-                Text(household.role == .owner ? "あなたが作った家計" : "招待されて入った家計")
-                    .font(.footnote)
-                    .foregroundStyle(Theme.inkSecondary)
+            Label {
+                householdNames(household)
+            } icon: {
+                SettingsRowIcon(symbolName: "house.fill", fill: SettingsRowIcon.orange)
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(.rect)
@@ -77,7 +70,11 @@ struct HouseholdSettingsSection: View {
             model.presentSharing()
         } label: {
             HStack(spacing: 12) {
-                Text(household.role == .owner ? "家族を招待・管理" : "参加している人")
+                Label {
+                    Text(household.role == .owner ? "家族を招待・管理" : "参加している人")
+                } icon: {
+                    SettingsRowIcon(symbolName: "person.2.fill", fill: SettingsRowIcon.orange)
+                }
                 Spacer(minLength: 0)
                 if model.host.isWorking {
                     ProgressView()
@@ -97,6 +94,26 @@ struct HouseholdSettingsSection: View {
             destructiveRow("家計を削除", confirmation: .delete)
         case .participant:
             destructiveRow("家計から抜ける", confirmation: .leave)
+        }
+    }
+
+    /// 家計の名前・自分の表示名・作ったか招待されたか。
+    private func householdNames(_ household: Household) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(verbatim: household.name.isEmpty ? String(localized: "家族の家計") : household.name)
+                .foregroundStyle(Theme.ink)
+            Group {
+                if household.memberName.isEmpty {
+                    Text("あなたの名前が未設定です（押して決めてください）")
+                } else {
+                    Text("あなたの名前: \(household.memberName)")
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(Theme.inkSecondary)
+            Text(household.role == .owner ? "あなたが作った家計" : "招待されて入った家計")
+                .font(.footnote)
+                .foregroundStyle(Theme.inkSecondary)
         }
     }
 

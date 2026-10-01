@@ -45,11 +45,11 @@ struct WelcomeView: View {
                 .background(Theme.background)
         }
         // 「はじめる」は画面の下に置き続ける。大きな文字サイズで中身が長くなっても、スクロールせずに進めるように。
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        // 下の帯は safeAreaBar に置き、中身がその下を流れるようにする（地を塗らない。スクロール端の効果が下端をぼかす。ホームの入力欄と同じ）。
+        .safeAreaBar(edge: .bottom, spacing: 0) {
             startButton
                 .padding(.horizontal)
                 .padding(.vertical, 8)
-                .background(Theme.background)
         }
     }
 

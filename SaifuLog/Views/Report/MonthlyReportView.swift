@@ -111,10 +111,15 @@ private struct CategoryBudgetUpsell: View {
     let canStartTrial: Bool
     let open: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         Button(action: open) {
             HStack(spacing: 12) {
-                PremiumSymbolTile(symbolName: PremiumFeature.categoryBudget.symbolName)
+                // アクセシビリティサイズの文字では印を省き、文に幅を使わせる（返事の行の印と同じ）。
+                if !dynamicTypeSize.isAccessibilitySize {
+                    PremiumSymbolTile(symbolName: PremiumFeature.categoryBudget.symbolName)
+                }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("カテゴリごとに予算を決める")
                         .font(.subheadline.weight(.semibold))

@@ -12,6 +12,17 @@
         }
       }
     },
+    "%@ で購入する" : {
+      "comment" : "プレミアムのシート（⑨）の下の帯の購入のボタン（大きな文字で「（買い切り）」まで収まらないとき）。%@ は App Store の価格の表示（「¥1,800」）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buy for %@"
+          }
+        }
+      }
+    },
     "%@ で購入する（買い切り）" : {
       "comment" : "プレミアムのシート（⑨）の下の帯の購入のボタン。%@ は App Store の価格の表示（「¥1,800」）",
       "localizations" : {
@@ -6335,6 +6346,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Include"
+          }
+        }
+      }
+    },
+    "払うだけで、自動で記録" : {
+      "comment" : "設定の「Apple Pay の支払い」の画面の見出し（Apple Pay で払うと自動で記録できること）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pay, and it’s recorded for you"
           }
         }
       }

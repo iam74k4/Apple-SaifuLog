@@ -40,14 +40,16 @@ struct BudgetSetupView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollDismissesKeyboard(.interactively)
+        // 上へ流れた文や大きな金額が、ツールバーのボタンの後ろで透けて重ならないよう、上ははっきりした効果にする（ホームの帯と同じ）。
+        .scrollEdgeEffectStyle(.hard, for: .top)
         .background(Theme.background)
         // 保存のボタンは画面の下に置き続ける。数字のキーボードには確定のキーが無いので、キーボードを出したまま
         // 押せる場所に置く（キーボードが出るとその上に移る）。
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        // 下の帯は safeAreaBar に置き、中身がその下を流れるようにする（地を塗らない。スクロール端の効果が下端をぼかす。ホームの入力欄と同じ）。
+        .safeAreaBar(edge: .bottom, spacing: 0) {
             saveButton
                 .padding(.horizontal)
                 .padding(.vertical, 8)
-                .background(Theme.background)
         }
         .alert("予算を保存できませんでした", isPresented: $model.showsSaveFailure) {
             Button("OK", role: .cancel) {}

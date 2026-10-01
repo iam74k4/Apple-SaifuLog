@@ -73,13 +73,15 @@ struct RecurringEditorSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollDismissesKeyboard(.interactively)
+        // 上へ流れた文や大きな金額が、ツールバーのボタンの後ろで透けて重ならないよう、上ははっきりした効果にする（ホームの帯と同じ）。
+        .scrollEdgeEffectStyle(.hard, for: .top)
         .background(Theme.background)
         // 保存のボタンは画面の下に置き続ける（直すシート・予算を決める画面と同じ。数字のキーボードには確定のキーが無いため）。
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        // 下の帯は safeAreaBar に置き、中身がその下を流れるようにする（地を塗らない。スクロール端の効果が下端をぼかす。ホームの入力欄と同じ）。
+        .safeAreaBar(edge: .bottom, spacing: 0) {
             saveButton
                 .padding(.horizontal)
                 .padding(.vertical, 8)
-                .background(Theme.background)
         }
     }
 

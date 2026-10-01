@@ -227,13 +227,16 @@ private struct ReceiptReadyView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollDismissesKeyboard(.interactively)
+        // 上へ流れた文がツールバーのボタンの後ろで透けないよう、上ははっきりした効果にする（ホームの帯と同じ）。下の帯にも
+        // 記録する件数と合計の文を置くので、下も同じにする（やわらかい効果では、文の後ろで品目の行が透けて読みにくかった）。
+        .scrollEdgeEffectStyle(.hard, for: [.top, .bottom])
         .background(Theme.background)
         // 記録のボタンは画面の下に置き続ける（金額の数字のキーボードには確定のキーが無いので、キーボードを出したまま押せるように）。
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        // 下の帯は safeAreaBar に置き、中身がその下を流れるようにする（地を塗らない。スクロール端の効果が下端をぼかす。ホームの入力欄と同じ）。
+        .safeAreaBar(edge: .bottom, spacing: 0) {
             recordBar
                 .padding(.horizontal)
                 .padding(.vertical, 8)
-                .background(Theme.background)
         }
     }
 

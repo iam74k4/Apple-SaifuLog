@@ -50,6 +50,9 @@ struct PremiumSheet: View {
             .defaultScrollAnchor(model.screenshotScrollsToBottom ? .bottom : nil)
             #endif
             .background(Theme.background)
+            // 文の多い画面なので、上へ流れた見出しや文が「閉じる」の後ろで透けて重ならないよう、上ははっきりした効果にする
+            // （ホームの帯と同じ）。
+            .scrollEdgeEffectStyle(.hard, for: .top)
             .safeAreaBar(edge: .bottom) {
                 if model.status.canPurchase {
                     actionBar
@@ -260,6 +263,9 @@ struct PremiumSheet: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
+        // 下に置き続ける帯なので、文字の大きさに上限を設ける（ホームの帯と入力欄と同じ AX1）。最大の文字のままだと、ボタンの文が
+        // 2〜3 行に折り返して帯が画面の 3 分の 2 ほどを占め、上の説明がほとんど読めなくなった（シミュレータの iOS 26.4 の AX5）。
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
     }
 
     private var trialButton: some View {
@@ -308,13 +314,19 @@ struct PremiumSheet: View {
                 if model.inFlight == .premium {
                     Text("購入の手続き中…")
                 } else if let price = model.premiumPrice {
-                    Text("\(price) で購入する（買い切り）")
+                    // 大きな文字で 1 行に収まらなければ「（買い切り）」を外す（ガラスのボタンは 1 行の高さで、折り返さずに文の
+                    // 終わりを省くため。買い切りであることは、上の価格の欄と体験の説明にも書いてある）。
+                    ViewThatFits(in: .horizontal) {
+                        Text("\(price) で購入する（買い切り）")
+                        Text("\(price) で購入する")
+                    }
                 } else {
                     Text("購入する")
                 }
             }
             .fontWeight(.semibold)
             .foregroundStyle(purchaseLabelColor(isPrimary: isPrimary))
+            .lineLimit(1)
             .frame(maxWidth: .infinity, minHeight: 44)
         }
         if isPrimary {

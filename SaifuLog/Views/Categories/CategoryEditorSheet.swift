@@ -26,6 +26,8 @@ struct CategoryEditorSheet: View {
                 .padding()
             }
             .background(Theme.background)
+            // 上へ流れた文や記号が、ツールバーのボタンの後ろで透けて重ならないよう、上ははっきりした効果にする（ホームの帯と同じ）。
+            .scrollEdgeEffectStyle(.hard, for: .top)
             .navigationTitle(model.mode == .create ? Text("カテゴリを作る") : Text("カテゴリを直す"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

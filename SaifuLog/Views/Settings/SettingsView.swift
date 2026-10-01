@@ -790,6 +790,8 @@ struct SettingsRowIcon: View {
     static let gray = fixed(Palette.category(.other).light)
     /// Apple Pay（ウォレット）の行。ウォレットの黒に寄せた墨。
     static let charcoal = fixed(0x3A3A3C)
+    /// 家族と共有の行（柿。作ったカテゴリに選べる色と同じ値）。
+    static let orange = fixed(Palette.customCategoryChoices[3].light)
 }
 
 #Preview {
