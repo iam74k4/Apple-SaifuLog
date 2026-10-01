@@ -305,7 +305,12 @@ struct HomeView: View {
     private var timeline: some View {
         timelineContent
             .background(Theme.background)
-            .safeAreaInset(edge: .top, spacing: 0) {
+            // 帯と入力欄は safeAreaBar に置き、記録がその下を流れるようにする（iOS 26 のスクロール端の効果が、帯と入力欄の
+            // 下で記録をぼかす）。帯は前は画面の背景の色で塗り、下端に細い線を引いていた（塗った帯の下では効果が隠れたため）。
+            // 帯は数字の行が多く背が高いので、やわらかい効果（既定の .soft）では帯の下の方で記録が透け、目安や収入の行が
+            // 読みにくくなった。上ははっきりした効果（.hard）にする。下（入力欄とよく使うひとこと）は既定のまま。
+            .scrollEdgeEffectStyle(.hard, for: .top)
+            .safeAreaBar(edge: .top, spacing: 0) {
                 header
                     // 合計は画面の上に常に出ている帯なので、文字の大きさに上限を設ける。最大の文字サイズの
                     // ままだと、下の入力欄と合わせて画面の半分以上を占め、タイムラインがほとんど見えなくなるため。
@@ -314,7 +319,7 @@ struct HomeView: View {
                     // 低くなる（iPhone 17 Pro のシミュレータ）。
                     .dynamicTypeSize(...DynamicTypeSize.accessibility1)
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
+            .safeAreaBar(edge: .bottom, spacing: 0) {
                 bottomBar
             }
     }

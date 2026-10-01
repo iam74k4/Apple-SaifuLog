@@ -6,7 +6,7 @@ import SwiftUI
 ///
 /// 毎日の記録を、打たずに 2 回押すだけにするため（候補を押して、送信を押す）。キーボードを出していないときにも出す
 /// （出していなければ、キーボードを開かずに送れる）。候補が無ければ何も出さない（タイムラインの場所を取らない）。
-/// ボタンは横に送れる 1 行に並べる。
+/// ボタンは横に送れる 1 行に並べ、ガラスのボタンにする（`GlassEffectContainer` でまとめて描く）。
 struct QuickPhraseBar: View {
     let phrases: [QuickPhrase]
     let pick: (QuickPhrase) -> Void
@@ -14,12 +14,16 @@ struct QuickPhraseBar: View {
     var body: some View {
         if !phrases.isEmpty {
             ScrollView(.horizontal) {
-                HStack(spacing: 8) {
-                    ForEach(phrases) { phrase in
-                        chip(phrase)
+                GlassEffectContainer(spacing: 8) {
+                    HStack(spacing: 8) {
+                        ForEach(phrases) { phrase in
+                            chip(phrase)
+                        }
                     }
                 }
                 .padding(.horizontal)
+                // ガラスの影がスクロールの枠で切れないよう、上下に余白を取る。
+                .padding(.vertical, 4)
             }
             .scrollIndicators(.hidden)
             // 候補の文字は入力欄と同じく大きさに上限を設ける（最大の文字では 1 つの候補が画面の幅を超え、1 つずつしか見えないため）。
@@ -42,18 +46,13 @@ struct QuickPhraseBar: View {
             }
             .font(.subheadline)
             .lineLimit(1)
-            .padding(.horizontal, 12)
-            .frame(minHeight: 36)
-            .background {
-                Capsule()
-                    .fill(Theme.surface)
-                    .stroke(Theme.track, lineWidth: 1)
-            }
-            // 見た目は 36pt の高さにし、押せる範囲は上下の余白まで広げて 44pt にする。
-            .padding(.vertical, 4)
-            .contentShape(.rect)
+            .padding(.horizontal, 4)
+            // ガラスのボタンの余白を足して、押せる高さを 44pt にする。
+            .frame(minHeight: 32)
         }
-        .buttonStyle(.plain)
+        // 入力欄と同じガラスにする（タイムラインの記録がその下を流れる、操作の層のため）。
+        .buttonStyle(.glass)
+        .buttonBorderShape(.capsule)
         .accessibilityLabel(Text(verbatim: "\(phrase.item) \(YenFormatter.string(from: phrase.amount))"))
         .accessibilityHint("入力欄に入れます")
     }

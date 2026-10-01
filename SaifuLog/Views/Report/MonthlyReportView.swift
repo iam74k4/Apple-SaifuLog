@@ -108,6 +108,8 @@ private struct MonthSwitcher: View {
             Button(action: model.showPreviousMonth) {
                 chevron("chevron.left", isEnabled: model.canShowPreviousMonth)
             }
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
             .disabled(!model.canShowPreviousMonth)
             .accessibilityLabel("前の月")
             Text(verbatim: model.monthTitle)
@@ -120,6 +122,8 @@ private struct MonthSwitcher: View {
             Button(action: model.showNextMonth) {
                 chevron("chevron.right", isEnabled: model.canShowNextMonth)
             }
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
             .disabled(!model.canShowNextMonth)
             .accessibilityLabel("次の月")
         }
@@ -127,13 +131,13 @@ private struct MonthSwitcher: View {
 
     /// 矢印は墨にする（山吹は塗りにだけ使い、文字や記号には使わない）。画面の根元で色を墨に決めていて、押せないときに
     /// システムが薄くしてくれないので、押せないときの薄い色はここで付ける。
+    ///
+    /// ボタンはガラスの丸にする（ナビゲーションバーの戻るボタンと同じ形。ガラスの余白を足して 44pt 四方になる大きさ）。
     private func chevron(_ name: String, isEnabled: Bool) -> some View {
         Image(systemName: name)
-            .font(.title3.weight(.semibold))
+            .font(.body.weight(.semibold))
             .foregroundStyle(isEnabled ? Theme.ink : Theme.inkSecondary.opacity(0.4))
-            // 押せる範囲を 44pt 四方以上にする。
-            .frame(minWidth: 44, minHeight: 44)
-            .contentShape(.rect)
+            .frame(width: 30, height: 30)
     }
 }
 
