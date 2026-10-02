@@ -376,6 +376,78 @@ struct ReceiptLineScannerTests {
         #expect(scan.change == 888)
     }
 
+    // MARK: - 字間を空けた集計の語・住所の番地
+
+    // 以前は「小　計」「合　計」「お　釣」を品目として読み、品目の合計がレシートの合計の何倍にもなり、合計も読めなかった。
+    @Test("字間を空けた集計の語（「小　計」「合　計」「お　釣」）も、品目にせず集計の行として読む")
+    func spacedLabels() {
+        let scan = ReceiptFixtures.scan(ReceiptFixtures.spacedLabels)
+
+        #expect(Self.snapshot(scan) == [
+            ItemSnapshot(name: "トマト", amount: 298, category: .food),
+            ItemSnapshot(name: "きゅうり", amount: 58, category: .food),
+        ])
+        #expect(scan.subtotal == 356)
+        #expect(scan.total == 356)
+        #expect(scan.tendered == 1_000)
+        #expect(scan.change == 644)
+        #expect(scan.rows.map(\.kind).suffix(4) == [.subtotal, .total, .tendered, .change])
+    }
+
+    @Test("字間を空けた外税の行（「外　税」）は、外税として読む")
+    func spacedExclusiveTax() {
+        let scan = ReceiptFixtures.scan(ReceiptFixtures.spacedExclusiveTax)
+
+        #expect(scan.items.map(\.amount) == [498, 158, 207])
+        #expect(scan.subtotal == 863)
+        #expect(scan.taxMode == .exclusive)
+        #expect(scan.exclusiveTax == 69)
+        #expect(scan.total == 932)
+    }
+
+    @Test("「現計」「税込計」は合計の行", arguments: ["現計 ¥448", "現　計 ¥448", "税込計 ¥448"])
+    func currentTotalLabels(totalLine: String) {
+        let scan = ReceiptFixtures.scan(ReceiptFixtures.currentTotal.replacingOccurrences(of: "現計 ¥448", with: totalLine))
+
+        #expect(scan.items.map(\.amount) == [298, 150])
+        #expect(scan.total == 448)
+    }
+
+    @Test("集計の語を見分けるときだけ、かなと漢字の間の空白を詰める", arguments: [
+        ("小 計", "小計"), ("お 釣", "お釣"), ("外 税 8%", "外税 8%"), ("8% 対象", "8% 対象"), ("au PAY", "au PAY"),
+    ])
+    func compactedLabel(text: String, expected: String) {
+        #expect(ReceiptLineScanner.compactedLabel(text) == expected)
+    }
+
+    // 以前は住所の番地「12-3-4」を西暦の下 2 桁の日付（2012-03-04）と読み、その下にある買った日時より先に採っていた。
+    @Test("住所の番地を日付と読まず、買った日時の行を採る", arguments: [
+        "東京都港区芝浦12-3-4", "横浜市中区山下町25-10-3", "東京都港区\n芝浦12-3-4",
+    ])
+    func addressIsNotDate(address: String) {
+        let text = ReceiptFixtures.addressAboveDate.replacingOccurrences(of: "東京都港区芝浦12-3-4", with: address)
+        let scan = ReceiptLineScanner.scan(
+            ReceiptFixtures.lines(text), now: Fixture.date(2026, 10, 2, hour: 12), calendar: Fixture.calendar
+        )
+
+        #expect(scan.purchasedOn == ReceiptDate(daysAgo: 1, hour: 18, minute: 32))
+        #expect(scan.items.map(\.amount) == [150])
+        #expect(scan.rows.filter { $0.kind == .date }.count == 1)
+    }
+
+    @Test("時刻の無い日付を先に読んでも、後ろの時刻と同じ行の日付を採る")
+    func prefersDateLineWithTime() {
+        let scan = ReceiptFixtures.scan("""
+            スーパー さくら
+            前回ご来店 2026/09/20
+            2026/09/27 18:32
+            牛乳 ¥198
+            合計 ¥198
+            """)
+
+        #expect(scan.purchasedOn == ReceiptDate(daysAgo: 1, hour: 18, minute: 32))
+    }
+
     // MARK: - 行のまとめ方
 
     /// OCR は品名と金額を別の行として返すことが多い。位置が分かれば、縦に重なるものを 1 行にまとめ、左から並べる。
@@ -406,6 +478,7 @@ struct ReceiptLineScannerTests {
         ReceiptFixtures.drugstoreDiscounts, ReceiptFixtures.mixedTaxRates, ReceiptFixtures.quantities,
         ReceiptFixtures.japaneseEraDate, ReceiptFixtures.noisy, ReceiptFixtures.receiptDiscount,
         ReceiptFixtures.cafeEnglishNames, ReceiptFixtures.singleRateExclusiveWithSummary, ReceiptFixtures.misreadYenMarks,
+        ReceiptFixtures.spacedLabels, ReceiptFixtures.spacedExclusiveTax, ReceiptFixtures.currentTotal,
     ])
     func positionedFixturesMatchText(text: String) {
         let positioned = ReceiptLineScanner.scan(ReceiptFixtures.positionedLines(text), now: Fixture.now, calendar: Fixture.calendar)
@@ -507,10 +580,23 @@ struct ReceiptLineScannerTests {
         #expect(date == expected)
     }
 
-    /// 先の日付（読み違い）、成り立たない日付、電話番号は日付にしない。
-    @Test("日付にしないもの", arguments: ["2026/10/01", "2026/02/30", "03-0000-0000", "2026年13月1日"])
+    /// 先の日付（読み違い）、成り立たない日付、電話番号、住所の番地は日付にしない。
+    @Test("日付にしないもの", arguments: [
+        "2026/10/01", "2026/02/30", "03-0000-0000", "2026年13月1日", "芝浦12-3-4", "山下町25-9-3",
+    ])
     func notADate(text: String) {
         #expect(ReceiptDateReader.date(in: text, now: Fixture.now, calendar: Fixture.calendar) == nil)
+    }
+
+    /// 「-」でつないだ西暦の下 2 桁の日付は、住所の番地（「芝浦12-3-4」）と同じ形なので、時刻か曜日のある行か、日付だけの行のときに読む。
+    @Test("「-」でつないだ西暦の下 2 桁の日付", arguments: [
+        ("26-09-27", ReceiptDate(daysAgo: 1)),
+        ("26-09-27(日)", ReceiptDate(daysAgo: 1)),
+        ("26-09-27 9:05", ReceiptDate(daysAgo: 1, hour: 9, minute: 5)),
+        ("26.09.27", ReceiptDate(daysAgo: 1)),
+    ])
+    func hyphenatedShortYearDates(text: String, expected: ReceiptDate) {
+        #expect(ReceiptDateReader.date(in: text, now: Fixture.now, calendar: Fixture.calendar) == expected)
     }
 
     @Test("日付は時刻があればその時刻、無ければ今の時刻のその日にする")

@@ -927,7 +927,7 @@ struct EntryScan {
             let labelStart = end - label.word.count + 1
             guard labelStart >= 0, has(label.word, at: labelStart),
                   !(labelStart...end).contains(where: { consumed[$0] }),
-                  !label.needsWordStart || labelStart == 0 || !Self.isJapaneseLetter(chars[labelStart - 1])
+                  !label.needsWordStart || labelStart == 0 || !chars[labelStart - 1].isJapaneseLetter
             else { continue }
             return (label.role, labelStart)
         }
@@ -1174,13 +1174,6 @@ struct EntryScan {
         return (0x3041...0x3096).contains(scalar.value)
     }
 
-    /// ひらがな・カタカナ・漢字（「々」を含む）か。語の途中かどうかを見るのに使う。
-    private static func isJapaneseLetter(_ c: Character) -> Bool {
-        guard let scalar = c.unicodeScalars.first, c.unicodeScalars.count == 1 else { return false }
-        return isHiragana(c) || isKatakana(c) || (0x4E00...0x9FFF).contains(scalar.value)
-            || (0x3400...0x4DBF).contains(scalar.value) || scalar.value == 0x3005
-    }
-
     // MARK: - 辞書
 
     /// 12 桁（1 兆円未満）を超える数字は金額とみなさない。家計簿の 1 件としてありえず、
@@ -1288,5 +1281,19 @@ extension Character {
     var isASCIILetter: Bool {
         guard let ascii = asciiValue else { return false }
         return (0x41...0x5A).contains(ascii) || (0x61...0x7A).contains(ascii)
+    }
+
+    /// 漢字（「々」を含む）か。
+    var isKanji: Bool {
+        guard let scalar = unicodeScalars.first, unicodeScalars.count == 1 else { return false }
+        return (0x4E00...0x9FFF).contains(scalar.value) || (0x3400...0x4DBF).contains(scalar.value)
+            || scalar.value == 0x3005
+    }
+
+    /// ひらがな・カタカナ（長音記号「ー」を含む）・漢字か。語の途中かどうかを見るのに使う。
+    var isJapaneseLetter: Bool {
+        guard let scalar = unicodeScalars.first, unicodeScalars.count == 1 else { return false }
+        return (0x3041...0x3096).contains(scalar.value) || (0x30A1...0x30FA).contains(scalar.value)
+            || scalar.value == 0x30FC || isKanji
     }
 }

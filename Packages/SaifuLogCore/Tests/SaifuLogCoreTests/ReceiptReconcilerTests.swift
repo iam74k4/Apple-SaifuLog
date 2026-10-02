@@ -73,6 +73,18 @@ struct ReceiptReconcilerTests {
         }
     }
 
+    // 以前は「小　計」「合　計」「お　釣」を品目として下書きに入れ、合計も読めずに照合できなかった（totalMissing）。
+    @Test("字間を空けた集計の語や「現計」のレシートも、品目だけを下書きにして合計と合う", arguments: [
+        ReceiptFixtures.spacedLabels, ReceiptFixtures.spacedExclusiveTax, ReceiptFixtures.currentTotal,
+    ])
+    func spacedLabelsMatch(text: String) {
+        let scan = ReceiptFixtures.scan(text)
+        let lines = ReceiptReconciler.draftLines(for: scan)
+
+        #expect(lines.filter { $0.kind == .item }.count == scan.items.count)
+        #expect(Self.reconcile(lines, scan).status == .matched)
+    }
+
     /// 税率の行（外税8% ¥40）とまとめた行（消費税等 ¥40）を足すと、正しく読んだレシートでも合わなくなる。
     @Test("税率が 1 つの外税で、税率の行とまとめた行が並んでも、税を二重に足さずに合う")
     func singleRateTaxSummaryMatches() {

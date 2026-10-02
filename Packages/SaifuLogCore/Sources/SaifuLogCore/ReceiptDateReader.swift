@@ -45,7 +45,10 @@ enum ReceiptDateReader {
             return days
         }
         // 西暦の下 2 桁（「26/09/27」「26.09.27」「26-09-27」）。電話番号（「03-1234-5678」）は月日の桁が合わないので当たらない。
+        // 「-」でつないだものは、時刻か曜日のある行か、ほかに文字の無い行のときだけ読む。住所の番地（「芝浦12-3-4」）も同じ形で、
+        // 2012 年 3 月 4 日と読むと、その下にある買った日時の行より先に採ってしまうため。
         if let match = shortYearPattern.firstMatch(in: text), let year = match["year"].flatMap({ Int($0) }),
+           match["separator"] != "-" || hasTimeOrWeekday(text) || isOnlyDate(text, match: match),
            let days = validDaysAgo(year: 2000 + year, match: match, now: now, calendar: calendar) {
             return days
         }
@@ -71,6 +74,16 @@ enum ReceiptDateReader {
         return days
     }
 
+    /// 行に時刻か曜日（「(日)」「（土）」「(Sat)」）があるか。買った日時の行の手がかり。
+    private static func hasTimeOrWeekday(_ text: String) -> Bool {
+        time(in: text) != nil || weekdayPattern.matches(text)
+    }
+
+    /// 行が日付だけか（日付の外に、かな・漢字・英字が無い）。
+    private static func isOnlyDate(_ text: String, match: TextMatch) -> Bool {
+        !(text[..<match.range.lowerBound] + text[match.range.upperBound...]).contains(where: \.isLetter)
+    }
+
     /// 元号と、その 0 年にあたる西暦。
     private static let eraBases: [(name: String, base: Int)] = [
         ("令和", 2018), ("R", 2018), ("r", 2018), ("平成", 1988), ("H", 1988), ("h", 1988),
@@ -84,7 +97,10 @@ enum ReceiptDateReader {
         #"(?<!\d)(?<year>\d{4})\s*[年./\-]\s*(?<month>\d{1,2})\s*[月./\-]\s*(?<day>\d{1,2})(?!\d)"#
     )
     private static let shortYearPattern = TextPattern(
-        #"(?<![\d\-])(?<year>\d{2})[./\-](?<month>\d{1,2})[./\-](?<day>\d{1,2})(?![\d\-])"#
+        #"(?<![\d\-])(?<year>\d{2})(?<separator>[./\-])(?<month>\d{1,2})[./\-](?<day>\d{1,2})(?![\d\-])"#
+    )
+    private static let weekdayPattern = TextPattern(
+        #"[(（](?:[日月火水木金土](?:曜日?)?|SUN|MON|TUE|WED|THU|FRI|SAT|Sun|Mon|Tue|Wed|Thu|Fri|Sat)\.?[)）]"#
     )
     private static let monthDayPattern = TextPattern(#"(?<!\d)(?<month>\d{1,2})\s*月\s*(?<day>\d{1,2})\s*日"#)
     private static let timePatterns = [
