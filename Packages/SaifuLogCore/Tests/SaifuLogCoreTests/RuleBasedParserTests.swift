@@ -421,6 +421,35 @@ struct RuleBasedParserTests {
         #expect(parse(text) == [ParsedEntry(amount: 80_000, category: .other, memo: "家賃", daysAgo: daysAgo)])
     }
 
+    /// 2026-10-28（日本時間）に読む解析器。月をまたぐ「先月」「来月」を確かめる。
+    static let lateOctoberParser = RuleBasedParser(calendar: Fixture.calendar, now: { Fixture.date(2026, 10, 28, hour: 12) })
+
+    // 以前は「先月」「去年」を見ずに後ろの日付だけを読み、「先月25日」が今月の 25 日（メモは「先月 家賃」）になっていた。
+    @Test("月や年を語で指した日付は、その月・その年の日付にし、語もメモに残さない（基準は 2026-10-28）", arguments: [
+        ("先月25日 家賃 80000", 33), ("先月の25日 家賃 80000", 33), ("先月 25日 家賃 80000", 33),
+        ("今月25日 家賃 80000", 3), ("来月1日 家賃 80000", -4), ("先々月25日 家賃 80000", 64),
+        ("去年10/1 家賃 80000", 392), ("昨年10月1日 家賃 80000", 392), ("一昨年10/1 家賃 80000", 757),
+        ("今年12/31 家賃 80000", -64),
+    ])
+    func relativeMonthAndYearDates(text: String, daysAgo: Int) {
+        #expect(Self.lateOctoberParser.entries(from: text)
+            == [ParsedEntry(amount: 80_000, category: .other, memo: "家賃", daysAgo: daysAgo)])
+    }
+
+    // 決められない日付を今月や今年として読むと、違う月の日付で黙って記録されるので、今日の記録にして語と日付をメモに残す。
+    @Test("語と組にならない日付と、その月に無い日は、今日の記録にしてメモに残す", arguments: [
+        ("去年25日 家賃 80000", "去年25日 家賃"), ("先月10/1 家賃 80000", "先月10/1 家賃"),
+        ("先月31日 家賃 80000", "先月31日 家賃"), ("去年2025/10/1 家賃 80000", "去年2025/10/1 家賃"),
+    ])
+    func unsupportedRelativeDates(text: String, memo: String) {
+        #expect(Self.lateOctoberParser.entries(from: text) == [ParsedEntry(amount: 80_000, category: .other, memo: memo)])
+    }
+
+    @Test("語の付かない「30日」は、これまでどおり今月のその日")
+    func bareDayStaysThisMonth() {
+        #expect(Self.lateOctoberParser.entries(from: "30日 家賃 80000").map(\.daysAgo) == [-2])
+    }
+
     @Test("「3日間」「2泊3日」は期間なので日付にしない", arguments: ["3日間 ホテル", "2泊3日 ホテル"])
     func periodIsNotDate(memo: String) {
         #expect(parse("\(memo) 30000") == [ParsedEntry(amount: 30_000, category: .other, memo: memo)])
@@ -478,6 +507,33 @@ struct RuleBasedParserTests {
         #expect(parse(text).map(\.isIncome) == [isIncome])
     }
 
+    // 以前は品目に続けた「-」もマイナスとみなし、「ランチ-850」を ¥850 の返金（収入）として記録していた。
+    @Test("品目に続けた「-」は区切りとして読み、返金の語が無ければ支出にする", arguments: [
+        ("ランチ-850", 850, "ランチ"), ("スタバ-650", 650, "スタバ"), ("コーヒー-500", 500, "コーヒー"),
+    ])
+    func hyphenAfterItemIsSeparator(text: String, amount: Int, memo: String) {
+        let entries = parse(text)
+        #expect(entries.map(\.amount) == [amount])
+        #expect(entries.map(\.isIncome) == [false])
+        #expect(entries.map(\.memo) == [memo])
+    }
+
+    @Test("返金の語に続けた「-」はマイナスにし、前の件の品目には返金をかけない")
+    func refundWordBeforeHyphen() {
+        #expect(parse("ランチ-850 返金-500") == [
+            ParsedEntry(amount: 850, category: .food, memo: "ランチ"),
+            ParsedEntry(amount: 500, category: .other, isIncome: true, memo: "返金"),
+        ])
+        #expect(parse("返品-¥500").map(\.isIncome) == [true])
+    }
+
+    // 以前は数字どうしの間の「-」を符号にせず、後ろの 100 を最後の金額として採って ¥100 にしていた。
+    @Test("金額のすぐ後ろの「-」は、空白を挟んだときと同じく値引きの説明にする")
+    func hyphenRightAfterAmount() {
+        #expect(parse("ランチ 850-100") == parse("ランチ 850 -100"))
+        #expect(parse("ランチ 850-100") == [ParsedEntry(amount: 850, category: .food, memo: "ランチ -100")])
+    }
+
     // MARK: - 収入の打ち消しと追加の語
 
     @Test("収入の語の後ろに支出の語が続けば支出にする", arguments: [
@@ -501,6 +557,22 @@ struct RuleBasedParserTests {
     @Test("もらう・あげるの両方に使う語だけでは収入にしない", arguments: ["お年玉 5000", "ボーナスでマッサージ 8000"])
     func ambiguousGiftIsExpense(text: String) {
         #expect(parse(text).map(\.isIncome) == [false])
+    }
+
+    // 以前は「入金」「利息」をいつでも収入とみなし、チャージや預け入れ、払った利息まで収入にしていた。
+    @Test("交通系 IC・電子マネー・口座・ATM への入金と、ローンやカードの利息は支出にする", arguments: [
+        "Suica入金 3000", "PASMOに入金 5000", "nanaco入金 2000", "口座に入金 50000", "ATM入金 10000", "ATMで入金 10000",
+        "ローン利息 5000", "カード利息 300", "リボ利息 1200", "住宅ローンの利息 30000",
+    ])
+    func movedMoneyAndPaidInterestAreExpenses(text: String) {
+        #expect(parse(text).map(\.isIncome) == [false])
+    }
+
+    @Test("受け取った入金と利息は収入のまま", arguments: [
+        "預金利息 12", "利息 12", "給料 口座に入金 250000", "保険金の入金 50000", "親から入金 30000", "入金 5000",
+    ])
+    func receivedDepositAndInterestAreIncome(text: String) {
+        #expect(parse(text).map(\.isIncome) == [true])
     }
 
     // MARK: - 区切り
@@ -543,6 +615,51 @@ struct RuleBasedParserTests {
         let entries = parse(text)
         #expect(entries.map(\.amount) == [amount])
         #expect(entries.map(\.memo) == [memo])
+    }
+
+    // 以前は語に付いた数字を最後の金額として採り、「飲み会 5000 2次会」が ¥2、「映画 1800 3D」が ¥3 になっていた。
+    // 括弧や漢字の後ろの数字（「(2次会込み)」「単3」）は別の件（¥2・¥3）になっていた。
+    @Test("後ろに字が続く数字と漢字の後ろの 1 桁は、ほかに金額があれば語の一部としてメモに残す", arguments: [
+        ("飲み会 5000 2次会", 5_000, "飲み会 2次会"),
+        ("映画 1800 3D", 1_800, "映画 3D"),
+        ("映画 2200 4DX", 2_200, "映画 4DX"),
+        ("ランチ 850 2F", 850, "ランチ 2F"),
+        ("飲み会 5000 (2次会込み)", 5_000, "飲み会 (2次会込み)"),
+        ("電池 400 単3", 400, "電池 単3"),
+        ("4K テレビ 50000", 50_000, "4K テレビ"),
+        ("ランチ850弁当500", 500, "ランチ850弁当"),
+    ])
+    func numbersInsideWords(text: String, amount: Int, memo: String) {
+        let entries = parse(text)
+        #expect(entries.map(\.amount) == [amount])
+        #expect(entries.map(\.memo) == [memo])
+    }
+
+    // 以前は名前の数字の後ろの空白で件を分け、「iPhone15 ケース 2000」を ¥15 と ¥2,000 の 2 件にしていた。
+    @Test("名前の後ろの数字の後ろに、品目と語から離した金額が続けば、1 件にして数字はメモに残す", arguments: [
+        ("iPhone15 ケース 2000", 2_000, "iPhone15 ケース"),
+        ("PS5 コントローラー 8000", 8_000, "PS5 コントローラー"),
+        ("Switch2 ソフト 6000", 6_000, "Switch2 ソフト"),
+        ("セブン11 おにぎり 150", 150, "セブン11 おにぎり"),
+    ])
+    func modelNumberBeforeItem(text: String, amount: Int, memo: String) {
+        let entries = parse(text)
+        #expect(entries.map(\.amount) == [amount])
+        #expect(entries.map(\.memo) == [memo])
+    }
+
+    @Test("品目に付けて書いた金額はこれまでどおり読み、ほかに金額が無ければ語に付いた数字も金額にする", arguments: [
+        ("ランチ850", [850]),
+        ("ランチ850 カフェ400", [850, 400]),
+        ("スーパー2480とドラッグ1200", [2_480, 1_200]),
+        ("もやし38 豆腐98 牛乳198", [38, 98, 198]),
+        ("Netflix1490 Spotify980", [1_490, 980]),
+        ("ランチ 850 2F カフェ 400", [850, 400]),
+        ("ランチ 1100税込", [1_100]),
+        ("PS5", [5]),
+    ])
+    func amountsGluedToItemsAreKept(text: String, amounts: [Int]) {
+        #expect(parse(text).map(\.amount) == amounts)
     }
 
     @Test("空白を挟んだ「円」は金額に含め、次の件のメモの頭に付けない")
@@ -766,6 +883,24 @@ struct RuleBasedParserTests {
             ParsedEntry(amount: 850, category: .food, memo: "ランチ"),
             ParsedEntry(amount: 400, category: .cafe, memo: "コーヒー"),
         ])
+    }
+
+    // 以前は先に書いた合計を 1 件目の記録にし、「合計900 コーヒー400 ケーキ500」を ¥900・¥400・¥500 の 3 件にしていた。
+    @Test("品目より先に書いた合計も、後ろの品目をまとめた額なら記録しない")
+    func leadingTotalIsNotRecorded() {
+        #expect(parse("合計900 コーヒー400 ケーキ500") == [
+            ParsedEntry(amount: 400, category: .cafe, memo: "コーヒー"),
+            ParsedEntry(amount: 500, category: .cafe, memo: "ケーキ"),
+        ])
+        #expect(parse("カフェ 合計1200 コーヒー500 ケーキ700").map(\.amount) == [500, 700])
+    }
+
+    @Test("品目の合計だけを書いた記録は、後ろに別の件が続いても記録する", arguments: [
+        ("スーパー 合計2480", [2_480]), ("スーパー 合計2480 カフェ 400", [2_480, 400]),
+        ("スーパー 合計2480、カフェ 400", [2_480, 400]), ("合計 3000 ランチ", [3_000]),
+    ])
+    func totalOfItsOwnIsRecorded(text: String, amounts: [Int]) {
+        #expect(parse(text).map(\.amount) == amounts)
     }
 
     @Test("おつりとお預かりの額は記録せず、メモにも残さない", arguments: [

@@ -74,6 +74,21 @@ struct QuickPhrasesTests {
         #expect(Set(phrases.map(\.draft)) == ["給料 250000", "返金 -500"])
     }
 
+    /// 収入の語があっても辞書では収入と読まない品目（チャージの「Suica入金」）を収入に直した記録は、送り直しても収入になるよう
+    /// マイナスを付ける。辞書でも収入と読める品目（「預金利息」）には付けない。
+    @Test("収入の記録は、記録を読むときと同じ決まりで収入と読めないときだけマイナスを付ける")
+    func incomeDraftFollowsIncomeRule() {
+        let phrases = QuickPhrases.phrases(from: [
+            Record("Suica入金", 3_000, day: 1, isIncome: true),
+            Record("預金利息", 12, day: 2, isIncome: true),
+        ])
+
+        #expect(Set(phrases.map(\.draft)) == ["Suica入金 -3000", "預金利息 12"])
+        for phrase in phrases {
+            #expect(Fixture.parser.entries(from: phrase.draft).map(\.isIncome) == [true])
+        }
+    }
+
     @Test("入力欄が空なら、2 回以上記録した品目を最大の数まで出す")
     func suggestionsWhenEmpty() {
         var records: [Record] = []

@@ -13,7 +13,10 @@ public enum DateExpression {
     static let futureWindow = 60
 
     /// 日付の表記（「今日」「昨日」「一昨日」「おととい」「3日前」「9/26」「9-26」「9.26」「9月26日」「26日」
-    /// 「2026/9/26」「25/9/26」「R7/9/26」「2025年9月26日」）が何日前か。読めなければ nil。
+    /// 「2026/9/26」「25/9/26」「R7/9/26」「2025年9月26日」「先月25日」「来月1日」「去年10/1」）が何日前か。読めなければ nil。
+    ///
+    /// AI が返した日付の表記の突き合わせ（`ExtractedEntry`）もここを通る。「先月25日」の入力に AI が「9月25日」を返しても、
+    /// 「先月25日」を返しても、同じ日として突き合わせられるようにするため。
     public static func daysAgo(in expression: String, now: Date, calendar: Calendar) -> Int? {
         EntryScan(TextNormalizer.normalize(expression), now: now, calendar: calendar).daysAgo
     }
@@ -42,6 +45,26 @@ public enum DateExpression {
         let calendar = calendar.gregorianForParsing
         let today = calendar.dateComponents([.year, .month], from: now)
         guard let year = today.year, let month = today.month else { return nil }
+        return daysAgo(year: year, month: month, day: day, now: now, calendar: calendar)
+    }
+
+    /// 月を語で指した日（「先月25日」「来月1日」）が何日前か。`monthOffset` は今月からずらす月の数（先月は -1、来月は 1）。
+    ///
+    /// 年を省いた月日と違って 60 日の窓は当てない（月は語が決めているので、先の日付でもその月のまま）。その月に無い日
+    /// （9 月の「先月31日」）は nil。
+    public static func daysAgo(monthOffset: Int, day: Int, now: Date, calendar: Calendar) -> Int? {
+        let calendar = calendar.gregorianForParsing
+        let today = calendar.dateComponents([.year, .month], from: now)
+        guard let year = today.year, let month = today.month else { return nil }
+        let months = year * 12 + (month - 1) + monthOffset
+        return daysAgo(year: months / 12, month: months % 12 + 1, day: day, now: now, calendar: calendar)
+    }
+
+    /// 年を語で指した月日（「去年10/1」「来年1/5」）が何日前か。`yearOffset` は今年からずらす年の数（去年は -1）。
+    /// 60 日の窓は当てない（年は語が決めているため）。その年に無い日は nil。
+    public static func daysAgo(yearOffset: Int, month: Int, day: Int, now: Date, calendar: Calendar) -> Int? {
+        let calendar = calendar.gregorianForParsing
+        let year = calendar.component(.year, from: now) + yearOffset
         return daysAgo(year: year, month: month, day: day, now: now, calendar: calendar)
     }
 

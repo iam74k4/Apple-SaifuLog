@@ -39,12 +39,13 @@ public struct QuickPhrase: Sendable, Hashable, Identifiable {
 
     /// 入力欄に入れる文（「ランチ 850」）。ひとこと入力と同じ形にし、送ればいつもの読み取り（AI かキーワード辞書）で記録する。
     ///
-    /// 収入は品目の語（「給料」など）で収入と読むので、金額に符号は付けない。返金（マイナスを付けた額）で記録した収入は、品目に
-    /// 収入の語が無いことがあるので、「-」を付けて返金として読ませる（付けないと支出として記録されるため）。
+    /// 収入は品目の語（「給料」など）で収入と読むので、金額に符号は付けない。返金（マイナスを付けた額）で記録した収入や、
+    /// 収入の語があっても辞書では収入と読まない品目（「Suica入金」）を収入に直した記録は、「-」を付けて返金として読ませる
+    /// （付けないと支出として記録されるため）。収入と読むかは、記録を読むときと同じ決まり（`IncomeRule`）で見る。
     public var draft: String {
-        let amountText = isIncome && !RuleBasedParser.incomeKeywords.contains(where: { item.contains($0) })
-            ? "-\(amount)" : "\(amount)"
-        return item.isEmpty ? amountText : "\(item) \(amountText)"
+        let plain = item.isEmpty ? "\(amount)" : "\(item) \(amount)"
+        guard isIncome, !IncomeRule.isIncome(plain) else { return plain }
+        return item.isEmpty ? "-\(amount)" : "\(item) -\(amount)"
     }
 }
 

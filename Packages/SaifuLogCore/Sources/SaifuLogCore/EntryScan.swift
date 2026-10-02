@@ -18,6 +18,9 @@ struct EntryScan {
         var isPerPerson = false
         /// 「返金 -500」のようにマイナスを付けて書かれたか。返金として収入で記録する。
         var isNegative = false
+        /// 品目に続けた「-」（「ランチ-850」）を、マイナスではなく品目と金額の区切りとして読んだか。
+        /// AI が「-」を見て収入（返金）と返しても、収入の手がかりにしない（`ExtractedEntry`）。
+        var hasSeparatorHyphen = false
         /// 同じ区間で正の金額の後ろに置いたマイナスの額（「ランチ 850(-100引き)」の -100）か。
         /// 値引きの説明なので、その件の金額にも返金（収入）にもしない。`segments()` が付ける。
         var isDiscount = false
@@ -161,7 +164,9 @@ struct EntryScan {
     /// - 金額を含まない区間は次の区間につなげる（「ランチとコーヒー 1200」は 1 件）。
     ///   末尾に金額の無い区間が残ったら、直前の区間につなげる。記録できる金額が 1 つも無ければ空配列
     ///   （おつり・ポイントの額は記録しないので、金額の無い部分として扱う）
-    /// - 合計や値引きの額だけの区間（「、合計1250」）は、前の区間に添える（前に区間が無ければ、その額で 1 件）
+    /// - 合計や値引きの額だけの区間（「、合計1250」）は、前の区間に添える（前に区間が無ければ、その額で 1 件）。
+    ///   件より先に書いた合計が同じ文の後ろの件をまとめた額なら（「合計900 コーヒー400 ケーキ500」）、次の区間に添える
+    ///   （`leadsLaterEntries(_:in:)`）
     /// - 「、」「。」「/」などの強い区切りで分かれた部分を 1 つの文とみなし、日付と割り勘は文ごとに割り当てる
     ///   （「昨日 焼肉12000 4人で割り勘、今日 ランチ 850」のランチは割らず、今日にする）
     ///   - 日付: その件の区間に書かれた日付。無ければ、同じ文の最後の件の後ろに置いた日付
@@ -186,7 +191,7 @@ struct EntryScan {
                 cuts.append((i, 0, false, true))
             }
         }
-        var pieces: [(range: Range<Int>, afterStrong: Bool, afterAmount: Bool)] = []
+        var pieces: [Piece] = []
         var start = 0
         var afterStrong = true
         var afterAmount = false
@@ -205,7 +210,7 @@ struct EntryScan {
         var clause = -1
         // 最後の件の後ろに、強い区切りを挟んで置いた金額の無い部分（「、昨日」）の始まり。
         var trailingStart: Int?
-        for piece in pieces {
+        for (index, piece) in pieces.enumerated() {
             if piece.afterStrong { startsClause = true }
             // おつり・ポイントの額は記録しないので、その額だけの部分は金額の無い部分として扱う。
             let pieceAmounts = amounts.filter { piece.range.contains($0.range.lowerBound) && $0.role.isRecordable }
@@ -228,6 +233,12 @@ struct EntryScan {
                 drafts[last].amounts += pieceAmounts
                 pendingStart = nil
                 trailingStart = nil
+                continue
+            }
+            // 件より先に書いた合計（「合計900 コーヒー400 ケーキ500」の「合計900」）も、後ろの件をまとめた額なら、記録せずに
+            // 次の件に添える（後ろに書いた合計と同じく、記録すると二重になるため）。
+            if drafts.isEmpty, leadsLaterEntries(index, in: pieces) {
+                if pendingStart == nil { pendingStart = piece.range.lowerBound }
                 continue
             }
             if startsClause {
@@ -307,6 +318,29 @@ struct EntryScan {
         return result
     }
 
+    /// 区切りで分けた部分（`segments()` の途中）。
+    private typealias Piece = (range: Range<Int>, afterStrong: Bool, afterAmount: Bool)
+
+    /// `pieces[index]`（合計の額だけの、件より先に書いた部分）が、同じ文の後ろの件をまとめた合計か。
+    ///
+    /// 合計の語と金額だけ（「合計900」）なら、後ろの件の見出しの合計とみなす。品目も書いたもの（「カフェ 合計1200」）は、
+    /// 後ろの件の金額を足した額と同じときだけにする（「スーパー 合計2480 カフェ 400」は、スーパーの合計とカフェの 2 件として
+    /// 読む。品目の合計だけを書いた記録（「スーパー 合計2480」）を、後ろに続けた別の件のせいで消さないため）。
+    private func leadsLaterEntries(_ index: Int, in pieces: [Piece]) -> Bool {
+        let own = amounts.filter { pieces[index].range.contains($0.range.lowerBound) && $0.role.isRecordable }
+        guard let total = own.last(where: { $0.role == .total }), !own.contains(where: \.role.standsAlone) else {
+            return false
+        }
+        var later: [Amount] = []
+        for piece in pieces[(index + 1)...] {
+            if piece.afterStrong { break }
+            later += amounts.filter { piece.range.contains($0.range.lowerBound) && $0.role.standsAlone }
+        }
+        guard !later.isEmpty else { return false }
+        if text(in: pieces[index].range, excluding: own.map(\.range)).isEmpty { return true }
+        return later.reduce(0) { $0 + $1.value } == total.value
+    }
+
     /// 1 件の区間の金額から、その件の金額を選ぶ。採らない額には `isDiscount`・`isSupplementary` を付ける。
     ///
     /// 1 人分の額 → 税込みの額 → 最後のふつうの額の順に採る。ふつうの額も税込みの額も無ければ（「スーパー 合計2480」
@@ -380,8 +414,10 @@ struct EntryScan {
         // 語で書いた日付（「昨日」）と同じ扱いにする。区切らないと、前の金額が消えて 1 件になるため。
         // 後ろに語が続かない日付（「ランチ 850 9/26」）は、金額の無い部分として前の件に戻る。
         if consumed[next] { return true }
-        // 次が数字なら区切らない。「ランチ 850 900」「ビール 500 2本」は 1 件として読む。
-        return !chars[next].isASCIIDigit && !Self.yenMarks.contains(chars[next])
+        // 次が金額なら区切らない。「ランチ 850 900」は 1 件として読む。金額でない数字（「ビール 500 2本」の 2本、
+        // 「ランチ 850 2F」の 2F）からは区切るが、その後ろに金額が無ければ、金額の無い部分として前の件に戻る。区切らないと、
+        // 「ランチ 850 2F カフェ 400」の 2F の後ろの件と 1 件にまとめられ、前の金額が消えるため。
+        return !amounts.contains { $0.range.lowerBound == next }
     }
 
     /// 空白 `i` の直前までが、金額の後ろに空白を挟んで続けた人数・数量・割り勘の句（「焼肉12000 4人で割り勘」の
@@ -583,19 +619,31 @@ struct EntryScan {
         }
         // 年の数字を西暦にする。4 桁はそのまま、2 桁は 2000 年代、和暦は元号の年から。
         let year: Int? = eraBase.map { $0 + a.value } ?? (a.length == 4 ? a.value : a.length == 2 ? 2000 + a.value : nil)
+        // 日付の前に置いた「先月」「去年」のような語（「先月25日」「去年10/1」）。語の指す月・年で読み、語も日付として使い終える。
+        // 語と組にならない日付（「去年25日」「先月10/1」「去年2025/10/1」）は、どの日か決められないので日付として読まない
+        // （今日の記録にして、語と日付はメモに残す）。語を見ずに読むと、「先月25日」が今月の 25 日のような、違う月の日付で
+        // 黙って記録されるため。
+        let relative = relativePeriod(endingBefore: start)
 
         // 「2025年9月26日」。成り立たない日付（2026年2月30日）も、全体を日付の表記として使い終える。
         // 「年」「月」の後ろの空白（「2025年 9月 26日」）は読み飛ばす。
         if let year, has("年", at: a.end), let m = digitRun(at: skippingSpaces(from: a.end + 1)), m.length <= 2,
            has("月", at: m.end), let d = digitRun(at: skippingSpaces(from: m.end + 1)), d.length <= 2, has("日", at: d.end) {
-            let days = DateExpression.daysAgo(year: year, month: m.value, day: d.value, now: now, calendar: calendar)
-            return consumeDate(start..<(d.end + 1), daysAgo: days)
+            let days = relative == nil
+                ? DateExpression.daysAgo(year: year, month: m.value, day: d.value, now: now, calendar: calendar) : nil
+            return consumeDate((relative?.start ?? start)..<(d.end + 1), daysAgo: days)
         }
         // 「9月26日」。成り立たない日付（9月31日）も使い終える（「31日」だけを今月の日として読まないため）。
+        // 年を指す語の後ろ（「昨年10月1日」）はその年の月日にする。
         if eraBase == nil, a.length <= 2, has("月", at: a.end), let d = digitRun(at: skippingSpaces(from: a.end + 1)),
            d.length <= 2, has("日", at: d.end) {
-            let days = DateExpression.daysAgo(month: a.value, day: d.value, now: now, calendar: calendar)
-            return consumeDate(i..<(d.end + 1), daysAgo: days)
+            let days: Int?
+            if let relative {
+                days = relative.daysAgo(month: a.value, day: d.value, now: now, calendar: calendar)
+            } else {
+                days = DateExpression.daysAgo(month: a.value, day: d.value, now: now, calendar: calendar)
+            }
+            return consumeDate((relative?.start ?? i)..<(d.end + 1), daysAgo: days)
         }
 
         // 「/」「-」「.」でつないだ日付（「2026/9/26」「25/9/26」「9/26」「9-26」「9.26」）と電話番号。
@@ -611,10 +659,10 @@ struct EntryScan {
                 if !followedByMore, isDateContext, b.length <= 2, c.length <= 2,
                    year != nil || (separator == "/" && a.length <= 2) {
                     // 年から書いた日付は、年も含めて使い終える。年を残すと、2026 が ¥2,026 の記録になるため。
-                    let days = year.flatMap {
+                    let days = relative == nil ? year.flatMap {
                         DateExpression.daysAgo(year: $0, month: b.value, day: c.value, now: now, calendar: calendar)
-                    }
-                    return consumeDate(start..<c.end, daysAgo: days)
+                    } : nil
+                    return consumeDate((relative?.start ?? start)..<c.end, daysAgo: days)
                 }
                 // 「090-1234-5678」のように「-」で 3 つ以上つないだ数字（電話番号など）は、金額にも日付にもしない。
                 if separator == "-", eraBase == nil {
@@ -628,21 +676,28 @@ struct EntryScan {
                 let days = DateExpression.daysAgo(month: a.value, day: b.value, now: now, calendar: calendar)
                 // 後ろに人数や数量の語が続くもの（「3-4人」「2-3個」）は幅で、日付ではない。
                 let followedByQuantity = Self.startsQuantity(chars, at: b.end)
+                let isDate: Bool
                 switch separator {
                 case "/":
                     // 1〜2 桁どうしを「/」でつないだものは、日付として成り立たなくても（9/31、13/5）使い終える。
                     // 残すと、数字が金額になり、「/」で別の件にも分かれて、余計な記録が黙って増えるため。
-                    return consumeDate(i..<b.end, daysAgo: days)
-                case "-" where days != nil && isDateContext && !followedByQuantity:
-                    return consumeDate(i..<b.end, daysAgo: days)
-                case "." where days != nil && isDateContext && !followedByQuantity && b.length == 2
-                    && !isDecimalAmount(endingAt: b.end):
+                    isDate = true
+                case "-":
+                    isDate = days != nil && isDateContext && !followedByQuantity
+                case ".":
                     // 「.」でつないだ月日は、日を 2 桁で書いたとき（「9.26」「10.05」）だけ日付にする。
                     // 「1.5」「10.5」は小数として書くことが多く、日付として読むと何か月も前や先の記録に黙ってなるため。
                     // 「8.5万」「1.5L」のように位や単位が続くものも小数として読む。
-                    return consumeDate(i..<b.end, daysAgo: days)
+                    isDate = days != nil && isDateContext && !followedByQuantity && b.length == 2
+                        && !isDecimalAmount(endingAt: b.end)
                 default:
-                    break
+                    isDate = false
+                }
+                if isDate {
+                    // 年を指す語の後ろ（「去年10/1」）はその年の月日にする。
+                    guard let relative else { return consumeDate(i..<b.end, daysAgo: days) }
+                    let combined = relative.daysAgo(month: a.value, day: b.value, now: now, calendar: calendar)
+                    return consumeDate(relative.start..<b.end, daysAgo: combined)
                 }
             }
         }
@@ -655,13 +710,55 @@ struct EntryScan {
         }
 
         // 「26日」。日だけのときは今月のその日。「3日間」「1日分」「2日目」「3日後」「2泊3日」は期間や順番、
-        // 「1日1回」「1日あたり」は割合なので読まない。
+        // 「1日1回」「1日あたり」は割合なので読まない。月を指す語の後ろ（「先月25日」「来月1日」）はその月の日にする。
         if eraBase == nil, a.length <= 2, (1...31).contains(a.value), has("日", at: a.end),
            !(a.end + 1 < n && Self.dayCountSuffixes.contains(chars[a.end + 1])), !(i >= 1 && chars[i - 1] == "泊"),
            !Self.perDayWords.contains(where: { has($0, at: a.end + 1) }),
            !(digitRun(at: a.end + 1).map { Self.startsQuantity(chars, at: $0.end) } ?? false) {
-            let days = DateExpression.daysAgo(day: a.value, now: now, calendar: calendar)
-            return consumeDate(i..<(a.end + 1), daysAgo: days)
+            let days: Int?
+            if let relative {
+                days = relative.daysAgo(day: a.value, now: now, calendar: calendar)
+            } else {
+                days = DateExpression.daysAgo(day: a.value, now: now, calendar: calendar)
+            }
+            return consumeDate((relative?.start ?? i)..<(a.end + 1), daysAgo: days)
+        }
+        return nil
+    }
+
+    /// 日付の前に置いた、月や年を語で指す言い回し（「先月」「去年の」）。
+    private struct RelativePeriod {
+        /// 語の始まり（日付の表記に含めて使い終える）。
+        var start: Int
+        /// 月を指す語か（false なら年を指す語）。
+        var isMonth: Bool
+        /// 今月・今年からずらす数（先月・去年は -1）。
+        var offset: Int
+
+        /// 語の後ろの日だけの表記（「先月25日」）が何日前か。月を指す語とだけ組にする（「去年25日」は何月か決められないので nil）。
+        func daysAgo(day: Int, now: Date, calendar: Calendar) -> Int? {
+            isMonth ? DateExpression.daysAgo(monthOffset: offset, day: day, now: now, calendar: calendar) : nil
+        }
+
+        /// 語の後ろの月日（「去年10/1」）が何日前か。年を指す語とだけ組にする（「先月10/1」は月を 2 つ書いていて決められないので nil）。
+        func daysAgo(month: Int, day: Int, now: Date, calendar: Calendar) -> Int? {
+            isMonth ? nil : DateExpression.daysAgo(yearOffset: offset, month: month, day: day, now: now, calendar: calendar)
+        }
+    }
+
+    /// `start` の直前（空白と「の」を挟んでもよい）に置いた、月や年を語で指す言い回し（「先月」「先月の」「去年 」）。
+    private func relativePeriod(endingBefore start: Int) -> RelativePeriod? {
+        var end = start
+        while end > 0, chars[end - 1].isWhitespace { end -= 1 }
+        if end > 0, chars[end - 1] == "の", !consumed[end - 1] {
+            end -= 1
+            while end > 0, chars[end - 1].isWhitespace { end -= 1 }
+        }
+        for word in Self.relativePeriodWords {
+            let wordStart = end - word.text.count
+            guard wordStart >= 0, has(word.text, at: wordStart), !(wordStart..<end).contains(where: { consumed[$0] })
+            else { continue }
+            return RelativePeriod(start: wordStart, isMonth: word.isMonth, offset: word.offset)
         }
         return nil
     }
@@ -771,8 +868,81 @@ struct EntryScan {
             }
             k += 1
         }
+        removeNameNumbers()
         // 記録できる額が無いときだけ（おつり・ポイントの額は数えない）。
         if !amounts.contains(where: \.role.isRecordable) { amounts += afterMultiplySign }
+    }
+
+    /// 語に付いた数字の形（`removeNameNumbers()`）。
+    private enum NameGlue {
+        /// 語に付いていない。
+        case none
+        /// 後ろに英字か漢字が続く数字（「2次会」「3D」「4DX」「2F」）と、漢字の後ろの 1 桁（「単3」「第2」）。
+        case word
+        /// 名前の後ろに付けて、空白が続く数字。英字の後ろ（「iPhone15 」「PS5 」。桁によらない）か、語の後ろの 2 桁まで
+        /// （「セブン11 」）。
+        case name
+    }
+
+    /// 語や名前の一部の数字（「2次会」「3D」「単3」「iPhone15」「セブン11」）を、ほかに金額があれば金額から外す。
+    ///
+    /// 外さないと、最後の金額として採られて払った額がすり替わる（「飲み会 5000 2次会」が ¥2）か、名前の数字だけで別の件になる
+    /// （「iPhone15 ケース 2000」が ¥15 と ¥2,000、「電池 400 単3」が ¥400 と ¥3）。外した数字はメモに語のまま残る。
+    /// - 後ろに字が続く数字と、漢字の後ろの 1 桁（`NameGlue.word`）: 同じ文に、そうでないほかの金額があれば外す
+    /// - 名前の後ろの数字（`NameGlue.name`）: 同じ文の後ろの、語に付いていない金額が、語から離して書いてあれば外す
+    ///   （「iPhone15 ケース 2000」「セブン11 おにぎり 150」）。金額を品目に付けて書く並び（「もやし38 豆腐98 牛乳198」
+    ///   「Netflix1490 Spotify980」）では、数字はそれぞれの品目の金額なので外さない
+    ///
+    /// ほかに金額が無ければ外さない（「PS5」「1100税込」だけなら、その数字を金額として記録し、返事で直せるようにする）。
+    private mutating func removeNameNumbers() {
+        let glue = amounts.map(nameGlue(of:))
+        let clauses = amounts.map { clauseIndex(of: $0.range.lowerBound) }
+        let removed = Set(amounts.indices.filter { k in
+            switch glue[k] {
+            case .none:
+                return false
+            case .word:
+                return amounts.indices.contains {
+                    $0 != k && clauses[$0] == clauses[k] && glue[$0] != .word && amounts[$0].role.isRecordable
+                }
+            case .name:
+                guard let next = amounts.indices.first(where: {
+                    $0 > k && clauses[$0] == clauses[k] && glue[$0] == .none && amounts[$0].role.isRecordable
+                }) else { return false }
+                return isWrittenApart(amounts[next])
+            }
+        })
+        amounts = amounts.indices.filter { !removed.contains($0) }.map { amounts[$0] }
+    }
+
+    /// 金額が語や名前に付いた数字か。「¥」「-」「円」や役目の語・1 人分の言い回しの付いた額と掛け算は、金額として書いたものなので見ない。
+    private func nameGlue(of amount: Amount) -> NameGlue {
+        let range = amount.range
+        guard amount.role == .primary, !amount.isPerPerson, !amount.isNegative, amount.unitPrice == nil,
+              chars[range.lowerBound].isASCIIDigit, chars[range.upperBound - 1].isASCIIDigit
+        else { return .none }
+        let before = range.lowerBound > 0 && !consumed[range.lowerBound - 1] ? chars[range.lowerBound - 1] : nil
+        let after = range.upperBound < chars.count && !consumed[range.upperBound] ? chars[range.upperBound] : nil
+        // 「円」「税込」「込み」「引き」は金額に添える語なので、語の一部にしない。
+        if let after, after.isASCIILetter || after.isKanji, !Self.amountSuffixes.contains(after),
+           !Self.deductionSuffixes.contains(where: { has($0, at: range.upperBound) }) {
+            return .word
+        }
+        let digits = range.count
+        if let before, before.isKanji, digits == 1 { return .word }
+        guard let before, let after, after.isWhitespace else { return .none }
+        return before.isASCIILetter || (before.isJapaneseLetter && digits <= 2) ? .name : .none
+    }
+
+    /// 金額を語から離して書いたか（前が空白・記号・入力の頭）。「ケース 2000」は離して、「牛乳198」は語に付けて書いたもの。
+    private func isWrittenApart(_ amount: Amount) -> Bool {
+        let lower = amount.range.lowerBound
+        return lower == 0 || !(chars[lower - 1].isLetter || chars[lower - 1].isASCIIDigit)
+    }
+
+    /// `position` が、強い区切り（「、」「。」・改行など）で分けた何番目の文にあるか。
+    private func clauseIndex(of position: Int) -> Int {
+        (0..<position).filter { !consumed[$0] && Self.clauseSeparators.contains(chars[$0]) }.count
     }
 
     /// `low` と `high` が「3-4人」「2〜3個」のような、人数や数量の幅か。
@@ -813,7 +983,8 @@ struct EntryScan {
         }
         return Amount(
             value: number.value, range: prefix.lowerBound..<upper,
-            isPerPerson: prefix.isPerPerson, isNegative: prefix.isNegative, role: role
+            isPerPerson: prefix.isPerPerson, isNegative: prefix.isNegative, hasSeparatorHyphen: prefix.hasSeparatorHyphen,
+            role: role
         )
     }
 
@@ -856,24 +1027,43 @@ struct EntryScan {
             : isQuantity(left) ? right.value : left.value
         return Amount(
             value: value, range: prefix.lowerBound..<upper,
-            isPerPerson: prefix.isPerPerson, isNegative: prefix.isNegative, unitPrice: unitPrice, role: prefix.role
+            isPerPerson: prefix.isPerPerson, isNegative: prefix.isNegative, hasSeparatorHyphen: prefix.hasSeparatorHyphen,
+            unitPrice: unitPrice, role: prefix.role
         )
     }
 
     /// 金額の前に付く「¥」「-」「1人あたり」「税込」「合計」などを読み、金額の範囲の始まりと、その額の役目を返す。
     private func amountPrefix(
         before start: Int
-    ) -> (lowerBound: Int, isPerPerson: Bool, isNegative: Bool, role: Amount.Role) {
+    ) -> (lowerBound: Int, isPerPerson: Bool, isNegative: Bool, hasSeparatorHyphen: Bool, role: Amount.Role) {
         var lower = start
         var isNegative = false
+        var hasSeparatorHyphen = false
         // 「-500」「返金-500」「¥-500」「-¥500」「返金 ー500」。
         func takeMinus() {
             guard lower > 0, !consumed[lower - 1] else { return }
             let before: Character? = lower >= 2 ? chars[lower - 2] : nil
             switch chars[lower - 1] {
             case "-":
-                // 数字どうしの間の「-」（「9-26」「03-1234」）と、英字に続けた「-」（型番）は符号にしない。
-                guard before.map({ !$0.isASCIIDigit && !$0.isASCIILetter }) ?? true else { return }
+                // 金額のすぐ後ろの「-」（「850-100」）は、空白を挟んだ「850 -100」と同じく値引きの説明のマイナスにする。
+                // 符号にしないと、後ろの 100 が最後の金額として採られ、¥850 の支出が ¥100 になるため。英字に続けた数字
+                // （「PS5-2」の 5）は型番の一部なので除く。
+                let followsAmount = amounts.contains {
+                    $0.range.upperBound == lower - 1
+                        && !($0.range.lowerBound > 0 && chars[$0.range.lowerBound - 1].isASCIILetter)
+                }
+                if let before, !followsAmount {
+                    // 数字どうしの間の「-」（「9-26」「03-1234」）と、英字に続けた「-」（型番）は符号にしない。
+                    if before.isASCIIDigit || before.isASCIILetter { return }
+                    // 語に続けた「-」（「ランチ-850」）は、品目と金額の区切り。返金の語を書いたとき（「返金-500」）だけ符号にする。
+                    // 符号にすると、品目と金額を「-」でつないだだけの支出が返金（収入）として記録されるため。区切りの「-」も
+                    // 金額の範囲に含めて、メモに残さない（「スタバ-650 2杯」のメモが「スタバ- 2杯」にならないように）。
+                    if before.isLetter, !mentionsRefund(before: lower - 1) {
+                        lower -= 1
+                        hasSeparatorHyphen = true
+                        return
+                    }
+                }
             case "ー":
                 // 日本語の入力では「-」が長音記号「ー」になる。語から離して置いたときだけ符号にする。
                 // 「コーヒー500」の「ー」は語の一部。
@@ -913,7 +1103,19 @@ struct EntryScan {
             // マイナスを付けた値引き（「値引き -100」）は、これまでどおり値引きの説明として引かずに扱う（`isDiscount`）。
             if isNegative, role == .deduction { role = .primary }
         }
-        return (lower, isPerPerson, isNegative, role)
+        return (lower, isPerPerson, isNegative, hasSeparatorHyphen, role)
+    }
+
+    /// `end` より前の、その件の品目として書いた部分（同じ文の中で、前の金額より後ろ）に、返金の語（「返金」「返品」…）があるか。
+    /// 前の件の文字は見ない（「ランチ-850 返金-500」の「返金」で、ランチまで返金にしないため）。
+    private func mentionsRefund(before end: Int) -> Bool {
+        var start = end
+        while start > 0, !amounts.contains(where: { $0.range.upperBound == start }),
+              consumed[start - 1] || !Self.clauseSeparators.contains(chars[start - 1]) {
+            start -= 1
+        }
+        let text = String(chars[start..<end])
+        return Self.refundWords.contains { text.contains($0) }
     }
 
     /// `start`（金額の始まり）の直前に置いた役目の語（「税込」「合計」「おつり」…）。語と金額の間の空白と「:」「=」は読み飛ばす。
@@ -1192,6 +1394,15 @@ struct EntryScan {
         ("一昨日", 2), ("おととい", 2), ("おとつい", 2), ("昨日", 1), ("きのう", 1), ("今日", 0), ("本日", 0),
     ]
 
+    /// 日付の前に置いて、月や年を指す語と、今月・今年からずらす数（`RelativePeriod`）。長い語を先に置く（「一昨年」を「昨年」、
+    /// 「再来月」を「来月」より先に見ないと、1 年・1 か月ずれる）。
+    private static let relativePeriodWords: [(text: String, isMonth: Bool, offset: Int)] = [
+        ("先々月", true, -2), ("再来月", true, 2), ("先月", true, -1), ("前月", true, -1), ("今月", true, 0),
+        ("来月", true, 1), ("翌月", true, 1),
+        ("一昨年", false, -2), ("おととし", false, -2), ("再来年", false, 2), ("去年", false, -1), ("昨年", false, -1),
+        ("前年", false, -1), ("今年", false, 0), ("本年", false, 0), ("来年", false, 1), ("翌年", false, 1),
+    ]
+
     /// 日付の直後にあれば、日付と一緒に使い終える助詞（`takesParticle(at:)`）。
     private static let dateParticles: Set<Character> = ["の", "は", "も", "に"]
     /// 語の頭に付く丁寧の「お」「ご」。日付の後ろの助詞の次にあれば、助詞の方を使い終える（「昨日のお茶」）。
@@ -1217,6 +1428,8 @@ struct EntryScan {
     private static let splitWords = ["割り勘", "割勘", "わりかん", "ワリカン"]
 
     private static let yenMarks: Set<Character> = ["¥", "\\"]
+    /// 返金の語。語に続けた「-」（「返金-500」）は、この語があるときだけマイナスの符号にする。
+    private static let refundWords = ["返金", "返品", "払い戻し", "払戻", "キャンセル", "キャッシュバック"]
     /// 人数や数量の幅（「3-4人」「2〜3個」）をつなぐ記号。
     private static let rangeSigns: Set<Character> = ["-", "~", "〜"]
     /// 長音記号「ー」の前にあっても符号として読む記号。
@@ -1242,6 +1455,8 @@ struct EntryScan {
     ]
     /// 金額の後ろに置いて、マイナスを付けない値引きを表す語（「100円引き」）。長いものを先に置く。
     private static let deductionSuffixes = ["引き", "引", "オフ", "OFF", "off", "Off"]
+    /// 金額のすぐ後ろに続けても、その数字を語の一部にしない漢字（「850円」「1100税込」「850込み」）。
+    private static let amountSuffixes: Set<Character> = ["円", "税", "込"]
     private static let multiplySigns: Set<Character> = ["×", "✕", "*"]
 
     /// 1 人分の額を表す、金額の前の言い回し。長いものを先に置く。
