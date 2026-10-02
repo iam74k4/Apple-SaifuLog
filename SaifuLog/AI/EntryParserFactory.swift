@@ -3,8 +3,9 @@ import SaifuLogCore
 
 /// いまの端末で使える解析器を選ぶ。
 ///
-/// AI が使える端末では AI で読み、失敗したときや何も読めなかったときはルールベースで読み直す（読み直したことは
-/// `AIFallbackLog` に残す）。AI が使えない端末では最初からルールベースで読む。どちらでも記録はできる（AI は上乗せ）。
+/// AI が使える端末では AI で読み、失敗したとき・上限の時間（`AITimeouts.entry`）までに返らなかったとき・何も読めなかったときは
+/// ルールベースで読み直す（読み直したことは `AIFallbackLog` に残す）。AI が使えない端末では最初からルールベースで読む。
+/// どちらでも記録はできる（AI は上乗せ）。
 enum EntryParserFactory {
     /// 記録のたびに呼ぶ。AI の使える・使えないは、設定の変更やモデルのダウンロードで途中から変わるため。
     ///
@@ -18,7 +19,7 @@ enum EntryParserFactory {
         if FoundationModelsEntryParser.isAvailable {
             return FallbackEntryParser(
                 primary: FoundationModelsEntryParser(calendar: calendar, now: now), fallback: rules,
-                onFallback: AIFallbackLog.shared.reporter(for: .entry)
+                timeout: AITimeouts.entry, onFallback: AIFallbackLog.shared.reporter(for: .entry)
             )
         }
         #endif

@@ -305,7 +305,7 @@ struct DiagnosticsTests {
     static let simulatorGenerationErrorText =
         "NSError error(FoundationModels.LanguageModelSession.GenerationError -1) underlying(ModelManagerServices.ModelManagerError 1026)"
 
-    @Test("起動してから AI の結果を使わなかった回数（機能ごと）と、最後のエラー・その機能・日時を出す")
+    @Test("起動してから AI の結果を使わなかった回数と時間切れの回数（機能ごと）、最後のエラー・その機能・日時を出す")
     func aiFallbackRows() async throws {
         let context = try TestSupport.makeContext()
         let folder = try Self.makeFolder()
@@ -318,6 +318,7 @@ struct DiagnosticsTests {
         await model.load()
         let before = try #require(model.report)
         #expect(before.value(for: "fm.fallbacks") == "0 (entry 0, question 0, recap 0, receipt 0)")
+        #expect(before.value(for: "fm.timeouts") == "0 (entry 0, question 0, recap 0, receipt 0)")
         #expect(before.value(for: "fm.lastError") == "none")
         // 失敗が無ければ、最後のエラーの機能と日時の行は出さない。
         #expect(before.value(for: "fm.lastError.feature") == nil)
@@ -327,10 +328,13 @@ struct DiagnosticsTests {
         log.record(.noResult, in: .question)
         log.record(.failed(TestError()), in: .entry)
         log.record(.failed(Self.simulatorGenerationError()), in: .receipt)
+        log.record(.timedOut(.seconds(8)), in: .recap)
         await model.load()
         let after = try #require(model.report)
 
-        #expect(after.value(for: "fm.fallbacks") == "4 (entry 2, question 1, recap 0, receipt 1)")
+        #expect(after.value(for: "fm.fallbacks") == "5 (entry 2, question 1, recap 1, receipt 1)")
+        // 時間切れは、AI の結果を使わなかった回数にも数え、最後のエラーは変えない。
+        #expect(after.value(for: "fm.timeouts") == "1 (entry 0, question 0, recap 1, receipt 0)")
         #expect(after.value(for: "fm.lastError") == Self.simulatorGenerationErrorText)
         #expect(after.value(for: "fm.lastError.feature") == "receipt")
         // 2026-09-28 12:00（日本時間）。タイムゾーンによらない形で出す。

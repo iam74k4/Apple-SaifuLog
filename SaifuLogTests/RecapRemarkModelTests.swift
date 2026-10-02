@@ -104,6 +104,37 @@ struct RecapRemarkModelTests {
         #expect(log.snapshot.lastError?.error.type == String(reflecting: TestError.self))
     }
 
+    /// モデルが返らないまま止まっても、上限（アプリは `AITimeouts.recapRemark` の 8 秒。テストでは短くする）で書いている印をやめ、
+    /// 一言を添えない（定型文だけ）。時間切れを AI の記録に残す。書けなかったときと同じく結果は覚えず、決め直したときにまた書かせる。
+    @Test(.timeLimit(.minutes(1)))
+    func timeoutShowsNoRemarkAndRetriesLater() async throws {
+        let purchases = await TestSupport.purchases(Self.premium)
+        let stuck = Gate()
+        defer { stuck.open() }
+        let writer = StubRemarkWriter { _ in
+            // 取り消されても、門が開くまで返らない（取り消しに応じずに止まったモデルの代わり）。
+            await stuck.wait()
+            return Self.sentence(3)
+        }
+        let log = AIFallbackLog()
+        let model = RecapRemarkModel(
+            purchases: purchases, makeWriter: { writer }, aiFallbackLog: log, remarkTimeout: .milliseconds(200)
+        )
+
+        await model.update(facts: Self.facts(3))?.value
+
+        #expect(model.state == .none)
+        #expect(log.snapshot.fallbacks == [.recap: 1])
+        #expect(log.snapshot.timeouts == [.recap: 1])
+        #expect(log.snapshot.lastError == nil)
+
+        stuck.open()
+        await model.refresh()?.value
+
+        #expect(model.state == .written(Self.sentence(3)))
+        #expect(writer.calls.count == 2)
+    }
+
     // MARK: - プレミアムの状態
 
     /// 体験が終わったら（プレミアムでなくなったら）、決め直したときに一言を外す。覚えていた一言も出さない。

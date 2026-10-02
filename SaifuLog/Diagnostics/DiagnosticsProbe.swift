@@ -5,8 +5,8 @@ import UIKit
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
+import SaifuLogCore
 import Speech
-import Synchronization
 
 /// 診断画面の値を、端末・OS・保存先から読む。
 ///
@@ -131,67 +131,19 @@ enum DiagnosticsProbe {
     /// `generate` を 1 回呼び、かかった時間か、エラーか、時間切れかを返す。
     ///
     /// 時間切れのときは取り消しを伝え、生成が終わるのを待たずに返す（モデルが取り消しに応じずに止まっていても、画面を
-    /// 「running」のままにしない）。
+    /// 「running」のままにしない）。待ち方はアプリの機能が端末内 AI を待つのと同じもの（コアの `withDeadline`）。
     static func tryGeneration(
         timeout: Duration, _ generate: @escaping @Sendable () async throws -> Void
     ) async -> DiagnosticsReport.GenerationProbe {
         let clock = ContinuousClock()
         let start = clock.now
-        let outcome = await withTimeout(timeout) { () -> GenerationOutcome in
-            do {
-                try await generate()
-                return .succeeded
-            } catch {
-                return .failed(AIErrorSummary(error))
-            }
-        }
-        switch outcome {
-        case .succeeded: return .succeeded(latency: start.duration(to: clock.now))
-        case .failed(let error): return .failed(error)
-        case nil: return .timedOut(timeout)
-        }
-    }
-
-    private enum GenerationOutcome: Sendable {
-        case succeeded
-        case failed(AIErrorSummary)
-    }
-
-    /// `operation` の結果を待ち、`timeout` を過ぎたら取り消しを伝えて、終わるのを待たずに nil を返す。
-    static func withTimeout<T: Sendable>(
-        _ timeout: Duration, _ operation: @escaping @Sendable () async -> T
-    ) async -> T? {
-        let work = Task { await operation() }
-        return await withCheckedContinuation { continuation in
-            let first = ResumeOnce(continuation)
-            let timer = Task {
-                // 先に終わって取り消されたら、ここで抜ける（時間切れにしない）。
-                try await Task.sleep(for: timeout)
-                first.resume(returning: nil)
-                work.cancel()
-            }
-            Task {
-                let value = await work.value
-                timer.cancel()
-                first.resume(returning: value)
-            }
-        }
-    }
-
-    /// 先に届いた値で 1 回だけ再開する（生成と時間切れの、先に終わったほう）。後から届いた値は捨てる。
-    private final class ResumeOnce<T: Sendable>: Sendable {
-        private let continuation: Mutex<CheckedContinuation<T?, Never>?>
-
-        init(_ continuation: CheckedContinuation<T?, Never>) {
-            self.continuation = Mutex(continuation)
-        }
-
-        func resume(returning value: T?) {
-            let pending = continuation.withLock { pending in
-                defer { pending = nil }
-                return pending
-            }
-            pending?.resume(returning: value)
+        do {
+            try await withDeadline(timeout, operation: generate)
+            return .succeeded(latency: start.duration(to: clock.now))
+        } catch is DeadlineExceeded {
+            return .timedOut(timeout)
+        } catch {
+            return .failed(AIErrorSummary(error))
         }
     }
 

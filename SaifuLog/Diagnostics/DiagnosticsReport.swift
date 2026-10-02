@@ -274,14 +274,19 @@ extension DiagnosticsReport {
         }
     }
 
-    /// 起動してから AI の結果を使わなかった回数と、最後の失敗の行。AI が失敗しても利用者には辞書の結果だけを見せるので、
-    /// 「使える」と出るのに毎回失敗している端末を、ここで見分ける（`AIFallbackLog`）。失敗が無ければ、最後の失敗の機能と
-    /// 日時の行は出さない。
+    /// 起動してから AI の結果を使わなかった回数と、そのうちの時間切れの回数、最後の失敗の行。AI が失敗しても利用者には辞書の結果
+    /// だけを見せるので、「使える」と出るのに毎回失敗している端末や、上限の時間（`AITimeouts`）に収まらない端末を、ここで見分ける
+    /// （`AIFallbackLog`）。失敗が無ければ、最後の失敗の機能と日時の行は出さない。
     static func fallbackRows(_ snapshot: AIFallbackLog.Snapshot) -> [Row] {
-        // 機能ごとの回数は、0 回の機能も決まった順で並べる（別の端末や日の診断と見比べやすいように）。
-        let byFeature = AIFeature.allCases.map { "\($0.rawValue) \(snapshot.fallbacks[$0] ?? 0)" }.joined(separator: ", ")
         var rows = [
-            Row(key: "fm.fallbacks", label: "AI の結果を使わなかった回数（起動から）", value: "\(snapshot.totalFallbacks) (\(byFeature))"),
+            Row(
+                key: "fm.fallbacks", label: "AI の結果を使わなかった回数（起動から）",
+                value: "\(snapshot.totalFallbacks) (\(byFeature(snapshot.fallbacks)))"
+            ),
+            Row(
+                key: "fm.timeouts", label: "AI の時間切れの回数（起動から）",
+                value: "\(snapshot.totalTimeouts) (\(byFeature(snapshot.timeouts)))"
+            ),
             Row(key: "fm.lastError", label: "最後のエラー", value: snapshot.lastError?.error.description ?? "none"),
         ]
         if let lastError = snapshot.lastError {
@@ -291,6 +296,11 @@ extension DiagnosticsReport {
             ]
         }
         return rows
+    }
+
+    /// 機能ごとの回数。0 回の機能も決まった順で並べる（別の端末や日の診断と見比べやすいように）。
+    private static func byFeature(_ counts: [AIFeature: Int]) -> String {
+        AIFeature.allCases.map { "\($0.rawValue) \(counts[$0] ?? 0)" }.joined(separator: ", ")
     }
 }
 #endif

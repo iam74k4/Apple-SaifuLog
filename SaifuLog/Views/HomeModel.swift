@@ -348,6 +348,21 @@ final class HomeModel {
         }
     }
 
+    /// 送った文を記録として読み取る。取り消されたら nil を返す。
+    ///
+    /// 取り消しは読めなかったのではないので、呼び出し側は「金額が見つかりませんでした」を出さない。AI の失敗と時間切れは解析器
+    /// （`FallbackEntryParser`）がルールベースで読み直すので、ここで投げられるのはルールベースも投げたときだけで、読めなかった
+    /// （0 件）として扱う。取り消された後に投げられたものは、取り消しによるものとみなす（解析器が取り消しを別のエラーで伝えても、
+    /// 読めなかったことにしないため）。
+    private func parse(_ text: String, with parser: any EntryParsing) async -> [ParsedEntry]? {
+        do {
+            return try await parser.parse(text)
+        } catch {
+            if error is CancellationError || Task.isCancelled { return nil }
+            return []
+        }
+    }
+
     /// 記録として読み取って保存する。
     ///
     /// - Parameter source: 送った文をどこから入れたか（声で入れた文なら、記録の入力元を「声」にする）。
@@ -362,7 +377,11 @@ final class HomeModel {
                 isParsing = false
                 pendingWrites.end()
             }
-            let parsed = (try? await parser.parse(text)) ?? []
+            guard let parsed = await parse(text, with: parser) else {
+                // 取り消された。読めなかったのではないので知らせず、送った文だけを入力欄に戻す（送り直せるように）。
+                restoreDraft(text, source: source)
+                return
+            }
             guard !parsed.isEmpty else {
                 // 送った文を入力欄に戻し、その場で直せるようにする。
                 restoreDraft(text, source: source)
@@ -431,7 +450,10 @@ final class HomeModel {
         let parser = makeParser(sentAt, calendar)
         return Task {
             defer { isParsing = false }
-            let parsed = (try? await parser.parse(text)) ?? []
+            guard let parsed = await parse(text, with: parser) else {
+                restoreDraft(text, source: source)
+                return
+            }
             guard !parsed.isEmpty else {
                 restoreDraft(text, source: source)
                 showsNoAmountAlert = true
