@@ -106,8 +106,15 @@ final class ScreenshotDemo {
     /// デモのアプリのロックと iCloud 同期の設定（一時フォルダのファイル。毎回どちらもオフで始める）。
     let launchSettings: LaunchSettingsStore
 
-    /// 起動した瞬間。デモの時計（`clock`）は、起動してからの経過をデモの「いま」に足して進める。
+    /// 起動した瞬間（デモの「いま」をこの月の 15 日に決めるのに使う）。
     private let launchedAt: Date
+    /// デモを作った瞬間。デモの時計（`makeClock`）は、ここからの経過をデモの「いま」に足して進める。
+    ///
+    /// `launchedAt` からは測らない。テストは過去の決まった日時を `launchedAt` に渡すので、そこから測ると、実際の時間が
+    /// 経つほどデモの時計が先へ進み、週や月の境目を越えて、ふりかえりのカードが出るかどうかなどが日によって変わってしまう
+    /// （2026-10-02 に、9/15 20:30 の「いま」が 9/20 の週へ進み、CI のテストが落ちた）。経過は時計の変更に左右されない
+    /// `ContinuousClock` で測る。
+    private let startedAt = ContinuousClock.now
 
     private static let logger = Logger(subsystem: "com.iam74k4.SaifuLog", category: "screenshot-demo")
 
@@ -178,11 +185,14 @@ final class ScreenshotDemo {
         ) ?? date
     }
 
-    /// デモの時計。デモの「いま」から、起動してからの経過だけ進む（続けて送った質問の順が、送った順に並ぶように）。
+    /// デモの時計。デモの「いま」から、デモを作ってからの経過だけ進む（続けて送った質問の順が、送った順に並ぶように）。
     func makeClock() -> @Sendable () -> Date {
         let pinned = now
-        let launched = launchedAt
-        return { pinned.addingTimeInterval(max(0, Date.now.timeIntervalSince(launched))) }
+        let started = startedAt
+        return {
+            let elapsed = started.duration(to: .now).components
+            return pinned.addingTimeInterval(Double(elapsed.seconds) + Double(elapsed.attoseconds) / 1e18)
+        }
     }
 
     // MARK: - 差し替えるもの
