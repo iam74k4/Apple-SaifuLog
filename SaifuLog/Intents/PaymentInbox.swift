@@ -64,7 +64,9 @@ final class PaymentInbox {
     }
 
     /// ロック中（最初にロックを解いた後）でも書ける保護のクラスで書く。アプリ全体の既定（NSFileProtectionComplete）では、
-    /// ロック中に動くオートメーションから書けないため。
+    /// ロック中に動くオートメーションから書けないため。アプリを一度も開く前は Application Support もまだ無く、途中のフォルダも
+    /// この保護で作る（ロック中に Complete のフォルダは作れないため）。Application Support は、保存先を開いたときに Complete に
+    /// 戻す（`StoreFileProtection`）。
     private func write(_ payments: [CapturedPayment]) throws {
         try FileManager.default.createDirectory(
             at: directory, withIntermediateDirectories: true,

@@ -5217,13 +5217,13 @@
         }
       }
     },
-    "受け取った支払い（金額・店名・日時）は、記録にするまで、この iPhone の中の小さなファイルに置きます。iPhone がロックされていても受け取れるよう、このファイルだけは、iPhone を起動して最初にロックを解いた後から読める保護にしています。記録にしたら消します。" : {
+    "受け取った支払い（金額・店名・日時）は、記録にするまで、この iPhone の中の小さなファイルに置きます。iPhone がロックされていても受け取れるよう、このファイルは、iPhone を起動して最初にロックを解いた後から読める保護にしています。記録にしたら消します。" : {
       "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の画面の、データの扱いの説明",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Received payments (amount, merchant, and time) are kept in a small file on this iPhone until they’re recorded. So payments can be received while the iPhone is locked, only this file uses protection that makes it readable after you first unlock the iPhone following a restart. It’s deleted once the payments are recorded."
+            "value" : "Received payments (amount, merchant, and time) are kept in a small file on this iPhone until they’re recorded. So payments can be received while the iPhone is locked, this file uses protection that makes it readable after you first unlock the iPhone following a restart. It’s deleted once the payments are recorded."
           }
         }
       }

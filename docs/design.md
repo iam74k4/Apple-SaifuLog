@@ -686,9 +686,18 @@ build アクション（アプリだけ）なので、これが無いとテス�
 
 - **SwiftData の保存先は NSFileProtectionComplete にする。** エンタイトルメント
   `com.apple.developer.default-data-protection`（`project.yml` の `entitlements.properties`。
-  `SaifuLog/SaifuLog.entitlements` は生成物）で、アプリが作るファイル（`default.store` と
-  `-wal`・`-shm` を含む）の既定の保護クラスを Complete にする。既定のクラス（初回のロック解除後は
-  常に復号）のままだと、画面のロック中も家計の記録が復号された状態になるため。
+  `SaifuLog/SaifuLog.entitlements` は生成物）で、アプリが作るファイルの既定の保護クラスを Complete にする。既定のクラス
+  （初回のロック解除後は常に復号）のままだと、画面のロック中も家計の記録が復号された状態になるため。
+  - **エンタイトルメントだけでは SQLite のファイルに効かない。** SwiftData（Core Data）は SQLite のファイルを作るときに保護クラスを
+    自分で指定し、その既定は「最初のロック解除の後は読める」（`NSPersistentStoreFileProtectionKey` の既定。iOS SDK の
+    NSPersistentStoreCoordinator.h）。エンタイトルメントの既定は、保護を指定せずに作ったファイルにしか効かない。SwiftData の
+    `ModelConfiguration` には保護を渡す口が無いので、保存先を開いた直後に、本体と `-wal` とそれを入れたフォルダ（Application Support）へ
+    Complete を明示して当てる（`StoreFileProtection`。`ModelContainerFactory` の `makeContainer`・`makeHouseholdContainer` から。
+    開くたびに当てるのは、`-wal` を SQLite が作り直すことがあるため）。2026-10-02 のレビューで分かった。
+  - **`-shm` には当てない。** SQLite がメモリに写して使う索引（`-wal` のどこに何があるか）で、記録の中身を含まない。Complete にすると、
+    ロック中にアプリが裏で保存先に触れたとき（iCloud の取り込みなど）に、写したメモリを読めずにアプリが落ちるおそれがあるため。
+  - フォルダにも当てるのは、Apple Pay の支払いの受け箱が、アプリを一度も開く前にロック中で Application Support を作ると、弱い保護
+    （最初のロック解除の後は読める）で作られ、後からその中に保護を指定せずに作るファイルが継いでしまうため（`PaymentInbox`）。
 - ロック中は保存先を開けない。そのため、保存先（`ModelContainer`）は App の生成の時点ではなく、
   最初の画面が出る時点で開く（`SaifuLog/App/StoreHost.swift` の `start()`）。iOS が起動を前倒しで済ませる prewarm は
   ロック中にも走ることがあり、その間に開こうとしても読めないため。
@@ -717,7 +726,8 @@ build アクション（アプリだけ）なので、これが無いとテス�
   （シミュレータはデータ保護を効かせない）。ロック中に起動したとき（prewarm など）に落ちずに待ち、ロックを解くと
   ホームが出ることも、同じ理由で実機でしか確かめられない（アプリのテストは、ロックの状態を差し替えて確かめている）。
   実機で `default.store`・`-wal`・`-shm` の保護クラスを確かめるまでは、利用者向けの文書（README・`PRIVACY.md`・
-  CHANGELOG）に「ロック中は読めない」とは書かない（ロック中の起動で落ちないことも、実機で確かめるまで書かない）。
+  CHANGELOG）とアプリの画面の文に「ロック中は読めない」とは書かない（ロック中の起動で落ちないことも、実機で確かめるまで書かない）。
+  実機の診断画面では、本体と `-wal` が Complete、`-shm` が SwiftData の付けた保護（最初のロック解除の後は読める）のはず。
   確かめる手段として、社内テスト用のビルド（release.yml の `mode=testflight` で TestFlight の社内テスト専用に送る）と
   DEBUG のビルドに診断画面を入れた。3 つのファイルの保護クラスと、保護されたデータを読めるか
   （`UIApplication.isProtectedDataAvailable`）を出す（`docs/release-flow.md` の「TestFlight で実機に入れる（社内テスト）」）。

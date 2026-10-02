@@ -170,7 +170,9 @@
     Siri の頼み・ふりかえりを待たせる（`HomeView`）。Face ID の利用目的は project.yml と InfoPlist.xcstrings。実機の Face ID と VoiceOver の
     確認はまだ）。⑧ に「ヘルプ・お問い合わせ」（`docs/support.md`）。
     保存先を開けないときは落とさず、ロック中なら解除を待って開き直し、それ以外は再試行の画面を出す（`StoreHost`）。
-    保存先のデータ保護は NSFileProtectionComplete（ロック中は読めないようにする。実機での確認はまだ。
+    保存先のデータ保護は NSFileProtectionComplete（ロック中は読めないようにする。SwiftData は SQLite のファイルに自分で保護を付け
+    （既定は最初のロック解除の後は読める）、エンタイトルメントの既定は効かないので、開いた直後に本体と -wal とフォルダへ Complete を
+    当てる（`StoreFileProtection`。-shm は記録の中身を含まず、落ちるおそれがあるので当てない）。実機での確認はまだ。
     release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
     main で `mode=export` の照合が通るかの確認はまだ。`docs/design.md` §5-4）。
   - **未実装:** 週のふりかえりの通知・家族との共有の提供（試作は機能フラグで隠している）・
