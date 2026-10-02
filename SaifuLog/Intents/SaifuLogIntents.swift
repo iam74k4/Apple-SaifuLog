@@ -88,8 +88,10 @@ struct VoiceEntryIntent: AppIntent {
 /// 金額はウォレットの値をそのまま使う（AI にも文の読み取りにも通さない）。円のほかの通貨は記録しない。
 struct RecordPaymentIntent: AppIntent {
     static let title: LocalizedStringResource = "支払いを記録"
+    // 題名と説明には「Apple」の語を書かない（App Store Connect がアップロードを ITMS-90626 で弾く。「Apple Pay」も同じ）。
+    // 文言はテストで確かめる（`AppIntentMetadataTests`）。
     static let description = IntentDescription(
-        "Apple Pay で払ったときのオートメーションで使います。金額と店名を受け取り、次にサイフログを開いたときに記録します。"
+        "ウォレットで払ったときのオートメーション（ショートカットの「取引」）で使います。金額と店名を受け取り、次にサイフログを開いたときに記録します。"
     )
     static let openAppWhenRun = false
 
