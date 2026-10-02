@@ -752,17 +752,6 @@
         }
       }
     },
-    "Apple Pay で払ったときのオートメーションで使います。金額と店名を受け取り、次にサイフログを開いたときに記録します。" : {
-      "comment" : "ショートカットの「支払いを記録」の操作の説明",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Use this in an automation that runs when you pay with Apple Pay. It receives the amount and merchant and records them the next time you open SaifuLog."
-          }
-        }
-      }
-    },
     "Apple Pay の支払い" : {
       "comment" : "ホームの返事の見出し。Apple Pay の支払いから 1 件を記録したとき",
       "localizations" : {
@@ -2788,6 +2777,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Check your internet connection and try again."
+          }
+        }
+      }
+    },
+    "ウォレットで払ったときのオートメーション（ショートカットの「取引」）で使います。金額と店名を受け取り、次にサイフログを開いたときに記録します。" : {
+      "comment" : "ショートカットの「支払いを記録」の操作の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use this in a Wallet transaction automation in the Shortcuts app. It receives the amount and merchant and records them the next time you open SaifuLog."
           }
         }
       }

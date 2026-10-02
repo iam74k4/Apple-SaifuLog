@@ -160,7 +160,8 @@
     Siri・ショートカット（`SaifuLog/Intents/`。App Intents の 5 つの操作（ひとことで記録・家計に質問・レシートを読み取る・声で入力・入力欄を
     開く）と App Shortcuts（言い方の英語は `Resources/AppShortcuts.xcstrings`）。どれもアプリを開いてから行う（`openAppWhenRun`）。頼みは
     `QuickActionInbox` に置き、ホームが出たら `HomeModel.performPendingQuickAction` が行う（読み取りの間・ほかの画面・ロック中は待つ）。
-    署名の無いビルドではショートカットから実行できないので、シミュレータでは ad hoc 署名で確かめる。ウィジェットは未決（§13））。
+    署名の無いビルドではショートカットから実行できないので、シミュレータでは ad hoc 署名で確かめる。操作の題名と説明に「Apple」の語を
+    書かない（「Apple Pay」も。App Store Connect が ITMS-90626 でアップロードを弾く。`AppIntentMetadataTests`）。ウィジェットは未決（§13））。
     Apple Pay の支払いの自動記録（ショートカットの「取引」のオートメーションで `RecordPaymentIntent`（アプリを開かない）が金額と店名を受け取り、
     `PaymentInbox`（Application Support/PaymentInbox、保護は `completeUntilFirstUserAuthentication`。記録の保存先の Complete の唯一の例外。
     `docs/design.md` §5-4）に置く。ホームが出たとき・前面に戻ったとき・受け取ったときに `HomeModel.importCapturedPayments` が記録にし、
