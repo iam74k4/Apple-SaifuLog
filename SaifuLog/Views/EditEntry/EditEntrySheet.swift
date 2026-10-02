@@ -34,10 +34,16 @@ struct EditEntrySheet: View {
                     model.failure?.title ?? Text(verbatim: ""),
                     isPresented: showsFailure,
                     presenting: model.failure
-                ) { _ in
-                    Button("OK", role: .cancel) {}
-                } message: { _ in
-                    Text("保存に失敗しました。もう一度お試しください。")
+                ) { failure in
+                    Button("OK", role: .cancel) {
+                        // 消えた記録は直せないので、知らせたら閉じる。
+                        if failure == .deletedElsewhere { dismiss() }
+                    }
+                } message: { failure in
+                    switch failure {
+                    case .deletedElsewhere: Text("ほかの端末で削除されたため、直した内容は保存していません。")
+                    case .save, .delete: Text("保存に失敗しました。もう一度お試しください。")
+                    }
                 }
                 .confirmationDialog(
                     "この記録を削除しますか？",
@@ -401,6 +407,7 @@ private extension EditEntryModel.Failure {
         switch self {
         case .save: Text("直した内容を保存できませんでした")
         case .delete: Text("削除できませんでした")
+        case .deletedElsewhere: Text("この記録はもうありません")
         }
     }
 }

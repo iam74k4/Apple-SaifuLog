@@ -109,6 +109,17 @@ struct HomeModelTests {
             try context.fetch(FetchDescriptor<Entry>(sortBy: [SortDescriptor(\.createdAt)]))
         }
 
+        /// ほかの端末（iCloud）で消されたことにする。同じ保存先の別の ModelContext で消して保存する（ホームの ModelContext が
+        /// 読み込んだ記録は残ったまま。iCloud で届いた削除と同じく、ホームの外で消える）。
+        func deleteElsewhere(_ ids: PersistentIdentifier...) throws {
+            let other = ModelContext(context.container)
+            for id in ids {
+                let entries = try other.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.persistentModelID == id }))
+                entries.forEach(other.delete)
+            }
+            try other.save()
+        }
+
         /// 入力欄に文を入れて送り、読み取りと保存が終わるまで待つ。
         func send(_ text: String) async {
             model.draft = text
@@ -525,6 +536,97 @@ struct HomeModelTests {
         #expect(!fixture.context.hasChanges)
         #expect(fixture.model.storeFailure == .delete)
         #expect(fixture.model.canUndo)
+    }
+
+    // MARK: - ほかの端末で消された記録
+
+    /// ほかの端末で消された記録は、「取り消す」と入力欄の VoiceOver の「直す: …」の対象から外す（消えた記録を指し続けないように）。
+    @Test func forgetsRecordsDeletedOnAnotherDevice() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+        let id = try #require(fixture.model.justRecordedIDs.first)
+        #expect(fixture.model.recordedItems.map(\.summaryText) == ["ランチ ¥850"])
+
+        try fixture.deleteElsewhere(id)
+        fixture.model.forgetRecordsDeletedElsewhere()
+
+        #expect(!fixture.model.canUndo)
+        #expect(fixture.model.justRecordedIDs.isEmpty)
+        #expect(fixture.model.recordedItems.isEmpty)
+    }
+
+    /// 複数件のうち一部だけが消されたら、残りの「取り消す」は残す。
+    @Test func keepsUndoForRecordsThatStillExist() async throws {
+        let fixture = try Fixture()
+        await fixture.send("スーパー2480、ドラッグ1200")
+        let ids = fixture.model.justRecordedIDs
+        try #require(ids.count == 2)
+
+        try fixture.deleteElsewhere(ids[0])
+        fixture.model.forgetRecordsDeletedElsewhere()
+
+        #expect(fixture.model.justRecordedIDs == [ids[1]])
+        #expect(fixture.model.canUndo)
+    }
+
+    /// 消されたことを知る前に「取り消す」を押しても、消えた記録の値を読まずに、残っているものだけを取り消す。
+    @Test func undoSkipsRecordsDeletedElsewhere() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+        let id = try #require(fixture.model.justRecordedIDs.first)
+        try fixture.deleteElsewhere(id)
+
+        fixture.model.undoLastRecord()
+
+        #expect(fixture.model.storeFailure == nil)
+        #expect(!fixture.model.canUndo)
+        #expect(try fixture.entries().isEmpty)
+        // 取り消したものは無いので、「取り消しました」とは言わない。
+        #expect(!fixture.announcements.contains { $0.hasPrefix("取り消しました") })
+    }
+
+    /// 削除の確認の間にほかの端末で消されたら、消えたものとして扱う（失敗にしない）。
+    @Test func deleteConfirmationForRecordDeletedElsewhere() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+        let entry = try #require(try fixture.entries().first)
+        fixture.model.requestDelete(entry)
+        let pending = try #require(fixture.model.pendingDeletion)
+        try fixture.deleteElsewhere(pending.id)
+
+        fixture.model.delete(pending)
+
+        #expect(fixture.model.storeFailure == nil)
+        #expect(!fixture.model.canUndo)
+        #expect(fixture.announcements.last == "削除しました: ランチ ¥850")
+    }
+
+    /// 直すシートを開いている間にほかの端末で消されたら、保存せずに知らせ、「取り消す」の対象からも外す。
+    @Test func editOfRecordDeletedElsewhereIsNotSaved() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+        let entry = try #require(try fixture.entries().first)
+        fixture.model.presentEdit(entry, calendar: TestSupport.calendar)
+        let editing = try #require(fixture.model.editing)
+        editing.amountText = "900"
+        try fixture.deleteElsewhere(entry.persistentModelID)
+
+        #expect(!editing.save())
+
+        #expect(editing.failure == .deletedElsewhere)
+        #expect(try fixture.entries().isEmpty)
+        #expect(!fixture.model.canUndo)
+    }
+
+    /// 消されていない記録は、確かめても外さない。
+    @Test func keepsRecordsThatStillExist() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+
+        fixture.model.forgetRecordsDeletedElsewhere()
+
+        #expect(fixture.model.canUndo)
+        #expect(fixture.model.recordedItems.count == 1)
     }
 
     // MARK: - 直す

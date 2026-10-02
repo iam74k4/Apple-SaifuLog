@@ -191,6 +191,11 @@ final class EditEntryModel: Identifiable {
         guard let edits, edits != original else { return false }
         do {
             try target.update(edits)
+        } catch is EntryDeletedElsewhere {
+            // ほかの端末で消されていた。ホームの「取り消す」や聞き返しの対象からも外す（消えた記録を指し続けないように）。
+            failure = .deletedElsewhere
+            target.didDelete()
+            return false
         } catch {
             failure = .save
             return false
@@ -273,5 +278,7 @@ final class EditEntryModel: Identifiable {
     enum Failure: Equatable {
         case save
         case delete
+        /// ほかの端末で消されていた（もう一度押しても保存できないので、知らせたらシートを閉じる）。
+        case deletedElsewhere
     }
 }

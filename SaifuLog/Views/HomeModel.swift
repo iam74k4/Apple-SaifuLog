@@ -50,7 +50,14 @@ final class HomeModel {
     private(set) var isParsing = false
     /// 直前の送信で記録したもの。その送信の返事に「取り消す」を出すため（時間では引っ込めない。次の文を送る・取り消す・
     /// その記録を直す・記録先を切り替えるまで残し、消した記録は外す）。
-    private(set) var justRecorded: [Entry] = []
+    private(set) var justRecorded: [Entry] = [] {
+        didSet { snapshotJustRecorded() }
+    }
+    /// `justRecorded` の ID（同じ並び）。記録した時点で控えておく。ほかの端末（iCloud）で消された記録は、SwiftData が値を空にし、
+    /// 値を読むとアプリが落ちうるので、画面を描くときや、消えたかを確かめるときは記録ではなくこちらを使う。
+    private(set) var justRecordedIDs: [PersistentIdentifier] = []
+    /// 入力欄の VoiceOver の「直す: …」の対象（`justRecorded` の要約。記録した時点で作っておく。理由は `justRecordedIDs` と同じ）。
+    private var justRecordedItems: [RecordedItem] = []
     /// 直前に家計へ記録したもの（「家族」のとき）。記録の直後に「取り消す」を出すため。
     private(set) var justRecordedHousehold: [HouseholdEntry] = []
     /// 記録先（「自分」か「家族」か）。家計に入っているときだけ「家族」を選べる（`showsLedgerSwitch`）。
@@ -267,9 +274,16 @@ final class HomeModel {
         if isHouseholdActive {
             justRecordedHousehold.map { RecordedItem(id: AnyHashable($0.id), summaryText: $0.summaryText) }
         } else {
-            justRecorded.map {
-                RecordedItem(id: AnyHashable($0.persistentModelID), summaryText: $0.summaryText(in: categories.catalog))
-            }
+            justRecordedItems
+        }
+    }
+
+    /// `justRecorded` の ID と要約を控える（記録を入れ替えたとき・カテゴリを選んだとき）。消えた記録を外した後に呼ぶので、
+    /// ここで読む記録はどれもまだ保存先にある。
+    private func snapshotJustRecorded() {
+        justRecordedIDs = justRecorded.map(\.persistentModelID)
+        justRecordedItems = justRecorded.map {
+            RecordedItem(id: AnyHashable($0.persistentModelID), summaryText: $0.summaryText(in: categories.catalog))
         }
     }
 
@@ -802,6 +816,8 @@ final class HomeModel {
             undoLastHouseholdRecord()
             return
         }
+        // ほかの端末で消されたものは先に外す（消えた記録の値を読まないように）。
+        forgetRecordsDeletedElsewhere()
         let targets = justRecorded
         guard !targets.isEmpty else { return }
         // 消した記録の値は、保存した後には読めない。読み上げと入力欄に戻す文は先に取っておく。
@@ -851,13 +867,20 @@ final class HomeModel {
 
     /// 削除の確認を出す。確認の文は先に作っておく（消した後の記録の値は読めないため）。
     func requestDelete(_ entry: Entry) {
-        pendingDeletion = PendingDeletion(entry: entry, summary: entry.summaryText(in: categories.catalog))
+        pendingDeletion = PendingDeletion(
+            entry: entry, id: entry.persistentModelID, summary: entry.summaryText(in: categories.catalog)
+        )
     }
 
-    /// 確認のあとで記録を削除する。
+    /// 確認のあとで記録を削除する。確認の間にほかの端末で消されていたら、消えたものとして扱う（記録の値には触れない）。
     func delete(_ pending: PendingDeletion) {
         pendingDeletion = nil
-        let id = pending.entry.persistentModelID
+        let id = pending.id
+        guard store.exists(id) else {
+            forgetJustRecorded(id)
+            announce(String(localized: "削除しました: \(pending.summary)"))
+            return
+        }
         do {
             try store.delete([pending.entry])
         } catch {
@@ -912,8 +935,13 @@ final class HomeModel {
             guard let entry = justRecordedHousehold.first(where: { AnyHashable($0.id) == item.id }) else { return }
             presentHouseholdEdit(entry, calendar: calendar)
         } else {
-            guard let entry = justRecorded.first(where: { AnyHashable($0.persistentModelID) == item.id }) else { return }
-            presentEdit(entry, calendar: calendar)
+            guard let index = justRecordedIDs.firstIndex(where: { AnyHashable($0) == item.id }) else { return }
+            // ほかの端末で消されていたら開かない（シートは開いた時点の記録の値を読むため）。操作の一覧からも外す。
+            guard store.exists(justRecordedIDs[index]) else {
+                forgetRecordsDeletedElsewhere()
+                return
+            }
+            presentEdit(justRecorded[index], calendar: calendar)
         }
     }
 
@@ -942,7 +970,7 @@ final class HomeModel {
     /// 記録し直すことになる）。直した後も消したければ、長押しの「削除」か、直すシートの「この記録を削除」から消せる。
     private func finishEditing(_ entry: Entry) {
         let id = entry.persistentModelID
-        if justRecorded.contains(where: { $0.persistentModelID == id }) {
+        if justRecordedIDs.contains(id) {
             justRecorded = []
         }
         // 直すでカテゴリを選んだ（直すで変えたカテゴリは、そこで覚える）ので、返事で聞き返すのをやめる。
@@ -953,9 +981,35 @@ final class HomeModel {
 
     /// 消した記録を、「取り消す」と聞き返しの対象から外す（消えた記録を取り消したり、選んだりしないように）。
     private func forgetJustRecorded(_ id: PersistentIdentifier) {
-        justRecorded.removeAll { $0.persistentModelID == id }
-        categoryQuestionIDs.remove(id)
-        forgetPaymentOverlaps(involving: id)
+        forgetJustRecorded([id])
+    }
+
+    /// 消えた記録をまとめて外す。控えた ID で見分け、消えた記録の値には触れない（1 件ずつ外すと、外すたびに残りの要約を
+    /// 作り直し、まだ外していない消えた記録の値を読むことになるため）。
+    private func forgetJustRecorded(_ ids: Set<PersistentIdentifier>) {
+        guard !ids.isEmpty else { return }
+        let kept = zip(justRecorded, justRecordedIDs).filter { !ids.contains($0.1) }.map(\.0)
+        if kept.count != justRecorded.count { justRecorded = kept }
+        categoryQuestionIDs.subtract(ids)
+        paymentOverlaps = paymentOverlaps.filter { !ids.contains($0.key) && !ids.contains($0.value.paymentID) }
+    }
+
+    /// ほかの端末（iCloud）で消された記録を、「取り消す」・聞き返し・削除の確認の対象から外す（`StoreChanges.remote` のたび。
+    /// 取り消す・直すの前にも）。
+    ///
+    /// 消えた記録を持ち続けると、取り消す・直すときに消えた記録の値を読み、アプリが落ちうる（SwiftData は、届いた削除で
+    /// 読み込み済みの記録の値を空にする。Apple の開発者フォーラム thread 762022）。ID だけで確かめる（`EntryStore.exists`）。
+    func forgetRecordsDeletedElsewhere() {
+        var ids = Set(justRecordedIDs).union(categoryQuestionIDs)
+        for (anchor, question) in paymentOverlaps {
+            ids.insert(anchor)
+            ids.insert(question.paymentID)
+        }
+        if let pendingDeletion { ids.insert(pendingDeletion.id) }
+        let gone = ids.filter { !store.exists($0) }
+        guard !gone.isEmpty else { return }
+        forgetJustRecorded(gone)
+        if let pendingDeletion, gone.contains(pendingDeletion.id) { self.pendingDeletion = nil }
     }
 
     /// その記録が聞き返しを出している、または消す候補の支払いである重なりの聞き返しをやめる。
@@ -987,6 +1041,8 @@ final class HomeModel {
         let item = CategoryMemory.item(ofMemo: entry.memo, amount: entry.amount, isIncome: entry.isIncome)
         let remembered = (try? learnedCategories.remember(item: item, category: category)) ?? false
         categoryQuestionIDs.remove(id)
+        // 入力欄の VoiceOver の「直す: …」の文を、選んだカテゴリで作り直す。
+        snapshotJustRecorded()
         let name = categories.catalog.localizedName(for: category)
         announce(
             remembered
@@ -1239,7 +1295,7 @@ final class HomeModel {
             return
         }
         let summary = payment.summaryText(in: categories.catalog)
-        let wasJustRecorded = justRecorded.contains { $0.persistentModelID == paymentID }
+        let wasJustRecorded = justRecordedIDs.contains(paymentID)
         do {
             try store.delete([payment])
         } catch {
@@ -1294,7 +1350,7 @@ final class HomeModel {
     /// iCloud でほかの端末の変更が届いたときと、くり返しの記録を記録する前に呼ぶ。
     func removeDuplicateRecurringEntries() {
         guard let removed = try? recurring.removeDuplicateOccurrences() else { return }
-        removed.forEach(forgetJustRecorded)
+        forgetJustRecorded(Set(removed))
     }
 
     /// 返事の行の長押しの「毎月くり返す」。その記録の金額・品目・カテゴリ・使った日を入れて、くり返しの記録を作るシートを出す。
@@ -1494,6 +1550,8 @@ final class HomeModel {
     /// 削除の確認を待っている記録。確認の文は先に作っておく（消した後の記録の値は読めないため）。
     struct PendingDeletion {
         let entry: Entry
+        /// 確認を出した時点で控えた ID（確認の間にほかの端末で消されたかを、記録の値に触れずに確かめるため）。
+        let id: PersistentIdentifier
         let summary: String
     }
 
