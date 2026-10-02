@@ -10,4 +10,4 @@
 # ハッシュで固定するのは、Admin 権限の App Store Connect の鍵を持つジョブで、PyPI の
 # その日の最新をそのまま実行しないため。版上げは Dependabot（.github/dependabot.yml）が
 # requirements.txt ごと PR にする。
-pyjwt[crypto]>=2.8,<3
+pyjwt[crypto]>=2.15.1,<3
