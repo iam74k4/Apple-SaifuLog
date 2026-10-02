@@ -477,6 +477,18 @@ struct ScreenshotDemoTests {
         #expect(otherHome.weeklyRecap == nil)
     }
 
+    /// デモの時計は、作ってからの経過だけ進む。起動の日時に過去の日時（テストの決まった日時）を渡しても、実際の時間の
+    /// 経過で週や月の境目を越えない（越えると、ふりかえりのカードが出るかどうかが、テストを動かした日によって変わる）。
+    @Test func demoClockAdvancesOnlyFromCreation() throws {
+        let demo = try Self.makeDemo(.home, on: TestSupport.date(2020, 1, 1, hour: 12))
+        defer { Self.removeDefaults(of: demo) }
+
+        let elapsed = demo.makeClock()().timeIntervalSince(demo.now)
+
+        #expect(elapsed >= 0)
+        #expect(elapsed < 60)
+    }
+
     @Test("ふりかえりの一言の代わりは、数字を書かず、数字の文との照合を通る")
     func recapRemarksPassCheck() {
         let weekly = "期間: 先週の1週間（2026年9月20日から2026年9月26日まで）\n支出の合計: ¥21,390（支出の記録 17件）\n支出の多いカテゴリ: 光熱・通信 ¥9,800（46%）、食費 ¥8,000（37%）"
