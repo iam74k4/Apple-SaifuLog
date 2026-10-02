@@ -14,7 +14,7 @@ App Store Connect の「App Review に関する情報」の「メモ」と、課
 ## アプリの審査メモ
 
 App Store Connect → アプリ → バージョン → 「App Review に関する情報」→ メモ。「サインインが必要」はオフにする。
-メモの上限は 4,000 文字（英語の文はいま 3,976 文字）。書き足すときは、ほかの行を詰めて収める。
+メモの上限は 4,000 文字（英語の文はいま 3,994 文字）。書き足すときは、ほかの行を詰めて収める。
 
 ### 英語（入れる文）
 
@@ -26,7 +26,7 @@ HOW TO TRY IT
 - Ask a question in the same field, for example "今月カフェいくら?" (how much on cafes this month?). The answer is calculated by the app from the records.
 - Receipts: tap the camera button on the left of the field, then "Take Photo" or "Choose from Photos". Any photo or screenshot of a receipt works.
 - Voice: tap the microphone button on the right of the field and speak Japanese. The transcription is placed in the field; nothing is sent until the user taps Send.
-- The gear at the top right opens Settings (Premium, Restore Purchases, monthly budget, categories, learned categories, recurring entries, Apple Pay payments, week start, Sync with iCloud, Face ID lock, CSV export). Tapping the numbers at the top of the home screen opens the Monthly Summary.
+- The gear at the top right opens Settings (SaifuLog Premium, Restore Purchases, monthly budget, categories, learned categories, recurring entries, Apple Pay payments, week start, Sync with iCloud, Face ID lock, CSV export). Tapping the numbers at the top of the home screen opens the Monthly Summary.
 - Siri and Shortcuts: the app provides App Shortcuts such as "Record in SaifuLog" and "Ask SaifuLog"; each opens the app. The "Record Payment" action is for a Shortcuts Transaction automation (paying with Apple Pay). It runs without opening the app, keeps the amount and merchant on the device, and records them the next time the app is opened. To try it without paying, run "Record Payment" from a shortcut with any yen amount and a merchant, then open the app.
 - "Last Week in Review" appears on the home timeline only the first time the app is opened in a new week, when there are records from before that week, so it may not appear during a short review.
 
@@ -55,7 +55,7 @@ Premium is a one-time non-consumable purchase (not a subscription) and supports 
 - 同じ入力欄で質問できます。例: 「今月カフェいくら?」。答えの数字はアプリが記録から計算します。
 - レシート: 入力欄の左のカメラのボタン →「撮る」か「写真から選ぶ」。レシートの写真やスクリーンショットなら、どれでも試せます。
 - 声: 入力欄の右のマイクのボタンを押して日本語で話します。書き起こしは入力欄に入るだけで、送信を押すまで何も送りません。
-- 右上の歯車で設定（プレミアム・購入の復元・月の予算・カテゴリ・覚えたカテゴリ・くり返しの記録・Apple Pay の支払い・週の始まり・iCloud で同期・Face ID でロック・CSV 書き出し）。ホーム画面の上の数字を押すと月のまとめが開きます。
+- 右上の歯車で設定（サイフログ プレミアム・購入の復元・月の予算・カテゴリ・覚えたカテゴリ・くり返しの記録・Apple Pay の支払い・週の始まり・iCloud で同期・Face ID でロック・CSV 書き出し）。ホーム画面の上の数字を押すと月のまとめが開きます。
 - Siri・ショートカット: 「サイフログで記録」「サイフログに質問」などの App Shortcuts があり、どれもアプリを開きます。「支払いを記録」の操作は、ショートカットの「取引」のオートメーション（Apple Pay で払ったとき）のためのものです。アプリを開かずに動き、金額と店名を端末の中に置いて、次にアプリを開いたときに記録します。払わずに試すには、「ショートカット」App でショートカットに「支払いを記録」を足し、円の金額と店名を入れて実行してから、アプリを開いてください。
 - 「先週のふりかえり」は、週が替わって最初に開いたときに、その週より前の記録があるときだけタイムラインに出るので、短い審査の間には出ないことがあります。
 

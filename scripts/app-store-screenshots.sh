@@ -34,7 +34,7 @@ APP="build/DerivedData/Build/Products/Debug-iphonesimulator/SaifuLog.app"
 # 出す前のホームが写った（2026-10-02）。余裕を見て 12 秒にする。
 WAIT_SECONDS="${SCREENSHOT_WAIT_SECONDS:-12}"
 read -r -a LANGUAGES <<< "${SCREENSHOT_LANGUAGES:-ja en}"
-# 撮る順（ファイル名の番号の順）。App Store に並べる順の案でもある。premium（プレミアムのシートの価格と購入のボタン）と
+# 撮る順（ファイル名の番号の順）。App Store に並べる順の案でもある。premium（プレミアムのシートのプレミアムでできることと、下の帯の体験と購入のボタン）と
 # trial（同じシートの 14 日間の無料体験）は課金アイテムの審査用で、ストアには載せない（ガイドライン 2.3.7。ストアの
 # スクリーンショットに価格を入れない）。
 read -r -a SCREENS <<< "${SCREENSHOT_SCREENS:-home ask receipt voice report recap premium trial}"
