@@ -113,6 +113,40 @@ enum KeywordMatcher {
         return katakana.lowercased()
     }
 
+    /// `haystack`（`fold` した文）の中で、`needle`（`fold` した語）が最初に出てくる範囲。無ければ nil。
+    ///
+    /// 英字の語（"bus"・"wi-fi" のように ASCII だけで書いた語）は、前後が英字でないところだけを数える（"business" の中の
+    /// "bus"、"steak" の中の "tea"、"iphone" の中の "phone" に当てない）。英語は語の中に別の短い語がよく入っているので、
+    /// 文字の並びだけで当てると、黙って違うカテゴリになるため。語の後ろの "s"・"es"（複数形）は語の一部とみなす（"snacks"・
+    /// "sandwiches"）。前後が数字や日本語の文字なら区切りとみなす（"dinner500"・"Suicaチャージ"）。
+    /// 日本語の語は、文字の並びで当てる（空白で語を区切らないため）。
+    static func firstRange(of needle: String, in haystack: String) -> Range<String.Index>? {
+        guard !needle.isEmpty, needle.allSatisfy(\.isASCII), needle.contains(where: \.isASCIILetter) else {
+            return haystack.range(of: needle)
+        }
+        var searchStart = haystack.startIndex
+        while searchStart < haystack.endIndex,
+              let range = haystack.range(of: needle, range: searchStart..<haystack.endIndex) {
+            let startsWord = range.lowerBound == haystack.startIndex
+                || !haystack[haystack.index(before: range.lowerBound)].isASCIILetter
+            if startsWord, endsWord(at: range.upperBound, in: haystack) {
+                return range
+            }
+            searchStart = haystack.index(after: range.lowerBound)
+        }
+        return nil
+    }
+
+    /// `index` で英字の語が終わるか（英字が続かないか）。複数形の "s"・"es" が続いても、その後ろで終われば終わりとみなす。
+    private static func endsWord(at index: String.Index, in text: String) -> Bool {
+        let rest = text[index...]
+        return ["", "s", "es"].contains { suffix in
+            guard rest.hasPrefix(suffix) else { return false }
+            let end = rest.index(rest.startIndex, offsetBy: suffix.count)
+            return end == rest.endIndex || !rest[end].isASCIILetter
+        }
+    }
+
     /// `text` に `keywords` のどれかが含まれるか。
     ///
     /// `excluding` に当たる部分は先に取り除いてから見る。「給料日」の中の「給料」のように、

@@ -95,6 +95,11 @@ public enum EntryCategory: Hashable, Sendable, Identifiable {
     ///
     /// 1 文字の語は他の語の一部に当たりやすい（「本」は「日本」「2本」にも当たる）ため、
     /// 誤爆しにくいものだけにしている。
+    ///
+    /// 英語の品目（「dinner 500」「coffee 450」）も、よく書くものを小文字で並べる（大文字・全角で書いても当たる）。英字の語は
+    /// 前後が英字でないところだけで当て、複数形（"s"・"es"）も同じ語とみなす（`KeywordMatcher.firstRange`）。「drink」「ticket」の
+    /// ように、日本語ではカテゴリの決まる語（飲み会・チケット）でも、英語では意味の広い語は入れない（"train ticket" を娯楽に
+    /// するような取り違えを避けるため）。
     public var keywords: [String] {
         switch self {
         case .custom:
@@ -106,42 +111,68 @@ public enum EntryCategory: Hashable, Sendable, Identifiable {
                 "惣菜", "焼肉", "寿司", "ラーメン", "うどん", "そば", "カレー", "牛丼", "ピザ", "パン",
                 "おにぎり", "居酒屋", "飲み会", "マック", "マクドナルド", "ガスト", "出前", "デリバリー", "お菓子",
                 "野菜", "肉", "魚", "卵", "米", "牛乳",
+                "food", "meal", "breakfast", "brunch", "lunch", "dinner", "supper", "snack", "groceries", "grocery",
+                "supermarket", "konbini", "takeout", "take-out", "restaurant", "bento", "onigiri", "sushi", "ramen", "udon",
+                "soba", "curry", "yakiniku", "izakaya", "pizza", "burger", "hamburger", "sandwich", "salad", "bread",
+                "bakery", "rice", "meat", "fish", "egg", "milk", "fruit", "vegetable", "veggies", "candy", "chocolate",
+                "sweet", "mcdonald", "kfc", "uber eats", "ubereats",
             ]
         case .daily:
             [
                 "日用品", "ドラッグストア", "ドラッグ", "洗剤", "ティッシュ", "トイレットペーパー", "シャンプー",
                 "歯ブラシ", "歯磨き", "ゴミ袋", "電池", "消耗品", "雑貨", "文房具", "化粧品", "100均", "百均",
                 "ダイソー", "無印", "バスタオル",
+                "toiletries", "detergent", "tissue", "toilet paper", "shampoo", "conditioner", "soap", "toothbrush",
+                "toothpaste", "trash bag", "garbage bag", "battery", "batteries", "stationery", "cosmetics", "makeup",
+                "drugstore", "drug store", "daiso", "muji", "towel", "diaper", "razor",
             ]
         case .transport:
             [
                 "交通", "電車", "地下鉄", "バス", "タクシー", "新幹線", "飛行機", "運賃", "切符", "定期",
                 "suica", "pasmo", "icoca", "ガソリン", "駐車場", "駐車", "高速", "レンタカー",
+                // 「mobile suica」は光熱・通信の "mobile phone" などと同じく、長い語で受け止める（チャージは交通）。
+                "mobile suica", "train", "subway", "metro", "bus", "taxi", "cab", "uber", "shinkansen", "bullet train",
+                "flight", "airfare", "airplane", "plane", "fare", "commute", "commuter pass", "gasoline", "petrol", "fuel",
+                "gas station", "parking", "toll", "highway", "expressway", "rental car", "car rental", "ferry", "transit",
+                "transport", "transportation",
             ]
         case .cafe:
             [
                 "カフェ", "コーヒー", "珈琲", "喫茶", "ラテ", "紅茶", "スタバ", "スターバックス", "ドトール",
                 "タリーズ", "コメダ", "フラペチーノ", "ケーキ",
+                "cafe", "café", "coffee", "latte", "cappuccino", "espresso", "macchiato", "mocha", "frappuccino", "tea",
+                "starbucks", "doutor", "tully", "komeda", "cake",
             ]
         case .entertainment:
             [
                 "娯楽", "映画", "ゲーム", "カラオケ", "ライブ", "コンサート", "チケット", "漫画", "マンガ",
                 "書籍", "本屋", "雑誌", "旅行", "美術館", "博物館", "遊園地", "ボウリング", "趣味",
+                "entertainment", "movie", "cinema", "theater", "theatre", "game", "karaoke", "concert", "manga", "comic",
+                "book", "magazine", "travel", "museum", "amusement park", "theme park", "zoo", "aquarium", "bowling",
+                "hobby", "hobbies", "netflix", "spotify", "disney",
             ]
         case .utilities:
             [
                 "光熱", "電気", "ガス", "水道", "通信", "携帯", "スマホ", "電話", "インターネット",
                 "ネット代", "光回線", "wifi", "wi-fi", "プロバイダ",
+                "utilities", "utility", "electricity", "electric bill", "power bill", "gas", "gas bill", "water bill",
+                "phone", "phone bill", "mobile bill", "mobile phone", "cellphone", "smartphone", "internet", "broadband",
             ]
         case .medical:
             [
                 "医療", "病院", "クリニック", "診察", "通院", "歯医者", "歯科", "眼科", "皮膚科", "内科",
                 "薬局", "処方", "目薬", "薬",
+                "medical", "hospital", "clinic", "doctor", "dentist", "dental", "medicine", "medication", "pharmacy",
+                "prescription", "eye drops", "eyedrops", "checkup", "check-up",
             ]
         case .other:
             // ほかのカテゴリの短い語に誤って当たる語（「パンツ」の「パン」、「ガスト」の「ガス」など）を
-            // 長い語で受け止めるために置く。ここに当たったときは「その他」になる。
-            ["洋服", "パンツ", "美容院", "美容室", "散髪", "プレゼント", "ご祝儀"]
+            // 長い語で受け止めるために置く。ここに当たったときは「その他」になる。英語の語は、その他と読んだ理由があることを
+            // 示すために置く（当たらない品目と違い、返事でカテゴリを聞き返さない。`CategoryMemory.asksCategory`）。
+            [
+                "洋服", "パンツ", "美容院", "美容室", "散髪", "プレゼント", "ご祝儀",
+                "clothes", "haircut", "hair salon", "gift", "present",
+            ]
         }
     }
 
@@ -175,7 +206,7 @@ public enum EntryCategory: Hashable, Sendable, Identifiable {
         for category in builtIns {
             for keyword in category.keywords + (includingDisplayNames ? [category.displayName] : []) {
                 let needle = KeywordMatcher.fold(keyword)
-                guard let range = haystack.range(of: needle) else { continue }
+                guard let range = KeywordMatcher.firstRange(of: needle, in: haystack) else { continue }
                 let length = needle.count
                 let position = haystack.distance(from: haystack.startIndex, to: range.lowerBound)
                 if let current = best,

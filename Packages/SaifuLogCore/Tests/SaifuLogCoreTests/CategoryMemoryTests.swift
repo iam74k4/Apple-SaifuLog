@@ -169,6 +169,9 @@ struct CategoryMemoryTests {
         // 辞書の「その他」の語とカテゴリの名前は、その他と読んだ理由があるので聞き返さない。
         #expect(!memory.asksCategory(memo: "洋服", amount: 4_000, category: .other, isIncome: false))
         #expect(!memory.asksCategory(memo: "その他", amount: 500, category: .other, isIncome: false))
+        // 英語の品目も同じ。辞書の「その他」の語（"clothes"）は聞き返さず、どこにも当たらない語は聞き返す。
+        #expect(!memory.asksCategory(memo: "clothes", amount: 4_000, category: .other, isIncome: false))
+        #expect(memory.asksCategory(memo: "widget", amount: 4_000, category: .other, isIncome: false))
     }
 
     // MARK: - 重なった行
