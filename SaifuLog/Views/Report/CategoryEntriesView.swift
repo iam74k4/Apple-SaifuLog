@@ -61,6 +61,8 @@ struct CategoryEntriesView<Model: CategoryEntriesSource>: View {
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        // 上へ流れた合計や記録が、題と戻るボタンの後ろで透けて重ならないよう、上ははっきりした効果にする（月のまとめと同じ）。
+        .scrollEdgeEffectStyle(.hard, for: .top)
         .background(Theme.background)
         .navigationTitle(catalog.label(for: category))
         .navigationBarTitleDisplayMode(.inline)

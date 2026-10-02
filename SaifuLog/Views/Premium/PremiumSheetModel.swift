@@ -38,8 +38,8 @@ final class PremiumSheetModel: Identifiable {
     /// App Store の価格の表示（「¥1,800」）。読めていなければ nil（`PurchaseManager.displayPrice(for:)`）。
     var premiumPrice: String? { purchases.displayPrice(for: .premium) }
 
-    /// 体験の案内とボタンを出すか（まだ体験していない無料のときだけ）。
-    var showsTrial: Bool { status.canStartTrial }
+    /// 体験の案内とボタンを出すか（まだ体験していない無料のときで、体験の商品を売り場に出せるとき。`PurchaseManager.offersTrial`）。
+    var showsTrial: Bool { purchases.offersTrial }
 
     /// 体験を始められるか。
     var canStartTrial: Bool { showsTrial && purchases.isOffered(.trial14) && !isBusy }

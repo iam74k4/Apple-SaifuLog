@@ -112,7 +112,7 @@ struct AppLockView: View {
         let size = min(markSize, 88)
         VStack(spacing: 24) {
             Spacer()
-            // 山吹は塗りにだけ使い、上の記号は墨にする（Theme の説明。ようこその印と同じ）。
+            // 主の塗りに onAccent の記号（Theme の説明。ようこその印と同じ）。
             Image(systemName: "wallet.bifold.fill")
                 .font(.system(size: size * 0.45, weight: .semibold))
                 .foregroundStyle(Theme.onAccent)

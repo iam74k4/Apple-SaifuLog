@@ -135,13 +135,13 @@ struct StoreUnavailableView: View {
             Button(action: retry) {
                 Text("もう一度試す")
                     .fontWeight(.semibold)
-                    // 山吹の塗りの上の文字は墨にする（Theme の説明。白では読めない）。
+                    // 主の塗りの上の文字は onAccent にする（ライトは白、ダークは墨。Theme の説明）。
                     .foregroundStyle(Theme.onAccent)
                     .padding(.horizontal, 8)
                     .frame(minHeight: 44)
             }
             .buttonStyle(.glassProminent)
-            // 主ボタンの塗りは山吹（送信ボタンと同じ）。
+            // 主ボタンの塗りは主の塗り（送信ボタンと同じ）。
             .tint(Theme.accentFill)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -27,7 +27,7 @@ struct RecurringListView: View {
                             } label: {
                                 Label("やめる", systemImage: "trash")
                             }
-                            .tint(Theme.danger)
+                            .tint(Theme.dangerFill)
                         }
                         .accessibilityAction(named: "やめる") { model.requestDeletion(row) }
                         .listRowBackground(Theme.surface)

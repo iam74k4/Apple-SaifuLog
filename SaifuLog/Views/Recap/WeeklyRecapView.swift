@@ -27,6 +27,8 @@ struct WeeklyRecapView: View {
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        // 上へ流れた金額が、題と戻るボタンの後ろで透けて重ならないよう、上ははっきりした効果にする（月のまとめと同じ）。
+        .scrollEdgeEffectStyle(.hard, for: .top)
         .background(Theme.background)
         .navigationTitle(Text(RecapTexts.title))
         .navigationBarTitleDisplayMode(.inline)

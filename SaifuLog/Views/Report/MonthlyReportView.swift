@@ -6,13 +6,13 @@ import UIKit
 /// ⑦ 月のまとめ。何にいくら使ったかを一目で分かるようにする月の報告。ホームの帯（今月の合計）から横に進む。
 ///
 /// 上に月送り（前の月・次の月）、その下に AI の一言（プレミアムと体験中で、AI が使える端末だけ）、月の支出・収入・収支・
-/// 1 日あたりの平均・前の月との差、予算の進み（予算を当てはめる月だけ）、カテゴリ別の内訳（横棒グラフと行）を並べる。
+/// 1 日あたりの平均・前の月との差、予算の進み（予算を当てはめる月だけ）、カテゴリ別の内訳（割合の帯と行）を並べる。
 /// カテゴリ別の予算を決めたカテゴリの行には、その予算の進み（プレミアムと体験中で、予算を当てはめる月だけ）を添える。
-/// 行を押すと、その月のそのカテゴリの記録の一覧へ進む。
+/// 無料の人には、その下にカテゴリ別の予算（プレミアム）の案内を 1 枚置く。行を押すと、その月のそのカテゴリの記録の一覧へ進む。
 ///
 /// 状態と操作は `MonthlyReportModel` が持ち、数字の計算はコア（`MonthlyReport`）が受け持つ。ここは表示と、文字の大きさに
-/// 合わせた出し方だけ。アクセシビリティサイズの文字では、グラフを出さずに行（表）だけにする（棒の横に名前と金額を
-/// 収める幅が無く、行の文字と同じ内容なので）。
+/// 合わせた出し方だけ。割合の帯は名前を横に並べないので、アクセシビリティサイズの文字でも出す（行は丸を省いて名前と金額に
+/// 幅を使わせる）。
 struct MonthlyReportView: View {
     @Bindable var model: MonthlyReportModel
 
@@ -43,6 +43,8 @@ struct MonthlyReportView: View {
             screenshotScrollPosition.scrollTo(edge: .bottom)
         }
         #endif
+        // 上へ流れた金額が、題と戻るボタンの後ろで透けて重ならないよう、上ははっきりした効果にする（文の多いシートと同じ）。
+        .scrollEdgeEffectStyle(.hard, for: .top)
         .background(Theme.background)
         .navigationTitle("月のまとめ")
         .navigationBarTitleDisplayMode(.inline)
@@ -50,6 +52,9 @@ struct MonthlyReportView: View {
         .toolbar(.visible, for: .navigationBar)
         .navigationDestination(item: $model.selectedCategory) { category in
             CategoryEntriesView(model: model, category: category)
+        }
+        .sheet(item: $model.premiumSheet) { premium in
+            PremiumSheet(model: premium)
         }
         // 保存先に書き込まれたら読み直す。まとめを開く直前に送った文の読み取り（AI だと 1 秒以上かかる）が、
         // 開いた後に記録されることがあるため。ここから直したり消したりしたときは、モデルが自分で読み直す。
@@ -92,8 +97,59 @@ struct MonthlyReportView: View {
                     budgetedCategoriesWithoutExpense: model.budgetedCategoriesWithoutExpense,
                     select: { model.showEntries(in: $0) }
                 )
+                if model.showsCategoryBudgetUpsell {
+                    CategoryBudgetUpsell(canStartTrial: model.canStartTrial, open: { model.presentPremium() })
+                }
             }
         }
+    }
+}
+
+// MARK: - カテゴリ別の予算の案内
+
+/// 無料の人への、カテゴリ別の予算（プレミアム）の案内。カテゴリ別の支出の下に 1 枚だけ置き、押すとプレミアム（⑨）を開く。
+/// 閉じるボタンは付けない（押さなければ何も起きず、1 枚だけで場所も取らないため）。
+private struct CategoryBudgetUpsell: View {
+    let canStartTrial: Bool
+    let open: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        Button(action: open) {
+            HStack(spacing: 12) {
+                // アクセシビリティサイズの文字では印を省き、文に幅を使わせる（返事の行の印と同じ）。
+                if !dynamicTypeSize.isAccessibilitySize {
+                    PremiumSymbolTile(symbolName: PremiumFeature.categoryBudget.symbolName)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("カテゴリごとに予算を決める")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.ink)
+                    Group {
+                        if canStartTrial {
+                            Text("プレミアムの機能です。14日間 無料で試せます。")
+                        } else {
+                            Text("プレミアムの機能です。")
+                        }
+                    }
+                    .font(.footnote)
+                    .foregroundStyle(Theme.inkSecondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.inkSecondary)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // カードの余白と地もボタンの中に置く（外に置くと、カードの縁の 16pt を押しても開かず、押したときの薄まりも
+            // 文字にだけ付いたため）。
+            .reportCard()
+            .contentShape(.rect(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("プレミアムの画面を開きます")
     }
 }
 
@@ -108,6 +164,8 @@ private struct MonthSwitcher: View {
             Button(action: model.showPreviousMonth) {
                 chevron("chevron.left", isEnabled: model.canShowPreviousMonth)
             }
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
             .disabled(!model.canShowPreviousMonth)
             .accessibilityLabel("前の月")
             Text(verbatim: model.monthTitle)
@@ -120,20 +178,25 @@ private struct MonthSwitcher: View {
             Button(action: model.showNextMonth) {
                 chevron("chevron.right", isEnabled: model.canShowNextMonth)
             }
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
             .disabled(!model.canShowNextMonth)
             .accessibilityLabel("次の月")
         }
     }
 
-    /// 矢印は墨にする（山吹は塗りにだけ使い、文字や記号には使わない）。画面の根元で色を墨に決めていて、押せないときに
+    /// 矢印は墨にする。画面の根元で色を墨に決めていて、押せないときに
     /// システムが薄くしてくれないので、押せないときの薄い色はここで付ける。
+    ///
+    /// ボタンはガラスの丸にする（ナビゲーションバーの戻るボタンと同じ形。ガラスの余白を足して 44pt 四方になる大きさ）。
+    /// 矢印の大きさには上限（AX1）を設ける（丸は 30pt 四方のままなので、それより大きな文字では矢印が丸からはみ出したため。
+    /// ホームの帯の歯車と同じ）。
     private func chevron(_ name: String, isEnabled: Bool) -> some View {
         Image(systemName: name)
-            .font(.title3.weight(.semibold))
+            .font(.body.weight(.semibold))
             .foregroundStyle(isEnabled ? Theme.ink : Theme.inkSecondary.opacity(0.4))
-            // 押せる範囲を 44pt 四方以上にする。
-            .frame(minWidth: 44, minHeight: 44)
-            .contentShape(.rect)
+            .frame(width: 30, height: 30)
+            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
     }
 }
 
@@ -190,7 +253,7 @@ private struct SummaryCard: View {
     }
 }
 
-/// 予算の進み。使った額と予算、使った割合のバー（山吹）、残りか超えた額、今月なら 1 日あたりの額と日割りの目安との比べ
+/// 予算の進み。使った額と予算、使った割合のバー（主の塗り）、残りか超えた額、今月なら 1 日あたりの額と日割りの目安との比べ
 /// （先の日付の記録があれば、比べた今日までの支出も）。
 ///
 /// バーは目安として添えるだけで、VoiceOver では読ませない（数字は行の文字で伝える。ホームの帯と同じ）。
@@ -533,7 +596,7 @@ private struct BreakdownRow: View {
     }
 }
 
-/// カテゴリの行に添える予算の進み。使った割合のバー（山吹。超えたら注意の色で満たす）と、「使った額 / 予算」、残りか超えた額。
+/// カテゴリの行に添える予算の進み。使った割合のバー（主の塗り。超えたら注意の色で満たす）と、「使った額 / 予算」、残りか超えた額。
 ///
 /// 超えたことは、注意の色だけでなくアイコンと「オーバー」の語でも伝える（全体の予算のカードと同じ）。バーと文は VoiceOver では
 /// 読ませず、行の読み上げ（`BudgetStatus.spokenProgress`）で伝える。金額は桁の途中で改行させない。
@@ -748,8 +811,9 @@ struct LoadFailedView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("記録を読み込めませんでした")
                 .font(.title3.bold())
+            // 文字だけのボタンは本文と同じ墨になり、見出しの補足に見えるので、記号を添える（docs/design.md §7）。
             Button(action: retry) {
-                Text("もう一度試す")
+                Label("もう一度試す", systemImage: "arrow.clockwise")
                     .fontWeight(.semibold)
                     .frame(minHeight: 44)
                     .contentShape(.rect)

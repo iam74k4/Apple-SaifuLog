@@ -14,7 +14,7 @@ App Store Connect の「App Review に関する情報」の「メモ」と、課
 ## アプリの審査メモ
 
 App Store Connect → アプリ → バージョン → 「App Review に関する情報」→ メモ。「サインインが必要」はオフにする。
-メモの上限は 4,000 文字（英語の文はいま 3,976 文字）。書き足すときは、ほかの行を詰めて収める。
+メモの上限は 4,000 文字（英語の文はいま 3,994 文字）。書き足すときは、ほかの行を詰めて収める。
 
 ### 英語（入れる文）
 
@@ -26,7 +26,7 @@ HOW TO TRY IT
 - Ask a question in the same field, for example "今月カフェいくら?" (how much on cafes this month?). The answer is calculated by the app from the records.
 - Receipts: tap the camera button on the left of the field, then "Take Photo" or "Choose from Photos". Any photo or screenshot of a receipt works.
 - Voice: tap the microphone button on the right of the field and speak Japanese. The transcription is placed in the field; nothing is sent until the user taps Send.
-- The gear at the top right opens Settings (Premium, Restore Purchases, monthly budget, categories, learned categories, recurring entries, Apple Pay payments, week start, Sync with iCloud, Face ID lock, CSV export). Tapping the numbers at the top of the home screen opens the Monthly Summary.
+- The gear at the top right opens Settings (SaifuLog Premium, Restore Purchases, monthly budget, categories, learned categories, recurring entries, Apple Pay payments, week start, Sync with iCloud, Face ID lock, CSV export). Tapping the numbers at the top of the home screen opens the Monthly Summary.
 - Siri and Shortcuts: the app provides App Shortcuts such as "Record in SaifuLog" and "Ask SaifuLog"; each opens the app. The "Record Payment" action is for a Shortcuts Transaction automation (paying with Apple Pay). It runs without opening the app, keeps the amount and merchant on the device, and records them the next time the app is opened. To try it without paying, run "Record Payment" from a shortcut with any yen amount and a merchant, then open the app.
 - "Last Week in Review" appears on the home timeline only the first time the app is opened in a new week, when there are records from before that week, so it may not appear during a short review.
 
@@ -42,7 +42,7 @@ DATA
 Records are stored on the device. Sync with iCloud is optional and off by default; when turned on, records are stored in the user's own iCloud private database, which the developer cannot read. The app sends no data to the developer and contains no analytics, advertising, or tracking.
 
 PREMIUM (IN-APP PURCHASES)
-Premium is a one-time non-consumable purchase (not a subscription) and supports Family Sharing. Settings > Premium opens the purchase screen, which also has Restore Purchases (also in Settings). The 14-day free trial ("14-day Trial") is a separate non-consumable at price 0, started from the button on the same screen. Details are in the notes for each in-app purchase. In the sandbox, any Sandbox Apple Account can be used; no special setup is needed.
+Premium is a one-time non-consumable purchase (not a subscription) and supports Family Sharing. Settings > SaifuLog Premium opens the purchase screen, which also has Restore Purchases (also in Settings). The 14-day free trial ("14-day Trial") is a separate non-consumable at price 0, started from the button on the same screen. Details are in the notes for each in-app purchase. In the sandbox, any Sandbox Apple Account can be used; no special setup is needed.
 ```
 
 ### 日本語（対訳）
@@ -55,7 +55,7 @@ Premium is a one-time non-consumable purchase (not a subscription) and supports 
 - 同じ入力欄で質問できます。例: 「今月カフェいくら?」。答えの数字はアプリが記録から計算します。
 - レシート: 入力欄の左のカメラのボタン →「撮る」か「写真から選ぶ」。レシートの写真やスクリーンショットなら、どれでも試せます。
 - 声: 入力欄の右のマイクのボタンを押して日本語で話します。書き起こしは入力欄に入るだけで、送信を押すまで何も送りません。
-- 右上の歯車で設定（プレミアム・購入の復元・月の予算・カテゴリ・覚えたカテゴリ・くり返しの記録・Apple Pay の支払い・週の始まり・iCloud で同期・Face ID でロック・CSV 書き出し）。ホーム画面の上の数字を押すと月のまとめが開きます。
+- 右上の歯車で設定（サイフログ プレミアム・購入の復元・月の予算・カテゴリ・覚えたカテゴリ・くり返しの記録・Apple Pay の支払い・週の始まり・iCloud で同期・Face ID でロック・CSV 書き出し）。ホーム画面の上の数字を押すと月のまとめが開きます。
 - Siri・ショートカット: 「サイフログで記録」「サイフログに質問」などの App Shortcuts があり、どれもアプリを開きます。「支払いを記録」の操作は、ショートカットの「取引」のオートメーション（Apple Pay で払ったとき）のためのものです。アプリを開かずに動き、金額と店名を端末の中に置いて、次にアプリを開いたときに記録します。払わずに試すには、「ショートカット」App でショートカットに「支払いを記録」を足し、円の金額と店名を入れて実行してから、アプリを開いてください。
 - 「先週のふりかえり」は、週が替わって最初に開いたときに、その週より前の記録があるときだけタイムラインに出るので、短い審査の間には出ないことがあります。
 
@@ -71,7 +71,7 @@ AI の機能は Apple の端末内の Foundation Models を使い、Apple Intell
 記録は端末に保存します。iCloud で同期は任意で、既定はオフです。オンにすると、利用者自身の iCloud の非公開データベースに保存し、開発者は読めません。アプリは開発者にデータを送らず、解析・広告・トラッキングは入っていません。
 
 プレミアム（App 内課金）
-プレミアムは買い切りの非消耗型（サブスクではありません）で、ファミリー共有に対応します。設定 → プレミアムで購入の画面が開き、同じ画面（と設定）に「購入の復元」があります。14 日間の無料体験（「14-day Trial」）は価格 0 の別の非消耗型で、同じ画面のボタンから始めます。詳しくは課金アイテムごとの審査メモに書きました。Sandbox では、どの Sandbox の Apple アカウントでも試せます（特別な準備は要りません）。
+プレミアムは買い切りの非消耗型（サブスクではありません）で、ファミリー共有に対応します。設定 → サイフログ プレミアムで購入の画面が開き、同じ画面（と設定）に「購入の復元」があります。14 日間の無料体験（「14-day Trial」）は価格 0 の別の非消耗型で、同じ画面のボタンから始めます。詳しくは課金アイテムごとの審査メモに書きました。Sandbox では、どの Sandbox の Apple アカウントでも試せます（特別な準備は要りません）。
 ```
 
 ## 課金アイテムの審査メモ
@@ -104,7 +104,7 @@ App Store Connect の課金アイテムの説明は **55 文字まで**なので
 ```text
 One-time non-consumable purchase, not a subscription. Family Sharing is supported.
 What it unlocks: unlimited receipt scans (free: 5 per month, counted only when a scan is recorded) and unlimited questions about spending (free: 10 per month, asked in the home entry field, e.g. "今月カフェいくら?"); a short on-device AI note in Last Week in Review and the Monthly Summary (only on devices that support Apple Intelligence; the numbers are always calculated by the app); and budgets by category, set in Settings > Monthly Budget, with each category's spending against its budget (spent / budget, and the amount left or over) shown in the Monthly Summary.
-Where to buy: Settings > Premium. Restore Purchases is on the same screen and in Settings.
+Where to buy: Settings > SaifuLog Premium. Restore Purchases is on the same screen and in Settings.
 ```
 
 日本語（対訳）:
@@ -112,7 +112,7 @@ Where to buy: Settings > Premium. Restore Purchases is on the same screen and in
 ```text
 買い切りの非消耗型で、サブスクではありません。ファミリー共有に対応します。
 できるようになること: レシートの読み取りの回数の制限がなくなる（無料は月 5 回で、記録したときだけ数える）、家計への質問の回数の制限がなくなる（無料は月 10 回。ホームの入力欄で「今月カフェいくら?」のように聞く）、先週のふりかえりと月のまとめに端末内の AI の一言が付く（Apple Intelligence に対応した端末のみ。数字はいつもアプリが計算する）、設定 → 月の予算でカテゴリ別の予算を決められ、月のまとめのカテゴリの行に、使った額と予算、残りか超えた額が出る。
-購入: 設定 → プレミアム。同じ画面と設定に「購入の復元」がある。
+購入: 設定 → サイフログ プレミアム。同じ画面と設定に「購入の復元」がある。
 ```
 
 ### 14 日間の体験（`com.iam74k4.SaifuLog.trial14`）
@@ -122,7 +122,7 @@ Where to buy: Settings > Premium. Restore Purchases is on the same screen and in
 ```text
 This is a free time-based trial offered as a Non-Consumable in-app purchase at price 0 named "14-day Trial", as allowed for non-subscription apps by App Review Guideline 3.1.1.
 For 14 days from the purchase date (from the App Store transaction), all Premium features can be used for free. The trial is available once per Apple Account. It is never charged automatically; when it ends, Premium features simply stop working (records and budgets are kept), and the user can buy Premium if they want to continue.
-Before the trial starts, the purchase screen (Settings > Premium) shows the duration, the features that will no longer be available when it ends, and that there is no charge.
+Before the trial starts, the purchase screen (Settings > SaifuLog Premium) shows the duration, the features that will no longer be available when it ends, and that there is no charge.
 ```
 
 日本語（対訳）:
@@ -130,14 +130,14 @@ Before the trial starts, the purchase screen (Settings > Premium) shows the dura
 ```text
 審査ガイドライン 3.1.1 が非サブスクのアプリに認める、価格 0 の非消耗型の App 内課金（名前は「14-day Trial」）による期間限定の無料体験です。
 購入日時（App Store の記録）から 14 日間、プレミアムの機能をすべて無料で使えます。体験は 1 つの Apple アカウントにつき 1 回です。自動で課金されることはなく、終わるとプレミアムの機能が使えなくなるだけです（記録と予算は残ります）。続けて使うときは、プレミアムを購入できます。
-体験を始める前に、購入の画面（設定 → プレミアム）で、期間・終わった後に使えなくなる機能・料金がかからないことを示しています。
+体験を始める前に、購入の画面（設定 → サイフログ プレミアム）で、期間・終わった後に使えなくなる機能・料金がかからないことを示しています。
 ```
 
 ## 審査に出す前に確かめること
 
 - 審査は iPad で行われることもある（iPhone 専用のアプリも iPad で iPhone 版が拡大して動く）。iPad のシミュレータでも一通り動くこと。
 - Apple Intelligence に対応しない端末（とシミュレータ）で、上の「試し方」がどれも AI なしで動くこと。
-- 審査メモに書いた画面の名前（「Take Photo」「Choose from Photos」「Settings > Premium」など）が、英語の画面の表示と合っていること
+- 審査メモに書いた画面の名前（「Take Photo」「Choose from Photos」「Settings > SaifuLog Premium」など）が、英語の画面の表示と合っていること
   （`SaifuLog/Resources/Localizable.xcstrings` の en）。
 - 課金アイテムを出すときは、Sandbox のテスターで実機に TestFlight のビルドを入れ、購入・体験・復元を一通り試したこと
   （`docs/release-flow.md` の「App 内課金（プレミアム）を審査に出す」）。

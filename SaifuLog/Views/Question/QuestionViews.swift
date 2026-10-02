@@ -37,7 +37,7 @@ struct QuestionExchangeView: View {
 ///
 /// 答えたときは、大きな数字（コードが計算した値をそのまま）、期間とカテゴリの見出し、元になった件数、AI の一言（ある場合。
 /// 数字の照合を通ったものか定型文）、無料の残りの回数（3 回以下のとき）を出す。今月・先月の答えは、押すとその月の月のまとめへ進む。
-/// 山吹の塗りは使わない（塗りの主ボタンが無いため）。予算を超えた額は、注意の色にアイコンと語を添える（色だけに頼らない）。
+/// 主の塗りは使わない（塗りの主ボタンが無いため）。予算を超えた額は、注意の色にアイコンと語を添える（色だけに頼らない）。
 private struct QuestionReplyCard: View {
     let state: QuestionExchange.State
     let openReport: (Date) -> Void
@@ -89,10 +89,12 @@ private struct QuestionReplyCard: View {
                     Text("プレミアムを見る")
                         .fontWeight(.semibold)
                         .foregroundStyle(Theme.accentText)
-                        .frame(minHeight: 44)
-                        .contentShape(.rect)
+                        .frame(minHeight: 30)
                 }
-                .accessibilityHint("無料との違いと購入の画面を開きます")
+                // カードの中の操作は灰色の枠のボタンにする（文字の色が本文と同じ墨なので、形で押せることを示す。ガラスは操作の層にだけ使う）。
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
+                .accessibilityHint("プレミアムでできることと購入の画面を開きます")
             }
         case .loadFailed:
             NoticeContent(title: "記録を読み込めませんでした", message: "もう一度お試しください。")
@@ -144,9 +146,11 @@ private struct AnswerContent: View {
                     Text("予算を決める")
                         .fontWeight(.semibold)
                         .foregroundStyle(Theme.accentText)
-                        .frame(minHeight: 44)
-                        .contentShape(.rect)
+                        .frame(minHeight: 30)
                 }
+                // カードの中の操作は灰色の枠のボタンにする（文字の色が本文と同じ墨なので、形で押せることを示す。ガラスは操作の層にだけ使う）。
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
                 .accessibilityHint("予算を決める画面を開きます")
             }
             if let freeQuestionsLeft {
@@ -327,7 +331,7 @@ private struct AnswerContent: View {
     }
 }
 
-/// 月ごとの推移の小さな棒（答えの月を墨、前の月を補足の文字の色で塗る）。山吹は使わない（回答カードに塗りの主ボタンが無いため）。
+/// 月ごとの推移の小さな棒（答えの月を墨、前の月を補足の文字の色で塗る）。
 /// 棒の下に細い基準線を引き、記録の無い月（0 円）も並びの中で分かるようにする。VoiceOver では、月と金額を並べた 1 つの要素として読ませる。
 struct AnswerTrendChart: View {
     let trend: LedgerTrend

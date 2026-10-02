@@ -5,7 +5,7 @@ import SwiftUI
 /// ホームの上に置く今月の帯。
 ///
 /// 予算を決めていれば「今月あと ¥…」を大きく、「1日あたり ¥… ・のこり N 日」を小さく出し、使った割合を
-/// 山吹のバーで示す。予算を超えたら「¥… オーバー」を注意の色とアイコンと文字で出す（色だけに頼らない）。
+/// 主の塗りのバーで示す。予算を超えたら「¥… オーバー」を注意の色とアイコンと文字で出す（色だけに頼らない）。
 /// 予算を決めていなければ、今月の支出の合計と「予算を決める」のボタンを出す。
 ///
 /// 見出しと数字を押すと「月のまとめ」（⑦）へ進む（`openReport` を渡したとき）。見出しに「›」を添えて、押せば
@@ -55,15 +55,7 @@ struct SummaryHeader: View {
         // 上はボタンの高さ（44pt）の中に余白があるので詰める。
         .padding(.top, 4)
         .padding(.bottom, 12)
-        // 画面の背景と同じ色で塗る。すりガラス（.bar）は灰色がかり、墨 × 山吹の温かい地から浮くため。
-        // 不透明なので、上へ流れた記録は帯の下に隠れる。
-        .background(Theme.background)
-        // 帯とタイムラインが同じ色なので、境目が無いと帯の下で一直線に切れた吹き出しが帯の一部に見える
-        // （すりガラスのころはぼかしが境目になっていた）。下端に細い線を引いて帯の終わりを示す。
-        // iOS 26 のスクロール端の効果（safeAreaBar）は、不透明な帯の下に隠れて境目にならなかった。
-        .overlay(alignment: .bottom) {
-            Divider()
-        }
+        // 地は塗らない（ホームが帯を safeAreaBar に置き、スクロール端の効果が地になる。`HomeView`）。
         .accessibilityElement(children: .contain)
         .animation(.default, value: summary)
         .animation(.default, value: budget)
@@ -152,26 +144,30 @@ struct SummaryHeader: View {
     ///
     /// 予算のボタンは設定の中へ移さずに残す。予算は月の途中でも見直すもので、ホームから 1 回押すだけで開けるほうが
     /// よいため（設定の中からも開ける）。歯車は右の端に置く（設定の入口の置き場所として見慣れた位置のため）。
+    /// どれもガラスのボタンにする（ほかの画面のナビゲーションバーのボタンと同じ見た目。ホームはナビゲーションバーを隠しているので、
+    /// 帯の中に同じ形で置く）。ガラスの余白を足して、押せる範囲を 44pt にする。
     private var trailingButtons: some View {
-        HStack(spacing: 0) {
-            diagnosticsButton
-            budgetButton
-            settingsButton
+        GlassEffectContainer(spacing: 8) {
+            HStack(spacing: 8) {
+                diagnosticsButton
+                budgetButton
+                settingsButton
+            }
         }
     }
 
-    /// 設定を開く歯車のボタン。設定は必要なときだけ開く画面なので、予算のボタンより目立たせない（補足の文字の色）。
+    /// 設定を開く歯車のボタン。設定は必要なときだけ開く画面なので、記号だけのガラスの丸にして、文字のある予算のボタンより目立たせない。
     @ViewBuilder
     private var settingsButton: some View {
         if let openSettings {
             Button(action: openSettings) {
                 Image(systemName: "gearshape")
-                    .font(.body)
-                    .foregroundStyle(Theme.inkSecondary)
-                    // 押せる範囲を 44pt 四方以上にする。
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(.rect)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(Theme.ink)
+                    .frame(width: 30, height: 30)
             }
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
             .accessibilityLabel("設定")
         }
     }
@@ -187,10 +183,10 @@ struct SummaryHeader: View {
                 Image(systemName: "stethoscope")
                     .font(.footnote)
                     .foregroundStyle(Theme.inkSecondary)
-                    // 小さく見せても、押せる範囲は 44pt 四方以上にする。
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(.rect)
+                    .frame(width: 30, height: 30)
             }
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
             .accessibilityLabel("診断")
         }
         #endif
@@ -225,10 +221,10 @@ struct SummaryHeader: View {
                 // 見出しの下の行に移しても収まらないとき（英語のアクセシビリティサイズで、歯車と並べたとき）だけ
                 // 2 行に折り返す。1 行に収まるときは、横に並べる形でも積む形でも 1 行のまま。
                 .lineLimit(2)
-                // 押せる範囲を 44pt 四方以上にする。
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(.rect)
+                .frame(minHeight: 30)
         }
+        .buttonStyle(.glass)
+        .buttonBorderShape(.capsule)
     }
 
     @ViewBuilder
@@ -415,13 +411,13 @@ private struct LedgerScopePicker: View {
     }
 }
 
-/// 予算のうち使った割合のバー。山吹で塗り、予算を超えたら注意の色で満たす（ホームの帯と月のまとめ）。
+/// 予算のうち使った割合のバー。主の塗り（墨か白）で塗り、予算を超えたら注意の色で満たす（ホームの帯と月のまとめ）。
 ///
 /// 数字（残り・超えた額）は文字で出しているので、バーは目安として添えるだけにし、VoiceOver では読ませない
 /// （割合は帯の要素の「予算」「使った額」や、まとめの行の文字で伝わる）。
 ///
 /// `paceFraction` を渡すと、その位置に日割りの目安の印（墨の縦線）を立てる（月のまとめの今月）。印はバーの上下に
-/// はみ出させる。ダークでは墨が明るい色になり、山吹の塗りの上では見分けにくいので、はみ出した部分で見せるため。
+/// はみ出させ、onAccent の色で縁取る。印と塗りは同じ墨（ダークでは白）なので、縁が無いと塗りの上では印が消えるため。
 struct BudgetProgressBar: View {
     let fraction: Double
     let isOver: Bool
@@ -445,12 +441,19 @@ struct BudgetProgressBar: View {
                 if let paceFraction {
                     GeometryReader { proxy in
                         let width: CGFloat = 2
+                        let outline: CGFloat = 1
                         Capsule()
                             .fill(Theme.ink)
                             .frame(width: width, height: height * 2.5)
-                            // 端でもバーの外に出ないよう、線の幅の分だけ内側に収める。
+                            // 塗りの上でも見えるよう、塗りの上の色（onAccent）で縁取る（印と塗りが同じ墨か白のため）。
+                            .padding(outline)
+                            .background(Theme.onAccent, in: .capsule)
+                            // 端でもバーの外に出ないよう、縁を含めた線の幅の分だけ内側に収める。
                             .position(
-                                x: min(max(proxy.size.width * paceFraction, width / 2), proxy.size.width - width / 2),
+                                x: min(
+                                    max(proxy.size.width * paceFraction, width / 2 + outline),
+                                    proxy.size.width - width / 2 - outline
+                                ),
                                 y: proxy.size.height / 2
                             )
                     }

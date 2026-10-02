@@ -23,17 +23,40 @@ final class WalletCaptureModel {
 
 /// 設定の「Apple Pay の支払い」。ショートカットのオートメーション（「取引」）で、Apple Pay で払ったときに金額と店名を
 /// サイフログへ渡す作り方を案内する（アプリからオートメーションは作れないので、手順を出す）。docs/design.md §9。
+///
+/// 自動の記録は差別化の柱なので、何ができるかを先に一言で見せ（印と「払うだけで、自動で記録」）、この画面ですることは
+/// 「ショートカット」App を開くことだけなので、そのボタンを主ボタン（主の塗り）にして下の帯に置き続ける（手順を読みながら押せるように）。
 struct WalletCaptureView: View {
     let model: WalletCaptureModel
 
     @Environment(\.openURL) private var openURL
+    /// 手順の番号の丸の大きさ（番号の文字と一緒に大きくする）。
+    @ScaledMetric(relativeTo: .footnote) private var stepMarkSize = 24
 
     var body: some View {
         List {
             Section {
-                Text("Apple Pay で払うと、金額と店名をサイフログが受け取り、次に開いたときに記録して返事でお知らせします。銀行やカードのログインは要らず、受け取った支払いはこの iPhone の中にだけ置きます。")
-                    .foregroundStyle(Theme.ink)
-                    .listRowBackground(Theme.surface)
+                HStack(alignment: .top, spacing: 14) {
+                    // 記号の大きさは文字の大きさで変えない（板は 44pt 四方のままなので、大きな文字で記号が板からはみ出したため。
+                    // 飾りなので読ませない）。
+                    Image(systemName: "creditcard.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(SettingsRowIcon.charcoal, in: .rect(cornerRadius: 11))
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("払うだけで、自動で記録")
+                            .font(.headline)
+                            .foregroundStyle(Theme.ink)
+                            .accessibilityAddTraits(.isHeader)
+                        Text("Apple Pay で払うと、金額と店名をサイフログが受け取り、次に開いたときに記録して返事でお知らせします。銀行やカードのログインは要らず、受け取った支払いはこの iPhone の中にだけ置きます。")
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.inkSecondary)
+                    }
+                }
+                .padding(.vertical, 6)
+                .listRowBackground(Theme.surface)
                 if model.pendingCount > 0 {
                     Label {
                         Text("受け取った支払いが \(model.pendingCount) 件あります。ホームに戻ると記録します。")
@@ -49,15 +72,6 @@ struct WalletCaptureView: View {
                 step(2, Text("記録したいカードを選び、「すぐに実行」にして「次へ」を押します。"))
                 step(3, Text("「新規の空のオートメーション」から「アクションを追加」を押し、「サイフログ」の「支払いを記録」を選びます。"))
                 step(4, Text("「金額」に「ショートカットの入力」の「金額」を、「店名」に「加盟店」を入れて、「完了」を押します。"))
-                Button {
-                    if let url = URL(string: "shortcuts://") { openURL(url) }
-                } label: {
-                    Label("「ショートカット」App を開く", systemImage: "arrow.up.forward.app")
-                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                        .contentShape(.rect)
-                }
-                .accessibilityHint("オートメーションを作るために、ショートカット App を開きます")
-                .listRowBackground(Theme.surface)
             } header: {
                 Text("オートメーションの作り方")
                     .foregroundStyle(Theme.inkSecondary)
@@ -76,19 +90,42 @@ struct WalletCaptureView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        // 上へ流れた手順の文が、題と戻るボタンの後ろで透けて重ならないよう、上ははっきりした効果にする（月のまとめと同じ）。
+        .scrollEdgeEffectStyle(.hard, for: .top)
         .background(Theme.background)
+        .safeAreaBar(edge: .bottom, spacing: 0) {
+            openShortcutsButton
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+        }
         .navigationTitle(Text(.walletCaptureTitle))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { model.reload() }
     }
 
-    /// 手順の 1 行（番号の丸と文）。
+    /// 「ショートカット」App を開く主ボタン（主の塗りに onAccent の文字。Theme の決め事）。
+    private var openShortcutsButton: some View {
+        Button {
+            if let url = URL(string: "shortcuts://") { openURL(url) }
+        } label: {
+            Label("「ショートカット」App を開く", systemImage: "arrow.up.forward.app")
+                .fontWeight(.semibold)
+                .foregroundStyle(Theme.onAccent)
+                .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.glassProminent)
+        // tint は塗りの色になる。主の塗り（`accentFill`）を明示する。
+        .tint(Theme.accentFill)
+        .accessibilityHint("オートメーションを作るために、ショートカット App を開きます")
+    }
+
+    /// 手順の 1 行（番号の丸と文）。丸は番号の文字に合わせて大きくする（24pt のままだと、大きな文字で番号が丸からはみ出した）。
     private func step(_ number: Int, _ text: Text) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(verbatim: "\(number)")
                 .font(.footnote.weight(.bold))
                 .foregroundStyle(Theme.onAccent)
-                .frame(width: 24, height: 24)
+                .frame(width: stepMarkSize, height: stepMarkSize)
                 .background(Theme.accentFill, in: .circle)
                 .accessibilityHidden(true)
             text

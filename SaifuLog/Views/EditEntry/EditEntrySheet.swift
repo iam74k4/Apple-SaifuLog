@@ -97,14 +97,16 @@ struct EditEntrySheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollDismissesKeyboard(.interactively)
+        // 上へ流れた文や大きな金額が、ツールバーのボタンの後ろで透けて重ならないよう、上ははっきりした効果にする（ホームの帯と同じ）。
+        .scrollEdgeEffectStyle(.hard, for: .top)
         .background(Theme.background)
         // 保存のボタンは画面の下に置き続ける。金額の数字のキーボードには確定のキーが無いので、キーボードを出したまま
         // 押せる場所に置く（予算を決める画面と同じ）。
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        // 下の帯は safeAreaBar に置き、中身がその下を流れるようにする（地を塗らない。スクロール端の効果が下端をぼかす。ホームの入力欄と同じ）。
+        .safeAreaBar(edge: .bottom, spacing: 0) {
             saveButton
                 .padding(.horizontal)
                 .padding(.vertical, 8)
-                .background(Theme.background)
         }
     }
 
@@ -305,7 +307,7 @@ struct EditEntrySheet: View {
         } label: {
             Text("保存")
                 .fontWeight(.semibold)
-                // 押せるときは山吹の塗りの上なので墨（Theme の説明）。押せないときは灰色のガラスの上なので、
+                // 押せるときは主の塗りの上なので onAccent（Theme の説明）。押せないときは灰色のガラスの上なので、
                 // 補足の文字の色にする（予算を決める画面・送信ボタンと同じ）。
                 .foregroundStyle(model.canSave ? Theme.onAccent : Theme.inkSecondary)
                 .frame(maxWidth: .infinity, minHeight: 44)
@@ -338,7 +340,7 @@ struct SectionLabel: View {
 
 /// 選べるものの 1 つ（種類・カテゴリ）。選んだものは枠と印で示す（色だけに頼らない）。
 ///
-/// 山吹は保存のボタンの塗りにだけ使うので、選んだ印には使わない（墨の枠とチェックの印にする）。くり返しの記録のシートでも使う。
+/// 主の塗りは保存のボタンにだけ使うので、選んだ印には使わない（墨の枠とチェックの印にする）。くり返しの記録のシートでも使う。
 struct ChoiceChip<Content: View>: View {
     let isSelected: Bool
     let action: () -> Void

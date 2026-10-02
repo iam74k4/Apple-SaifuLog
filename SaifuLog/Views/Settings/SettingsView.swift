@@ -3,12 +3,13 @@ import SwiftUI
 
 /// ⑧ 設定。必要なときだけ開く画面。ホームの帯の右上の歯車から横に進む。
 ///
-/// プレミアム（⑨ のシートを開く・購入の復元）、月の予算（② のシートを開く）、週の始まり、iCloud で同期（既定はオフ）、
+/// プレミアム（「サイフログ プレミアム」の行で ⑨ のシートを開く・購入の復元）、月の予算（② のシートを開く）、週の始まり、iCloud で同期（既定はオフ）、
 /// 家族と共有（家計の共有が有効なビルドだけ）、記録の CSV 書き出し、このアプリについて（プライバシーポリシー・ライセンス・版）を並べる。
 ///
 /// 状態と操作は `SettingsModel` が持つ。ここは表示と、共有のシート・アラートの出し入れだけ。
 /// 押せる行の名前は墨にし、操作のボタン（「CSV ファイルを書き出す」）だけ、ほかの画面のボタンと同じ tint（AccentColor。
-/// §7 のとおり、ダークでは山吹の文字）にする。山吹の塗りは使わない（塗りの主ボタンが無い画面のため）。
+/// §7 のとおり、墨か白の文字）にする。どの行にも頭の印（`SettingsRowIcon`）を付け、行を目で探しやすくする。塗りの主ボタンは
+/// 置かない（主の塗りは「サイフログ プレミアム」の行の印にだけ使う）。
 struct SettingsView: View {
     @Bindable var model: SettingsModel
 
@@ -37,7 +38,7 @@ struct SettingsView: View {
             exportSection
             aboutSection
         }
-        // リストの地は画面の背景にし、行は面の色にする（ほかの画面と同じ墨 × 山吹の地にそろえる）。
+        // リストの地は画面の背景にし、行は面の色にする（ほかの画面と同じ地にそろえる）。
         .scrollContentBackground(.hidden)
         .background(Theme.background)
         .navigationTitle("設定")
@@ -157,23 +158,31 @@ struct SettingsView: View {
             Button {
                 model.presentPremium()
             } label: {
-                LabeledContent {
-                    model.purchases.status.summaryText
-                        .foregroundStyle(Theme.inkSecondary)
-                } label: {
-                    Text("プレミアム")
-                        .foregroundStyle(Theme.ink)
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("サイフログ プレミアム")
+                            .foregroundStyle(Theme.ink)
+                        premiumRowDetail
+                            .font(.subheadline)
+                    }
+                    .padding(.vertical, 4)
+                } icon: {
+                    SettingsRowIcon(symbolName: "sparkles", fill: Theme.accentFill, symbol: Theme.onAccent)
                 }
-                .frame(minHeight: 44)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .contentShape(.rect)
             }
-            .accessibilityHint("無料との違いと購入の画面を開きます")
+            .accessibilityHint("プレミアムでできることと購入の画面を開きます")
             .listRowBackground(Theme.surface)
             Button {
                 model.restorePurchases()
             } label: {
                 HStack(spacing: 12) {
-                    Text("購入の復元")
+                    Label {
+                        Text("購入の復元")
+                    } icon: {
+                        SettingsRowIcon(symbolName: "arrow.clockwise", fill: SettingsRowIcon.gray)
+                    }
                     Spacer(minLength: 0)
                     if model.purchases.isRestoring {
                         ProgressView()
@@ -191,6 +200,20 @@ struct SettingsView: View {
         } footer: {
             sectionFooter("購入は Apple アカウントに記録されます。機種を変えたときなどにプレミアムが使えなければ、「購入の復元」をお試しください。")
         }
+    }
+
+    /// プレミアムの行の 2 行目（補足の文字の色）。まだ体験していなければ体験を勧め（0 円で全部を試せることが、いちばんの案内に
+    /// なるため。体験の商品を売り場に出せないときは勧めない。`PurchaseManager.offersTrial`）、体験中は残りの日数、体験の後は
+    /// 買い切りで増えること、購入済みは購入の形を出す。
+    private var premiumRowDetail: Text {
+        let text = switch model.purchases.status {
+        case .free where model.purchases.offersTrial: Text("14日間 無料で試せます")
+        case .free, .trialEnded: Text("買い切りで、レシートと質問が無制限に")
+        case .trial(let days, _): Text("体験中 あと \(days) 日")
+        case .premium(.purchased): Text("購入済み")
+        case .premium(.familyShared): Text("ファミリー共有")
+        }
+        return text.foregroundStyle(Theme.inkSecondary)
     }
 
     private var showsPurchaseAlert: Binding<Bool> {
@@ -212,14 +235,18 @@ struct SettingsView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
                 } label: {
-                    // 予算を決める画面の入力欄の見出し（「月の予算」）とは別のキーにする。日本語は同じでも、英語では
-                    // 設定の行の名前はほかの行と同じく語頭を大文字にし（Monthly Budget）、入力欄の見出しは文の形のまま
-                    // （Monthly budget）にするため。
-                    Text(LocalizedStringResource(
-                        "月の予算（設定の行）", defaultValue: "月の予算",
-                        comment: "設定の「予算」の節の行。押すと予算を決める画面を開く。右にいまの月の予算の額か「未設定」を出す"
-                    ))
-                    .foregroundStyle(Theme.ink)
+                    Label {
+                        // 予算を決める画面の入力欄の見出し（「月の予算」）とは別のキーにする。日本語は同じでも、英語では
+                        // 設定の行の名前はほかの行と同じく語頭を大文字にし（Monthly Budget）、入力欄の見出しは文の形のまま
+                        // （Monthly budget）にするため。
+                        Text(LocalizedStringResource(
+                            "月の予算（設定の行）", defaultValue: "月の予算",
+                            comment: "設定の「予算」の節の行。押すと予算を決める画面を開く。右にいまの月の予算の額か「未設定」を出す"
+                        ))
+                        .foregroundStyle(Theme.ink)
+                    } icon: {
+                        SettingsRowIcon(symbolName: "yensign", fill: SettingsRowIcon.green)
+                    }
                 }
                 .frame(minHeight: 44)
                 .contentShape(.rect)
@@ -257,8 +284,12 @@ struct SettingsView: View {
                         .foregroundStyle(Theme.inkSecondary)
                         .monospacedDigit()
                 } label: {
-                    Text(.categoriesTitle)
-                        .foregroundStyle(Theme.ink)
+                    Label {
+                        Text(.categoriesTitle)
+                            .foregroundStyle(Theme.ink)
+                    } icon: {
+                        SettingsRowIcon(symbolName: "square.grid.2x2", fill: SettingsRowIcon.purple)
+                    }
                 }
                 .frame(minHeight: 44)
             }
@@ -277,8 +308,12 @@ struct SettingsView: View {
                         .foregroundStyle(Theme.inkSecondary)
                         .monospacedDigit()
                 } label: {
-                    Text("覚えたカテゴリ")
-                        .foregroundStyle(Theme.ink)
+                    Label {
+                        Text("覚えたカテゴリ")
+                            .foregroundStyle(Theme.ink)
+                    } icon: {
+                        SettingsRowIcon(symbolName: "lightbulb", fill: SettingsRowIcon.teal)
+                    }
                 }
                 .frame(minHeight: 44)
             }
@@ -310,8 +345,12 @@ struct SettingsView: View {
                         .foregroundStyle(Theme.inkSecondary)
                         .monospacedDigit()
                 } label: {
-                    Text(.recurringTitle)
-                        .foregroundStyle(Theme.ink)
+                    Label {
+                        Text(.recurringTitle)
+                            .foregroundStyle(Theme.ink)
+                    } icon: {
+                        SettingsRowIcon(symbolName: "arrow.triangle.2.circlepath", fill: SettingsRowIcon.blue)
+                    }
                 }
                 .frame(minHeight: 44)
             }
@@ -320,9 +359,13 @@ struct SettingsView: View {
             NavigationLink {
                 WalletCaptureView(model: model.walletCapture)
             } label: {
-                Text(.walletCaptureTitle)
-                    .foregroundStyle(Theme.ink)
-                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                Label {
+                    Text(.walletCaptureTitle)
+                        .foregroundStyle(Theme.ink)
+                } icon: {
+                    SettingsRowIcon(symbolName: "creditcard", fill: SettingsRowIcon.charcoal)
+                }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }
             .accessibilityHint("Apple Pay で払ったときに自動で記録する方法を開きます")
             .listRowBackground(Theme.surface)
@@ -339,6 +382,7 @@ struct SettingsView: View {
         Section {
             SettingsPickerRow(
                 title: "週の始まり",
+                icon: SettingsRowIcon(symbolName: "calendar", fill: SettingsRowIcon.red),
                 selection: $model.weekStart,
                 value: weekStartLabel(model.weekStart)
             ) {
@@ -370,8 +414,12 @@ struct SettingsView: View {
         Section {
             Toggle(isOn: iCloudSyncBinding) {
                 HStack(spacing: 12) {
-                    Text("iCloud で同期")
-                        .foregroundStyle(Theme.ink)
+                    Label {
+                        Text("iCloud で同期")
+                            .foregroundStyle(Theme.ink)
+                    } icon: {
+                        SettingsRowIcon(symbolName: "icloud", fill: SettingsRowIcon.blue)
+                    }
                     if model.isCheckingICloudAccount {
                         // iCloud のアカウントを確かめている間の印（たいていは一瞬）。
                         ProgressView()
@@ -438,8 +486,12 @@ struct SettingsView: View {
     private func lockSection(_ lock: AppLock) -> some View {
         Section {
             Toggle(isOn: Binding(get: { lock.isEnabled }, set: { enabled in Task { await lock.setEnabled(enabled) } })) {
-                lockTitle(lock.method)
-                    .foregroundStyle(Theme.ink)
+                Label {
+                    lockTitle(lock.method)
+                        .foregroundStyle(Theme.ink)
+                } icon: {
+                    SettingsRowIcon(symbolName: lockSymbol(lock.method), fill: SettingsRowIcon.green)
+                }
             }
             .frame(minHeight: 44)
             .accessibilityHint("アプリを開くときに、ロックの解除を求めます")
@@ -471,6 +523,15 @@ struct SettingsView: View {
         }
     }
 
+    private func lockSymbol(_ method: AppLockMethod) -> String {
+        switch method {
+        case .faceID: "faceid"
+        case .touchID: "touchid"
+        case .opticID: "opticid"
+        case .passcode, .unavailable: "lock"
+        }
+    }
+
     private func lockFailureTitle(_ failure: AppLock.EnableFailure?) -> Text {
         switch failure {
         case .passcodeNotSet: Text("パスコードが設定されていません")
@@ -484,6 +545,7 @@ struct SettingsView: View {
         Section {
             SettingsPickerRow(
                 title: "期間",
+                icon: SettingsRowIcon(symbolName: "calendar.badge.clock", fill: SettingsRowIcon.gray),
                 selection: $model.exportPeriod,
                 value: periodLabel(model.exportPeriod)
             ) {
@@ -497,10 +559,14 @@ struct SettingsView: View {
                 model.export(calendar: calendar)
             } label: {
                 HStack(spacing: 12) {
-                    if model.isExporting {
-                        Text("書き出しています…")
-                    } else {
-                        Text("CSV ファイルを書き出す")
+                    Label {
+                        if model.isExporting {
+                            Text("書き出しています…")
+                        } else {
+                            Text("CSV ファイルを書き出す")
+                        }
+                    } icon: {
+                        SettingsRowIcon(symbolName: "square.and.arrow.up", fill: SettingsRowIcon.gray)
                     }
                     Spacer(minLength: 0)
                     if model.isExporting {
@@ -555,16 +621,20 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         Section {
-            externalLink("ヘルプ・お問い合わせ", destination: SettingsModel.supportURL)
-            externalLink("プライバシーポリシー", destination: SettingsModel.privacyPolicyURL)
-            externalLink("ライセンス", destination: SettingsModel.licenseURL)
+            externalLink("ヘルプ・お問い合わせ", symbolName: "questionmark", fill: SettingsRowIcon.blue, destination: SettingsModel.supportURL)
+            externalLink("プライバシーポリシー", symbolName: "hand.raised", fill: SettingsRowIcon.blue, destination: SettingsModel.privacyPolicyURL)
+            externalLink("ライセンス", symbolName: "doc.text", fill: SettingsRowIcon.gray, destination: SettingsModel.licenseURL)
             LabeledContent {
                 Text(verbatim: model.versionText)
                     .foregroundStyle(Theme.inkSecondary)
                     .monospacedDigit()
             } label: {
-                Text("バージョン")
-                    .foregroundStyle(Theme.ink)
+                Label {
+                    Text("バージョン")
+                        .foregroundStyle(Theme.ink)
+                } icon: {
+                    SettingsRowIcon(symbolName: "info", fill: SettingsRowIcon.gray)
+                }
             }
             .frame(minHeight: 44)
             .listRowBackground(Theme.surface)
@@ -577,11 +647,17 @@ struct SettingsView: View {
     }
 
     /// Safari で開くリンクの行。アプリの外へ出ることを、矢印の記号と VoiceOver の説明で示す。
-    private func externalLink(_ title: LocalizedStringKey, destination: URL) -> some View {
+    private func externalLink(
+        _ title: LocalizedStringKey, symbolName: String, fill: Color, destination: URL
+    ) -> some View {
         Link(destination: destination) {
             HStack(spacing: 12) {
-                Text(title)
-                    .foregroundStyle(Theme.ink)
+                Label {
+                    Text(title)
+                        .foregroundStyle(Theme.ink)
+                } icon: {
+                    SettingsRowIcon(symbolName: symbolName, fill: fill)
+                }
                 Spacer(minLength: 0)
                 Image(systemName: "arrow.up.forward.square")
                     .foregroundStyle(Theme.inkSecondary)
@@ -596,7 +672,7 @@ struct SettingsView: View {
 
     // MARK: - 見出しと注記
 
-    /// 節の見出し。システムの既定の色は温かい地の上で薄く見えるので、補足の文字の色（コントラストを確かめた色）にする。
+    /// 節の見出し。システムの既定の色はこの地の上では薄く見えるので、補足の文字の色（コントラストを確かめた色）にする。
     private func sectionHeader(_ title: LocalizedStringKey) -> some View {
         Text(title)
             .foregroundStyle(Theme.inkSecondary)
@@ -615,6 +691,8 @@ struct SettingsView: View {
 /// 自前で組み、選ぶところだけ Picker にする（メニューの中の Picker は、選んでいるものに印の付いた選択肢の並びになる）。
 private struct SettingsPickerRow<Value: Hashable, Options: View>: View {
     let title: LocalizedStringKey
+    /// 行の頭の印。
+    let icon: SettingsRowIcon
     @Binding var selection: Value
     /// 選んでいる値の表示。
     let value: Text
@@ -656,8 +734,12 @@ private struct SettingsPickerRow<Value: Hashable, Options: View>: View {
     }
 
     private var titleText: some View {
-        Text(title)
-            .foregroundStyle(Theme.ink)
+        Label {
+            Text(title)
+                .foregroundStyle(Theme.ink)
+        } icon: {
+            icon
+        }
     }
 
     /// 選んでいる値と、押すと選択肢が開くことを示す上下の矢印（既定のメニューの Picker と同じ形）。
@@ -672,6 +754,42 @@ private struct SettingsPickerRow<Value: Hashable, Options: View>: View {
         // 書き出しの途中で選べないときは薄くする（名前の色は変えない。既定の Picker と同じ）。
         .opacity(isEnabled ? 1 : 0.5)
     }
+}
+
+/// 設定の行の頭の印（iOS の設定 App と同じ、色の付いた角丸の四角に記号）。行を目で探しやすくするための飾りなので読ませない。
+///
+/// 塗りはライトとダークで同じ濃い色にし、白い記号を載せる（カテゴリの丸と同じく、白い記号に 4:1 以上の濃さの色。
+/// `Palette.category` のライトの値を使う）。プレミアムの行だけ主の塗り（墨か白）に onAccent の記号にする（ほかの行と見分けるため）。
+struct SettingsRowIcon: View {
+    let symbolName: String
+    let fill: Color
+    var symbol: Color = .white
+
+    @ScaledMetric(relativeTo: .body) private var size = 29
+
+    var body: some View {
+        Image(systemName: symbolName)
+            .font(.system(size: size * 0.5, weight: .semibold))
+            .foregroundStyle(symbol)
+            .frame(width: size, height: size)
+            .background(fill, in: .rect(cornerRadius: size * 0.24))
+            .accessibilityHidden(true)
+    }
+
+    private static func fixed(_ value: UInt32) -> Color {
+        ColorPair(light: value, dark: value).color
+    }
+
+    static let green = fixed(Palette.category(.daily).light)
+    static let blue = fixed(Palette.category(.transport).light)
+    static let red = fixed(Palette.category(.food).light)
+    static let purple = fixed(Palette.category(.entertainment).light)
+    static let teal = fixed(Palette.category(.utilities).light)
+    static let gray = fixed(Palette.category(.other).light)
+    /// Apple Pay（ウォレット）の行。ウォレットの黒に寄せた墨。
+    static let charcoal = fixed(0x3A3A3C)
+    /// 家族と共有の行（柿。作ったカテゴリに選べる色と同じ値）。
+    static let orange = fixed(Palette.customCategoryChoices[3].light)
 }
 
 #Preview {

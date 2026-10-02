@@ -29,6 +29,8 @@ final class MonthlyReportModel {
     private(set) var monthEntries: [Entry] = []
     /// 記録の一覧を出しているカテゴリ（横に進む）。一覧を閉じると画面が nil に戻す。
     var selectedCategory: EntryCategory?
+    /// 「プレミアム」（⑨）のシート（カテゴリ別の予算の案内から開く）。出していなければ nil（閉じると画面が nil に戻す）。
+    var premiumSheet: PremiumSheetModel?
     /// 「直す」のシートで直している記録の状態と操作。シートを閉じると画面が nil に戻す。
     var editing: EditEntryModel?
     /// まとめの先頭に添える AI の一言（プレミアムと体験中で、AI が使える端末だけ）。
@@ -184,6 +186,27 @@ final class MonthlyReportModel {
     /// 無料と見分けがつかないので出さず、読み終えたら描き直す（状態は @Observable のため）。
     var showsCategoryBudgets: Bool {
         purchases?.status.unlocksPremium ?? false
+    }
+
+    /// カテゴリ別の予算の案内（カテゴリ別の支出の下の 1 枚）を出すか。無料の人だけ（体験の後と返金の後を含む）。
+    ///
+    /// カテゴリごとの支出を見ているところが、カテゴリごとに予算を決めたくなる場面なので、そこでプレミアムで加わることを伝える。
+    /// 購入の事実を読み終える前は出さない（プレミアムの人にも一瞬出てしまうため）。
+    var showsCategoryBudgetUpsell: Bool {
+        guard let purchases, purchases.hasLoadedPurchases else { return false }
+        return purchases.status.canPurchase && !purchases.status.unlocksPremium
+    }
+
+    /// 案内に「14日間 無料で試せます」を添えるか（まだ体験していないときで、体験の商品を売り場に出せるとき。
+    /// `PurchaseManager.offersTrial`）。
+    var canStartTrial: Bool {
+        purchases?.offersTrial ?? false
+    }
+
+    /// カテゴリ別の予算の案内から、プレミアム（⑨）をシートで開く。
+    func presentPremium() {
+        guard let purchases else { return }
+        premiumSheet = PremiumSheetModel(purchases: purchases, announce: announce)
     }
 
     /// 表示している月の、カテゴリ別の予算の進み（出さないときは空）。予算を決めてあり、この月に当てはめるカテゴリだけ。

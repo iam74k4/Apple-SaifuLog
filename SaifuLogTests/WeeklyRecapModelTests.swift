@@ -561,6 +561,25 @@ struct WeeklyRecapModelTests {
         #expect(writer.calls.count == 0)
     }
 
+    /// 月のまとめ（カテゴリ別の予算の案内）から体験を始めたら、開いている月のまとめにも一言を添える（ホームがプレミアムの
+    /// 状態の変化で決め直させる）。
+    @Test func monthlyReportGetsAIRemarkAfterTrialStarts() async throws {
+        let fixture = try await Fixture()
+        fixture.writer = StubRemarkWriter { _ in "今月もおつかれさまでした。" }
+        try Self.insertTwoWeeks(fixture)
+        fixture.model.presentMonthlyReport(calendar: TestSupport.calendar)
+        let report = try #require(fixture.model.monthlyReport)
+        await report.remark.currentTask?.value
+        #expect(report.remark.state == .none)
+
+        fixture.box.records = [TestSupport.trial(startedDaysAgo: 0)]
+        await fixture.purchases.refreshPurchases()
+        fixture.model.premiumStatusDidChange()
+        await report.remark.currentTask?.value
+
+        #expect(report.remark.state == .written("今月もおつかれさまでした。"))
+    }
+
     // MARK: - 定型文
 
     static func recap(thisWeek: Int?, previousWeek: Int?) throws -> WeeklyRecap {
