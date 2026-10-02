@@ -250,6 +250,7 @@ private final class TimelineFixture {
             household: self.household?.host,
             defaults: defaults,
             makeParser: { now, calendar in RuleBasedParser(calendar: calendar, now: { now }) },
+            makeCategoryRefiner: { nil },
             makeAnswerer: { RuleBasedQuestionAnswerer() },
             makeRemarkWriter: { nil },
             canUseDocumentCamera: true,

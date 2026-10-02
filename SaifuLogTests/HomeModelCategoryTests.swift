@@ -28,6 +28,74 @@ struct HomeModelCategoryTests {
         #expect(fixture.announcements.last?.contains("カテゴリを選べます") == true)
     }
 
+    // MARK: - AI への聞き直し
+
+    /// 決めた答えを返す AI の代わり。聞かれた品目を残す。
+    private final class StubClassifier: ItemCategoryClassifying, @unchecked Sendable {
+        let answers: [String: String]
+        let fails: Bool
+        private let lock = NSLock()
+        private var asked: [String] = []
+
+        init(answers: [String: String] = [:], fails: Bool = false) {
+            self.answers = answers
+            self.fails = fails
+        }
+
+        var askedItems: [String] { lock.withLock { asked } }
+
+        func categoryName(for item: String) async throws -> String {
+            lock.withLock { asked.append(item) }
+            if fails { throw TestError() }
+            return answers[item] ?? "その他"
+        }
+    }
+
+    /// 辞書で決まらない品目は、返事で聞き返す前に AI に聞き直し、AI が選んだカテゴリで記録する（聞き返さない）。
+    /// AI の答えは覚えない（覚えるのは利用者が選んだカテゴリだけ）。
+    @Test func refinesUnknownItemWithAI() async throws {
+        let fixture = try Fixture()
+        let classifier = StubClassifier(answers: ["ユニクロ": "日用品"])
+        fixture.categoryRefiner = CategoryRefiner(classifier: classifier, onFallback: nil)
+
+        await fixture.send("ユニクロ 3990")
+
+        let entry = try #require(try fixture.entries().first)
+        #expect(entry.category == .daily)
+        #expect(fixture.model.categoryQuestionIDs.isEmpty)
+        #expect(fixture.announcements.last?.contains("カテゴリを選べます") == false)
+        #expect(classifier.askedItems == ["ユニクロ"])
+        #expect(try learned(fixture).memory().rules.isEmpty)
+    }
+
+    /// 辞書で決まった品目・覚えた品目・収入は AI に聞かない（AI を待たずに記録する）。
+    @Test func doesNotAskAIWhenCategoryIsKnown() async throws {
+        let fixture = try Fixture()
+        let classifier = StubClassifier(answers: ["ランチ": "娯楽"])
+        fixture.categoryRefiner = CategoryRefiner(classifier: classifier, onFallback: nil)
+        _ = try learned(fixture).remember(item: "ジム", category: .entertainment)
+
+        await fixture.send("ランチ 850")
+        await fixture.send("ジム 8000")
+        await fixture.send("給料 25万")
+
+        #expect(classifier.askedItems.isEmpty)
+        #expect(try fixture.entries().map(\.category) == [.food, .entertainment, .other])
+    }
+
+    /// AI がその他を選んだとき・失敗したときは、これまでどおり返事で聞き返す（記録は止めない）。
+    @Test(arguments: [false, true])
+    func fallsBackToCategoryQuestion(fails: Bool) async throws {
+        let fixture = try Fixture()
+        fixture.categoryRefiner = CategoryRefiner(classifier: StubClassifier(fails: fails), onFallback: nil)
+
+        await fixture.send("ユニクロ 3990")
+
+        let entry = try #require(try fixture.entries().first)
+        #expect(entry.category == .other)
+        #expect(fixture.model.categoryQuestionIDs == [entry.persistentModelID])
+    }
+
     /// 辞書に当たった品目と、辞書の「その他」の語（洋服など）と、収入は聞き返さない。
     @Test func doesNotAskWhenCategoryIsKnown() async throws {
         let fixture = try Fixture()

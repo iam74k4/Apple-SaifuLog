@@ -291,6 +291,7 @@ struct StoreHostTests {
                     return try await parser.parse(text)
                 }
             },
+            makeCategoryRefiner: { nil },
             now: { TestSupport.now },
             announce: { _ in }
         )
