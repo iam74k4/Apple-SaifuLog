@@ -161,10 +161,12 @@ struct CategoryEditorSheet: View {
                                         .foregroundStyle(Theme.onCategory)
                                 }
                             }
-                            // 選んだ色は枠でも示す（色だけに頼らない）。
+                            // 色の丸と印はダークでもライトの値で塗る（白い印を読めるように）。
+                            .environment(\.colorScheme, .light)
+                            // 選んだ色は枠でも示す（色だけに頼らない）。枠はいまの外観の墨にする（ライトに決めた中で描くと、
+                            // ダークの地の上で黒い枠になって見えなかったため）。
                             .padding(3)
                             .overlay { Circle().stroke(isSelected ? Theme.ink : .clear, lineWidth: 2) }
-                            .environment(\.colorScheme, .light)
                             .frame(minWidth: 44, minHeight: 44)
                             .contentShape(.circle)
                     }

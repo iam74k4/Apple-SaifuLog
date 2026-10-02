@@ -156,7 +156,7 @@ struct SummaryHeader: View {
         }
     }
 
-    /// 設定を開く歯車のボタン。設定は必要なときだけ開く画面なので、予算のボタン（強調の色の文字）より目立たせない（墨の記号）。
+    /// 設定を開く歯車のボタン。設定は必要なときだけ開く画面なので、記号だけのガラスの丸にして、文字のある予算のボタンより目立たせない。
     @ViewBuilder
     private var settingsButton: some View {
         if let openSettings {

@@ -3,7 +3,7 @@ import StoreKit
 import SwiftUI
 
 /// ⑨ プレミアム。下から出すシート（用が済めば閉じる一時的な画面のため）。入口は設定（⑧）と、無料体験が終わった後の
-/// 最初の起動（一度だけ）と、無料の回数を使い切ったとき。
+/// 最初の起動（一度だけ）と、無料の回数を使い切ったときと、月のまとめ（⑦）の無料の人へのカテゴリ別の予算の案内。
 ///
 /// 上から、プレミアムでできること（機能ごとの効きめと、無料との違い。まだ出していない機能があれば「近日」と書く）、価格
 /// （App Store の表示のまま）と買い切り・ファミリー共有、無料のまま使えること、無料体験の説明（まだ体験していないときだけ。
@@ -12,8 +12,9 @@ import SwiftUI
 ///
 /// 体験と購入のボタンは、下に固定したガラスの帯に置く（どこまで読んでいても押せるように。内容はその下を流れる）。主の塗り
 /// （墨か白）は、いちばん先に押してほしいボタン 1 つにだけ使う。まだ体験していなければ体験（0 円で全部を試せるので、買う前に使ってみてもらう
-/// のがいちばん確かな案内になるため）、体験の後と体験中は購入。体験と購入は、塗りではなくボタンの文（「無料で試す」と価格・
-/// 「買い切り」）と、帯の下の一言（「0円。自動で課金されません」）で見分けさせる。
+/// のがいちばん確かな案内になるため）、体験の後と体験中は購入。体験と購入は、塗りではなくボタンの文（「14日間 無料で試す」と
+/// 価格・「買い切り」）と、2 つのボタンの間の一言（「0円。体験が終わっても自動で課金されません。」）で見分けさせる。体験の商品が
+/// App Store に無いときは体験を案内しない（`PurchaseManager.offersTrial`）。
 struct PremiumSheet: View {
     @Bindable var model: PremiumSheetModel
 
@@ -51,8 +52,8 @@ struct PremiumSheet: View {
             #endif
             .background(Theme.background)
             // 文の多い画面なので、上へ流れた見出しや文が「閉じる」の後ろで透けて重ならないよう、上ははっきりした効果にする
-            // （ホームの帯と同じ）。
-            .scrollEdgeEffectStyle(.hard, for: .top)
+            // （ホームの帯と同じ）。下の帯にも文（「0円。…」）を置くので、下も同じにする（レシートの読み取り結果と同じ）。
+            .scrollEdgeEffectStyle(.hard, for: [.top, .bottom])
             .safeAreaBar(edge: .bottom) {
                 if model.status.canPurchase {
                     actionBar
@@ -229,7 +230,8 @@ struct PremiumSheet: View {
                 freeItem(Text("月の予算・月のまとめ・週のふりかえり"))
                 freeItem(Text("iCloud 同期と CSV 書き出し"))
             }
-            Text("広告は出しません。家計のデータは、この iPhone（iCloud 同期をオンにしたときは、あなたの iCloud）の外へ出ません。")
+            // 「外へ出ません」とは書かない（CSV の書き出しは利用者が選んだ先へ送れるため）。PRIVACY.md と同じ言い方にする。
+            Text("広告は出しません。記録はこの iPhone（iCloud 同期をオンにしたときは、あなたの iCloud にも）に保存し、開発者や第三者へ送信しません。")
                 .font(.footnote)
                 .foregroundStyle(Theme.inkSecondary)
         }
@@ -239,9 +241,10 @@ struct PremiumSheet: View {
         Label {
             text
         } icon: {
+            // 色はカテゴリ・収入・注意の意味のある表示にだけ使うので、チェックは墨にする（収入の緑にしない。§7）。
             Image(systemName: "checkmark")
                 .font(.subheadline.weight(.bold))
-                .foregroundStyle(Theme.income)
+                .foregroundStyle(Theme.ink)
                 .accessibilityHidden(true)
         }
         .font(.subheadline)
@@ -504,7 +507,7 @@ private struct PremiumBenefitRow: View {
         // 予算を決める画面の見出し（英語は Budgets by category）とは別のキーにする。行の名前は、英語でほかの行と同じく
         // 語頭を大文字にするため。
         case .categoryBudget: Text(LocalizedStringResource(
-            "カテゴリ別の予算（プレミアムの表）", defaultValue: "カテゴリ別の予算",
+            "カテゴリ別の予算（プレミアムの行）", defaultValue: "カテゴリ別の予算",
             comment: "プレミアムのシート（⑨）。プレミアムでできることの行の名前"
         ))
         case .recapAI: Text("ふりかえりの AI の一言")
@@ -514,8 +517,9 @@ private struct PremiumBenefitRow: View {
     private var note: Text {
         switch feature {
         // 読み取った後に確かめてから記録すること、数えるのは記録したときだけであることを添える（無料の 5 回の数え方が分かるように）。
-        case .receiptScan: Text("撮るか写真から選ぶだけで、品目ごとに仕分けて記録します。数えるのは記録したときだけです。")
-        case .question: Text("「今月カフェにいくら？」のように聞くと、数字はアプリが計算して答えます。")
+        case .receiptScan: Text("撮るか写真から選ぶと、品目ごとにカテゴリを分けて読み取ります。確かめてから記録し、数えるのは記録したときだけです。")
+        // 例はホームの入力の例と同じ文にする（英語でも訳さない。解析は日本語の入力を前提にしているため）。
+        case .question: Text("「今月カフェいくら?」のように聞くと、数字はアプリが計算して答えます。")
         case .categoryBudget: Text("食費・交通など、カテゴリごとにも月の予算を決められ、月のまとめで使った額と比べられます。")
         // AI の使えない端末では、プレミアムでも一言は付かない。買ってから気づくことが無いよう、ここで書いておく。
         case .recapAI: Text("先週のふりかえりと月のまとめに、端末内の AI が一言を添えます（Apple Intelligence に対応した iPhone のみ。数字はどちらもアプリが計算します）。")

@@ -8,8 +8,8 @@ import UIKit
 /// そこから WCAG のコントラスト比を確かめる（値を変えるときは、テストが通るかで読めるかを確かめる）。
 /// ライトとダークは iOS の設定に従う（アプリ内に外観の設定は置かない）。
 ///
-/// 地はライトが白に近い灰色、ダークが黒で、色味を持たせない（アプリのアイコンと同じ白と黒）。色はカテゴリ・収入・注意の
-/// 意味のある色にだけ使い、画面の操作の色は墨と白にする（2026-10-02 に「墨 × 山吹」から替えた。山吹は白地で 1.8:1 しか無く、
+/// 地はライトが白に近い灰色、ダークが黒で、色味を持たせない（アプリのアイコンの地と財布と同じ白と黒）。色はカテゴリ・収入・注意の
+/// 意味のある色と設定の行の印にだけ使い、画面の操作の色は墨と白にする（2026-10-02 に「墨 × 山吹」から替えた。山吹は白地で 1.8:1 しか無く、
 /// 送信ボタンや主ボタンの形が地から見分けにくかったため）。
 ///
 /// 使い分け:
@@ -40,6 +40,9 @@ enum Theme {
     static let accentText = Color.accentColor
     /// 注意の色（予算オーバーなど）。アイコンと文字を必ず添える。
     static let danger = Palette.danger.color
+    /// 白い記号を載せる、注意の塗り（スワイプの「削除」「やめる」）。ダークの `danger` は明るく、白い記号が読めなくなるので、
+    /// ダークでもライトの値で塗る（カテゴリの丸と同じ考え方）。
+    static let dangerFill = Palette.dangerFill.color
     /// 進捗のバーの地（まだ使っていない分）。バーは数字に添える目安なので、地との差は控えめでよい。返事のカードの細い枠にも使う。
     static let track = Palette.track.color
     /// 収入の金額の色。収入は「+」の符号と「収入」の語でも示す（色だけに頼らない）。
@@ -77,6 +80,7 @@ enum Palette {
     /// Assets の AccentColor と同じ値にする（二か所にあるので、テストで食い違いを止める）。
     static let accentText = ColorPair(light: 0x111111, dark: 0xF5F5F5)
     static let danger = ColorPair(light: 0xB3261E, dark: 0xFF8A80)
+    static let dangerFill = ColorPair(light: 0xB3261E, dark: 0xB3261E)
     static let track = ColorPair(light: 0xE5E5E5, dark: 0x2E2E2E)
     static let income = ColorPair(light: 0x2E7D4F, dark: 0x7FD1A0)
     /// カテゴリの丸と返事の行の印はダークでもライトの色で塗る（EntryBubble・RecordedReplyRow）ので、記号は両方とも白にする。

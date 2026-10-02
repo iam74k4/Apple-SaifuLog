@@ -30,13 +30,17 @@ struct WalletCaptureView: View {
     let model: WalletCaptureModel
 
     @Environment(\.openURL) private var openURL
+    /// 手順の番号の丸の大きさ（番号の文字と一緒に大きくする）。
+    @ScaledMetric(relativeTo: .footnote) private var stepMarkSize = 24
 
     var body: some View {
         List {
             Section {
                 HStack(alignment: .top, spacing: 14) {
+                    // 記号の大きさは文字の大きさで変えない（板は 44pt 四方のままなので、大きな文字で記号が板からはみ出したため。
+                    // 飾りなので読ませない）。
                     Image(systemName: "creditcard.fill")
-                        .font(.title3.weight(.semibold))
+                        .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 44, height: 44)
                         .background(SettingsRowIcon.charcoal, in: .rect(cornerRadius: 11))
@@ -86,6 +90,8 @@ struct WalletCaptureView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        // 上へ流れた手順の文が、題と戻るボタンの後ろで透けて重ならないよう、上ははっきりした効果にする（月のまとめと同じ）。
+        .scrollEdgeEffectStyle(.hard, for: .top)
         .background(Theme.background)
         .safeAreaBar(edge: .bottom, spacing: 0) {
             openShortcutsButton
@@ -113,13 +119,13 @@ struct WalletCaptureView: View {
         .accessibilityHint("オートメーションを作るために、ショートカット App を開きます")
     }
 
-    /// 手順の 1 行（番号の丸と文）。
+    /// 手順の 1 行（番号の丸と文）。丸は番号の文字に合わせて大きくする（24pt のままだと、大きな文字で番号が丸からはみ出した）。
     private func step(_ number: Int, _ text: Text) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(verbatim: "\(number)")
                 .font(.footnote.weight(.bold))
                 .foregroundStyle(Theme.onAccent)
-                .frame(width: 24, height: 24)
+                .frame(width: stepMarkSize, height: stepMarkSize)
                 .background(Theme.accentFill, in: .circle)
                 .accessibilityHidden(true)
             text

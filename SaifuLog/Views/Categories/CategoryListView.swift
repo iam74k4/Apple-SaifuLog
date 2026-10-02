@@ -76,7 +76,7 @@ struct CategoryListView: View {
                         } label: {
                             Label("削除", systemImage: "trash")
                         }
-                        .tint(Theme.danger)
+                        .tint(Theme.dangerFill)
                     }
                     // スワイプとドラッグは VoiceOver から見つけにくいので、操作の一覧にも出す。
                     .accessibilityAction(named: "削除") { model.requestDeletion(info.category) }

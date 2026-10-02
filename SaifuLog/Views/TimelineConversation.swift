@@ -268,24 +268,37 @@ struct PaymentOverlapView: View {
         }
     }
 
-    /// 聞き返しのボタン（カテゴリの聞き返しのボタンと同じ形）。消すほうは文字を強調の色にする（どちらを選ぶと何が起きるかを、
-    /// 形ではなく語で伝え、よく選ぶほうを見つけやすくする）。
+    /// 聞き返しのボタン（カテゴリの聞き返しのボタンと同じ形）。消すほうは太字にしてごみ箱の記号を添える（どちらを選ぶと何が
+    /// 起きるかを、形ではなく語と記号で伝え、よく選ぶほうを見つけやすくする。文字の色は本文と同じ墨なので、色では分けない）。
+    /// 大きな文字で 1 行に収まらなければ折り返す（縦に積んでも収まらず「…」で切れ、何が起きるボタンか読めなかったため）。
     private func chip(label: Text, isPrimary: Bool, hint: Text, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            label
-                .font(isPrimary ? .subheadline.weight(.semibold) : .subheadline)
-                .foregroundStyle(isPrimary ? Theme.accentText : Theme.ink)
-                .lineLimit(1)
-                .padding(.horizontal, 12)
-                .frame(minHeight: 36)
-                .background {
-                    Capsule()
-                        .fill(Theme.background)
-                        .stroke(Theme.track, lineWidth: 1)
+            Group {
+                if isPrimary {
+                    Label {
+                        label
+                    } icon: {
+                        Image(systemName: "trash")
+                    }
+                } else {
+                    label
                 }
-                // 見た目は 36pt の高さにし、押せる範囲は上下の余白まで広げて 44pt にする（カテゴリのボタンと同じ）。
-                .padding(.vertical, 4)
-                .contentShape(.rect)
+            }
+            .font(isPrimary ? .subheadline.weight(.semibold) : .subheadline)
+            .foregroundStyle(Theme.ink)
+            .multilineTextAlignment(.leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .frame(minHeight: 36)
+            .background {
+                // 1 行のときは丸い端（高さの半分の角）になり、折り返したときは角の丸い四角になる。
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(Theme.background)
+                    .stroke(Theme.track, lineWidth: 1)
+            }
+            // 見た目は 36pt の高さにし、押せる範囲は上下の余白まで広げて 44pt にする（カテゴリのボタンと同じ）。
+            .padding(.vertical, 4)
+            .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .accessibilityHint(hint)
@@ -775,7 +788,7 @@ extension View {
         self
             .padding(EdgeInsets(top: topPadding, leading: 16, bottom: 12, trailing: 16))
             .frame(maxWidth: .infinity, alignment: .leading)
-            // 面と背景の色の差は小さい（ライトは白と温かい白）ので、枠でカードの形を見せる。面と枠は 1 つの形で描く（重ねて
+            // 面と背景の色の差は小さい（ライトは白と白に近い灰色）ので、枠でカードの形を見せる。面と枠は 1 つの形で描く（重ねて
             // 描くと、カードごとに形が 2 つになり、行をすべて測るタイムラインを開くのが遅くなったため）。
             .background {
                 RoundedRectangle(cornerRadius: 18)

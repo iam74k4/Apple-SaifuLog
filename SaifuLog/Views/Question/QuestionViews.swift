@@ -94,7 +94,7 @@ private struct QuestionReplyCard: View {
                 // カードの中の操作は灰色の枠のボタンにする（文字の色が本文と同じ墨なので、形で押せることを示す。ガラスは操作の層にだけ使う）。
                 .buttonStyle(.bordered)
                 .buttonBorderShape(.capsule)
-                .accessibilityHint("無料との違いと購入の画面を開きます")
+                .accessibilityHint("プレミアムでできることと購入の画面を開きます")
             }
         case .loadFailed:
             NoticeContent(title: "記録を読み込めませんでした", message: "もう一度お試しください。")

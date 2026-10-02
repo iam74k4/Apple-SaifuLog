@@ -6,13 +6,13 @@ import UIKit
 /// ⑦ 月のまとめ。何にいくら使ったかを一目で分かるようにする月の報告。ホームの帯（今月の合計）から横に進む。
 ///
 /// 上に月送り（前の月・次の月）、その下に AI の一言（プレミアムと体験中で、AI が使える端末だけ）、月の支出・収入・収支・
-/// 1 日あたりの平均・前の月との差、予算の進み（予算を当てはめる月だけ）、カテゴリ別の内訳（横棒グラフと行）を並べる。
+/// 1 日あたりの平均・前の月との差、予算の進み（予算を当てはめる月だけ）、カテゴリ別の内訳（割合の帯と行）を並べる。
 /// カテゴリ別の予算を決めたカテゴリの行には、その予算の進み（プレミアムと体験中で、予算を当てはめる月だけ）を添える。
-/// 行を押すと、その月のそのカテゴリの記録の一覧へ進む。
+/// 無料の人には、その下にカテゴリ別の予算（プレミアム）の案内を 1 枚置く。行を押すと、その月のそのカテゴリの記録の一覧へ進む。
 ///
 /// 状態と操作は `MonthlyReportModel` が持ち、数字の計算はコア（`MonthlyReport`）が受け持つ。ここは表示と、文字の大きさに
-/// 合わせた出し方だけ。アクセシビリティサイズの文字では、グラフを出さずに行（表）だけにする（棒の横に名前と金額を
-/// 収める幅が無く、行の文字と同じ内容なので）。
+/// 合わせた出し方だけ。割合の帯は名前を横に並べないので、アクセシビリティサイズの文字でも出す（行は丸を省いて名前と金額に
+/// 幅を使わせる）。
 struct MonthlyReportView: View {
     @Bindable var model: MonthlyReportModel
 
@@ -43,6 +43,8 @@ struct MonthlyReportView: View {
             screenshotScrollPosition.scrollTo(edge: .bottom)
         }
         #endif
+        // 上へ流れた金額が、題と戻るボタンの後ろで透けて重ならないよう、上ははっきりした効果にする（文の多いシートと同じ）。
+        .scrollEdgeEffectStyle(.hard, for: .top)
         .background(Theme.background)
         .navigationTitle("月のまとめ")
         .navigationBarTitleDisplayMode(.inline)
@@ -141,10 +143,12 @@ private struct CategoryBudgetUpsell: View {
                     .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(.rect)
+            // カードの余白と地もボタンの中に置く（外に置くと、カードの縁の 16pt を押しても開かず、押したときの薄まりも
+            // 文字にだけ付いたため）。
+            .reportCard()
+            .contentShape(.rect(cornerRadius: 16))
         }
         .buttonStyle(.plain)
-        .reportCard()
         .accessibilityHint("プレミアムの画面を開きます")
     }
 }
@@ -185,11 +189,14 @@ private struct MonthSwitcher: View {
     /// システムが薄くしてくれないので、押せないときの薄い色はここで付ける。
     ///
     /// ボタンはガラスの丸にする（ナビゲーションバーの戻るボタンと同じ形。ガラスの余白を足して 44pt 四方になる大きさ）。
+    /// 矢印の大きさには上限（AX1）を設ける（丸は 30pt 四方のままなので、それより大きな文字では矢印が丸からはみ出したため。
+    /// ホームの帯の歯車と同じ）。
     private func chevron(_ name: String, isEnabled: Bool) -> some View {
         Image(systemName: name)
             .font(.body.weight(.semibold))
             .foregroundStyle(isEnabled ? Theme.ink : Theme.inkSecondary.opacity(0.4))
             .frame(width: 30, height: 30)
+            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
     }
 }
 
@@ -804,8 +811,9 @@ struct LoadFailedView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("記録を読み込めませんでした")
                 .font(.title3.bold())
+            // 文字だけのボタンは本文と同じ墨になり、見出しの補足に見えるので、記号を添える（docs/design.md §7）。
             Button(action: retry) {
-                Text("もう一度試す")
+                Label("もう一度試す", systemImage: "arrow.clockwise")
                     .fontWeight(.semibold)
                     .frame(minHeight: 44)
                     .contentShape(.rect)

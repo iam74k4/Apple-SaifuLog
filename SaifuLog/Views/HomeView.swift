@@ -158,7 +158,8 @@ struct HomeView: View {
                 .task(id: model.purchases.hasLoadedPurchases) {
                     model.presentPremiumIfTrialEnded()
                 }
-                // 体験を始めた・買った・返金されたら、ふりかえりの AI の一言を決め直す（体験を始めてホームに戻ったら一言が付くように）。
+                // 体験を始めた・買った・返金されたら、ふりかえりと月のまとめの AI の一言を決め直す（体験を始めてホームや月のまとめに
+                // 戻ったら一言が付くように）。
                 .onChange(of: model.purchases.status.unlocksPremium) {
                     model.premiumStatusDidChange()
                 }
@@ -914,9 +915,12 @@ private struct TimelineOlderRecords: View {
 
     var body: some View {
         if canShowMore {
-            Button("前の記録を表示", action: showMore)
-                .font(.subheadline)
-                .frame(minHeight: 44)
+            // 文字だけのボタンは本文と同じ墨になるので、記号を添えて押せると分かるようにする（docs/design.md §7）。
+            Button(action: showMore) {
+                Label("前の記録を表示", systemImage: "arrow.up")
+            }
+            .font(.subheadline)
+            .frame(minHeight: 44)
         } else {
             Group {
                 if isHousehold {

@@ -225,11 +225,12 @@ struct RecurringEditorSheet: View {
     private var scheduleSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             if model.showsThisMonthChoice {
+                // スイッチは主の塗りにせず、設定と同じ iOS の緑のままにする（主の塗りはダークで白く、白いつまみが
+                // 見えなくなってオンとオフが分からないため）。
                 Toggle(isOn: $model.includesThisMonth) {
                     Text("今月の分も記録する")
                         .foregroundStyle(Theme.ink)
                 }
-                .tint(Theme.accentFill)
                 .frame(minHeight: 44)
             }
             Label {

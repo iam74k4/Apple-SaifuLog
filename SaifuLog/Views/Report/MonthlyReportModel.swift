@@ -197,9 +197,10 @@ final class MonthlyReportModel {
         return purchases.status.canPurchase && !purchases.status.unlocksPremium
     }
 
-    /// 案内に「14日間 無料で試せます」を添えるか（まだ体験していないとき）。
+    /// 案内に「14日間 無料で試せます」を添えるか（まだ体験していないときで、体験の商品を売り場に出せるとき。
+    /// `PurchaseManager.offersTrial`）。
     var canStartTrial: Bool {
-        purchases?.status.canStartTrial ?? false
+        purchases?.offersTrial ?? false
     }
 
     /// カテゴリ別の予算の案内から、プレミアム（⑨）をシートで開く。

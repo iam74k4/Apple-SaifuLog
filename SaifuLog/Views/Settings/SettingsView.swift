@@ -3,12 +3,13 @@ import SwiftUI
 
 /// ⑧ 設定。必要なときだけ開く画面。ホームの帯の右上の歯車から横に進む。
 ///
-/// プレミアム（⑨ のシートを開く・購入の復元）、月の予算（② のシートを開く）、週の始まり、iCloud で同期（既定はオフ）、
+/// プレミアム（「サイフログ プレミアム」の行で ⑨ のシートを開く・購入の復元）、月の予算（② のシートを開く）、週の始まり、iCloud で同期（既定はオフ）、
 /// 家族と共有（家計の共有が有効なビルドだけ）、記録の CSV 書き出し、このアプリについて（プライバシーポリシー・ライセンス・版）を並べる。
 ///
 /// 状態と操作は `SettingsModel` が持つ。ここは表示と、共有のシート・アラートの出し入れだけ。
 /// 押せる行の名前は墨にし、操作のボタン（「CSV ファイルを書き出す」）だけ、ほかの画面のボタンと同じ tint（AccentColor。
-/// §7 のとおり、墨か白の文字）にし、行の頭の印でボタンだと分かるようにする。主の塗りは使わない（塗りの主ボタンが無い画面のため）。
+/// §7 のとおり、墨か白の文字）にする。どの行にも頭の印（`SettingsRowIcon`）を付け、行を目で探しやすくする。塗りの主ボタンは
+/// 置かない（主の塗りは「サイフログ プレミアム」の行の印にだけ使う）。
 struct SettingsView: View {
     @Bindable var model: SettingsModel
 
@@ -202,11 +203,12 @@ struct SettingsView: View {
     }
 
     /// プレミアムの行の 2 行目（補足の文字の色）。まだ体験していなければ体験を勧め（0 円で全部を試せることが、いちばんの案内に
-    /// なるため）、体験中は残りの日数、体験の後は買い切りで増えること、購入済みは購入の形を出す。
+    /// なるため。体験の商品を売り場に出せないときは勧めない。`PurchaseManager.offersTrial`）、体験中は残りの日数、体験の後は
+    /// 買い切りで増えること、購入済みは購入の形を出す。
     private var premiumRowDetail: Text {
         let text = switch model.purchases.status {
-        case .free: Text("14日間 無料で試せます")
-        case .trialEnded: Text("買い切りで、レシートと質問が無制限に")
+        case .free where model.purchases.offersTrial: Text("14日間 無料で試せます")
+        case .free, .trialEnded: Text("買い切りで、レシートと質問が無制限に")
         case .trial(let days, _): Text("体験中 あと \(days) 日")
         case .premium(.purchased): Text("購入済み")
         case .premium(.familyShared): Text("ファミリー共有")
@@ -670,7 +672,7 @@ struct SettingsView: View {
 
     // MARK: - 見出しと注記
 
-    /// 節の見出し。システムの既定の色は温かい地の上で薄く見えるので、補足の文字の色（コントラストを確かめた色）にする。
+    /// 節の見出し。システムの既定の色はこの地の上では薄く見えるので、補足の文字の色（コントラストを確かめた色）にする。
     private func sectionHeader(_ title: LocalizedStringKey) -> some View {
         Text(title)
             .foregroundStyle(Theme.inkSecondary)

@@ -1286,13 +1286,13 @@
         }
       }
     },
-    "「今月カフェにいくら？」のように聞くと、数字はアプリが計算して答えます。" : {
-      "comment" : "プレミアムのシート（⑨）の「家計への質問が無制限」の説明",
+    "「今月カフェいくら?」のように聞くと、数字はアプリが計算して答えます。" : {
+      "comment" : "プレミアムのシート（⑨）の「家計への質問が無制限」の説明。例の「今月カフェいくら?」は訳さない（解析が日本語の入力を前提にしているため）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ask things like “How much did I spend on cafés this month?” The app calculates the numbers."
+            "value" : "Ask something like “今月カフェいくら?”, and the app calculates the numbers for the answer."
           }
         }
       }
@@ -2341,7 +2341,7 @@
       }
     },
     "ふりかえりの AI の一言" : {
-      "comment" : "プレミアムのシート（⑨）。無料とプレミアムの違いの表の行（先週のふりかえりと月のまとめに添える AI の一言）",
+      "comment" : "プレミアムのシート（⑨）のプレミアムでできることの行の名前（先週のふりかえりと月のまとめに添える AI の一言）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2868,13 +2868,13 @@
         }
       }
     },
-    "カテゴリ別の予算（プレミアムの表）" : {
+    "カテゴリ別の予算（プレミアムの行）" : {
       "comment" : "プレミアムのシート（⑨）。プレミアムでできることの行の名前",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Category Budgets"
+            "value" : "Budgets by Category"
           }
         },
         "ja" : {
@@ -3019,7 +3019,7 @@
       }
     },
     "サイフログ プレミアム" : {
-      "comment" : "プレミアムのシート（⑨）。シートの見出し（課金アイテムの表示名と同じ）",
+      "comment" : "プレミアムのシート（⑨）の見出しと、設定の「プレミアム」の節の行の名前（課金アイテムの表示名と同じ）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3239,7 +3239,7 @@
       }
     },
     "ファミリー共有" : {
-      "comment" : "設定の「プレミアム」の行の値。家族がファミリー共有で分けてくれたプレミアムを使っているとき",
+      "comment" : "設定の「サイフログ プレミアム」の行の 2 行目。家族がファミリー共有で分けてくれたプレミアムを使っているとき",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3272,7 +3272,7 @@
       }
     },
     "プレミアム" : {
-      "comment" : "設定の「プレミアム」の節の見出しと行の名前、無料とプレミアムの違いの表の列の名前",
+      "comment" : "設定の「プレミアム」の節の見出し",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3294,12 +3294,12 @@
       }
     },
     "プレミアムでできることと購入の画面を開きます" : {
-      "comment" : "設定の「サイフログ プレミアム」の行の VoiceOver のヒント",
+      "comment" : "設定の「サイフログ プレミアム」の行と、家計への質問の回数を使い切ったときの「プレミアムを見る」の VoiceOver のヒント",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens what Premium adds and the purchase screen."
+            "value" : "Opens a screen showing what Premium adds, where you can buy it."
           }
         }
       }
@@ -3569,12 +3569,12 @@
       }
     },
     "レシートも家計への質問も、回数を気にせず使えます。カテゴリ別の予算と AI の一言も加わります。" : {
-      "comment" : "プレミアムのシート（⑨）の見出しの下の一文（無料のとき）",
+      "comment" : "プレミアムのシート（⑨）の見出しの下の一文（無料のとき。体験が終わった後は別の文）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Scan receipts and ask about your spending as often as you like. Budgets by category and AI remarks are included too."
+            "value" : "Scan receipts and ask about your spending as often as you like. Budgets by category and AI notes are included too."
           }
         }
       }
@@ -4214,7 +4214,7 @@
       }
     },
     "体験中 あと %lld 日" : {
-      "comment" : "設定の「プレミアム」の行の値（無料体験中）。%lld は残りの日数（切り上げ）",
+      "comment" : "設定の「サイフログ プレミアム」の行の 2 行目（無料体験中）。%lld は残りの日数（切り上げ）",
       "localizations" : {
         "en" : {
           "variations" : {
@@ -6229,13 +6229,13 @@
         }
       }
     },
-    "広告は出しません。家計のデータは、この iPhone（iCloud 同期をオンにしたときは、あなたの iCloud）の外へ出ません。" : {
+    "広告は出しません。記録はこの iPhone（iCloud 同期をオンにしたときは、あなたの iCloud にも）に保存し、開発者や第三者へ送信しません。" : {
       "comment" : "プレミアムのシート（⑨）の「無料のまま使えること」の注記",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No ads. Your household data stays on this iPhone (and in your own iCloud if you turn on iCloud sync)."
+            "value" : "No ads. Your records are saved on this iPhone (and in your own iCloud if you turn on iCloud sync) and are never sent to the developer or any third party."
           }
         }
       }
@@ -6356,7 +6356,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pay, and it’s recorded for you"
+            "value" : "Recorded Automatically When You Pay"
           }
         }
       }
@@ -6449,13 +6449,13 @@
         }
       }
     },
-    "撮るか写真から選ぶだけで、品目ごとに仕分けて記録します。数えるのは記録したときだけです。" : {
+    "撮るか写真から選ぶと、品目ごとにカテゴリを分けて読み取ります。確かめてから記録し、数えるのは記録したときだけです。" : {
       "comment" : "プレミアムのシート（⑨）の「レシートの読み取りが無制限」の説明",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Take or pick a photo and each item is recorded separately. Only receipts you record are counted."
+            "value" : "Take or pick a photo, and SaifuLog reads each item with its category. You check them before recording, and only receipts you record are counted."
           }
         }
       }
@@ -6906,7 +6906,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Monthly budget, monthly report, and weekly recap"
+            "value" : "Monthly budget, Monthly Summary, and Last Week in Review"
           }
         }
       }
@@ -7192,17 +7192,6 @@
         }
       }
     },
-    "無料との違いと購入の画面を開きます" : {
-      "comment" : "設定の「プレミアム」の行の VoiceOver の説明",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Opens the screen comparing Free and Premium, where you can buy Premium."
-          }
-        }
-      }
-    },
     "無料のまま使えること" : {
       "comment" : "プレミアムのシート（⑨）の見出し。プレミアムを買わなくても使える機能の一覧",
       "localizations" : {
@@ -7242,7 +7231,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Free: standard summary only"
+            "value" : "Free: standard text only"
           }
         }
       }
@@ -8561,7 +8550,7 @@
       }
     },
     "購入済み" : {
-      "comment" : "設定の「プレミアム」の行の値（自分で購入済み）",
+      "comment" : "設定の「サイフログ プレミアム」の行の 2 行目（自分で購入済み）",
       "localizations" : {
         "en" : {
           "stringUnit" : {

@@ -224,6 +224,14 @@ final class PurchaseManager {
         displayPrice(for: kind) != nil
     }
 
+    /// 無料体験を案内してよいか（まだ体験していない無料のときだけ）。App Store の商品を読めた後に体験の商品だけが無ければ
+    /// （体験だけが審査に通らなかった・販売をやめたなど）案内しない。押せない体験のボタンを主ボタンにしたり、始められない
+    /// 体験を設定や月のまとめで勧めたりしないため。読む前と読めなかったときは、体験があるものとして案内する（読むまで
+    /// 分からず、読めなければ体験も購入も押せないため）。
+    var offersTrial: Bool {
+        status.canStartTrial && (productsState != .loaded || isOffered(.trial14))
+    }
+
     #if DEBUG
     /// 撮影用のデモで、App Store の商品を読まずに価格を出す（`screenshotDisplayPrices`）。読み込み済みにして、シートが
     /// App Store に商品を読みにいかないようにする。

@@ -511,6 +511,8 @@ struct MonthlyReportModelTests {
         ([TestSupport.trial(startedDaysAgo: 20)], true, false),
         ([TestSupport.trial(startedDaysAgo: 3)], false, false),
         ([PremiumPurchase(product: .premium, purchaseDate: TestSupport.date(2026, 9, 1))], false, false),
+        // 返金の後（体験はまだしていない）は無料に戻るので、案内も体験の勧めも出す。
+        ([PremiumPurchase(product: .premium, purchaseDate: TestSupport.date(2026, 9, 1), revocationDate: TestSupport.date(2026, 9, 5))], true, true),
     ] as [([PremiumPurchase], Bool, Bool)])
     func categoryBudgetUpsell(purchases: [PremiumPurchase], shows: Bool, offersTrial: Bool) async throws {
         let fixture = try Fixture()
@@ -522,6 +524,19 @@ struct MonthlyReportModelTests {
         #expect(model.canStartTrial == offersTrial)
         model.presentPremium()
         #expect(model.premiumSheet != nil)
+    }
+
+    @Test("体験の商品だけが App Store に無ければ、カテゴリ別の予算の案内は出すが、体験は勧めない")
+    func categoryBudgetUpsellWithoutTrialProduct() async throws {
+        let fixture = try Fixture()
+        try Self.insertCategoryBudgetLedger(fixture)
+        let purchases = await TestSupport.purchases()
+        purchases.useScreenshotDisplayPrices([.premium: "¥1,800"])
+
+        let model = fixture.makeModel(purchases: purchases)
+
+        #expect(model.showsCategoryBudgetUpsell)
+        #expect(!model.canStartTrial)
     }
 
     @Test("購入の事実を読み終える前と、購入の状態が無いときは、カテゴリ別の予算の案内を出さない")

@@ -110,6 +110,14 @@ struct ThemeContrastTests {
         #expect(Self.contrastRatio(Palette.onCategory.light, Palette.income.light) >= 4)
     }
 
+    /// スワイプの「削除」「やめる」の白い記号と文字が、注意の塗りの上で読めるか（ライトとダークの両方で 4.5:1 以上）。
+    /// ダークの `danger`（明るい赤）で塗ると 2.3:1 ほどしかなく、記号が読めなかったため。
+    @Test(arguments: Mode.allCases)
+    func whiteOnDangerFill(mode: Mode) {
+        let ratio = Self.contrastRatio(mode.value(of: Palette.onCategory), mode.value(of: Palette.dangerFill))
+        #expect(ratio >= 4.5, "\(mode) で \(ratio):1")
+    }
+
     /// カテゴリの色を地の上に図形（グラフの棒など）として置いたときに 3:1 以上。ダークの値は文字にも使うので 4.5:1 以上。
     @Test(arguments: EntryCategory.builtIns)
     func categoryOnBackground(category: EntryCategory) {
@@ -157,6 +165,7 @@ struct ThemeContrastTests {
             ("onAccent", Theme.onAccent, Palette.onAccent),
             ("userBubble", Theme.userBubble, Palette.userBubble),
             ("danger", Theme.danger, Palette.danger),
+            ("dangerFill", Theme.dangerFill, Palette.dangerFill),
             ("track", Theme.track, Palette.track),
             ("income", Theme.income, Palette.income),
             ("onCategory", Theme.onCategory, Palette.onCategory),

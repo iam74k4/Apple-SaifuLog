@@ -28,6 +28,35 @@ struct PremiumSheetModelTests {
         #expect(model.showsTrial == expected)
     }
 
+    /// 体験の商品だけが App Store に無ければ（体験だけが審査に通らなかった・販売をやめたなど）、体験を案内せず、
+    /// 購入を主ボタンにする（押せない体験のボタンを主ボタンにしない）。
+    @Test func hidesTrialWhenOnlyTrialProductIsMissing() async {
+        let purchases = await TestSupport.purchases()
+        purchases.useScreenshotDisplayPrices([.premium: "¥1,800"])
+        let model = Self.model(purchases)
+
+        #expect(!purchases.offersTrial)
+        #expect(!model.showsTrial)
+        #expect(!model.canStartTrial)
+        #expect(model.canPurchase)
+    }
+
+    /// 商品を読む前と読めなかったときは、体験があるものとして案内する（読むまで分からないため）。読めて体験の商品が
+    /// あれば、案内を続けて押せるようにする。
+    @Test func offersTrialUntilProductsShowItIsMissing() async {
+        let purchases = await TestSupport.purchases()
+        let model = Self.model(purchases)
+        #expect(purchases.offersTrial)
+
+        await model.loadProducts()
+        #expect(purchases.productsState == .failed)
+        #expect(purchases.offersTrial)
+
+        purchases.useScreenshotDisplayPrices([.premium: "¥1,800", .trial14: "¥0"])
+        #expect(model.showsTrial)
+        #expect(model.canStartTrial)
+    }
+
     /// 価格を読めていなければ、買うボタンも体験のボタンも押せない（金額をアプリに書かない）。
     @Test func buttonsAreDisabledUntilProductsLoad() async {
         let model = Self.model(await TestSupport.purchases())
@@ -113,7 +142,7 @@ struct PremiumSheetModelTests {
         #expect(model.alert == nil)
     }
 
-    /// 無料とプレミアムの違いの表で「近日」と書く機能。まだ出していない機能を、できるように書かない。
+    /// プレミアムでできることの行で「近日」と書く機能。まだ出していない機能を、できるように書かない。
     /// 家計への質問・ふりかえりの AI の一言・レシートの読み取りは出したので「近日」を外した（出した機能を「近日」のままにしない）。
     /// カテゴリ別の予算も、月のまとめに進みを出したので、補足の「使った額との比べの表示は近日対応です」を外した。
     @Test func comingSoonFeatures() {

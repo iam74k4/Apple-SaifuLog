@@ -1448,9 +1448,11 @@ final class HomeModel {
         weeklyRecapDetail = weeklyRecap
     }
 
-    /// プレミアムの状態が変わったとき（体験を始めた・買った・返金された）に、ふりかえりの AI の一言を決め直す。
+    /// プレミアムの状態が変わったとき（体験を始めた・買った・返金された）に、ふりかえりと月のまとめの AI の一言を決め直す
+    /// （月のまとめのカテゴリ別の予算の案内から体験を始めたときも、開いている月のまとめに一言が付くように）。
     func premiumStatusDidChange() {
         weeklyRecap?.remark.refresh()
+        monthlyReport?.remark.refresh()
     }
 
     // MARK: - 日付とタイムライン
