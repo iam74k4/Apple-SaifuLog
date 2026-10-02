@@ -40,13 +40,16 @@ final class ScreenshotDemo {
         case premium
         /// プレミアムのシートの下のほう（14 日間の無料体験の説明とボタン。体験の課金アイテムの審査用のスクリーンショット）。
         case trial
+        /// カレンダーのページ（今日あと・月のカレンダー・今日の記録）。くり返しの記録の予定（`ScreenshotDemoLedger.recurringDrafts`）も
+        /// 入れ、予定の印と、固定費を引いた今月あとを写す。
+        case calendar
 
         /// 購入の状態を指定しなかったときの状態。プレミアムのシートは購入と体験のボタンを写すので無料、ほかは購入済み
         /// （無料の残りの回数の行などを写さず、ふりかえりと月のまとめの AI の一言を写すため）。
         var defaultPremium: PremiumChoice {
             switch self {
             case .premium, .trial: .free
-            case .home, .ask, .report, .recap, .receipt, .voice: .purchased
+            case .home, .ask, .report, .recap, .receipt, .voice, .calendar: .purchased
             }
         }
     }
@@ -200,7 +203,11 @@ final class ScreenshotDemo {
     /// 保存先。メモリの上だけに作り、架空の記録と予算を入れる（利用者の記録のファイルは開かない）。
     func makeContainer() throws -> ModelContainer {
         let container = try ModelContainerFactory.makeInMemoryContainer()
-        try ScreenshotDemoLedger.insert(into: container.mainContext, now: now, calendar: calendar)
+        try ScreenshotDemoLedger.insert(
+            into: container.mainContext, now: now, calendar: calendar,
+            // くり返しの記録の予定は、カレンダーの画面だけに入れる（ほかの画面の記録と数字を変えないため）。
+            includesRecurring: screen == .calendar
+        )
         return container
     }
 
@@ -318,6 +325,8 @@ final class ScreenshotDemo {
         case .trial:
             home.presentPremium()
             home.premiumSheet?.screenshotScrollsToBottom = true
+        case .calendar:
+            home.page = .calendar
         }
     }
 

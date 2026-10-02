@@ -28,10 +28,17 @@ struct InputBar: View {
     var voice: VoiceInputModel?
     /// 家族の家計に記録しているか（ホームの帯の「家族」）。入力欄の名前と例で、家計に記録することを示す。
     var targetsHousehold = false
-    /// 入力欄にキーボードを出す頼みの数（Siri・ショートカットの「入力欄を開く」）。増えるたびにフォーカスを入れる。
+    /// 入力欄にキーボードを出す頼みの数（Siri・ショートカットの「入力欄を開く」・カレンダーの「この日に記録」）。増えるたびに
+    /// フォーカスを入れる。
     var focusRequest = 0
+    /// 入力欄のあるページ（ホームの会話）を出しているか。カレンダーのページへ移ったらキーボードを閉じる（見えない入力欄に
+    /// キーボードを残して、カレンダーを隠さないように）。
+    var isOnScreen = true
 
     @FocusState private var isFocused: Bool
+    /// VoiceOver のフォーカス。キーボードを出す頼み（`focusRequest`）では、VoiceOver のフォーカスも入力欄へ移す（キーボードが出ても、
+    /// VoiceOver のフォーカスは押したボタンのあたりに残り、どこに打つのかが分からないため）。
+    @AccessibilityFocusState private var isAccessibilityFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var canSend: Bool {
@@ -76,7 +83,14 @@ struct InputBar: View {
             }
             .foregroundStyle(Theme.ink)
             .focused($isFocused)
-            .onChange(of: focusRequest) { isFocused = true }
+            .accessibilityFocused($isAccessibilityFocused)
+            .onChange(of: focusRequest) {
+                isFocused = true
+                isAccessibilityFocused = true
+            }
+            .onChange(of: isOnScreen) { _, onScreen in
+                if !onScreen { isFocused = false }
+            }
             .submitLabel(.send)
             .onSubmit {
                 send()

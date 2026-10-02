@@ -524,8 +524,10 @@ private struct RecordedReplyHeader: View {
 /// 解析がメモに説明を書き足した記録（割り勘・1 人分の額。コアの `EntryMemoNote`）は、品目（「焼肉」）だけを見出しにし、説明を
 /// 行の下の文にする（「¥12,000 を4人で割り勘。立て替えた ¥9,000 はメモに残しました。」`ReplyTexts.note(for:)`）。メモそのものは
 /// 変えない（⑥ のメモの欄と CSV には説明が書かれたまま）。メモを直した記録は、書き足した形でなくなるので、メモをそのまま見出しにする。
-struct RecordedReplyRow: View {
-    let entry: Entry
+///
+/// カレンダーの選んだ日の記録にも同じ行を使う（記録の値の控え `LedgerCalendarModel.DayRecord` を渡す）。
+struct RecordedReplyRow<Record: LedgerEntryDisplaying>: View {
+    let entry: Record
     /// 送った日時。使った日がこの日と違うときだけ、日付を添える（「昨日 焼肉…」の昨日）。
     let sentAt: Date
     /// 今日。日付に年を添えるかの基準にする。
@@ -577,7 +579,7 @@ struct RecordedReplyRow: View {
     }
 
     /// 見出しにする品目と、行の下に添える説明の文（解析が説明を書き足していない記録・メモや金額を直した記録は nil）。
-    static func text(of entry: Entry) -> (item: String, note: String?) {
+    static func text(of entry: Record) -> (item: String, note: String?) {
         guard let note = EntryMemoNote(memo: entry.memo, amount: entry.amount, isIncome: entry.isIncome) else {
             return (entry.memo, nil)
         }

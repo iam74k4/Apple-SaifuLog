@@ -22,6 +22,10 @@ struct SummaryHeader: View {
     var openReport: (() -> Void)?
     /// 設定へ進む。nil なら歯車のボタンを出さない（プレビューなど）。
     var openSettings: (() -> Void)?
+    /// カレンダーのページを出す（VoiceOver の操作「カレンダー」）。左へのスワイプで出るページなので、帯にボタンは置かない
+    /// （ボタンとページで同じ入口が重なるため）。VoiceOver ではページを送るスワイプが見つけにくいので、数字の要素の操作に置く。
+    /// nil なら操作を出さない（家族の家計・プレビュー）。
+    var openCalendar: (() -> Void)?
     /// 「自分／家族」の切り替え。家計に入っているときだけ渡す（nil なら出さない）。
     var ledgerScope: Binding<HomeModel.LedgerScope>?
     /// 家族の家計の今月の合計か（見出しを「家族の今月の支出」にする）。
@@ -89,13 +93,23 @@ struct SummaryHeader: View {
             .accessibilityLabel(title)
             .accessibilityValue(Text(verbatim: spokenFigures))
             .accessibilityHint("月のまとめを開きます")
+            .accessibilityActions { calendarAction }
             .accessibilitySortPriority(1)
         } else {
             figures
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(title)
                 .accessibilityValue(Text(verbatim: spokenFigures))
+                .accessibilityActions { calendarAction }
                 .accessibilitySortPriority(1)
+        }
+    }
+
+    /// VoiceOver の操作「カレンダー」（`openCalendar` を渡したとき）。
+    @ViewBuilder
+    private var calendarAction: some View {
+        if let openCalendar {
+            Button("カレンダー", action: openCalendar)
         }
     }
 
@@ -497,6 +511,7 @@ struct MonthSummaryHeader: View {
     private let editBudget: () -> Void
     private let openReport: () -> Void
     private let openSettings: () -> Void
+    private let openCalendar: (() -> Void)?
     private let ledgerScope: Binding<HomeModel.LedgerScope>?
     @Query private var records: [Entry]
     @Query private var budgets: [Budget]
@@ -507,6 +522,7 @@ struct MonthSummaryHeader: View {
         editBudget: @escaping () -> Void,
         openReport: @escaping () -> Void,
         openSettings: @escaping () -> Void,
+        openCalendar: (() -> Void)? = nil,
         ledgerScope: Binding<HomeModel.LedgerScope>? = nil
     ) {
         self.today = today
@@ -514,6 +530,7 @@ struct MonthSummaryHeader: View {
         self.editBudget = editBudget
         self.openReport = openReport
         self.openSettings = openSettings
+        self.openCalendar = openCalendar
         self.ledgerScope = ledgerScope
         _records = Query(Entry.monthDescriptor(containing: today, calendar: calendar))
     }
@@ -526,6 +543,7 @@ struct MonthSummaryHeader: View {
             editBudget: editBudget,
             openReport: openReport,
             openSettings: openSettings,
+            openCalendar: openCalendar,
             ledgerScope: ledgerScope,
             pace: figures.pace
         )

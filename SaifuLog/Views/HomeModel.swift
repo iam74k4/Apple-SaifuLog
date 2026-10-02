@@ -5,7 +5,7 @@ import SwiftData
 import SwiftUI
 
 /// ホームの状態と操作（送信・家計への質問・レシートの読み取り・声の入力・取り消し・直す・削除・予算を決める画面と月のまとめと設定と
-/// プレミアムの出し入れ・先週のふりかえりのカード・「自分／家族」の切り替え）。
+/// プレミアムの出し入れ・先週のふりかえりのカード・「自分／家族」の切り替え・会話とカレンダーのページの切り替え）。
 ///
 /// 家族と家計を共有しているとき（家計の共有が有効なビルドだけ）は、帯の「自分／家族」で記録先を切り替える。「家族」のときは、
 /// 入力欄で記録したものを家計の保存先（`HouseholdHost`）に入れ、直す・取り消す・削除も家計の記録に効く。家計への質問・レシート・
@@ -37,13 +37,16 @@ final class HomeModel {
     /// 入力欄の文。
     var draft = "" {
         didSet {
-            // 入力欄を空にしたら（送った・消した）、声で入れた文ではなくなる。
-            if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { draftSource = .text }
+            // 入力欄を空にしたら（送った・消した）、声で入れた文ではなくなり、カレンダーで入れた日付も無くなる。
+            if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                draftSource = .text
+                calendarDraftPrefix = ""
+            }
         }
     }
     /// 入力欄の文をどこから入れたか。声で入れた文（打ち直したものも含む）を送ったら、記録の入力元を「声」にする。
     private(set) var draftSource: EntrySource = .text
-    /// よく使うひとことの候補（品目ごとにまとめたもの。入力欄の文に合わせて絞るのは画面。`QuickPhrases.suggestions`）。
+    /// よく使うひとことの候補（品目ごとにまとめたもの。入力欄の文に合わせて絞ったものは `quickPhraseSuggestions`）。
     /// 記録を足す・直す・消す・取り込むたびに `refreshQuickPhrases()` で作り直す。
     private(set) var quickPhrases: [QuickPhrase] = []
     /// 送った文を読み取っている間（送信ボタンを押せなくし、読み取り中の印を出す）。
@@ -72,6 +75,16 @@ final class HomeModel {
             paymentOverlaps = [:]
         }
     }
+    /// いま出しているホームのページ。開いたときは会話（記録が先）。左右のスワイプのほか、カレンダーの「会話」のボタンと、
+    /// VoiceOver の帯の操作「カレンダー」で切り替える。
+    var page: Page = .conversation
+    /// カレンダーのページ（docs/design.md §9 の ⑩）の状態と操作。
+    let calendarPage: LedgerCalendarModel
+    /// カレンダーの「この日に記録」で入力欄の頭に入れた日付（「10/2 」）。次に入れるときに、前の日付だけを差し替えるため。
+    @ObservationIgnored private var calendarDraftPrefix = ""
+    /// 次のページの切り替えで、VoiceOver に画面が替わったことを知らせないか（「この日に記録」で会話へ戻るとき。入力欄へ移す
+    /// フォーカスを、知らせが画面の最初の要素へ動かさないように）。画面が切り替えを受け取ったら戻す（`consumePageChange()`）。
+    @ObservationIgnored private var pageChangeFocusesInput = false
     /// 直前の送信で記録したもののうち、返事でカテゴリを聞き返しているもの（「その他」になり、品目が辞書にも覚えにも当たらない支出。
     /// `CategoryMemory.asksCategory`）。「取り消す」と同じく、次の文を送る・取り消す・選ぶ・その記録を直す・消す・記録先を
     /// 切り替えるまで出す。聞き返すのは返事の中だけで、記録は止めない（一行入力の軽さを保つため。docs/design.md §3-2）。
@@ -220,11 +233,16 @@ final class HomeModel {
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
     ) {
+        let budgetStore = budgetStore ?? BudgetStore(context: store.context)
+        let recurring = recurring ?? RecurringEntryStore(context: store.context, now: now)
         self.store = store
-        self.budgetStore = budgetStore ?? BudgetStore(context: store.context)
+        self.budgetStore = budgetStore
         self.learnedCategories = learnedCategories ?? LearnedCategoryStore(context: store.context, now: now)
         self.categories = categories ?? CategoryCatalogModel(store: CustomCategoryStore(context: store.context, now: now))
-        self.recurring = recurring ?? RecurringEntryStore(context: store.context, now: now)
+        self.recurring = recurring
+        self.calendarPage = LedgerCalendarModel(
+            store: store, budgetStore: budgetStore, recurring: recurring, now: now, announce: announce
+        )
         self.paymentInbox = paymentInbox ?? .shared
         self.pendingWrites = pendingWrites
         self.storeHost = storeHost
@@ -303,6 +321,43 @@ final class HomeModel {
     /// 前の「家族」のまま始まらないように）。
     func householdAvailabilityDidChange() {
         if !showsLedgerSwitch { ledgerScope = .personal }
+    }
+
+    // MARK: - 会話とカレンダー
+
+    /// カレンダーのページを出すか。カレンダーは「自分」の記録だけを出すので、「家族」のときは出さない（v1）。
+    var showsCalendarPage: Bool {
+        !isHouseholdActive
+    }
+
+    /// カレンダーの「この日に記録」。会話のページへ戻り、入力欄の頭にその日の日付（「10/2 」。今日なら無し）を入れてキーボードを
+    /// 出す。送るのは利用者が押したときだけ（ほかの入力と同じ）。
+    ///
+    /// 日付は文として入れ、ひとこと入力の読み取りに任せる（記録の日付を別に持たせない。入力欄の文を見れば、どの日に記録するかが
+    /// 分かり、消せば今日の記録に戻せるため）。打ちかけの文は残し、前に入れた日付だけを差し替える（別の日を選び直して押しても、
+    /// 日付が重ならないように）。
+    func prepareDraft(for day: Date, calendar: Calendar) {
+        let rest = draftAfterCalendarDate.rest
+        calendarDraftPrefix = DateExpression.notation(for: day, now: now(), calendar: calendar).map { "\($0) " } ?? ""
+        draft = calendarDraftPrefix + rest
+        if page != .conversation {
+            pageChangeFocusesInput = true
+            page = .conversation
+        }
+        inputFocusRequest += 1
+    }
+
+    /// 画面がページの切り替えを受け取った。VoiceOver に画面が替わったことを知らせるなら true（入力欄へフォーカスを移す切り替え
+    /// では false）。
+    func consumePageChange() -> Bool {
+        defer { pageChangeFocusesInput = false }
+        return !pageChangeFocusesInput
+    }
+
+    /// 入力欄の文を、カレンダーの「この日に記録」で入れた日付と、その後ろに分ける（日付を入れていなければ、日付は空）。
+    private var draftAfterCalendarDate: (date: String, rest: String) {
+        guard !calendarDraftPrefix.isEmpty, draft.hasPrefix(calendarDraftPrefix) else { return ("", draft) }
+        return (calendarDraftPrefix, String(draft.dropFirst(calendarDraftPrefix.count)))
     }
 
     // MARK: - 送信
@@ -1105,8 +1160,10 @@ final class HomeModel {
     // MARK: - Siri・ショートカット
 
     /// Siri・ショートカットからの頼みを受け取る（`QuickActionInbox` から）。前に待っていた頼みがあれば、新しいほうにする。
+    /// カレンダーのページを出していたら、会話のページに戻す（返事も入力欄・カメラ・声も、会話のページに出すため）。
     func receive(_ action: QuickAction) {
         pendingQuickAction = action
+        page = .conversation
     }
 
     /// 待っている頼みを、行えるなら行う。行ったら、その処理を待つ Task を返す（テストで使う）。行えなければ nil（待ち続ける）。
@@ -1553,6 +1610,7 @@ final class HomeModel {
         today = now()
         // 体験の残りの日数と終わりも、今の時刻で出し直す。
         purchases.clockDidChange()
+        calendarPage.refreshToday()
     }
 
     /// タイムラインにさらに前の記録を読み込む（上限の `timelineMaxLimit` を超えては読み込まない）。
@@ -1574,9 +1632,16 @@ final class HomeModel {
         quickPhrases = QuickPhrases.phrases(from: records)
     }
 
+    /// 入力欄の上に出す、よく使うひとこと（入力欄の文に合わせて絞る。`QuickPhrases.suggestions`）。カレンダーの「この日に記録」で入れた
+    /// 日付は除いて絞る（日付は数字なので、そのままでは候補が出なくなる。日付を入れた後も、よく使うひとことから選べるように）。
+    var quickPhraseSuggestions: [QuickPhrase] {
+        QuickPhrases.suggestions(quickPhrases, draft: draftAfterCalendarDate.rest)
+    }
+
     /// よく使うひとことを選んだ。その文（「ランチ 850」）を入力欄に入れる（送るのは利用者。額を直してから送れるように）。
+    /// カレンダーで入れた日付は残す（「10/2 ランチ 850」。その日の記録として送れるように）。
     func pickQuickPhrase(_ phrase: QuickPhrase) {
-        draft = phrase.draft
+        draft = draftAfterCalendarDate.date + phrase.draft
         draftSource = .text
     }
 
@@ -1594,6 +1659,14 @@ final class HomeModel {
     struct PendingHouseholdDeletion {
         let entry: HouseholdEntry
         let summary: String
+    }
+
+    /// ホームのページ。
+    enum Page: Hashable {
+        /// 会話（記録と質問のタイムラインと入力欄）。
+        case conversation
+        /// カレンダー（月の日ごとの支出・選んだ日の記録・今日あと）。
+        case calendar
     }
 
     /// 記録先。

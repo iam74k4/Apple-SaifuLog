@@ -144,6 +144,51 @@ struct DateExpressionTests {
         #expect(DateExpression.daysAgo(in: "2026/9/5", now: now, calendar: calendar) == 2)
     }
 
+    // MARK: - 入力欄に書く表記（カレンダーの「この日に記録」）
+
+    @Test("入力欄に書く表記は、今日なら無し・今年は「月/日」・今年でない日と 60 日より先の日は年も（基準は 2026-09-28）", arguments: [
+        (Fixture.date(2026, 9, 28, hour: 23, minute: 59), nil),
+        (Fixture.date(2026, 9, 27), "9/27"),
+        (Fixture.date(2026, 1, 5), "1/5"),
+        (Fixture.date(2026, 11, 27), "11/27"),
+        // 61 日先。年なしの「11/28」は去年の 11/28 と読む。
+        (Fixture.date(2026, 11, 28), "2026/11/28"),
+        (Fixture.date(2025, 12, 31), "2025/12/31"),
+        (Fixture.date(2027, 1, 5), "2027/1/5"),
+    ] as [(Date, String?)])
+    func notation(day: Date, expected: String?) {
+        #expect(DateExpression.notation(for: day, now: Fixture.now, calendar: Fixture.calendar) == expected)
+    }
+
+    @Test("和暦の設定でも、表記の年は西暦で書く")
+    func notationInJapaneseCalendar() {
+        var calendar = Calendar(identifier: .japanese)
+        calendar.timeZone = Fixture.calendar.timeZone
+        #expect(DateExpression.notation(for: Fixture.date(2026, 9, 27), now: Fixture.now, calendar: calendar) == "9/27")
+        #expect(DateExpression.notation(for: Fixture.date(2025, 12, 31), now: Fixture.now, calendar: calendar) == "2025/12/31")
+    }
+
+    // 表記を入力欄の頭に入れて送ったとき、ひとこと入力の読み取りがその日の記録にすることを、前後 400 日のすべての日で確かめる。
+    // 年の替わり目（12/20 と 1/5）と、うるう日（2028-02-29）も基準にする。
+    @Test("表記を頭に入れたひとことは、その日の記録として読める", arguments: [
+        Fixture.now,
+        Fixture.date(2026, 12, 20, hour: 9),
+        Fixture.date(2027, 1, 5, hour: 23, minute: 30),
+        Fixture.date(2028, 2, 29, hour: 0, minute: 30),
+    ])
+    func notationRoundTrip(now: Date) throws {
+        let parser = RuleBasedParser(calendar: Fixture.calendar, now: { now })
+        for offset in -400...400 {
+            let day = try #require(Fixture.calendar.date(byAdding: .day, value: offset, to: now))
+            let notation = DateExpression.notation(for: day, now: now, calendar: Fixture.calendar)
+            let text = [notation, "ランチ 500"].compactMap(\.self).joined(separator: " ")
+            #expect(
+                parser.entries(from: text) == [ParsedEntry(amount: 500, category: .food, memo: "ランチ", daysAgo: -offset)],
+                "\(text)"
+            )
+        }
+    }
+
     @Test("今日は基準の日時そのもの、ほかの日は同じ時刻のその日")
     func dateFromDaysAgo() {
         #expect(DateExpression.date(daysAgo: 0, now: Fixture.now, calendar: Fixture.calendar) == Fixture.now)

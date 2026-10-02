@@ -500,6 +500,29 @@ struct ScreenshotDemoTests {
         #expect(RecapRemark.checked(ScreenshotDemoRemarkWriter.remark(from: monthly), facts: monthly) != nil)
     }
 
+    @Test("カレンダーの画面: カレンダーのページを出し、くり返しの記録は記録せずに今月の予定として出す。ほかの画面には入れない")
+    func calendarScreenShowsPlannedRecurring() async throws {
+        let (demo, home) = try Self.makeHome(.calendar, uiLanguage: "ja")
+        defer { Self.removeDefaults(of: demo) }
+        // ホームが出たときと同じく、記録する日を過ぎたくり返しの記録を記録してから、カレンダーを開く。
+        home.recordDueRecurringEntries(calendar: demo.calendar)
+        home.calendarPage.configure(calendar: demo.calendar)
+        await demo.stage(on: home, calendar: demo.calendar)
+
+        #expect(home.page == .calendar)
+        #expect(home.justRecorded.isEmpty)
+        let outlook = try #require(home.calendarPage.outlook)
+        #expect(outlook.plannedFixed.map(\.memo) == ScreenshotDemoLedger.recurringDrafts.map(\.memo))
+        // 固定費を引いても、今月あとが残る（今日あとは、撮る月の 15 日の曜日で使った額が変わり、目安を超える月もある）。
+        #expect((outlook.freeToSpend ?? 0) > 0)
+
+        let (other, otherHome) = try Self.makeHome(.home, uiLanguage: "ja")
+        defer { Self.removeDefaults(of: other) }
+        otherHome.calendarPage.configure(calendar: other.calendar)
+        #expect(otherHome.calendarPage.planned.isEmpty)
+        #expect(otherHome.page == .conversation)
+    }
+
     @Test("プレミアムと体験の画面: プレミアムのシートを出し、体験の画面は下の端から開く")
     func premiumScreensPresentSheet() async throws {
         let (premiumDemo, premiumHome) = try Self.makeHome(.premium, uiLanguage: "ja")
