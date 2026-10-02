@@ -8,7 +8,7 @@ import Foundation
 /// 値は実機で測る前の仮の値。実機でふつうにかかる時間（初めての生成のモデルの読み込みを含む）を測ってから見直す（docs/design.md §15）。
 enum AITimeouts {
     /// ひとこと入力の読み取り（区間ごとの生成をすべて含む）。待つ間は次の文を送れず、保存先の開き直し（iCloud の切り替え）も
-    /// 待たせるので、いちばん短くする。
+    /// 待たせるので、短くする（読み取りに続けて待つカテゴリの聞き直しは、さらに短い `categoryRefine`）。
     static let entry: Duration = .seconds(6)
     /// 家計への質問（ツール呼び出しと一言）。
     static let question: Duration = .seconds(8)
@@ -16,4 +16,7 @@ enum AITimeouts {
     static let recapRemark: Duration = .seconds(8)
     /// レシートの品名とカテゴリの整え。品目の数だけ生成が長くなり、iOS 27 では画像も渡すので、ほかより長くする。
     static let receiptRefine: Duration = .seconds(15)
+    /// 辞書で決まらなかった品目のカテゴリの聞き直し（`CategoryRefiner`）。読み取りの後に続けて待つ（その間は次の文を送れない）ので、
+    /// 読み取りより短くする。品目だけを渡して 8 つから選ばせる小さな生成なので、ふつうはこれよりずっと早く返る想定。
+    static let categoryRefine: Duration = .seconds(3)
 }

@@ -17,6 +17,8 @@ struct HomeModelTests {
         var parser: any EntryParsing = RuleBasedParser(calendar: TestSupport.calendar, now: { TestSupport.now })
         /// 解析器の作り方を差し替える（送った瞬間の日時と暦を受け取る）。nil なら `parser` を使う。
         var makeParser: ((Date, Calendar) -> any EntryParsing)?
+        /// カテゴリの聞き直し（AI の代わり）。既定は無し（AI が使えない端末と同じ。テストで本物のモデルを呼ばないため）。
+        var categoryRefiner: CategoryRefiner?
         var now = TestSupport.now
         /// 解析を待ってから記録する処理の数（保存先の開き直しが待つもの）。
         let pendingWrites = PendingStoreWrites()
@@ -65,6 +67,7 @@ struct HomeModelTests {
                 purchases: self.purchases,
                 defaults: defaults,
                 makeParser: { [unowned self] now, calendar in makeParser?(now, calendar) ?? parser },
+                makeCategoryRefiner: { [unowned self] in categoryRefiner },
                 makeAnswerer: { [unowned self] in
                     answererCalls += 1
                     return answerer

@@ -158,6 +158,7 @@ final class HomeModel {
     @ObservationIgnored private let storeHost: StoreHost?
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let makeParser: (Date, Calendar) -> any EntryParsing
+    @ObservationIgnored private let makeCategoryRefiner: () -> CategoryRefiner?
     @ObservationIgnored private let makeAnswerer: () -> any QuestionAnswering
     @ObservationIgnored private let makeRemarkWriter: () -> (any RecapRemarkWriting)?
     @ObservationIgnored private let now: () -> Date
@@ -191,6 +192,8 @@ final class HomeModel {
     ///   - quotaStore: 無料で使った回数の読み書き。渡さなければ `defaults` と `now` で作る。
     ///   - makeParser: 送信のたびに解析器を選ぶ（AI の使える・使えないは途中から変わるため）。送った瞬間の日時と暦を渡し、
     ///     「昨日」「9/26」をその日時を基準に読ませる。テストで差し替える。
+    ///   - makeCategoryRefiner: 記録のたびに、辞書で決まらなかった品目のカテゴリを AI に聞き直すものを選ぶ（AI が使えなければ nil）。
+    ///     テストで差し替える（決まった答えを返す代わりか nil）。
     ///   - makeAnswerer: 質問のたびに答え方（AI かキーワード辞書）を選ぶ。テストで差し替える。
     ///   - makeRemarkWriter: ふりかえり（先週のふりかえり・月のまとめ）の AI の一言を書くもの。AI が使えなければ nil。テストで差し替える。
     ///   - receiptReader: レシートの画像の読み取り（文字認識と AI）。テストで決めた文字や偽物の AI に差し替える。
@@ -212,6 +215,7 @@ final class HomeModel {
         defaults: UserDefaults = .standard,
         quotaStore: QuotaStore? = nil,
         makeParser: @escaping (Date, Calendar) -> any EntryParsing = { EntryParserFactory.makeParser(now: $0, calendar: $1) },
+        makeCategoryRefiner: @escaping () -> CategoryRefiner? = { CategoryRefiner.forDevice() },
         makeAnswerer: @escaping () -> any QuestionAnswering = { QuestionAnswererFactory.makeAnswerer() },
         makeRemarkWriter: @escaping () -> (any RecapRemarkWriting)? = { RecapRemarkWriterFactory.makeWriter() },
         receiptReader: ReceiptReader = ReceiptReader(),
@@ -233,6 +237,7 @@ final class HomeModel {
         self.defaults = defaults
         self.quotaStore = quotaStore ?? QuotaStore(defaults: defaults, now: now)
         self.makeParser = makeParser
+        self.makeCategoryRefiner = makeCategoryRefiner
         self.makeAnswerer = makeAnswerer
         self.makeRemarkWriter = makeRemarkWriter
         self.receiptReader = receiptReader
@@ -414,9 +419,20 @@ final class HomeModel {
             // 記録は止めない。
             let catalog = categories.catalog
             let memory = (try? learnedCategories.memory()) ?? CategoryMemory()
+            var entries = memory.applying(to: parsed, catalog: catalog)
+            // それでも「その他」のまま、返事で聞き返すことになる品目は、先に AI に聞き直す（AI が使える端末だけ。辞書に無い品目でも、
+            // AI がカテゴリを選べれば聞き返さずに済む。選べなければ、これまでどおり返事で聞き返す）。
+            if let refiner = makeCategoryRefiner() {
+                do {
+                    entries = try await refiner.refine(entries, memory: memory, catalog: catalog)
+                } catch {
+                    // 取り消された（読み取りの取り消しと同じ）。記録せず、送った文だけを入力欄に戻す。
+                    restoreDraft(text, source: source)
+                    return
+                }
+            }
             let recorded = Entry.records(
-                from: memory.applying(to: parsed, catalog: catalog), originalText: text, source: source, now: sentAt,
-                calendar: calendar
+                from: entries, originalText: text, source: source, now: sentAt, calendar: calendar
             )
             do {
                 try store.insert(recorded)

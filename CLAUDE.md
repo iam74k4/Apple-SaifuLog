@@ -128,7 +128,9 @@
     `scripts/screenshot-image.swift` で外す）。Release のアーカイブに入っていないことは `make archive` が印 `SaifuLog-ScreenshotDemo-v1`
     （`release.mk` の `RELEASE_SCREENSHOT_DEMO_MARKER`）で確かめる。組み立ては `ScreenshotDemoTests`。
     カテゴリの聞き返しと修正の記憶（「その他」になり、品目が辞書にも覚えにも当たらない支出だけ、直前の返事の行の下にカテゴリのボタン
-    （`CategoryQuestionView`）を出して聞き返す。記録は止めない。返事で選んだカテゴリと ⑥ で変えたカテゴリを品目の言葉とともに覚え、
+    （`CategoryQuestionView`）を出して聞き返す。記録は止めない。AI が使える端末では、聞き返す前に品目だけを端末内 AI に渡して組み込みの
+    8 つから選ばせ、その他でなければそのカテゴリで記録する（`AI/CategoryRefiner`・`FoundationModelsCategoryClassifier`、決め事はコアの
+    `CategoryRefinement`。上限は全体で 3 秒。答えは覚えない。ひとこと入力の記録だけ）。返事で選んだカテゴリと ⑥ で変えたカテゴリを品目の言葉とともに覚え、
     読み取った後に AI と辞書のどちらの記録にも当てる（AI への手がかりには渡さない）。当て方はコアの `CategoryMemory`、保存は
     `LearnedCategory`（暗号化フィールド）と `LearnedCategoryStore`、状態は `HomeModel.categoryQuestionIDs`・`chooseCategory`。⑧ の
     「覚えたカテゴリ」（`LearnedCategoriesView`・`LearnedCategoriesModel`）で一覧・変える・忘れる）。
