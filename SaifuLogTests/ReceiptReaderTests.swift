@@ -19,9 +19,10 @@ struct ReceiptReaderTests {
 
     /// AI の失敗の記録はテストごとに新しくする（アプリの `AIFallbackLog.shared` に、テストの失敗を混ぜないため）。
     static func reader(
-        lines: [ReceiptTextLine] = lines, refiner: (any ReceiptItemRefining)?, log: AIFallbackLog = AIFallbackLog()
+        lines: [ReceiptTextLine] = lines, refiner: (any ReceiptItemRefining)?, log: AIFallbackLog = AIFallbackLog(),
+        refineTimeout: Duration = AITimeouts.receiptRefine
     ) -> ReceiptReader {
-        ReceiptReader(recognize: { _ in lines }, makeRefiner: { refiner }, aiFallbackLog: log)
+        ReceiptReader(recognize: { _ in lines }, makeRefiner: { refiner }, aiFallbackLog: log, refineTimeout: refineTimeout)
     }
 
     static func scan(_ reading: ReceiptReading) throws -> ReceiptScan {
@@ -90,6 +91,36 @@ struct ReceiptReaderTests {
         #expect(scan.items.map(\.category) == [.food, .daily])
         #expect(log.snapshot.fallbacks == [.receipt: 1])
         #expect(log.snapshot.lastError?.feature == .receipt)
+    }
+
+    /// 返らないまま止まった AI。取り消されても `stuck` が開くまで返らない（取り消しに応じずに止まったモデルの代わり）。
+    struct StuckReceiptRefiner: ReceiptItemRefining {
+        let usesImage = false
+        let stuck: Gate
+
+        func suggestions(for items: [ReceiptItem], storeName: String?, image: ReceiptImage?) async throws -> [ReceiptItemSuggestion] {
+            await stuck.wait()
+            return [ReceiptItemSuggestion(number: 1, name: "牛乳", categoryName: "食費", amountText: "¥198")]
+        }
+    }
+
+    /// AI が返らなくても、上限（アプリは `AITimeouts.receiptRefine` の 15 秒。テストでは短くする）でキーワード辞書のカテゴリのまま
+    /// 読み取る（⑤ を読み取り中のままにしない）。時間切れを AI の記録に残す（利用者には知らせない）。
+    @Test(.timeLimit(.minutes(1)))
+    func aiTimeoutKeepsDictionaryResult() async throws {
+        let stuck = Gate()
+        defer { stuck.open() }
+        let log = AIFallbackLog()
+        let reader = Self.reader(refiner: StuckReceiptRefiner(stuck: stuck), log: log, refineTimeout: .milliseconds(200))
+
+        let scan = try Self.scan(await reader.read([TestSupport.blankReceiptImage], now: TestSupport.now, calendar: TestSupport.calendar))
+
+        #expect(scan.items.map(\.name) == ["ギュウニュウ", "ティッシュ"])
+        #expect(scan.items.map(\.category) == [.food, .daily])
+        #expect(scan.total == 496)
+        #expect(log.snapshot.fallbacks == [.receipt: 1])
+        #expect(log.snapshot.timeouts == [.receipt: 1])
+        #expect(log.snapshot.lastError == nil)
     }
 
     /// AI が整えられたときは、AI の記録に何も残さない。

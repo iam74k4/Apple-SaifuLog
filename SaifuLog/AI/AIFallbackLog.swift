@@ -15,9 +15,10 @@ enum AIFeature: String, CaseIterable, Sendable {
     case receipt
 }
 
-/// 端末内 AI の失敗と、AI の結果を使わなかった回数を残す（os.Logger と、起動してからのメモリの上の記録）。
+/// 端末内 AI の失敗と時間切れ、AI の結果を使わなかった回数を残す（os.Logger と、起動してからのメモリの上の記録）。
 ///
-/// AI が失敗しても、利用者にはキーワード辞書の結果（ふりかえりは定型文だけ）を見せ、失敗は知らせない（docs/design.md §4-2）。
+/// AI が失敗しても、上限の時間（`AITimeouts`）までに返らなくても、利用者にはキーワード辞書の結果（ふりかえりは定型文だけ）を見せ、
+/// 失敗は知らせない（docs/design.md §4-2）。
 /// そのままでは「AI が使えると出るのに、生成が毎回失敗している端末」と「AI の使えない端末」を見分けられないので、開発者と
 /// 所有者が Console.app（サブシステム com.iam74k4.SaifuLog・カテゴリ ai）と診断画面で確かめられるようにする。
 ///
@@ -33,13 +34,19 @@ final class AIFallbackLog: Sendable {
 
     /// 起動してからの記録。
     struct Snapshot: Equatable, Sendable {
-        /// 機能ごとの、AI の結果を使わなかった回数（失敗と、結果が無かったときの両方）。
+        /// 機能ごとの、AI の結果を使わなかった回数（失敗・時間切れ・結果が無かったときのすべて）。
         var fallbacks: [AIFeature: Int] = [:]
-        /// 最後の失敗。まだ失敗していなければ nil（結果が無かっただけのときは変えない）。
+        /// 機能ごとの、AI が上限の時間までに返らなかった回数（`fallbacks` にも数える）。上限の見直し（docs/design.md §15）に使う。
+        var timeouts: [AIFeature: Int] = [:]
+        /// 最後の失敗。まだ失敗していなければ nil（結果が無かっただけのときと、時間切れのときは変えない。時間切れは `timeouts` で分かる）。
         var lastError: LastError?
 
         var totalFallbacks: Int {
             fallbacks.values.reduce(0, +)
+        }
+
+        var totalTimeouts: Int {
+            timeouts.values.reduce(0, +)
         }
     }
 
@@ -75,6 +82,14 @@ final class AIFallbackLog: Sendable {
             }
             Self.logger.error(
                 "端末内 AI が失敗したので、AI の結果を使いません: \(feature.rawValue, privacy: .public) \(summary.description, privacy: .public)"
+            )
+        case .timedOut(let timeout):
+            state.withLock { snapshot in
+                snapshot.fallbacks[feature, default: 0] += 1
+                snapshot.timeouts[feature, default: 0] += 1
+            }
+            Self.logger.error(
+                "端末内 AI が上限の時間（\(String(describing: timeout), privacy: .public)）までに返らなかったので、AI の結果を使いません: \(feature.rawValue, privacy: .public)"
             )
         case .noResult:
             state.withLock { $0.fallbacks[feature, default: 0] += 1 }

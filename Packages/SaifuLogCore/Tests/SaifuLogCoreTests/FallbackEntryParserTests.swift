@@ -130,4 +130,91 @@ struct FallbackEntryParserTests {
 
         #expect(recorder.reasons.isEmpty)
     }
+
+    // MARK: - 上限の時間
+
+    /// 返らないまま止まった AI の代わり。取り消しに応じず、10 秒たつまで返らない。始めたことを `started` に知らせる。
+    struct HangingParser: EntryParsing {
+        var started: AsyncStream<Void>.Continuation?
+
+        func parse(_ text: String) async throws -> [ParsedEntry] {
+            started?.yield()
+            await sleepIgnoringCancellation(seconds: 10)
+            return [FallbackEntryParserTests.aiEntry]
+        }
+    }
+
+    /// 読み取りが終わらないと、次の文を送れず、保存先の開き直しも待ち続ける。
+    @Test("AI が上限の時間までに返らなければ、終わるのを待たずにルールベースで読み、時間切れを知らせる")
+    func fallsBackOnTimeout() async throws {
+        let recorder = FallbackRecorder()
+        let parser = FallbackEntryParser(
+            primary: HangingParser(), fallback: StubParser(result: .success([Self.ruleEntry])),
+            timeout: .milliseconds(200), onFallback: { recorder.record($0) }
+        )
+        let clock = ContinuousClock()
+        let start = clock.now
+
+        let entries = try await parser.parse("焼肉")
+
+        // 止まった AI（10 秒）を待っていないことが分かればよいので、テストを動かす端末の混み具合で揺れないよう大きく取る。
+        #expect(start.duration(to: clock.now) < .seconds(5))
+        #expect(entries == [Self.ruleEntry])
+        #expect(recorder.reasons.count == 1)
+        guard case .timedOut(let timeout) = try #require(recorder.reasons.first) else {
+            Issue.record("時間切れとして知らせていない: \(recorder.reasons)")
+            return
+        }
+        #expect(timeout == .milliseconds(200))
+    }
+
+    @Test("上限があっても、AI が上限までに読めたらその結果を使い、何も知らせない")
+    func usesPrimaryWithinTimeout() async throws {
+        let recorder = FallbackRecorder()
+        let parser = FallbackEntryParser(
+            primary: StubParser(result: .success([Self.aiEntry])), fallback: StubParser(result: .success([Self.ruleEntry])),
+            timeout: .seconds(10), onFallback: { recorder.record($0) }
+        )
+
+        let entries = try await parser.parse("焼肉")
+
+        #expect(entries == [Self.aiEntry])
+        #expect(recorder.reasons.isEmpty)
+    }
+
+    @Test("上限があっても、上限までに AI が失敗したら、時間切れではなく失敗として知らせる")
+    func reportsFailureWithinTimeout() async throws {
+        let recorder = FallbackRecorder()
+        let parser = FallbackEntryParser(
+            primary: StubParser(result: .failure(StubError())), fallback: StubParser(result: .success([Self.ruleEntry])),
+            timeout: .seconds(10), onFallback: { recorder.record($0) }
+        )
+
+        let entries = try await parser.parse("焼肉")
+
+        #expect(entries == [Self.ruleEntry])
+        guard case .failed(let error) = try #require(recorder.reasons.first) else {
+            Issue.record("失敗として知らせていない: \(recorder.reasons)")
+            return
+        }
+        #expect(error is StubError)
+    }
+
+    /// 取り消しを時間切れや失敗と取り違えると、取り消した送信をルールベースで読み直して記録してしまう。
+    @Test("AI を待つ間に取り消されたら、時間切れにも読み直しにもせず、取り消しを伝える")
+    func cancellationWhileWaitingIsNotTimeout() async {
+        let recorder = FallbackRecorder()
+        let (started, startedContinuation) = AsyncStream.makeStream(of: Void.self)
+        let parser = FallbackEntryParser(
+            primary: HangingParser(started: startedContinuation), fallback: StubParser(result: .success([Self.ruleEntry])),
+            timeout: .seconds(30), onFallback: { recorder.record($0) }
+        )
+        let task = Task { try await parser.parse("焼肉") }
+        for await _ in started { break }
+
+        task.cancel()
+
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(recorder.reasons.isEmpty)
+    }
 }

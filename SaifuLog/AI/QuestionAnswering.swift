@@ -39,13 +39,18 @@ struct RuleBasedQuestionAnswerer: QuestionAnswering {
     }
 }
 
-/// 先に `primary`（AI）で答え、失敗したか答えられなかったときは `fallback`（キーワード辞書）で答え直す。
+/// 先に `primary`（AI）で答え、失敗したか、上限の時間までに返らなかったか、答えられなかったときは `fallback`（キーワード辞書）で
+/// 答え直す。
 ///
-/// AI の失敗（モデルがツールを呼ばなかった、安全のための拒否、文脈の長さの超過など）を利用者に見せず、辞書で読める質問には
-/// 必ず答えるため（記録の `FallbackEntryParser` と同じ考え方）。
+/// AI の失敗（モデルがツールを呼ばなかった、安全のための拒否、文脈の長さの超過など）や、返らないまま止まったことを利用者に
+/// 見せず、辞書で読める質問には必ず答えるため（記録の `FallbackEntryParser` と同じ考え方）。
 struct FallbackQuestionAnswerer: QuestionAnswering {
     let primary: any QuestionAnswering
     let fallback: any QuestionAnswering
+    /// AI の答えを待つ上限。過ぎたら AI が終わるのを待たずに、キーワード辞書で答える（nil なら上限なし）。
+    ///
+    /// 端末内のモデルが返らないまま止まると、答えるまで次の文を送れないため（`HomeModel` は答えを待つ間、送信を受け付けない）。
+    var timeout: Duration?
     /// AI の答えを使わずに辞書の答えにしたとき、その理由を渡す（nil なら何もしない）。利用者には見せないまま、AI が働いていない
     /// ことに開発者が気づけるようにする（`AIFallbackLog`。記録の `FallbackEntryParser.onFallback` と同じ）。AI が読めないとした
     /// 質問は、辞書で答えられたときだけ渡す（答えられない書き方（「去年」など）の質問は、AI の経路がモデルに渡さずに読めない
@@ -54,17 +59,28 @@ struct FallbackQuestionAnswerer: QuestionAnswering {
 
     func answer(_ text: String, ledger: QuestionLedger, now: Date, calendar: Calendar) async throws -> QuestionReply {
         do {
-            let reply = try await primary.answer(text, ledger: ledger, now: now, calendar: calendar)
+            let reply = try await answerWithPrimary(text, ledger: ledger, now: now, calendar: calendar)
             if case .answered = reply { return reply }
         } catch {
             // 取り消し（画面を閉じたなど）は失敗ではないので、答え直さずにそのまま伝える（理由も渡さない）。
             if error is CancellationError { throw error }
-            onFallback?(.failed(error))
+            onFallback?(AIFallbackReason(error: error))
             return try await fallback.answer(text, ledger: ledger, now: now, calendar: calendar)
         }
         let reply = try await fallback.answer(text, ledger: ledger, now: now, calendar: calendar)
         if case .answered = reply { onFallback?(.noResult) }
         return reply
+    }
+
+    /// `primary` で答える。上限があれば、過ぎたときに `DeadlineExceeded` を投げる（`primary` が終わるのは待たない）。
+    private func answerWithPrimary(
+        _ text: String, ledger: QuestionLedger, now: Date, calendar: Calendar
+    ) async throws -> QuestionReply {
+        guard let timeout else { return try await primary.answer(text, ledger: ledger, now: now, calendar: calendar) }
+        let primary = primary
+        return try await withDeadline(timeout) {
+            try await primary.answer(text, ledger: ledger, now: now, calendar: calendar)
+        }
     }
 }
 
@@ -78,7 +94,7 @@ enum QuestionAnswererFactory {
         if FoundationModelsEntryParser.isAvailable {
             return FallbackQuestionAnswerer(
                 primary: FoundationModelsQuestionAnswerer(), fallback: rules,
-                onFallback: AIFallbackLog.shared.reporter(for: .question)
+                timeout: AITimeouts.question, onFallback: AIFallbackLog.shared.reporter(for: .question)
             )
         }
         #endif

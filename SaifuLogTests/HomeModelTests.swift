@@ -270,6 +270,83 @@ struct HomeModelTests {
         #expect(fixture.pendingWrites.count == 0)
     }
 
+    // MARK: - AI の時間切れ
+
+    /// AI（`FallbackEntryParser` の primary）が返らないまま止まった解析器。上限は `timeout`（アプリは `AITimeouts.entry` の 6 秒。
+    /// テストを待たせないよう短くする）。取り消されても `stuck` が開くまで返らない（取り消しに応じずに止まったモデルの代わり）。
+    nonisolated static func stuckAIParser(
+        now: Date, calendar: Calendar, timeout: Duration, stuck: Gate, started: Gate = Gate(), log: AIFallbackLog
+    ) -> FallbackEntryParser {
+        FallbackEntryParser(
+            primary: StubParser { _ in
+                started.open()
+                await stuck.wait()
+                return []
+            },
+            fallback: RuleBasedParser(calendar: calendar, now: { now }),
+            timeout: timeout,
+            onFallback: log.reporter(for: .entry)
+        )
+    }
+
+    /// 以前は AI が返らないと読み取り中のままになり、次の文を送れず、書き込み中の処理として数えたままなので、保存先の開き直し
+    /// （iCloud の切り替え）も待ち続けた。
+    @Test(.timeLimit(.minutes(1)))
+    func stuckAIFallsBackToRulesWithinTimeout() async throws {
+        let fixture = try Fixture()
+        let stuck = Gate()
+        defer { stuck.open() }
+        let log = AIFallbackLog()
+        fixture.makeParser = { now, calendar in
+            Self.stuckAIParser(now: now, calendar: calendar, timeout: .milliseconds(200), stuck: stuck, log: log)
+        }
+        fixture.model.draft = "ランチ 850"
+
+        let task = fixture.model.send(calendar: TestSupport.calendar)
+        #expect(fixture.model.isParsing)
+        #expect(fixture.pendingWrites.count == 1)
+        await task?.value
+
+        // AI を待たずに、キーワード辞書で読んだ記録にする（利用者には時間切れを知らせない）。
+        #expect(try fixture.entries().map(\.amount) == [850])
+        #expect(fixture.model.justRecorded.map(\.amount) == [850])
+        #expect(!fixture.model.showsNoAmountAlert)
+        #expect(fixture.model.draft.isEmpty)
+        #expect(!fixture.model.isParsing)
+        #expect(fixture.pendingWrites.count == 0)
+        #expect(log.snapshot.timeouts == [.entry: 1])
+        // 読み取り中でなくなったので、次の文を送れる。
+        await fixture.send("コーヒー 400")
+        #expect(try fixture.entries().map(\.amount) == [850, 400])
+    }
+
+    /// 取り消しは読めなかったのではないので、「金額が見つかりませんでした」を出さない（以前は解析器のエラーと区別せずに出していた）。
+    @Test(.timeLimit(.minutes(1)))
+    func cancelledSendIsNotReportedAsUnreadable() async throws {
+        let fixture = try Fixture()
+        let started = Gate(), stuck = Gate()
+        defer { stuck.open() }
+        let log = AIFallbackLog()
+        fixture.makeParser = { now, calendar in
+            Self.stuckAIParser(now: now, calendar: calendar, timeout: .seconds(30), stuck: stuck, started: started, log: log)
+        }
+        fixture.model.draft = "ランチ 850"
+
+        let task = try #require(fixture.model.send(calendar: TestSupport.calendar))
+        await started.wait()
+        task.cancel()
+        await task.value
+
+        #expect(try fixture.entries().isEmpty)
+        #expect(!fixture.model.showsNoAmountAlert)
+        // 送った文は入力欄に戻す（送り直せるように）。
+        #expect(fixture.model.draft == "ランチ 850")
+        #expect(!fixture.model.isParsing)
+        #expect(fixture.pendingWrites.count == 0)
+        // 取り消しは時間切れでも AI の失敗でもない。
+        #expect(log.snapshot == AIFallbackLog.Snapshot())
+    }
+
     // MARK: - 送った瞬間の日時
 
     /// 解析の基準の日時と保存する日時は、送った瞬間の 1 つの値にする。

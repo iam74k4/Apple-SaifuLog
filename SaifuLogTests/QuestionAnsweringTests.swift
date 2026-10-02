@@ -96,6 +96,73 @@ struct QuestionAnsweringTests {
         #expect(log.snapshot == AIFallbackLog.Snapshot())
     }
 
+    // MARK: - AI の時間切れ
+
+    /// 返らないまま止まった AI。取り消されても `stuck` が開くまで返らない（取り消しに応じずに止まったモデルの代わり）。
+    static func stuckAnswerer(stuck: Gate, started: Gate = Gate()) -> StubAnswerer {
+        StubAnswerer { _, _ in
+            started.open()
+            await stuck.wait()
+            return .unreadable
+        }
+    }
+
+    /// 答えを待つ間は次の文を送れないので、AI が返らなくても上限（アプリは `AITimeouts.question` の 8 秒。テストでは短くする）で
+    /// キーワード辞書の答えにし、時間切れを AI の記録に残す（利用者には知らせない）。
+    @Test(.timeLimit(.minutes(1)))
+    func fallbackAnswersWhenPrimaryTimesOut() async throws {
+        let stuck = Gate()
+        defer { stuck.open() }
+        let log = AIFallbackLog()
+        let answerer = FallbackQuestionAnswerer(
+            primary: Self.stuckAnswerer(stuck: stuck), fallback: RuleBasedQuestionAnswerer(),
+            timeout: .milliseconds(200), onFallback: log.reporter(for: .question)
+        )
+
+        let reply = try await answerer.answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
+
+        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth), remark: nil))
+        #expect(log.snapshot.fallbacks == [.question: 1])
+        #expect(log.snapshot.timeouts == [.question: 1])
+        #expect(log.snapshot.lastError == nil)
+    }
+
+    /// 上限があっても、AI が上限までに答えたら、その答えを使う。
+    @Test func fallbackKeepsPrimaryAnswerWithinTimeout() async throws {
+        let log = AIFallbackLog()
+        let expected = QuestionReply.answered(try Self.answer(Self.cafeThisMonth), remark: .ai("今月のカフェは¥1,600でした。"))
+        let answerer = FallbackQuestionAnswerer(
+            primary: StubAnswerer { _, _ in expected }, fallback: RuleBasedQuestionAnswerer(),
+            timeout: .seconds(10), onFallback: log.reporter(for: .question)
+        )
+
+        let reply = try await answerer.answer("カフェ代は?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
+
+        #expect(reply == expected)
+        #expect(log.snapshot == AIFallbackLog.Snapshot())
+    }
+
+    /// 答えを待つ間に取り消されたら、時間切れにも答え直しにもせず、取り消しを伝える（AI の記録にも残さない）。
+    @Test(.timeLimit(.minutes(1)))
+    func cancellationWhileWaitingIsNotTimeout() async throws {
+        let started = Gate(), stuck = Gate()
+        defer { stuck.open() }
+        let log = AIFallbackLog()
+        let answerer = FallbackQuestionAnswerer(
+            primary: Self.stuckAnswerer(stuck: stuck, started: started), fallback: RuleBasedQuestionAnswerer(),
+            timeout: .seconds(30), onFallback: log.reporter(for: .question)
+        )
+        let task = Task {
+            try await answerer.answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
+        }
+        await started.wait()
+
+        task.cancel()
+
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(log.snapshot == AIFallbackLog.Snapshot())
+    }
+
     #if canImport(FoundationModels)
     // MARK: - AI のツール呼び出し
 
