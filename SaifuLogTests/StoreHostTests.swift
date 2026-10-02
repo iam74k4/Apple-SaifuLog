@@ -41,14 +41,15 @@ struct StoreHostTests {
 
         /// - Parameters:
         ///   - cloudKitDatabase: 最初に開く保存先の iCloud の扱い。
-        ///   - defaults: 設定の置き場所（iCloud 同期の切り替えを書く）。iCloud 同期を切り替えるテストは、使い捨ての領域を渡す。
+        ///   - settings: 設定の置き場所（iCloud 同期を読み、切り替えを書く）。渡さなければ、テストごとの新しいファイル。
         func makeHost(
-            cloudKitDatabase: ModelContainerFactory.CloudKitDatabase = .none, defaults: UserDefaults = .standard,
+            cloudKitDatabase: ModelContainerFactory.CloudKitDatabase? = ModelContainerFactory.CloudKitDatabase.none,
+            settings: LaunchSettingsStore? = nil,
             contentRemovalTimeout: Duration = .seconds(3)
         ) -> StoreHost {
             StoreHost(
                 cloudKitDatabase: cloudKitDatabase,
-                defaults: defaults,
+                settings: settings ?? (try! TestSupport.makeLaunchSettings()),
                 openContainer: { try self.open($0) },
                 isProtectedDataAvailable: { self.protectedDataAvailable },
                 announce: { self.announcements.append($0) },

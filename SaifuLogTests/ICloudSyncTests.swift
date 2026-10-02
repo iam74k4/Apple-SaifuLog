@@ -19,18 +19,29 @@ struct ICloudSyncTests {
     @MainActor
     final class Settings {
         let suiteName = "ICloudSyncTests.\(UUID().uuidString)"
+        /// 設定の画面のほかの設定（週の始まりなど）の領域。
         let defaults: UserDefaults
+        /// iCloud 同期の設定のファイル（`LaunchSettingsStore`）。
+        let launch: LaunchSettingsStore
+        private let url: URL
 
         init() throws {
             defaults = try #require(UserDefaults(suiteName: suiteName))
+            url = URL.temporaryDirectory.appending(path: "\(suiteName).json", directoryHint: .notDirectory)
+            launch = LaunchSettingsStore(url: url, defaults: defaults)
         }
 
-        var syncEnabled: Bool { defaults.bool(for: AppSettings.iCloudSyncEnabled) }
+        var syncEnabled: Bool { launch.load(migrating: false)?.iCloudSyncEnabled ?? false }
         /// 書いたかどうか（書いていなければ nil）。
-        var storedSyncEnabled: Bool? { defaults.object(forKey: AppSettings.iCloudSyncEnabled.key) as? Bool }
+        var storedSyncEnabled: Bool? { launch.load(migrating: false)?.iCloudSyncEnabled }
+
+        func setSyncEnabled(_ enabled: Bool) throws {
+            try launch.update { $0.iCloudSyncEnabled = enabled }
+        }
 
         func cleanUp() {
             defaults.removePersistentDomain(forName: suiteName)
+            try? FileManager.default.removeItem(at: url)
         }
     }
 
@@ -110,17 +121,15 @@ struct ICloudSyncTests {
 
     // MARK: - 既定
 
-    /// 既定はオフ。アプリは設定の値で最初の保存先を開くので、何も選んでいなければ端末の中だけに開く。
+    /// 既定はオフ。アプリは開く直前に設定を読むので、何も選んでいなければ端末の中だけに開く。
     @Test func defaultsToLocalStore() throws {
         let settings = try Settings()
         defer { settings.cleanUp() }
         let store = FakeStore()
-        let database = ModelContainerFactory.CloudKitDatabase(syncEnabled: settings.syncEnabled)
-        let host = store.makeHost(cloudKitDatabase: database, defaults: settings.defaults)
+        let host = store.makeHost(cloudKitDatabase: nil, settings: settings.launch)
 
         host.start()
 
-        #expect(database == .none)
         #expect(store.openedWith == [.none])
         #expect(host.iCloudFallback == nil)
     }
@@ -129,17 +138,75 @@ struct ICloudSyncTests {
     @Test func opensICloudStoreWhenSettingIsOn() throws {
         let settings = try Settings()
         defer { settings.cleanUp() }
-        settings.defaults.set(true, for: AppSettings.iCloudSyncEnabled)
+        try settings.setSyncEnabled(true)
         let store = FakeStore()
-        let host = store.makeHost(
-            cloudKitDatabase: .init(syncEnabled: settings.syncEnabled), defaults: settings.defaults
-        )
+        let host = store.makeHost(cloudKitDatabase: nil, settings: settings.launch)
 
         host.start()
 
         #expect(store.openedWith == [.private])
         #expect(host.cloudKitDatabase == .private)
         #expect(Self.container(of: host) != nil)
+    }
+
+    /// 設定は作った時点ではなく、開く直前に読む（App を作る時点はロック中に裏で起こされたときのことがあり、読めないため）。
+    @Test func readsSyncSettingWhenOpeningNotWhenCreated() throws {
+        let settings = try Settings()
+        defer { settings.cleanUp() }
+        let store = FakeStore()
+        let host = store.makeHost(cloudKitDatabase: nil, settings: settings.launch)
+        try settings.setSyncEnabled(true)
+
+        host.start()
+
+        #expect(store.openedWith == [.private])
+    }
+
+    /// ロック中は設定も読まずに待ち、ロックが解けてから読んで開く。
+    @Test func readsSyncSettingAfterProtectedDataBecomesAvailable() throws {
+        let settings = try Settings()
+        defer { settings.cleanUp() }
+        let store = FakeStore()
+        store.protectedDataAvailable = false
+        let host = store.makeHost(cloudKitDatabase: nil, settings: settings.launch)
+        host.start()
+        #expect(store.openedWith.isEmpty)
+
+        try settings.setSyncEnabled(true)
+        store.protectedDataAvailable = true
+        host.protectedDataMayBeAvailable()
+
+        #expect(store.openedWith == [.private])
+    }
+
+    /// この版より前に UserDefaults へ置いていた設定は、開くときにファイルへ移す。
+    @Test func migratesSyncSettingFromUserDefaults() throws {
+        let settings = try Settings()
+        defer { settings.cleanUp() }
+        settings.defaults.set(true, for: AppSettings.hasCompletedOnboarding)
+        settings.defaults.set(true, for: AppSettings.iCloudSyncEnabled)
+        let store = FakeStore()
+        let host = store.makeHost(cloudKitDatabase: nil, settings: settings.launch)
+
+        host.start()
+
+        #expect(store.openedWith == [.private])
+        #expect(settings.storedSyncEnabled == true)
+    }
+
+    /// UserDefaults が空に見える（初回の案内を終えたかの値も無い）ときは移さない。ロック中に読まれて空の内容を覚えた
+    /// プロセスで、オフを書いて利用者の設定を消さないため。
+    @Test func doesNotMigrateWhenUserDefaultsLooksEmpty() throws {
+        let settings = try Settings()
+        defer { settings.cleanUp() }
+        settings.defaults.set(true, for: AppSettings.iCloudSyncEnabled)
+        let store = FakeStore()
+        let host = store.makeHost(cloudKitDatabase: nil, settings: settings.launch)
+
+        host.start()
+
+        #expect(store.openedWith == [.none])
+        #expect(settings.storedSyncEnabled == nil)
     }
 
     // MARK: - StoreHost の切り替え
@@ -149,7 +216,7 @@ struct ICloudSyncTests {
         let settings = try Settings()
         defer { settings.cleanUp() }
         let store = FakeStore()
-        let host = store.makeHost(defaults: settings.defaults)
+        let host = store.makeHost(settings: settings.launch)
         host.start()
         let first = try #require(Self.container(of: host))
 
@@ -175,9 +242,9 @@ struct ICloudSyncTests {
     @Test func turningOffReopensWithLocalStore() async throws {
         let settings = try Settings()
         defer { settings.cleanUp() }
-        settings.defaults.set(true, for: AppSettings.iCloudSyncEnabled)
+        try settings.setSyncEnabled(true)
         let store = FakeStore()
-        let host = store.makeHost(cloudKitDatabase: .private, defaults: settings.defaults)
+        let host = store.makeHost(cloudKitDatabase: .private, settings: settings.launch)
         host.start()
 
         host.setICloudSyncEnabled(false)
@@ -198,7 +265,7 @@ struct ICloudSyncTests {
         let rejection = try Self.cloudKitRejection()
         let store = FakeStore()
         store.failuresByDatabase[.private] = rejection
-        let host = store.makeHost(defaults: settings.defaults)
+        let host = store.makeHost(settings: settings.launch)
         host.start()
 
         host.setICloudSyncEnabled(true)
@@ -222,10 +289,10 @@ struct ICloudSyncTests {
     @Test func fallsBackAtLaunch() throws {
         let settings = try Settings()
         defer { settings.cleanUp() }
-        settings.defaults.set(true, for: AppSettings.iCloudSyncEnabled)
+        try settings.setSyncEnabled(true)
         let store = FakeStore()
         store.failuresByDatabase[.private] = try Self.cloudKitRejection()
-        let host = store.makeHost(cloudKitDatabase: .private, defaults: settings.defaults)
+        let host = store.makeHost(cloudKitDatabase: .private, settings: settings.launch)
 
         host.start()
 
@@ -243,10 +310,10 @@ struct ICloudSyncTests {
     @Test func fallbackThatAlsoFailsShowsRetry() throws {
         let settings = try Settings()
         defer { settings.cleanUp() }
-        settings.defaults.set(true, for: AppSettings.iCloudSyncEnabled)
+        try settings.setSyncEnabled(true)
         let store = FakeStore()
         store.failures = [TestError(), TestError()]
-        let host = store.makeHost(cloudKitDatabase: .private, defaults: settings.defaults)
+        let host = store.makeHost(cloudKitDatabase: .private, settings: settings.launch)
 
         host.start()
 
@@ -272,10 +339,10 @@ struct ICloudSyncTests {
     @Test func nonICloudFailureKeepsSyncSetting() throws {
         let settings = try Settings()
         defer { settings.cleanUp() }
-        settings.defaults.set(true, for: AppSettings.iCloudSyncEnabled)
+        try settings.setSyncEnabled(true)
         let store = FakeStore()
         store.failures = [Self.diskFull, Self.diskFull]
-        let host = store.makeHost(cloudKitDatabase: .private, defaults: settings.defaults)
+        let host = store.makeHost(cloudKitDatabase: .private, settings: settings.launch)
 
         host.start()
 
@@ -303,7 +370,7 @@ struct ICloudSyncTests {
         let settings = try Settings()
         defer { settings.cleanUp() }
         let store = FakeStore()
-        let host = store.makeHost(defaults: settings.defaults)
+        let host = store.makeHost(settings: settings.launch)
         host.start()
         store.failures = [Self.diskFull, Self.diskFull]
 
@@ -323,11 +390,11 @@ struct ICloudSyncTests {
     @Test func lockDuringFallbackOpenWaitsWithoutFallback() throws {
         let settings = try Settings()
         defer { settings.cleanUp() }
-        settings.defaults.set(true, for: AppSettings.iCloudSyncEnabled)
+        try settings.setSyncEnabled(true)
         let store = FakeStore()
         store.failuresByDatabase[.private] = try Self.cloudKitRejection()
         store.locksDuringNextOpenOf = ModelContainerFactory.CloudKitDatabase.none
-        let host = store.makeHost(cloudKitDatabase: .private, defaults: settings.defaults)
+        let host = store.makeHost(cloudKitDatabase: .private, settings: settings.launch)
 
         host.start()
 
@@ -352,10 +419,10 @@ struct ICloudSyncTests {
     @Test func lockDuringICloudOpenWaitsWithoutFallback() throws {
         let settings = try Settings()
         defer { settings.cleanUp() }
-        settings.defaults.set(true, for: AppSettings.iCloudSyncEnabled)
+        try settings.setSyncEnabled(true)
         let store = FakeStore()
         store.locksDuringNextOpen = true
-        let host = store.makeHost(cloudKitDatabase: .private, defaults: settings.defaults)
+        let host = store.makeHost(cloudKitDatabase: .private, settings: settings.launch)
 
         host.start()
         #expect(host.isWaitingForProtectedData)
@@ -375,7 +442,7 @@ struct ICloudSyncTests {
         defer { settings.cleanUp() }
         let store = FakeStore()
         store.protectedDataAvailable = false
-        let host = store.makeHost(defaults: settings.defaults)
+        let host = store.makeHost(settings: settings.launch)
         host.start()
 
         host.setICloudSyncEnabled(true)
@@ -409,7 +476,7 @@ struct ICloudSyncTests {
         let settings = try Settings()
         defer { settings.cleanUp() }
         let store = FakeStore()
-        let host = store.makeHost(defaults: settings.defaults)
+        let host = store.makeHost(settings: settings.launch)
         host.start()
         let account = Account(.available)
         let model = try Self.makeSettingsModel(host: host, account: account, settings: settings)
@@ -447,7 +514,7 @@ struct ICloudSyncTests {
         let settings = try Settings()
         defer { settings.cleanUp() }
         let store = FakeStore()
-        let host = store.makeHost(defaults: settings.defaults)
+        let host = store.makeHost(settings: settings.launch)
         host.start()
         let model = try Self.makeSettingsModel(host: host, account: Account(status), settings: settings)
 
@@ -465,9 +532,9 @@ struct ICloudSyncTests {
     @Test func settingsTurnOffAfterConfirmation() async throws {
         let settings = try Settings()
         defer { settings.cleanUp() }
-        settings.defaults.set(true, for: AppSettings.iCloudSyncEnabled)
+        try settings.setSyncEnabled(true)
         let store = FakeStore()
-        let host = store.makeHost(cloudKitDatabase: .private, defaults: settings.defaults)
+        let host = store.makeHost(cloudKitDatabase: .private, settings: settings.launch)
         host.start()
         let account = Account(.available)
         let model = try Self.makeSettingsModel(host: host, account: account, settings: settings)
@@ -488,7 +555,7 @@ struct ICloudSyncTests {
         let settings = try Settings()
         defer { settings.cleanUp() }
         let store = FakeStore()
-        let host = store.makeHost(defaults: settings.defaults)
+        let host = store.makeHost(settings: settings.launch)
         host.start()
         let account = Account(.available)
         let model = try Self.makeSettingsModel(host: host, account: account, settings: settings)
@@ -504,7 +571,7 @@ struct ICloudSyncTests {
         defer { settings.cleanUp() }
 
         let offStore = FakeStore()
-        let offHost = offStore.makeHost(defaults: settings.defaults)
+        let offHost = offStore.makeHost(settings: settings.launch)
         offHost.start()
         let offAccount = Account(.noAccount)
         let offModel = try Self.makeSettingsModel(host: offHost, account: offAccount, settings: settings)
@@ -513,7 +580,7 @@ struct ICloudSyncTests {
         #expect(offModel.iCloudAccountStatus == nil)
 
         let onStore = FakeStore()
-        let onHost = onStore.makeHost(cloudKitDatabase: .private, defaults: settings.defaults)
+        let onHost = onStore.makeHost(cloudKitDatabase: .private, settings: settings.launch)
         onHost.start()
         let onAccount = Account(.noAccount)
         let onModel = try Self.makeSettingsModel(host: onHost, account: onAccount, settings: settings)
@@ -532,7 +599,7 @@ struct ICloudSyncTests {
         let settings = try Settings()
         defer { settings.cleanUp() }
         let store = FakeStore()
-        let host = store.makeHost(defaults: settings.defaults)
+        let host = store.makeHost(settings: settings.launch)
         host.start()
         let (gate, openGate) = AsyncStream<Void>.makeStream()
         let model = try Self.makeSettingsModel(
@@ -578,7 +645,7 @@ struct ICloudSyncTests {
         let settings = try Settings()
         defer { settings.cleanUp() }
         let store = FakeStore()
-        let host = store.makeHost(cloudKitDatabase: database, defaults: settings.defaults)
+        let host = store.makeHost(cloudKitDatabase: database, settings: settings.launch)
         host.start()
         let home = try Self.makeHome(host: host, settings: settings)
 
@@ -596,7 +663,7 @@ struct ICloudSyncTests {
         let settings = try Settings()
         defer { settings.cleanUp() }
         let store = FakeStore()
-        let host = store.makeHost(defaults: settings.defaults)
+        let host = store.makeHost(settings: settings.launch)
         host.start()
         let first = try Self.makeHome(host: host, settings: settings)
         first.restoreSettingsAfterStoreSwitch()

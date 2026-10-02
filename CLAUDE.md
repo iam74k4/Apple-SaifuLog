@@ -82,8 +82,9 @@
     送信もしない。無料で回数を数えない。声で入れた文の記録は入力元 `.voice`。実機での実際の声の書き起こし・許可・ダウンロード・割り込みの確認はまだ。
     シミュレータの iOS 26.4 では SpeechTranscriber が使えず、DictationTranscriber の日本語のモデルも無い）。
     iCloud 同期（⑧ の「iCloud で同期」。既定はオフ。自分の iCloud の私用データベース `iCloud.com.iam74k4.SaifuLog` で、同じ Apple
-    アカウントの端末どうしの記録と予算をそろえる。家族との共有は含まない）。設定のキーは `AppSettings.iCloudSyncEnabled`、起動のときに
-    `SaifuLogApp` が読んで `ModelContainerFactory.CloudKitDatabase`（`.none` / `.private`。`.automatic` は置いていない）を決める。
+    アカウントの端末どうしの記録と予算をそろえる。家族との共有は含まない）。設定はアプリのロックと同じ専用のファイル（`LaunchSettingsStore`。
+    UserDefaults ではない）に置き、`StoreHost` が最初に開く直前に読んで `ModelContainerFactory.CloudKitDatabase`（`.none` / `.private`。
+    `.automatic` は置いていない）を決める。
     オンとオフで同じファイル（default.store）を開き、`cloudKitDatabase` だけを替える。切り替えは `StoreHost.setICloudSyncEnabled`
     （設定に書いて `reopen`。前の保存先の画面が消え（`StoreRootView` の onDisappear）、書き込み中の処理が終わるのを待ってから開き、
     設定の画面を開いた状態のホームに戻す。ホームのモデルは `AppRootView` が 1 回だけ作り、`HomeModel.restoreSettingsAfterStoreSwitch`
@@ -161,10 +162,13 @@
     実機での確認はまだ）。
     よく使うひとこと（入力欄の上に、直近 90 日のよく記録する品目を「品目 ¥金額」のボタンで並べ、押すと入力欄に入る。送信は利用者。
     候補はコアの `QuickPhrases`、画面は `QuickPhraseBar`、`HomeModel.quickPhrases`）。
-    アプリのロック（⑧ の「セキュリティ」の「Face ID でロック」。既定はオフで `AppSettings.appLockEnabled`。起動と裏から戻ったときに
-    `deviceOwnerAuthentication` を求め、前面を離れたら隠す。状態は `AppLock`（`SaifuLogApp` で 1 つ、環境で設定へ渡す）、ロックの画面は
-    シートやアラートより上の別の窓（`AppLockOverlay` の `AppLockWindow`）。Face ID の利用目的は project.yml と InfoPlist.xcstrings。実機の
-    Face ID の確認はまだ）。⑧ に「ヘルプ・お問い合わせ」（`docs/support.md`）。
+    アプリのロック（⑧ の「セキュリティ」の「Face ID でロック」。既定はオフ。起動と裏から戻ったときに `deviceOwnerAuthentication` を求め、
+    前面を離れたら隠す。オンにするときもオフにするときも認証する。状態は `AppLock`（`SaifuLogApp` で 1 つ、環境で設定へ渡す）、ロックの画面は
+    シートやアラートより上の別の窓（`AppLockOverlay` の `AppLockWindow`。VoiceOver もその窓の中だけにとどめる）。設定は UserDefaults では
+    なく専用のファイル（`LaunchSettingsStore`。最初のロック解除の後は読める保護。ロック中に裏で起こされると UserDefaults は空の内容を
+    覚えてしまうため）。起動したときに読めなければ、読めるまで画面を隠す。家計の画面を隠している間は、くり返しの記録・支払いの取り込み・
+    Siri の頼み・ふりかえりを待たせる（`HomeView`）。Face ID の利用目的は project.yml と InfoPlist.xcstrings。実機の Face ID と VoiceOver の
+    確認はまだ）。⑧ に「ヘルプ・お問い合わせ」（`docs/support.md`）。
     保存先を開けないときは落とさず、ロック中なら解除を待って開き直し、それ以外は再試行の画面を出す（`StoreHost`）。
     保存先のデータ保護は NSFileProtectionComplete（ロック中は読めないようにする。実機での確認はまだ。
     release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
@@ -354,6 +358,9 @@ docs: add privacy policy
   （`@AppStorage(AppSettings.hasCompletedOnboarding)`）。置き場所は `UserDefaults.standard` だけ
   （`PrivacyInfo.xcprivacy` の CA92.1 と合わせる。App Group の共有の領域に置くなら、先にマニフェストへ 1C8F.1 を足し、
   `PRIVACY.md` も直す）。家計の記録そのものは UserDefaults に置かない。
+- **ロック中に裏で起こされうる経路（App を作る時点・App Intents・サイレントプッシュ）から UserDefaults を読まない。** 読めずに空の
+  内容が覚えられ、ロックを解いた後も同じプロセスでは空のまま返るため。そうした経路で頼る設定（アプリのロック・iCloud 同期）は
+  `LaunchSettingsStore`（保護を決めた専用のファイル）に置く。
 
 ### AI の扱い
 - AI はすべて端末内（Foundation Models）。クラウドの API は使わない。サーバーも持たない。

@@ -36,6 +36,24 @@ enum TestSupport {
 
     @MainActor private static var retained: [ModelContainer] = []
 
+    /// テストごとの、アプリのロックと iCloud 同期の設定（一時フォルダのファイルと、使い捨ての UserDefaults の領域）。
+    /// `values` を渡すと、その値を書いた状態から始める（渡さなければ、まだ書いていない状態）。
+    @MainActor
+    static func makeLaunchSettings(
+        _ values: LaunchSettingsStore.Values? = nil, files: LaunchSettingsStore.FileAccess = .live
+    ) throws -> LaunchSettingsStore {
+        let url = URL.temporaryDirectory.appending(
+            path: "LaunchSettings-\(UUID().uuidString).json", directoryHint: .notDirectory
+        )
+        let suiteName = "TestSupport.LaunchSettings.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let store = LaunchSettingsStore(url: url, defaults: defaults, files: files)
+        if let values {
+            try LaunchSettingsStore.FileAccess.live.write(try JSONEncoder().encode(values), url)
+        }
+        return store
+    }
+
     static func entry(
         amount: Int = 850, category: EntryCategory = .food, memo: String = "ランチ",
         spentAt: Date = now, createdAt: Date = now

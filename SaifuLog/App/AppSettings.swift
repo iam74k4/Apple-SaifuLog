@@ -23,8 +23,9 @@ enum AppSettings {
     /// 初回の案内（ようこそ・予算を決める）を終えたか。予算を決めずに「あとで」で進んでも終えたことになる。
     /// 案内を出す前の版から使っていて記録がある端末は、案内を出さずに true にする（`OnboardingModel.needsOnboarding`）。
     static let hasCompletedOnboarding = AppSetting(key: "hasCompletedOnboarding", defaultValue: false)
-    /// iCloud と同期するか（設定の「iCloud で同期」）。既定はオフ（利用者が選んだときだけ同期する）。起動したときに
-    /// `SaifuLogApp` が読んで保存先の開き方を決め、切り替えと、開けずに端末の中だけへ戻したときは `StoreHost` が書く。
+    /// iCloud と同期するか（設定の「iCloud で同期」）。この版より前の置き場所。いまは `LaunchSettingsStore` のファイルに置き、
+    /// ファイルがまだ無いときに値を移すためだけに読む（UserDefaults は、ロック中に裏で起こされると読めず、空の内容を覚えて
+    /// しまうため）。
     static let iCloudSyncEnabled = AppSetting(key: "iCloudSyncEnabled", defaultValue: false)
     /// 週の始まり（設定の画面で選ぶ）。既定は端末の設定（地域と iOS の設定）に合わせる。
     /// 画面の根元（`AppRootView`）が画面の暦の週の始まりに当てはめ、`ReportPeriod` の今週・先週の区切りに効かせる。
@@ -43,8 +44,8 @@ enum AppSettings {
     /// 出した週の始まりではなく、出した瞬間を持つ。週の始まりの設定や時間帯を変えたときに、変えた後の暦で「今週もう出したか」を
     /// 決め直せるようにするため（週の始まりの日時で持つと、設定を変えただけで同じ週にもう一度出る）。家計の中身は含まない。
     static let weeklyRecapShownAt = AppSetting<Date?>(key: "weeklyRecap.shownAt", defaultValue: nil)
-    /// アプリのロック（設定の「Face ID でロック」）がオンか。既定はオフ。オンのときは、起動したときと裏から戻ったときに
-    /// Face ID（使えなければパスコード）を求める（`AppLock`）。家計の中身は含まない。
+    /// アプリのロック（設定の「Face ID でロック」）がオンか。この版より前の置き場所。いまは `LaunchSettingsStore` のファイルに
+    /// 置き、ファイルがまだ無いときに値を移すためだけに読む（`iCloudSyncEnabled` と同じ理由）。
     static let appLockEnabled = AppSetting(key: "appLock.enabled", defaultValue: false)
 
     /// 機能ごとの、無料で使った回数の設定。

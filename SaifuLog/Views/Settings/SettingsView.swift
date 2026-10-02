@@ -482,7 +482,8 @@ struct SettingsView: View {
 
     // MARK: - ロック
 
-    /// 「Face ID でロック」（Face ID の無い端末では Touch ID・パスコード）。オンにするときは、その場で 1 回認証してから切り替える。
+    /// 「Face ID でロック」（Face ID の無い端末では Touch ID・パスコード）。オンにするときもオフにするときも、その場で 1 回認証して
+    /// から切り替える。
     private func lockSection(_ lock: AppLock) -> some View {
         Section {
             Toggle(isOn: Binding(get: { lock.isEnabled }, set: { enabled in Task { await lock.setEnabled(enabled) } })) {
@@ -509,6 +510,8 @@ struct SettingsView: View {
         } message: {
             switch lock.enableFailure {
             case .passcodeNotSet: Text("iPhone の設定でパスコードを設定すると、使えるようになります。")
+            case .disableNotAuthenticated: Text("ロックはオンのままです。もう一度お試しください。")
+            case .notSaved: Text("ロックの設定は変わっていません。もう一度お試しください。")
             case .notAuthenticated, nil: Text("ロックはオフのままです。もう一度お試しください。")
             }
         }
@@ -535,6 +538,8 @@ struct SettingsView: View {
     private func lockFailureTitle(_ failure: AppLock.EnableFailure?) -> Text {
         switch failure {
         case .passcodeNotSet: Text("パスコードが設定されていません")
+        case .disableNotAuthenticated: Text("ロックをオフにできませんでした")
+        case .notSaved: Text("設定を保存できませんでした")
         case .notAuthenticated, nil: Text("ロックをオンにできませんでした")
         }
     }

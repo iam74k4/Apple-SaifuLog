@@ -2549,6 +2549,17 @@
         }
       }
     },
+    "アプリのロックをオフにします" : {
+      "comment" : "アプリのロックをオフにするときの Face ID・パスコードの画面に出る理由",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn off app lock"
+          }
+        }
+      }
+    },
     "アプリのロックをオンにします" : {
       "comment" : "アプリのロックをオンにするときの Face ID・パスコードの画面に出る理由",
       "localizations" : {
@@ -3623,6 +3634,17 @@
         }
       }
     },
+    "ロックの設定は変わっていません。もう一度お試しください。" : {
+      "comment" : "アプリのロックの設定をファイルに書けなかったときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App lock hasn’t changed. Please try again."
+          }
+        }
+      }
+    },
     "ロックはオフのままです。もう一度お試しください。" : {
       "comment" : "アプリのロックをオンにしようとしたが、認証できなかったときのアラートの本文",
       "localizations" : {
@@ -3630,6 +3652,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "App lock is still off. Please try again."
+          }
+        }
+      }
+    },
+    "ロックはオンのままです。もう一度お試しください。" : {
+      "comment" : "アプリのロックをオフにできなかったときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App lock is still on. Please try again."
+          }
+        }
+      }
+    },
+    "ロックをオフにできませんでした" : {
+      "comment" : "アプリのロックをオフにしようとしたが、認証できなかったときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Turn Off App Lock"
           }
         }
       }
@@ -8275,6 +8319,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sync with iCloud setting"
+          }
+        }
+      }
+    },
+    "設定を保存できませんでした" : {
+      "comment" : "アプリのロックの設定をファイルに書けなかったときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Save the Setting"
           }
         }
       }

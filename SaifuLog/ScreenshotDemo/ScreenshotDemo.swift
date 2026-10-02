@@ -103,6 +103,8 @@ final class ScreenshotDemo {
     let defaults: UserDefaults
     /// 設定の領域の名前（テストの後片づけで領域ごと消す）。
     let defaultsDomain: String
+    /// デモのアプリのロックと iCloud 同期の設定（一時フォルダのファイル。毎回どちらもオフで始める）。
+    let launchSettings: LaunchSettingsStore
 
     /// 起動した瞬間（デモの「いま」をこの月の 15 日に決めるのに使う）。
     private let launchedAt: Date
@@ -148,6 +150,13 @@ final class ScreenshotDemo {
         if screen != .recap {
             defaults.set(now, for: AppSettings.weeklyRecapShownAt)
         }
+        // ロックと iCloud 同期はオフ。ファイルを先に書いておく（無いと、ロックは決めるまで画面を隠すため）。
+        let settingsURL = URL.temporaryDirectory.appending(
+            path: "\(defaultsSuiteName).LaunchSettings.json", directoryHint: .notDirectory
+        )
+        try? FileManager.default.removeItem(at: settingsURL)
+        launchSettings = LaunchSettingsStore(url: settingsURL, defaults: defaults)
+        _ = try? launchSettings.update { _ in }
     }
 
     /// 起動引数から撮る画面と購入の状態を読む。撮る画面の引数が無いか、知らない画面なら nil。
@@ -198,8 +207,8 @@ final class ScreenshotDemo {
     /// 保存先を開くもの。iCloud とは同期せず（`.none`）、ロックも待たない（シミュレータで撮るため）。
     func makeStoreHost() -> StoreHost {
         StoreHost(
-            cloudKitDatabase: .none,
-            defaults: defaults,
+            cloudKitDatabase: ModelContainerFactory.CloudKitDatabase.none,
+            settings: launchSettings,
             openContainer: { [self] _ in try makeContainer() },
             isProtectedDataAvailable: { true }
         )
