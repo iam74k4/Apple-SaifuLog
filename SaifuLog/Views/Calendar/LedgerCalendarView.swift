@@ -136,7 +136,8 @@ private struct CalendarPageHeader: View {
         .padding(.bottom, 8)
     }
 
-    /// 会話へ戻るボタン（右へスワイプするのと同じ）。ホームの帯のカレンダーのボタンと対になる、記号だけのガラスの丸。
+    /// 会話へ戻るボタン（右へスワイプするのと同じ）。2 枚目のページから戻る道を、スワイプのほかにも見える形で置く（VoiceOver でも
+    /// 戻れるように）。記号だけのガラスの丸（ホームの帯の歯車と同じ形）。
     private var conversationButton: some View {
         Button(action: showConversation) {
             Image(systemName: "bubble.left.and.bubble.right")
@@ -314,7 +315,8 @@ private struct SpendingOutlookCard: View {
         }
     }
 
-    /// 予算のボタンと月のまとめへの入口。予算を決めたら、帯の「予算を変更」の代わりにここから変える（帯にはカレンダーのボタンを置く）。
+    /// 予算のボタンと月のまとめへの入口。今日あとは予算で決まるので、ここからも予算を決めたり変えたりできるようにする（ホームの帯と
+    /// 設定からも開ける）。
     private var footer: some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 8) {

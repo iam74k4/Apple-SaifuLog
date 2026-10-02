@@ -3097,7 +3097,7 @@
       }
     },
     "カレンダー" : {
-      "comment" : "設定の節の見出し。週の始まりの行。ホームの上の帯のボタン（VoiceOver のラベル。カレンダーのページを出す）にも使う",
+      "comment" : "設定の節の見出し。週の始まりの行。ホームの上の帯の数字の要素の VoiceOver の操作（カレンダーのページを出す）にも使う",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4021,7 +4021,7 @@
       }
     },
     "予算を変更" : {
-      "comment" : "カレンダーのページの見通しの欄のボタン。予算を決めているときに出し、押すと予算を決める画面を開く（予算を決めたら、ホームの帯にはこのボタンの代わりにカレンダーのボタンを出す）",
+      "comment" : "ホームの上の帯と、カレンダーのページの見通しの欄のボタン。予算を決めているときに出し、押すと予算を決める画面を開く",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6875,17 +6875,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Travel"
-          }
-        }
-      }
-    },
-    "日ごとの支出と、今日あといくら使えるかを出します" : {
-      "comment" : "ホームの上の帯のカレンダーのボタンの VoiceOver のヒント",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Shows daily spending and how much you can spend today."
           }
         }
       }

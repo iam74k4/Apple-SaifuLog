@@ -75,8 +75,8 @@ final class HomeModel {
             paymentOverlaps = [:]
         }
     }
-    /// いま出しているホームのページ。開いたときは会話（記録が先）。左右のスワイプのほか、帯のカレンダーのボタンとカレンダーの
-    /// 「会話」のボタンで切り替える。
+    /// いま出しているホームのページ。開いたときは会話（記録が先）。左右のスワイプのほか、カレンダーの「会話」のボタンと、
+    /// VoiceOver の帯の操作「カレンダー」で切り替える。
     var page: Page = .conversation
     /// カレンダーのページ（docs/design.md §9 の ⑩）の状態と操作。
     let calendarPage: LedgerCalendarModel

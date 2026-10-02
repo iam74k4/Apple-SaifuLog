@@ -28,14 +28,15 @@
     平均・前の月との差・予算の進み（いまの予算に決めた月から後だけ）・カテゴリ別の割合の帯（`BreakdownCompositionBar`）と行（カテゴリ別の予算の進みも。当てはめる月の
     決まりは全体の予算と同じ）・行からその月の記録の一覧と ⑥。
     `MonthlyReportView` と `MonthlyReportModel`、数字はコアの `MonthlyReport` と `CategoryBreakdown`）。
-    ⑩ カレンダー（ホームを左へスワイプした 2 枚目のページ。`HomeView` の TabView のページの形で、帯のカレンダーのボタン・カレンダーの
-    会話のボタンでも行き来する（ページは `HomeModel.page`。開いたときと Siri の頼みを受けたときは会話）。「自分」の記録だけ（「家族」のときは
+    ⑩ カレンダー（ホームを左へスワイプした 2 枚目のページ。`HomeView` の TabView のページの形で、カレンダーからは会話のボタンでも
+    戻れる。帯にカレンダーのボタンは置かず（スワイプで出るページと入口が重なるため）、VoiceOver では帯の数字の要素の操作「カレンダー」で
+    開く（ページは `HomeModel.page`。開いたときと Siri の頼みを受けたときは会話）。「自分」の記録だけ（「家族」のときは
     ページもボタンも出さない）。今月なら見通し（今日あと＝まだ記録していない今月の固定費（くり返しの記録の予定）を先に引いて日割りにした額
     − 今日の支出・固定費を引いた今月あと・このペースだと今月の支出（7 日目から））、ほかの月は支出と収入。月のカレンダー（日ごとの支出・
     予算の日割りより多い日の点・くり返しの予定の記号）、選んだ日の記録（返事の行 `RecordedReplyRow` を記録の値の控え `DayRecord` で使い回す。
     押すと ⑥）と予定、「この日に記録」（会話へ戻り、入力欄の頭に日付「10/2 」を入れてキーボードを出す。`HomeModel.prepareDraft`、書き方は
-    コアの `DateExpression.notation`）。アクセシビリティサイズの文字では日の一覧。帯の「予算を変更」はカレンダーのボタンに置き換え、予算は
-    ⑩ の見通しの欄と ⑧ から変える（予算が無ければ帯に「予算を決める」を残す）。`Views/Calendar/` の `LedgerCalendarView`・`LedgerCalendarModel`、
+    コアの `DateExpression.notation`）。アクセシビリティサイズの文字では日の一覧。予算は帯・⑩ の見通しの欄・⑧ から
+    開ける。`Views/Calendar/` の `LedgerCalendarView`・`LedgerCalendarModel`、
     数字はコアの `LedgerCalendarMonth`・`SpendingOutlook`・`RecurringSchedule.plannedOccurrences`。撮影用のデモの画面 `calendar` がある（ストアの
     画像にはまだ入れていない）。実機でのスワイプと VoiceOver の確認はまだ）。
     初回の案内（① ようこそ → ② → ホーム。記録がある端末には出さない。`AppRootView` と `OnboardingModel`）。
