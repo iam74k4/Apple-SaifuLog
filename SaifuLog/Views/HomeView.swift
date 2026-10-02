@@ -168,8 +168,8 @@ struct HomeView: View {
                     // モデルは初回の案内より前に作っている（`AppRootView`）。案内の間に日付が変わっていても今日で数えるよう、読み直す。
                     model.refreshToday()
                     // 記録する日を過ぎたくり返しの記録を記録する（ふりかえりより先に。ふりかえりのカードをいちばん下に出すため）。
-                    model.recordDueRecurringEntries(calendar: calendar)
-                    model.showWeeklyRecapIfDue(calendar: calendar)
+                    recordDueRecurringEntries()
+                    showWeeklyRecapIfDue()
                     model.refreshQuickPhrases()
                     // 起動の途中（案内の間・保存先を開く前）に受けた Siri・ショートカットの頼みを行う。
                     deliverQuickActions()
@@ -177,8 +177,8 @@ struct HomeView: View {
                 // Siri・ショートカットからの頼み（アプリを開いてから届く）と、待っていた頼みを行う時機（読み取りが終わったとき・
                 // ロックを解いたとき）。
                 .modifier(QuickActionDelivery(
-                    pending: quickActions.pending, isParsing: model.isParsing, isLocked: appLock?.isLocked,
-                    deliver: deliverQuickActions
+                    pending: quickActions.pending, isParsing: model.isParsing, hidesContent: appLock?.hidesContent,
+                    deliver: deliverQuickActions, contentDidShow: catchUpAfterShowingContent
                 ))
                 // アプリを開いている間に Apple Pay の支払いを受け取ったら、すぐ記録にする。
                 .onReceive(NotificationCenter.default.publisher(for: PaymentInbox.didReceive)) { _ in deliverQuickActions() }
@@ -273,13 +273,13 @@ struct HomeView: View {
                     switch phase {
                     case .active:
                         model.refreshToday()
-                        model.recordDueRecurringEntries(calendar: calendar)
+                        recordDueRecurringEntries()
                         // 裏にいる間に受け取った Apple Pay の支払いを記録にする（くり返しの記録の後。返事は後のものが残る）。
                         deliverQuickActions()
                         model.refreshQuickPhrases()
                         // 状態が変わらなくても、前面に戻ったときには確かめる（ほかの画面を閉じた後で出せるように）。
                         model.presentPremiumIfTrialEnded()
-                        model.showWeeklyRecapIfDue(calendar: calendar)
+                        showWeeklyRecapIfDue()
                         Task { await model.voice.refreshAvailability() }
                     case .background:
                         // 裏に回ったら、聞き取れた分を入力欄へ入れて止める（裏ではマイクを使い続けない）。
@@ -291,8 +291,8 @@ struct HomeView: View {
                 // 日付が変わったとき（0 時・時間帯の変更など）。前面に置いたまま月をまたいでも合計を切り替える。
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
                     model.refreshToday()
-                    model.recordDueRecurringEntries(calendar: calendar)
-                    model.showWeeklyRecapIfDue(calendar: calendar)
+                    recordDueRecurringEntries()
+                    showWeeklyRecapIfDue()
                 }
         }
         // カテゴリの一覧（作ったカテゴリの名前・記号・色）を、ホームから開くすべての画面とシートに渡す。
@@ -448,16 +448,43 @@ struct HomeView: View {
         .animation(.default, value: model.voice.notice)
     }
 
-    /// Siri・ショートカットからの頼みを受け取り、行えるなら行う。ロック中は受け取るだけにし、解いてから行う
+    /// アプリのロックが家計の画面を隠しているか（ロック中・前面を離れている・起動したときに読めなかったロックの設定を
+    /// 確かめている間）。
+    private var hidesContent: Bool {
+        appLock?.hidesContent == true
+    }
+
+    /// Siri・ショートカットからの頼みを受け取り、行えるなら行う。家計の画面を隠している間は受け取るだけにし、出してから行う
     /// （ロックの画面の下で記録したり、カメラやマイクを開いたりしないため）。
     private func deliverQuickActions() {
         if let action = quickActions.take() {
             model.receive(action)
         }
-        guard appLock?.isLocked != true else { return }
+        guard !hidesContent else { return }
         // Apple Pay の支払いの受け箱も、ここで記録にする（ロックを解いた後・読み取りが終わった後にも見るため）。
         model.importCapturedPayments(calendar: calendar)
         model.performPendingQuickAction(calendar: calendar)
+    }
+
+    /// 決めた日を過ぎたくり返しの記録を記録する。家計の画面を隠している間は行わず、出してから行う（`catchUpAfterShowingContent`）。
+    /// 記録した内容（品目と金額）を VoiceOver に読み上げるので、ロックの画面の下で行うと、解除の前に金額が周りに聞こえるため。
+    private func recordDueRecurringEntries() {
+        guard !hidesContent else { return }
+        model.recordDueRecurringEntries(calendar: calendar)
+    }
+
+    /// 週が替わって最初に開いたときだけ、先週のふりかえりのカードを出す。くり返しの記録と同じく、家計の画面を出してから
+    /// （くり返しの記録の後に出し、カードをいちばん下に置く順を保つため）。
+    private func showWeeklyRecapIfDue() {
+        guard !hidesContent else { return }
+        model.showWeeklyRecapIfDue(calendar: calendar)
+    }
+
+    /// ロックを解いた（家計の画面を隠すのをやめた）ときに、待っていたものを前面に戻ったときと同じ順で行う。
+    private func catchUpAfterShowingContent() {
+        recordDueRecurringEntries()
+        deliverQuickActions()
+        showWeeklyRecapIfDue()
     }
 
     /// 入力欄の「直前の記録を取り消す」の操作。取り消せるものがあるときだけ渡す。
@@ -1191,13 +1218,17 @@ private struct EmptyTimelineView: View {
 private struct QuickActionDelivery: ViewModifier {
     let pending: QuickAction?
     let isParsing: Bool
-    let isLocked: Bool?
+    let hidesContent: Bool?
     let deliver: () -> Void
+    /// 家計の画面を隠すのをやめた（ロックを解いた）とき。
+    let contentDidShow: () -> Void
 
     func body(content: Content) -> some View {
         content
             .onChange(of: pending) { deliver() }
             .onChange(of: isParsing) { deliver() }
-            .onChange(of: isLocked) { deliver() }
+            .onChange(of: hidesContent) { _, hides in
+                if hides == true { deliver() } else { contentDidShow() }
+            }
     }
 }

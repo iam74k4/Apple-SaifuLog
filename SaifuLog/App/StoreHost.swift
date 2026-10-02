@@ -38,6 +38,9 @@ final class StoreHost {
     @ObservationIgnored let pendingWrites = PendingStoreWrites()
     /// 開いている（これから開く）保存先の iCloud の扱い。
     @ObservationIgnored private(set) var cloudKitDatabase: ModelContainerFactory.CloudKitDatabase
+    /// 最初に開く直前に、設定の「iCloud で同期」を読むか（アプリ）。App を作る時点（ロック中に裏で起こされたときなど）では
+    /// 設定を読めないことがあるので、保護されたデータが読めると確かめてから読む。
+    @ObservationIgnored private var readsSyncSettingBeforeOpening: Bool
     /// iCloud と同期する保存先を開けず、端末の中だけに戻したときの理由。画面が知らせ（アラート）を出し、閉じたら
     /// `acknowledgeICloudFallback()` で消す。
     private(set) var iCloudFallback: ICloudSyncFailure?
@@ -63,20 +66,20 @@ final class StoreHost {
     @ObservationIgnored private let openContainer: @MainActor (ModelContainerFactory.CloudKitDatabase) throws -> ModelContainer
     @ObservationIgnored private let isProtectedDataAvailable: @MainActor () -> Bool
     @ObservationIgnored private let announce: @MainActor (String) -> Void
-    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let settings: LaunchSettingsStore
 
     /// - Parameters:
-    ///   - cloudKitDatabase: 最初に開く保存先の iCloud の扱い。アプリは設定の「iCloud で同期」から決める
-    ///     （`CloudKitDatabase(syncEnabled:)`）。
-    ///   - defaults: 設定の置き場所。iCloud 同期を切り替えたときと、開けずに端末の中だけへ戻したときに書く。
-    ///     アプリは `UserDefaults.standard`（`AppSettings` の決まり）、テストは使い捨ての領域。
+    ///   - cloudKitDatabase: 最初に開く保存先の iCloud の扱い。nil なら、最初に開く直前に設定の「iCloud で同期」を読んで決める
+    ///     （アプリ）。テストと撮影用のデモは決めた値を渡す。
+    ///   - settings: 設定の置き場所（`LaunchSettingsStore`）。iCloud 同期を読み、切り替えたときと、開けずに端末の中だけへ
+    ///     戻したときに書く。アプリはアプリの設定のファイル、テストは一時フォルダのファイル。
     ///   - openContainer: 保存先を開く処理。テストでメモリの上の保存先や、失敗する処理に差し替える。
     ///   - isProtectedDataAvailable: 保護されたデータが読めるか（ロック中でないか）。テストで差し替える。
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     ///   - contentRemovalTimeout: 開き直すときに、前の保存先の画面が消えるのを待つ上限。テストで短くする。
     init(
-        cloudKitDatabase: ModelContainerFactory.CloudKitDatabase = .none,
-        defaults: UserDefaults = .standard,
+        cloudKitDatabase: ModelContainerFactory.CloudKitDatabase? = nil,
+        settings: LaunchSettingsStore,
         openContainer: @escaping @MainActor (ModelContainerFactory.CloudKitDatabase) throws -> ModelContainer = {
             try ModelContainerFactory.makeContainer(cloudKitDatabase: $0)
         },
@@ -84,8 +87,9 @@ final class StoreHost {
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
         contentRemovalTimeout: Duration = .seconds(3)
     ) {
-        self.cloudKitDatabase = cloudKitDatabase
-        self.defaults = defaults
+        self.cloudKitDatabase = cloudKitDatabase ?? .none
+        self.readsSyncSettingBeforeOpening = cloudKitDatabase == nil
+        self.settings = settings
         self.openContainer = openContainer
         self.isProtectedDataAvailable = isProtectedDataAvailable
         self.announce = announce
@@ -136,7 +140,9 @@ final class StoreHost {
         case .ready, .unavailable: break
         case .loading, .reopening: return
         }
-        defaults.set(enabled, for: AppSettings.iCloudSyncEnabled)
+        // 書けなければ切り替えない（開き直した後の設定と、次に開いたときに読む設定が食い違わないように）。設定の画面の
+        // 切り替えは、いまの保存先の iCloud の扱い（`cloudKitDatabase`）を映しているので、元のままに見える。
+        guard (try? settings.update({ $0.iCloudSyncEnabled = enabled })) != nil else { return }
         iCloudFallback = nil
         restoresSettings = true
         pendingAnnouncement = enabled
@@ -171,6 +177,7 @@ final class StoreHost {
         case .loading, .reopening: return
         }
         self.cloudKitDatabase = cloudKitDatabase
+        readsSyncSettingBeforeOpening = false
         failedRetryCount = 0
         state = .reopening
     }
@@ -229,6 +236,12 @@ final class StoreHost {
             isWaitingForProtectedData = true
             return
         }
+        if readsSyncSettingBeforeOpening {
+            readsSyncSettingBeforeOpening = false
+            // 読めなければ（ファイルの読み込みの失敗）、端末の中だけで開く（記録は使える。同期は次に開いたときに読み直す）。
+            let enabled = settings.load(migrating: true)?.iCloudSyncEnabled ?? false
+            cloudKitDatabase = ModelContainerFactory.CloudKitDatabase(syncEnabled: enabled)
+        }
         do {
             didOpen(try openContainer(cloudKitDatabase))
         } catch {
@@ -284,7 +297,9 @@ final class StoreHost {
             return
         }
         cloudKitDatabase = .none
-        defaults.set(false, for: AppSettings.iCloudSyncEnabled)
+        // 書けなくても戻す（この起動では端末の中だけで開いている。次に開いたときはまた iCloud と同期する保存先から試し、
+        // 同じように戻す）。
+        _ = try? settings.update { $0.iCloudSyncEnabled = false }
         iCloudFallback = ICloudSyncFailure(error: iCloudError)
         // 「オンにしました」とは読み上げない（戻したことは知らせのアラートで伝える）。
         pendingAnnouncement = nil

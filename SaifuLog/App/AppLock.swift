@@ -2,6 +2,7 @@ import Foundation
 import LocalAuthentication
 import Observation
 import SwiftUI
+import UIKit
 
 /// アプリのロック（設定の「Face ID でロック」。docs/design.md §9 の ⑧ の決め事）。
 ///
@@ -16,8 +17,11 @@ import SwiftUI
 /// - 認証は iOS の `deviceOwnerAuthentication`（生体認証が使えなければ端末のパスコード）。アプリは認証の結果だけを受け取り、
 ///   顔や指紋のデータは受け取らない（iOS の仕組み）。
 /// - オンにするときは、その場で 1 回認証してから切り替える（解除できない設定にしないため）。パスコードを設定していない端末では
-///   オンにできない。オフにするのは、解除した後の設定の画面からだけなので、認証を求めない。
-/// - 設定は UserDefaults（`AppSettings.appLockEnabled`）。家計の中身ではないため。
+///   オンにできない。オフにするときも認証を求める（ロックの画面が何かの理由で外れたり、解除したまま置いた端末を別の人が
+///   触ったりしたときに、黙ってロックを外させないため）。
+/// - 設定は専用のファイル（`LaunchSettingsStore`）に置く。UserDefaults はロック中に裏で起こされると読めず、空の内容を覚えて
+///   しまい、ロックがオフと読まれるため。起動したときに読めなければ（再起動して最初にロックを解く前）、読めるようになるまで
+///   画面を隠しておき、読めたら決める（安全側に倒す）。
 @MainActor
 @Observable
 final class AppLock {
@@ -35,22 +39,45 @@ final class AppLock {
     /// 家計の画面を出さないか（ロック中か、前面を離れて隠しているか）。
     var hidesContent: Bool { isLocked || isCovered }
 
-    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let settings: LaunchSettingsStore
     @ObservationIgnored private let authenticator: any AppLockAuthenticating
+    @ObservationIgnored private let isProtectedDataAvailable: @MainActor () -> Bool
     /// 次に前面に出たときに、解除を自動で求めるか（ロックして最初の 1 回だけ）。
     @ObservationIgnored private var promptsOnActive: Bool
+    /// 起動したときに設定を読めず、まだオンかオフかを決めていないか。決めるまで画面を隠しておく。
+    @ObservationIgnored private var isSettingPending: Bool
 
     /// - Parameters:
-    ///   - defaults: 設定の置き場所。アプリは `UserDefaults.standard`、テストと撮影用のデモは別の領域。
+    ///   - settings: 設定の置き場所。アプリは `LaunchSettingsStore()`、テストと撮影用のデモは一時フォルダのファイル。
     ///   - authenticator: 認証（Face ID・Touch ID・パスコード）。テストで結果を決めたものに差し替える。
-    init(defaults: UserDefaults = .standard, authenticator: any AppLockAuthenticating = DeviceOwnerAuthenticator()) {
-        self.defaults = defaults
+    ///   - isProtectedDataAvailable: 保護されたデータが読めるか（ロック中でないか）。テストで差し替える。ここでは呼ばない
+    ///     （App を作る時点では UIApplication がまだ無いことがあるため）。
+    init(
+        settings: LaunchSettingsStore,
+        authenticator: any AppLockAuthenticating = DeviceOwnerAuthenticator(),
+        isProtectedDataAvailable: @escaping @MainActor () -> Bool = { UIApplication.shared.isProtectedDataAvailable }
+    ) {
+        self.settings = settings
         self.authenticator = authenticator
-        let enabled = defaults.bool(for: AppSettings.appLockEnabled)
-        self.isEnabled = enabled
-        // 起動したときは、オンならロックから始める（最初の画面が出る前に家計を見せない）。
-        self.isLocked = enabled
-        self.promptsOnActive = enabled
+        self.isProtectedDataAvailable = isProtectedDataAvailable
+        // ここでは UserDefaults から移さない（App を作る時点はロック中のことがあり、そのとき UserDefaults を読むと、空の内容を
+        // 覚えてしまうため）。ファイルが読めた（ロック中でも、最初のロック解除の後なら読める）ときだけ決める。
+        if let values = settings.load(migrating: false) {
+            let enabled = values.appLockEnabled
+            self.isEnabled = enabled
+            // 起動したときは、オンならロックから始める（最初の画面が出る前に家計を見せない）。
+            self.isLocked = enabled
+            self.promptsOnActive = enabled
+            self.isSettingPending = false
+        } else {
+            // 読めない（再起動して最初にロックを解く前）か、まだファイルが無い。オンかもしれないので、決めるまで隠しておく。
+            // ロックの画面（解除のボタン）は出さず、隠すだけにする（オフの人に解除を求めないため）。
+            self.isEnabled = false
+            self.isLocked = false
+            self.isCovered = true
+            self.promptsOnActive = false
+            self.isSettingPending = true
+        }
     }
 
     /// 端末で使える認証の種類（設定の行の名前「Face ID でロック」などに使う）。
@@ -66,6 +93,10 @@ final class AppLock {
     /// 隠す・ロックするのはその場で行う（待たない）。iOS がアプリの切り替えの画面の写しを撮るまでに、隠した画面を描き終えるため。
     @discardableResult
     func scenePhaseDidChange(to phase: ScenePhase) -> Task<Void, Never>? {
+        guard resolvePendingSetting() else {
+            // まだ設定を読めない。決めるまで隠したまま（解除も求めない）。
+            return nil
+        }
         guard isEnabled else {
             isLocked = false
             isCovered = false
@@ -91,6 +122,22 @@ final class AppLock {
         return nil
     }
 
+    /// 起動したときに読めなかった設定を、保護されたデータが読めるようになっていれば読んで決める。決まっていれば true。
+    ///
+    /// 読めるようになってもファイルを読めないとき（ファイルの読み込みの失敗）は、オンとして扱う（解除すれば使える。オフとして
+    /// 扱うと、オンの人の家計を Face ID なしで見せてしまうため）。設定の画面からオフに戻せる。
+    private func resolvePendingSetting() -> Bool {
+        guard isSettingPending else { return true }
+        guard isProtectedDataAvailable() else { return false }
+        isSettingPending = false
+        let enabled = settings.load(migrating: true)?.appLockEnabled ?? true
+        isEnabled = enabled
+        isLocked = enabled
+        isCovered = false
+        promptsOnActive = enabled
+        return true
+    }
+
     // MARK: - 解除
 
     /// ロックを解除する（認証を求める）。やめた・失敗したときはロックのまま（ロックの画面から求め直せる）。
@@ -106,7 +153,7 @@ final class AppLock {
 
     // MARK: - 設定
 
-    /// ロックのオンとオフを切り替える。オンにするときは、その場で認証できたときだけ切り替える。切り替えたら true。
+    /// ロックのオンとオフを切り替える。オンにするときもオフにするときも、その場で認証できたときだけ切り替える。切り替えたら true。
     @discardableResult
     func setEnabled(_ enabled: Bool) async -> Bool {
         guard enabled != isEnabled else { return true }
@@ -119,9 +166,20 @@ final class AppLock {
                 enableFailure = .notAuthenticated
                 return false
             }
+        } else {
+            guard await authenticator.authenticate(reason: String(localized: "アプリのロックをオフにします")) else {
+                enableFailure = .disableNotAuthenticated
+                return false
+            }
+        }
+        // 書けなかったら切り替えない（画面ではオンなのに、次に開いたときにはオフ、を避ける）。
+        do {
+            try settings.update { $0.appLockEnabled = enabled }
+        } catch {
+            enableFailure = .notSaved
+            return false
         }
         isEnabled = enabled
-        defaults.set(enabled, for: AppSettings.appLockEnabled)
         if !enabled {
             isLocked = false
             isCovered = false
@@ -132,12 +190,16 @@ final class AppLock {
 }
 
 extension AppLock {
-    /// ロックをオンにできなかった理由。
+    /// ロックを切り替えられなかった理由。
     enum EnableFailure: Equatable {
         /// 端末にパスコードを設定していない（解除できないので、オンにしない）。
         case passcodeNotSet
-        /// 認証できなかった（やめた・失敗した）。
+        /// オンにするときに認証できなかった（やめた・失敗した）。
         case notAuthenticated
+        /// オフにするときに認証できなかった（やめた・失敗した）。
+        case disableNotAuthenticated
+        /// 設定を書けなかった（切り替えていない）。
+        case notSaved
     }
 }
 

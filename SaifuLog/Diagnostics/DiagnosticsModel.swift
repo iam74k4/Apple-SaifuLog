@@ -30,7 +30,7 @@ final class DiagnosticsModel {
     @ObservationIgnored private let isProtectedDataAvailable: @MainActor () -> Bool
     @ObservationIgnored private let speech: @Sendable () async -> DiagnosticsReport.SpeechStatus
     @ObservationIgnored private let iCloudAccount: @Sendable () async -> ICloudAccountStatus
-    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let settings: LaunchSettingsStore
     @ObservationIgnored private let copy: @MainActor (String) -> Void
     @ObservationIgnored private let announce: @MainActor (String) -> Void
     @ObservationIgnored private let household: HouseholdHost?
@@ -45,7 +45,7 @@ final class DiagnosticsModel {
     ///   - speech: 音声の書き起こしが使えるかの問い合わせ。テストでは OS に問い合わせない値に差し替える。
     ///   - iCloudAccount: iCloud のアカウントの状態の問い合わせ。テストでは CloudKit に問い合わせない値に差し替える
     ///     （iCloud の entitlement の無いテストのプロセスで `CKContainer` を作ると落ちるため）。
-    ///   - defaults: 設定の「iCloud で同期」を読む置き場所。
+    ///   - settings: 設定の「iCloud で同期」を読む置き場所（`LaunchSettingsStore`）。
     ///   - copy: まとめてコピーする先（クリップボード）。テストで文を集める。
     ///   - announce: VoiceOver に読み上げさせる。
     ///   - household: 家計の共有。渡すと（有効なときだけ）家計の行を出す。
@@ -58,7 +58,7 @@ final class DiagnosticsModel {
         isProtectedDataAvailable: @escaping @MainActor () -> Bool = { UIApplication.shared.isProtectedDataAvailable },
         speech: @escaping @Sendable () async -> DiagnosticsReport.SpeechStatus = { await DiagnosticsProbe.speech() },
         iCloudAccount: @escaping @Sendable () async -> ICloudAccountStatus = { await ICloudAccountStatus.current() },
-        defaults: UserDefaults = .standard,
+        settings: LaunchSettingsStore = LaunchSettingsStore(),
         copy: @escaping @MainActor (String) -> Void = { UIPasteboard.general.string = $0 },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
         household: HouseholdHost? = nil,
@@ -75,7 +75,7 @@ final class DiagnosticsModel {
         self.isProtectedDataAvailable = isProtectedDataAvailable
         self.speech = speech
         self.iCloudAccount = iCloudAccount
-        self.defaults = defaults
+        self.settings = settings
         self.copy = copy
         self.announce = announce
     }
@@ -135,7 +135,8 @@ final class DiagnosticsModel {
             iCloud: DiagnosticsReport.ICloudStatus(
                 account: accountAnswer?.diagnosticName,
                 database: DiagnosticsProbe.cloudKitDatabase(container: context.container),
-                isSyncSettingOn: defaults.bool(for: AppSettings.iCloudSyncEnabled)
+                // まだ書いていなければオフ（UserDefaults から移すのは、保存先を開くときとロックの設定を読むとき）。
+                isSyncSettingOn: settings.load(migrating: false)?.iCloudSyncEnabled ?? false
             ),
             household: householdStatus(),
             aiFallbacks: aiFallbackLog.snapshot,

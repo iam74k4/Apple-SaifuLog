@@ -58,8 +58,8 @@ struct DiagnosticsTests {
         return folder
     }
 
-    /// 設定の「iCloud で同期」を読む領域（テストでは何も書かないので、既定値のオフが読める）。
-    static let isolatedDefaults = UserDefaults(suiteName: "DiagnosticsTests.\(UUID().uuidString)")!
+    /// 設定の「iCloud で同期」を読む置き場所（テストでは何も書かないので、既定値のオフが読める）。
+    @MainActor static let isolatedSettings = try! TestSupport.makeLaunchSettings()
 
     /// 生成の試しで、本物のモデルの代わりを渡し忘れたとき（テストでは本物のモデルを呼ばない）。
     nonisolated static let unexpectedGeneration: @Sendable () async throws -> Void = {
@@ -69,7 +69,7 @@ struct DiagnosticsTests {
     /// AI の記録と生成の試しは、テストごとに新しい記録と代わりを渡す（アプリの `AIFallbackLog.shared` には、ほかのテストの失敗も入るため）。
     static func makeModel(
         context: ModelContext, storeURL: URL, protectedDataAvailable: Bool = true, sink: Sink = Sink(),
-        defaults: UserDefaults = isolatedDefaults, aiFallbackLog: AIFallbackLog = AIFallbackLog(),
+        settings: LaunchSettingsStore = isolatedSettings, aiFallbackLog: AIFallbackLog = AIFallbackLog(),
         generate: @escaping @Sendable () async throws -> Void = unexpectedGeneration,
         generationTimeout: Duration = .seconds(20)
     ) -> DiagnosticsModel {
@@ -79,7 +79,7 @@ struct DiagnosticsTests {
             isProtectedDataAvailable: { protectedDataAvailable },
             speech: { speech },
             iCloudAccount: { .noAccount },
-            defaults: defaults,
+            settings: settings,
             copy: { sink.copy($0) },
             announce: { sink.announce($0) },
             aiFallbackLog: aiFallbackLog,
@@ -181,7 +181,7 @@ struct DiagnosticsTests {
             isProtectedDataAvailable: { true },
             speech: { await gate.wait() },
             iCloudAccount: { .available },
-            defaults: Self.isolatedDefaults,
+            settings: Self.isolatedSettings,
             copy: { _ in },
             announce: { _ in }
         )
@@ -220,18 +220,15 @@ struct DiagnosticsTests {
         let context = try TestSupport.makeContext()
         let folder = try Self.makeFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
-        let suiteName = "DiagnosticsTests.\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
-        defer { defaults.removePersistentDomain(forName: suiteName) }
         // 設定はオンなのに、開いた保存先は端末の中だけ（開けずに戻したときの食い違いを見分けられる）。
-        defaults.set(true, for: AppSettings.iCloudSyncEnabled)
+        let settings = try TestSupport.makeLaunchSettings(.init(iCloudSyncEnabled: true))
         let model = DiagnosticsModel(
             context: context,
             storeURL: folder.appending(path: "default.store", directoryHint: .notDirectory),
             isProtectedDataAvailable: { true },
             speech: { Self.speech },
             iCloudAccount: { .failed(domain: "CKErrorDomain", code: 4) },
-            defaults: defaults,
+            settings: settings,
             copy: { _ in },
             announce: { _ in }
         )
@@ -267,7 +264,7 @@ struct DiagnosticsTests {
             isProtectedDataAvailable: { true },
             speech: { await gate.wait() },
             iCloudAccount: { .available },
-            defaults: Self.isolatedDefaults,
+            settings: Self.isolatedSettings,
             copy: { _ in },
             announce: { _ in }
         )

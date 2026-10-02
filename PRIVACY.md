@@ -243,7 +243,9 @@ iOS の共有の画面に渡され、**利用者が選んだ共有先（アプ�
 初回の案内を終えたかどうか、週の始まり（日曜か月曜か）、iCloud で同期するかどうか、アプリのロックをオンにしているかどうか、無料体験が終わったときの案内を出したかどうか、家計への質問を
 無料で使った回数（月ごとの回数。質問の文や答えは含みません）、先週のふりかえりを最後に表示した日時（ふりかえりの中身は
 含みません）、レシートの読み取りを無料で使った回数（月ごとの回数。画像や読み取った内容は含みません）といったアプリの設定は、
-iOS の標準的な仕組み（UserDefaults）を用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存します。
+iOS の標準的な仕組み（UserDefaults）を用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存します。ただし、iCloud で同期するか
+どうかとアプリのロックをオンにしているかどうかの 2 つは、本アプリが iPhone のロック中に動くとき（Apple Pay の支払いの受け取りなど）にも
+正しく読めるよう、同じ領域の小さな設定のファイルに、iPhone を起動して最初にロックを解いた後から読める保護で保存します。
 これらを外部に送信することはありません。予算の金額は設定ではなく、上の家計の記録と同じ場所に保存します。
 購入したかどうかは設定には保存しません（上の「購入の取り扱い」）。
 
@@ -556,7 +558,9 @@ week starts on, whether to sync with iCloud, whether app lock is on, whether the
 questions about your spending you have used (counted per month; your questions and answers are not
 included), the date and time Last Week in Review was last shown (not its contents), and the number of free receipt scans you have used
 (counted per month; no images or scanned contents), are stored only on your own iPhone, in an area reserved for this app, using the
-standard iOS mechanism (UserDefaults). They are never transmitted
+standard iOS mechanism (UserDefaults). The two settings for iCloud sync and app lock are instead kept in a small settings file in the same
+area, using protection that makes it readable after you first unlock your iPhone following a restart, so they are read correctly even when
+the app runs while your iPhone is locked (for example, when receiving an Apple Pay payment). They are never transmitted
 anywhere. Your budget amount is not a setting; it is stored in the same place as your records,
 described above. Whether you have purchased Premium is not stored as a setting (see Purchases above).
 

@@ -22,6 +22,9 @@ private struct AppLockModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            // 隠している間は、家計の画面を VoiceOver からも隠す。地の色を重ねるだけでは、VoiceOver が下の記録（品目・金額）を
+            // 読み上げ、ボタンを押せてしまうため。
+            .accessibilityHidden(lock.hidesContent)
             .overlay {
                 if lock.hidesContent {
                     Theme.background
@@ -32,6 +35,10 @@ private struct AppLockModifier: ViewModifier {
             .background(WindowSceneReader { window.attach(to: $0, lock: lock) }.accessibilityHidden(true))
             .onChange(of: scenePhase, initial: true) { _, phase in
                 lock.scenePhaseDidChange(to: phase)
+            }
+            // 再起動して最初にロックを解いた（起動したときに読めなかった設定を読めるようになった）。
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
+                lock.scenePhaseDidChange(to: scenePhase)
             }
             .onChange(of: lock.hidesContent, initial: true) { _, hides in
                 window.setVisible(hides, lock: lock)
@@ -63,16 +70,23 @@ final class AppLockWindow {
             window.windowLevel = .alert + 1
             let host = UIHostingController(rootView: AppLockView(lock: lock))
             host.view.backgroundColor = .clear
+            // VoiceOver をこの窓の中だけにとどめる。下の窓（アプリの画面・シート・アラート）の要素へ移れると、ロックの画面の
+            // 下の家計を読み上げたり、設定を操作したりできてしまうため。
+            host.view.accessibilityViewIsModal = true
+            window.accessibilityViewIsModal = true
             window.rootViewController = host
             // キーの窓にして、入力欄のキーボードをロックの画面の上に出さない。
             window.makeKeyAndVisible()
             self.window = window
+            // 画面が替わったことを VoiceOver に伝え、フォーカスをロックの画面へ移す（下の画面の要素に残さない）。
+            UIAccessibility.post(notification: .screenChanged, argument: nil)
         } else {
             guard let window else { return }
             window.isHidden = true
             self.window = nil
             // アプリの窓をキーの窓に戻す（入力欄にまた打てるように）。
             scene?.windows.first { $0 !== window && !$0.isHidden && $0.windowLevel == .normal }?.makeKey()
+            UIAccessibility.post(notification: .screenChanged, argument: nil)
         }
     }
 }
