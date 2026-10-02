@@ -1208,6 +1208,36 @@ struct HomeModelTests {
         #expect(!fixture.model.isParsing)
     }
 
+    /// 前の記録を直そうとする文は、記録を直さず新しい記録にもせず、直し方の案内を出して文を入力欄に戻す（数えない）。
+    @Test func correctionTextIsNotRecorded() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+        #expect(try fixture.entries().map(\.amount) == [850])
+
+        await fixture.send("さっきのを900に直して")
+
+        #expect(try fixture.entries().map(\.amount) == [850])
+        #expect(try fixture.entries().map(\.memo) == ["ランチ"])
+        #expect(fixture.lastQuestionState == .correction)
+        #expect(fixture.model.draft == "さっきのを900に直して")
+        #expect(fixture.announcements.last == String(localized: "記録は直していません"))
+        #expect(fixture.answererCalls == 0)
+        #expect(fixture.freeQuestionsLeft == .limited(remaining: 10, limit: 10))
+        #expect(!fixture.model.isParsing)
+    }
+
+    /// 比べる文（金額と「超えた」「多い」など）は、記録か質問か決められないものとして記録しない。
+    @Test func comparisonTextIsNotRecorded() async throws {
+        let fixture = try Fixture()
+
+        await fixture.send("今月の食費 3万超えた")
+
+        #expect(try fixture.entries().isEmpty)
+        #expect(fixture.lastQuestionState == .unclear)
+        #expect(fixture.model.draft == "今月の食費 3万超えた")
+        #expect(fixture.answererCalls == 0)
+    }
+
     /// 金額に「合計」を添えた記録（添えた額）は、これまでどおり記録する。
     @Test func recordWithTotalIsStillRecorded() async throws {
         let fixture = try Fixture()

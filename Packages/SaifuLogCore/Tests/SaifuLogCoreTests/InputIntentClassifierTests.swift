@@ -113,6 +113,65 @@ struct InputIntentClassifierTests {
         #expect(Self.classify(text) == .unclear, "\(text)")
     }
 
+    // 以前は記録を直そうとする文も、金額があるので新しい記録にし、同じ支出を二重に記録していた。
+    @Test("前の記録を直そうとする文は、金額があっても記録にしない", arguments: [
+        "さっきのを900に直して",
+        "さっきのランチ、850じゃなくて950",
+        "間違えた、昨日のカフェは480",
+        "ランチは850ではなく950",
+        "ランチ 850 を 950 に修正",
+        "訂正 ランチ 950",
+        "前のを1000に変更",
+        "今のは500にして",
+        "直前のランチ 1200 に直しといて",
+    ])
+    func corrections(text: String) {
+        #expect(Self.classify(text) == .correction, "\(text)")
+    }
+
+    @Test("記録にも書く「間違えて」「お直し」や品目の名前、直す語の無い前の記録の語は、記録のまま", arguments: [
+        "間違えて買ったパン 300",
+        "ズボンのお直し 1500",
+        "修正テープ 200",
+        "今のランチ 900",
+        "前の店でランチ 850",
+    ])
+    func correctionLikeRecords(text: String) {
+        #expect(Self.classify(text) == .record, "\(text)")
+    }
+
+    // 以前は比べる文も金額があるので記録にしていた（「今月の食費 3万超えた」が ¥30,000 の支出になった）。
+    @Test("比べる語と金額が両方ある文は、記録か質問か決められないものにする", arguments: [
+        "今月の食費 3万超えた",
+        "先月より5000円多い",
+        "食費が先月より1万円少ない",
+        "今月は5万以上使った",
+        "カフェは3000円以下",
+        "先月より3000増えた",
+        "食費が5000円減った",
+    ])
+    func comparisons(text: String) {
+        #expect(Self.classify(text) == .unclear, "\(text)")
+    }
+
+    @Test("「より」だけの文と、比べる語を含む品目や言い回しは記録のまま", arguments: [
+        "母より 10000",
+        "多い日用 ナプキン 500",
+        "お腹減ったからラーメン 900",
+    ])
+    func comparisonLikeRecords(text: String) {
+        #expect(Self.classify(text) == .record, "\(text)")
+    }
+
+    @Test("金額の無い文は、直す語や比べる語があっても、これまでどおりの見分けにする", arguments: [
+        ("さっきのを直して", InputIntent.record),
+        ("先月より多い", .record),
+        ("先月の食費は多い?", .question),
+    ])
+    func correctionAndComparisonNeedAmount(text: String, intent: InputIntent) {
+        #expect(Self.classify(text) == intent, "\(text)")
+    }
+
     /// 決められないもの・質問は、どちらも記録にならない（誤って保存しない）。
     @Test("質問の例はどれも記録にならない")
     func examplesAreNeverRecords() {

@@ -118,6 +118,20 @@ struct HomeModelHouseholdTests {
         #expect(try fixture.entries().isEmpty)
     }
 
+    /// 「家族」のときの、前の記録を直そうとする文は、家計にも自分の記録にも記録せず、送った文を戻して直し方を知らせる。
+    @Test func correctionInHouseholdIsNotRecorded() async throws {
+        let fixture = try Fixture()
+        try fixture.household.insertHousehold(role: .owner)
+        fixture.model.ledgerScope = .household
+
+        await fixture.send("さっきのを900に直して")
+
+        #expect(fixture.model.householdInputAlert == .correction)
+        #expect(fixture.model.draft == "さっきのを900に直して")
+        #expect(try fixture.household.entries().isEmpty)
+        #expect(try fixture.entries().isEmpty)
+    }
+
     /// 「家族」のときの取り消しは、家計の記録を消して送った文を入力欄に戻し、消す変更を登録する。
     @Test func undoInHouseholdDeletesHouseholdEntries() async throws {
         let fixture = try Fixture()

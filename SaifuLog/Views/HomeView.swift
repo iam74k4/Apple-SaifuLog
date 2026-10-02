@@ -239,7 +239,7 @@ struct HomeView: View {
                 } message: { pending in
                     Text("\(pending.summary)の家計の記録を削除します。家族の端末からも消えます。この操作は取り消せません。")
                 }
-                // 「家族」のときに質問や読めない文を送った（家計には記録しない）。送った文は入力欄に戻っている。
+                // 「家族」のときに質問や読めない文、記録を直そうとする文を送った（家計には記録しない）。送った文は入力欄に戻っている。
                 .alert(
                     householdInputAlertTitle,
                     isPresented: showsHouseholdInputAlert,
@@ -252,6 +252,8 @@ struct HomeView: View {
                         Text("家族の家計への質問は、まだできません。帯の「自分」に切り替えると、自分の記録について聞けます。")
                     case .unclear:
                         Text("「ランチ 850」のように、品目と金額を入れてください。")
+                    case .correction:
+                        Text("記録を直すときは、タイムラインのその記録を押してください。")
                     }
                 }
                 // 家計の共有の知らせ（招待を受け入れた・家計が消えたなど）。ほかの画面を出している間は、閉じてから出す
@@ -512,6 +514,7 @@ struct HomeView: View {
     private var householdInputAlertTitle: Text {
         switch model.householdInputAlert {
         case .question: Text("家族の家計では質問できません")
+        case .correction: Text("記録は直していません")
         case .unclear, nil: Text("記録として読めませんでした")
         }
     }

@@ -345,6 +345,14 @@ final class HomeModel {
             restoreDraft(text, source: source)
             announce(String(localized: "記録か質問か分かりませんでした"))
             return Task {}
+        case .correction:
+            // 前の記録を直そうとする文（「さっきのを900に直して」）。文から記録を直すことはせず、新しい記録にもしない
+            // （記録すると、直したつもりの支出が二重に記録されるため）。直し方を案内し、決められなかった文と同じく、
+            // 送った文を入力欄に戻す（記録し忘れた分を書き直して送れるように）。無料の回数は数えない。
+            appendQuestion(text, askedAt: sentAt, state: .correction)
+            restoreDraft(text, source: source)
+            announce(String(localized: "記録は直していません"))
+            return Task {}
         }
     }
 
@@ -405,8 +413,9 @@ final class HomeModel {
 
     // MARK: - 家族（家計）への記録
 
-    /// 「家族」のときの送信。記録なら家計の記録として保存する。質問と、記録か質問か分からない文は、家計には記録せず、送った文を
-    /// 入力欄に戻して知らせる（家計への質問は v1 では出さない。答えを自分の記録で出すと、家族の記録の答えと取り違えるため）。
+    /// 「家族」のときの送信。記録なら家計の記録として保存する。質問と、記録か質問か分からない文と、前の記録を直そうとする文は、
+    /// 家計には記録せず、送った文を入力欄に戻して知らせる（家計への質問は v1 では出さない。答えを自分の記録で出すと、家族の
+    /// 記録の答えと取り違えるため）。
     private func sendToHousehold(_ text: String, source: EntrySource, sentAt: Date, calendar: Calendar) -> Task<Void, Never> {
         switch InputIntentClassifier.classify(text, now: sentAt, calendar: calendar, catalog: categories.catalog) {
         case .record:
@@ -419,6 +428,10 @@ final class HomeModel {
             restoreDraft(text, source: source)
             householdInputAlert = .unclear
             announce(String(localized: "記録か質問か分かりませんでした"))
+        case .correction:
+            restoreDraft(text, source: source)
+            householdInputAlert = .correction
+            announce(String(localized: "記録は直していません"))
         }
         return Task {}
     }
@@ -1517,6 +1530,8 @@ final class HomeModel {
         case question
         /// 記録か質問か分からなかった。
         case unclear
+        /// 前の記録を直そうとする文だった（記録を直さず、新しい記録にもしない）。
+        case correction
     }
 
     /// 保存先への書き込みの失敗。利用者に知らせ、記録したつもり・消したつもりにさせない。

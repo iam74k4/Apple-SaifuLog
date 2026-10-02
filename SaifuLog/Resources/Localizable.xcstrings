@@ -4963,6 +4963,17 @@
         }
       }
     },
+    "前の記録を直す文のようだったので、新しい記録にもしませんでした。記録を直すときは、返事の記録を押してください。記録した直後なら、「取り消す」で取り消して送り直すこともできます。" : {
+      "comment" : "ホームのタイムラインの案内。送った文が前の記録を直そうとする文で、記録しなかったときの説明。「取り消す」は返事の見出しのボタン（英語では Undo）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This looked like a request to fix an earlier entry, so nothing new was recorded. To fix an entry, tap it in the reply. Right after recording, you can also tap Undo and send it again."
+          }
+        }
+      }
+    },
     "前の記録を表示" : {
       "comment" : "タイムラインの先頭で、さらに前の記録を読み込むボタン",
       "localizations" : {
@@ -8125,6 +8136,17 @@
         }
       }
     },
+    "記録は直していません" : {
+      "comment" : "ホームのタイムラインの案内の見出し。送った文が前の記録を直そうとする文（「さっきのを900に直して」）で、記録を直さず新しい記録にもしなかったとき。VoiceOver にも読み上げる。家計の共有（DEBUG と社内テスト用のビルドだけ）の「家族」のときのアラートの題名にも使う",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No entry was changed"
+          }
+        }
+      }
+    },
     "記録も質問も、ひとことで" : {
       "comment" : "ホームの入力欄のプレースホルダ（記録も家計への質問も同じ入力欄に打てることを伝える）。英訳は短く保つ（長いと既定の文字サイズでも「…」で切れる）",
       "localizations" : {
@@ -8176,6 +8198,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Edit Record"
+          }
+        }
+      }
+    },
+    "記録を直すときは、タイムラインのその記録を押してください。" : {
+      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。「家族」のときに前の記録を直そうとする文を送ったときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To fix an entry, tap it in the timeline."
           }
         }
       }
@@ -8638,7 +8671,7 @@
       }
     },
     "送った文: %@" : {
-      "comment" : "ホームのタイムラインの送った文の吹き出し（VoiceOver）。記録の送信と、記録か質問か決められなかった文（質問とは名乗らない）。%@ は送った文",
+      "comment" : "ホームのタイムラインの送った文の吹き出し（VoiceOver）。記録の送信と、記録か質問か決められなかった文・前の記録を直そうとする文（質問とは名乗らない）。%@ は送った文",
       "localizations" : {
         "en" : {
           "stringUnit" : {

@@ -21,9 +21,9 @@ struct QuestionExchangeView: View {
         VStack(spacing: 12) {
             UserMessageBubble(
                 text: exchange.text,
-                // 記録か質問か決められなかった文は、VoiceOver でも「質問」と読まない。下の案内が「記録か質問か分かりません
-                // でした」と言うのに、吹き出しが質問と名乗ると食い違うため。
-                accessibilityLabel: exchange.state == .unclear ? Text("送った文: \(exchange.text)") : Text("質問: \(exchange.text)")
+                // 記録か質問か決められなかった文と記録を直そうとする文は、VoiceOver でも「質問」と読まない。下の案内が
+                // 「記録か質問か分かりませんでした」「記録は直していません」と言うのに、吹き出しが質問と名乗ると食い違うため。
+                accessibilityLabel: exchange.state.isQuestion ? Text("質問: \(exchange.text)") : Text("送った文: \(exchange.text)")
             )
             QuestionReplyCard(
                 state: exchange.state, openReport: openReport, setBudget: setBudget, openPremium: openPremium,
@@ -78,6 +78,11 @@ private struct QuestionReplyCard: View {
             NoticeContent(
                 title: "記録か質問か分かりませんでした",
                 message: "金額と「残り」「予算」「合計」のような語が一緒に入っていたので、記録しませんでした。記録するときは金額と品目だけを、質問するときは「?」を付けて送ってください。"
+            )
+        case .correction:
+            NoticeContent(
+                title: "記録は直していません",
+                message: "前の記録を直す文のようだったので、新しい記録にもしませんでした。記録を直すときは、返事の記録を押してください。記録した直後なら、「取り消す」で取り消して送り直すこともできます。"
             )
         case .limitReached:
             VStack(alignment: .leading, spacing: 8) {
@@ -545,6 +550,10 @@ private struct NoticeContent: View {
             )
             QuestionExchangeView(
                 exchange: QuestionExchange(text: "スーパー 残り 500", askedAt: .now, state: .unclear),
+                openReport: { _ in }, setBudget: {}, openPremium: {}
+            )
+            QuestionExchangeView(
+                exchange: QuestionExchange(text: "さっきのを900に直して", askedAt: .now, state: .correction),
                 openReport: { _ in }, setBudget: {}, openPremium: {}
             )
         }
