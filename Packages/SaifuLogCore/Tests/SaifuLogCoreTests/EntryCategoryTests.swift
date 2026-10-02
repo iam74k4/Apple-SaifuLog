@@ -52,6 +52,60 @@ struct EntryCategoryTests {
         #expect(EntryCategory.guess(from: text) == expected)
     }
 
+    @Test("英語の品目もカテゴリに当てる（大文字・複数形・数字や日本語に続けて書いても）", arguments: [
+        ("dinner", EntryCategory.food),
+        ("Lunch", .food),
+        ("DINNER", .food),
+        ("dinner500", .food),
+        ("dinnerパーティー", .food),
+        ("groceries", .food),
+        ("snacks", .food),
+        ("sandwiches", .food),
+        ("McDonald's", .food),
+        ("McDonald’s", .food),
+        ("coffee", .cafe),
+        ("iced tea", .cafe),
+        ("Starbucks", .cafe),
+        ("café", .cafe),
+        ("taxi", .transport),
+        ("bus", .transport),
+        ("tolls", .transport),
+        ("movies", .entertainment),
+        ("Netflix", .entertainment),
+        ("Disney+", .entertainment),
+        ("electricity", .utilities),
+        ("gas", .utilities),
+        ("phone bill", .utilities),
+        ("Wi-Fi", .utilities),
+        ("pharmacy", .medical),
+        ("dentist", .medical),
+        ("toilet paper", .daily),
+        ("batteries", .daily),
+    ])
+    func guessesEnglishItems(text: String, expected: EntryCategory) {
+        #expect(EntryCategory.guess(from: text) == expected)
+    }
+
+    // 英語は語の中に別の短い語がよく入っている。文字の並びだけで当てると、黙って違うカテゴリになる。
+    @Test("英語の語は、ほかの語の中にあれば当てない", arguments: [
+        "business", "busy", "training", "teacher", "notebook", "iphone", "vegas", "welfare", "metropolitan",
+    ])
+    func englishKeywordsNeedWordBoundaries(text: String) {
+        #expect(EntryCategory.guess(from: text) == .other)
+    }
+
+    @Test("英語でも、長い語のカテゴリを採る", arguments: [
+        ("uber eats", EntryCategory.food),
+        ("uber", .transport),
+        ("gas station", .transport),
+        ("Mobile Suica", .transport),
+        ("mobile game", .entertainment),
+        ("train", .transport),
+    ])
+    func longerEnglishKeywordWins(text: String, expected: EntryCategory) {
+        #expect(EntryCategory.guess(from: text) == expected)
+    }
+
     @Test("どれにも当たらなければその他")
     func fallsBackToOther() {
         #expect(EntryCategory.guess(from: "なにか") == .other)

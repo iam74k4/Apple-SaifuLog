@@ -14,6 +14,18 @@ struct RuleBasedParserTests {
         #expect(parse("ランチ 850") == [ParsedEntry(amount: 850, category: .food, memo: "ランチ")])
     }
 
+    @Test("英語の品目も、カテゴリに分けて記録する（全角で書いても・日付と一緒でも）")
+    func englishItems() {
+        #expect(parse("dinner 500") == [ParsedEntry(amount: 500, category: .food, memo: "dinner")])
+        #expect(parse("Coffee 450") == [ParsedEntry(amount: 450, category: .cafe, memo: "Coffee")])
+        #expect(parse("ｔａｘｉ　１２００") == [ParsedEntry(amount: 1_200, category: .transport, memo: "taxi")])
+        #expect(parse("昨日 dinner 3000") == [ParsedEntry(amount: 3_000, category: .food, memo: "dinner", daysAgo: 1)])
+        #expect(parse("lunch 850 coffee 400") == [
+            ParsedEntry(amount: 850, category: .food, memo: "lunch"),
+            ParsedEntry(amount: 400, category: .cafe, memo: "coffee"),
+        ])
+    }
+
     @Test("昨日 焼肉12000 4人で割り勘 → 前日・食費・¥3,000（立替 ¥9,000 はメモ）")
     func splitBill() {
         #expect(parse("昨日 焼肉12000 4人で割り勘") == [
