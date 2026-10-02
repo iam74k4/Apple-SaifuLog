@@ -104,7 +104,10 @@ enum ModelContainerFactory {
         // 本物のエラーを見落とさないよう、先に作っておく。失敗してもここでは止めない。本当に開けなければ
         // 下の ModelContainer が throw する。
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        return try ModelContainer(for: schema, configurations: [configuration(url: url, cloudKitDatabase: cloudKitDatabase)])
+        let container = try ModelContainer(for: schema, configurations: [configuration(url: url, cloudKitDatabase: cloudKitDatabase)])
+        // SwiftData が SQLite のファイルに付けた保護（最初のロック解除の後は読める）を、Complete で上書きする（§5-4）。
+        StoreFileProtection.apply(toStoreAt: url)
+        return container
     }
 
     static func configuration(url: URL, cloudKitDatabase: CloudKitDatabase) -> ModelConfiguration {
@@ -137,8 +140,9 @@ enum ModelContainerFactory {
 
     /// 家計の保存先のファイル（Application Support/household.store）。変えると、それまでの家計の記録と同期の状態が読めなくなる。
     ///
-    /// 保護クラスは、自分の記録と同じくエンタイトルメントの既定（NSFileProtectionComplete）が効く（アプリが作るファイルの既定の
-    /// クラスのため）。ロック中は開けないので、開くのは自分の記録の保存先を開けた後（`HouseholdHost.start`）。
+    /// 保護クラスは、自分の記録と同じく開いた直後に Complete を当てる（`StoreFileProtection`。SwiftData は SQLite のファイルに
+    /// 自分で保護を付け、エンタイトルメントの既定は効かないため）。ロック中は開けないので、開くのは自分の記録の保存先を開けた後
+    /// （`HouseholdHost.start`）。
     static var householdStoreURL: URL {
         URL.applicationSupportDirectory.appending(path: "household.store", directoryHint: .notDirectory)
     }
@@ -146,7 +150,9 @@ enum ModelContainerFactory {
     /// 家計の保存先を開く。iCloud との同期は SwiftData に任せない（`cloudKitDatabase` はいつも `.none`。CKSyncEngine が同期する）。
     static func makeHouseholdContainer(url: URL = householdStoreURL) throws -> ModelContainer {
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        return try ModelContainer(for: householdSchema, configurations: [householdConfiguration(url: url)])
+        let container = try ModelContainer(for: householdSchema, configurations: [householdConfiguration(url: url)])
+        StoreFileProtection.apply(toStoreAt: url)
+        return container
     }
 
     static func householdConfiguration(url: URL) -> ModelConfiguration {

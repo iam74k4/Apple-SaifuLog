@@ -14,7 +14,8 @@ import Synchronization
 /// 社内テスト用のビルドも、アップロードの時点で App Store と同じ検査を受けるため。
 enum DiagnosticsProbe {
     /// 保存先（SwiftData の SQLite）が作るファイル。本体と、書き込みの途中の記録（-wal）と共有メモリ（-shm）。
-    /// データ保護（NSFileProtectionComplete）は 3 つとも効いていないと、ロック中にも記録の一部が読める。
+    /// 本体と -wal は記録の中身を含むので、どちらも NSFileProtectionComplete になっているはず（開いた直後に当てる。
+    /// `StoreFileProtection`）。-shm は記録の中身を含まない索引で、わざと当てない（SwiftData が付けた保護のまま）。
     static let storeFileSuffixes = ["", "-wal", "-shm"]
 
     static func appInfo(bundle: Bundle = .main) -> DiagnosticsReport.AppInfo {

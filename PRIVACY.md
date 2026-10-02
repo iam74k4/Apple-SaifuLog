@@ -139,9 +139,8 @@ iOS が管理し、ほかのアプリと共有されます）。このダウン�
 カード会社とはつながらず、ログインの情報も預かりません。
 
 受け取った支払い（金額・店名・受け取った日時）は、次に本アプリを開いて記録にするまで、お使いの iPhone の中の本アプリ専用の小さな
-ファイルに置きます。iPhone がロックされたままでも受け取れるよう、このファイルだけは、iPhone を起動して最初にロックを解いた後から
-読み書きできる保護（iOS のデータ保護の「最初のユーザ認証まで保護」）にしています（家計の記録の保存先は、ロック中は読めない保護のまま
-です）。記録にしたら、このファイルから消します。記録にした後は、上の「入力した家計の記録」と同じく扱います。**受け取った支払いを
+ファイルに置きます。iPhone がロックされたままでも受け取れるよう、このファイルは、iPhone を起動して最初にロックを解いた後から
+読み書きできる保護（iOS のデータ保護の「最初のユーザ認証まで保護」）にしています。記録にしたら、このファイルから消します。記録にした後は、上の「入力した家計の記録」と同じく扱います。**受け取った支払いを
 開発者や第三者へ送信することはありません。** オートメーションはいつでも「ショートカット」App で消せます。
 
 ### Siri・ショートカット
@@ -427,9 +426,9 @@ Record Payment action, the amount and merchant name are passed to the app throug
 card companies and never holds your login information.
 
 Received payments (amount, merchant, and when they were received) are kept in a small file reserved for the app on your iPhone until you
-next open the app and they are recorded. So payments can be received while your iPhone is locked, only this file uses the iOS data
-protection class that makes it readable after you first unlock your iPhone following a restart (the store for your records keeps the
-protection that makes it unreadable while locked). The payments are removed from this file once recorded, after which they are handled as
+next open the app and they are recorded. So payments can be received while your iPhone is locked, this file uses the iOS data
+protection class that makes it readable after you first unlock your iPhone following a restart. The payments are removed from this file
+once recorded, after which they are handled as
 described in Your Records above. **Received payments are never sent to the developer or to any third party.** You can delete the automation
 in the Shortcuts app at any time.
 

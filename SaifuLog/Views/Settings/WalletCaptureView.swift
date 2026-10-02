@@ -80,7 +80,7 @@ struct WalletCaptureView: View {
                     .foregroundStyle(Theme.inkSecondary)
             }
             Section {
-                Text("受け取った支払い（金額・店名・日時）は、記録にするまで、この iPhone の中の小さなファイルに置きます。iPhone がロックされていても受け取れるよう、このファイルだけは、iPhone を起動して最初にロックを解いた後から読める保護にしています。記録にしたら消します。")
+                Text("受け取った支払い（金額・店名・日時）は、記録にするまで、この iPhone の中の小さなファイルに置きます。iPhone がロックされていても受け取れるよう、このファイルは、iPhone を起動して最初にロックを解いた後から読める保護にしています。記録にしたら消します。")
                     .font(.footnote)
                     .foregroundStyle(Theme.inkSecondary)
                     .listRowBackground(Theme.surface)
