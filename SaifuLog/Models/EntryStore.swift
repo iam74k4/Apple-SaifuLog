@@ -22,7 +22,10 @@ struct EntryStore {
     /// 記録を直す（直すシートの保存）。書き込めなければ直す前の値に戻して throw する。
     ///
     /// 戻さないと、画面には直した値が出たまま、次の自動保存で黙って書き込まれたり、次の起動で直す前に戻ったりする。
+    /// ほかの端末（iCloud）で消された記録なら、値に触れずに `EntryDeletedElsewhere` を throw する（消えた記録の値を読み書き
+    /// すると、アプリが落ちうるため。直したつもりで何も残らないことも避ける）。
     func update(_ entry: Entry, with edits: EntryEdits) throws {
+        guard exists(entry.persistentModelID) else { throw EntryDeletedElsewhere() }
         edits.apply(to: entry)
         do {
             try commit()
@@ -34,11 +37,23 @@ struct EntryStore {
         }
     }
 
+    /// 記録を消す。ほかの端末（iCloud）で消された記録は飛ばす（もう無いので、消したのと同じ）。
     func delete(_ entries: [Entry]) throws {
-        for entry in entries {
+        for entry in entries where exists(entry.persistentModelID) {
             context.delete(entry)
         }
         try commit()
+    }
+
+    /// 記録がまだ保存先にあるか（ほかの端末で消されていないか）。ID だけで確かめ、記録の値には触れない。
+    ///
+    /// iCloud で届いた削除は、SwiftData が読み込み済みの記録の値を空にするので、値を読むとアプリが落ちうる（Apple の開発者
+    /// フォーラム thread 762022）。確かめられなければ、あるものとして扱う（消えていない記録を、取り消しや聞き返しから外さない
+    /// ため）。
+    func exists(_ id: PersistentIdentifier) -> Bool {
+        let descriptor = FetchDescriptor<Entry>(predicate: #Predicate { $0.persistentModelID == id })
+        guard let count = try? context.fetchCount(descriptor) else { return true }
+        return count > 0
     }
 
     /// 記録を保存先から読み直す（読み込み済みの記録の値を、保存されている値にそろえる）。読めなければそのまま。
@@ -58,6 +73,9 @@ struct EntryStore {
         }
     }
 }
+
+/// 直そうとした記録が、ほかの端末（iCloud）で消されていた。
+struct EntryDeletedElsewhere: Error {}
 
 /// 直すシートで変えられる、記録の値。保存する前の形で持ち、変えたかどうかの比べと書き換えに使う。
 ///

@@ -205,6 +205,8 @@ struct HomeView: View {
                 // iCloud で届いたほかの端末の変更でも読み直す（didSave にならないため。帯とタイムラインは @Query が追う）。
                 // ほかの端末が同じ月のくり返しの記録を記録していたら片づける。
                 .onReceive(StoreChanges.remote) { _ in
+                    // ほかの端末で消された記録を、取り消す・聞き返しの対象から外す（消えた記録を指し続けないように）。
+                    model.forgetRecordsDeletedElsewhere()
                     model.removeDuplicateRecurringEntries()
                     model.categories.reload()
                     model.weeklyRecap?.reload()
@@ -356,7 +358,8 @@ struct HomeView: View {
                 today: model.today,
                 questions: model.questions,
                 weeklyRecap: model.weeklyRecap,
-                undoableEntryIDs: Set(model.justRecorded.map(\.persistentModelID)),
+                // 控えた ID を渡す（ほかの端末で消された記録の値に、描くときに触れないため）。
+                undoableEntryIDs: Set(model.justRecordedIDs),
                 askingCategory: model.categoryQuestionIDs,
                 paymentOverlaps: model.paymentOverlaps,
                 showMore: { model.showMoreTimeline() },

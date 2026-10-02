@@ -2008,6 +2008,17 @@
         }
       }
     },
+    "この記録はもうありません" : {
+      "comment" : "直すシートで保存しようとした記録が、ほかの端末（iCloud）で削除されていたときのアラートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Entry No Longer Exists"
+          }
+        }
+      }
+    },
     "この記録をその他のままにします" : {
       "comment" : "ホームの返事の「その他のまま」のボタンの VoiceOver の説明",
       "localizations" : {
@@ -2358,6 +2369,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Already in Another Household"
+          }
+        }
+      }
+    },
+    "ほかの端末で削除されたため、直した内容は保存していません。" : {
+      "comment" : "直すシートで保存しようとした記録が、ほかの端末で削除されていたときのアラートの本文。OK でシートを閉じる",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It was deleted on another device, so your changes weren’t saved."
           }
         }
       }
