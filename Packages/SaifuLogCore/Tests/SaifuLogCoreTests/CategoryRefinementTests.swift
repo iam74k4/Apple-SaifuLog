@@ -138,23 +138,25 @@ struct CategoryRefinementTests {
         #expect(log.reasons == ["failed"])
     }
 
+    // 上限は、すぐ返る 1 件目が並んで動くほかのテストに押されても間に合う長さにする（CI で 0.3 秒にしたら、1 件目まで
+    // 間に合わずに落ちた）。止まる 2 件目は上限よりずっと長く止め、待たずに戻ることを確かめる。
     @Test("全体の上限を過ぎたら待たずに、間に合った答えだけを使う。時間切れを知らせる")
     func timeoutKeepsAnswersInTime() async throws {
         let log = Log()
-        let classifier = StubClassifier(answers: ["a": "カフェ", "b": "交通"], delays: ["b": .seconds(30)], log: log)
+        let classifier = StubClassifier(answers: ["a": "カフェ", "b": "交通"], delays: ["b": .seconds(120)], log: log)
         let clock = ContinuousClock()
         let start = clock.now
 
         let refined = try await CategoryRefinement.refine(
             [Self.expense("a"), Self.expense("b"), Self.expense("c")], memory: CategoryMemory(), classifier: classifier,
-            timeout: .milliseconds(300), onFallback: log.report
+            timeout: .seconds(3), onFallback: log.report
         )
 
         #expect(refined.map(\.category) == [.cafe, .other, .other])
         // 止まった品目の後ろは聞かない。止まった AI が終わるのも待たない。
         #expect(log.items == ["a", "b"])
         #expect(log.reasons == ["timedOut"])
-        #expect(start.duration(to: clock.now) < .seconds(5))
+        #expect(start.duration(to: clock.now) < .seconds(60))
     }
 
     @Test("呼び出した Task が取り消されたら、取り消しとして投げる（記録しない）")
