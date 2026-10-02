@@ -93,6 +93,26 @@ public enum DateExpression {
         guard daysAgo != 0 else { return now }
         return calendar.date(byAdding: .day, value: -daysAgo, to: now) ?? now
     }
+
+    /// `day` を入力欄に書くときの表記（「10/2」）。今日なら nil（日付を書かなければ今日の記録になる）。
+    ///
+    /// カレンダーの「この日に記録」が、入力欄の頭に入れる。日本語と英語のどちらの画面でも読め、読み取りが対応している「月/日」の
+    /// 形にする。今年でない日には年も書く（「2025/12/31」。年なしで書くと、読む人には今年の日に見えるため）。今年の日でも、
+    /// 年を省いた月日は 60 日先までを未来、それより先を去年と読む（`daysAgo(month:day:now:calendar:)`）ので、そう読むと別の日に
+    /// なる日（61 日より先の日）には年を書く。数は西暦で書く（読み取りは暦の設定によらず西暦で読む）。
+    public static func notation(for day: Date, now: Date, calendar: Calendar) -> String? {
+        let calendar = calendar.gregorianForParsing
+        guard !calendar.isDate(day, inSameDayAs: now) else { return nil }
+        let date = calendar.dateComponents([.year, .month, .day], from: day)
+        guard let year = date.year, let month = date.month, let dayOfMonth = date.day,
+              let target = daysAgo(year: year, month: month, day: dayOfMonth, now: now, calendar: calendar)
+        else { return nil }
+        if year == calendar.component(.year, from: now),
+           daysAgo(month: month, day: dayOfMonth, now: now, calendar: calendar) == target {
+            return "\(month)/\(dayOfMonth)"
+        }
+        return "\(year)/\(month)/\(dayOfMonth)"
+    }
 }
 
 extension Calendar {

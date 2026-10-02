@@ -38,6 +38,13 @@ enum ScreenshotDemoLedger {
     static let splitBillText = "昨日 焼肉12000 4人で割り勘"
     /// 1 行に 2 件を書いた送信の元の文（デモの「いま」の日の夜。返事のカードに 2 件が並ぶ）。
     static let multiItemText = "牛乳 198 洗剤 348"
+    /// くり返しの記録（カレンダーの画面だけ）。今月から始めた月額のサービスで、決めた日はデモの「いま」（15 日）より後にする
+    /// （まだ記録していない今月の予定として、カレンダーの予定の印と、見通しの固定費に出す。15 日より前の日にすると、ホームが出た
+    /// ときに記録してしまう）。
+    static let recurringDrafts: [RecurringDraft] = [
+        RecurringDraft(amount: 1_490, memo: "動画サブスク", isIncome: false, category: .entertainment, dayOfMonth: 20),
+        RecurringDraft(amount: 1_080, memo: "音楽サブスク", isIncome: false, category: .entertainment, dayOfMonth: 27),
+    ]
     /// 1 回の送信の 2 件目からの、記録した日時のずれ（秒）。アプリが 1 回の送信の記録に振る間隔（`ParsedEntry.timestamps`）と
     /// 同じにする（ScreenshotDemoTests で照合する）。
     static let multiItemStep: TimeInterval = 0.001
@@ -85,8 +92,8 @@ enum ScreenshotDemoLedger {
     }
 
     /// デモの記録と月の予算を保存先に入れる。予算（全体とカテゴリ別）は記録を始める前に決めたことにする（月のまとめで、先月にも
-    /// 予算の進みを出すため）。
-    static func insert(into context: ModelContext, now: Date, calendar: Calendar) throws {
+    /// 予算の進みを出すため）。`includesRecurring` なら、くり返しの記録（`recurringDrafts`。今月から）も入れる。
+    static func insert(into context: ModelContext, now: Date, calendar: Calendar, includesRecurring: Bool = false) throws {
         for record in records(now: now, calendar: calendar) {
             context.insert(Entry(
                 amount: record.amount, isIncome: record.isIncome, category: record.category, memo: record.memo,
@@ -98,6 +105,14 @@ enum ScreenshotDemoLedger {
         context.insert(Budget(scope: .total, amount: monthlyBudget, updatedAt: decidedAt))
         for (category, amount) in categoryBudgets {
             context.insert(Budget(scope: .category(category), amount: amount, updatedAt: decidedAt))
+        }
+        if includesRecurring {
+            let thisMonth = RecurringMonth(containing: now, timeZone: calendar.timeZone)
+            for (index, draft) in recurringDrafts.enumerated() {
+                context.insert(RecurringEntry(
+                    recurrenceID: "screenshot-demo-\(index)", draft: draft, startMonth: thisMonth, createdAt: now
+                ))
+            }
         }
         try context.save()
     }

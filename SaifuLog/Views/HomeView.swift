@@ -20,8 +20,11 @@ import UIKit
 /// タイムラインに家計の記録（記録した人の名前つき）を、帯に家族の今月の合計を出し、カメラとマイクのボタンは出さない
 /// （レシートと声は v1 では「自分」だけ）。
 ///
+/// 会話を左へスワイプすると、カレンダーのページ（日ごとの支出・選んだ日の記録・今日あといくら使えるか。`LedgerCalendarView`）が
+/// 出る（「自分」のときだけ）。帯のカレンダーのボタンからも行ける。
+///
 /// 状態と操作（送信・質問・レシート・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ・
-/// 先週のふりかえり）は `HomeModel` が持つ。ここは表示と、
+/// 先週のふりかえり・ページの切り替え）は `HomeModel` が持つ。ここは表示と、
 /// 環境（文字の大きさ・前面かどうか）に合わせた出し方だけを受け持つ。
 struct HomeView: View {
     @Environment(\.calendar) private var calendar
@@ -59,7 +62,7 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            timeline
+            pages
                 .toolbar(.hidden, for: .navigationBar)
                 .alert("金額が見つかりませんでした", isPresented: $model.showsNoAmountAlert) {
                     Button("OK", role: .cancel) {}
@@ -165,6 +168,8 @@ struct HomeView: View {
                 }
                 // 週が替わって最初に開いたときだけ、先週のふりかえりのカードを出す（前面に戻ったとき・日付が変わったときは下）。
                 .onAppear {
+                    // カレンダーのページに画面の暦を渡し、今月を読んでおく（左へスワイプしたときに、すぐ出せるように）。
+                    model.calendarPage.configure(calendar: calendar)
                     // モデルは初回の案内より前に作っている（`AppRootView`）。案内の間に日付が変わっていても今日で数えるよう、読み直す。
                     model.refreshToday()
                     // 記録する日を過ぎたくり返しの記録を記録する（ふりかえりより先に。ふりかえりのカードをいちばん下に出すため）。
@@ -191,9 +196,21 @@ struct HomeView: View {
                 .onChange(of: model.isPresentingOtherScreen) { _, presenting in
                     if presenting { model.voice.stop(.user) } else { deliverQuickActions() }
                 }
-                // 週の始まりの設定を変えると画面の暦が変わるので、変えた後の週で決め直す。
+                // 週の始まりの設定を変えると画面の暦が変わるので、変えた後の週で決め直す（カレンダーの並びも）。
                 .onChange(of: calendar) { _, calendar in
                     model.showWeeklyRecapIfDue(calendar: calendar)
+                    model.calendarPage.configure(calendar: calendar)
+                }
+                // カレンダーのページへ移ったら、声の入力を止める（見えない入力欄に向けて聞き続けないように）。VoiceOver には
+                // ページが替わったことを知らせ、新しいページの最初の要素から読ませる（スワイプでもボタンでも）。「この日に記録」で
+                // 会話へ戻るときは知らせない（入力欄へフォーカスを移すため。`InputBar`）。
+                .onChange(of: model.page) { _, page in
+                    if page != .conversation { model.voice.stop(.user) }
+                    if model.consumePageChange() { VoiceOver.screenChanged() }
+                }
+                // 「家族」に切り替えたらカレンダーのページは無くなる（「自分」の記録だけを出すため）ので、会話に戻す。
+                .onChange(of: model.showsCalendarPage) { _, shows in
+                    if !shows { model.page = .conversation }
                 }
                 // 保存先に書き込まれたら、ふりかえりのカード（と内訳）の数字と、よく使うひとことの候補を読み直す（記録を足した・
                 // 直した・消したとき）。
@@ -201,6 +218,7 @@ struct HomeView: View {
                     model.categories.reload()
                     model.weeklyRecap?.reload()
                     model.refreshQuickPhrases()
+                    model.calendarPage.reload()
                 }
                 // iCloud で届いたほかの端末の変更でも読み直す（didSave にならないため。帯とタイムラインは @Query が追う）。
                 // ほかの端末が同じ月のくり返しの記録を記録していたら片づける。
@@ -211,6 +229,7 @@ struct HomeView: View {
                     model.categories.reload()
                     model.weeklyRecap?.reload()
                     model.refreshQuickPhrases()
+                    model.calendarPage.reload()
                 }
                 #if DEBUG || INTERNAL_DIAGNOSTICS
                 .sheet(isPresented: $showsDiagnostics) {
@@ -305,6 +324,32 @@ struct HomeView: View {
         .onDisappear {
             model.voice.cancel()
         }
+    }
+
+    /// 会話（1 枚目）とカレンダー（2 枚目。「自分」のときだけ）。左右のスワイプのほか、帯のカレンダーのボタンとカレンダーの
+    /// 「会話」のボタンでも行き来する（スワイプは見つけにくく、VoiceOver では使えないため）。
+    ///
+    /// ナビゲーションの根元に置き、横に進む画面（月のまとめ・設定）とシートは、どちらのページからも同じものを出す。
+    private var pages: some View {
+        TabView(selection: $model.page) {
+            timeline
+                .tag(HomeModel.Page.conversation)
+            if model.showsCalendarPage {
+                LedgerCalendarView(
+                    model: model.calendarPage,
+                    showConversation: { withAnimation { model.page = .conversation } },
+                    recordOnDay: { day in withAnimation { model.prepareDraft(for: day, calendar: calendar) } },
+                    edit: { model.presentEdit($0, calendar: calendar) },
+                    requestDelete: { model.requestDelete($0) },
+                    makeRecurring: { model.presentRecurringCreation(from: $0, calendar: calendar) },
+                    openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
+                    editBudget: { model.presentBudgetSetup() }
+                )
+                .tag(HomeModel.Page.calendar)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .background(Theme.background)
     }
 
     private var timeline: some View {
@@ -404,6 +449,7 @@ struct HomeView: View {
                 editBudget: { model.presentBudgetSetup() },
                 openReport: { model.presentMonthlyReport(calendar: calendar) },
                 openSettings: { model.presentSettings() },
+                openCalendar: { withAnimation { model.page = .calendar } },
                 ledgerScope: model.showsLedgerSwitch ? $model.ledgerScope : nil
             )
         }
@@ -423,7 +469,7 @@ struct HomeView: View {
             // よく使うひとこと。レシートと声と同じく「自分」だけ（家計の記録は候補の元にしていない）。声の入力の間は出さない
             // （入力欄の代わりに書き起こしを出している間は、入力欄に文を入れられないため）。
             if !model.isHouseholdActive, model.voice.isActive == false {
-                QuickPhraseBar(phrases: QuickPhrases.suggestions(model.quickPhrases, draft: model.draft)) {
+                QuickPhraseBar(phrases: model.quickPhraseSuggestions) {
                     model.pickQuickPhrase($0)
                 }
                 // 候補は画面の端から端まで送れるようにする（下の入力欄の左右の余白の外まで）。
@@ -445,7 +491,8 @@ struct HomeView: View {
                 edit: { model.presentEdit($0, calendar: calendar) },
                 voice: model.isHouseholdActive ? nil : model.voice,
                 targetsHousehold: model.isHouseholdActive,
-                focusRequest: model.inputFocusRequest
+                focusRequest: model.inputFocusRequest,
+                isOnScreen: model.page == .conversation
             )
         }
         .padding(.horizontal)

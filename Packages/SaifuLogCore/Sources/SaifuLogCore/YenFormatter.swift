@@ -21,6 +21,13 @@ public enum YenFormatter {
         }
     }
 
+    /// 「¥」を付けない「1,280」。負の数は「-1,280」。カレンダーの日のように、狭い所に金額を並べるときに使う（「¥」は見出しや
+    /// 読み上げで伝える）。
+    public static func digits(from amount: Int) -> String {
+        let body = grouped(amount.magnitude)
+        return amount < 0 ? "-" + body : body
+    }
+
     /// 3 桁ごとにカンマを入れる。`Int.min` でも桁あふれしないよう、符号なしで受け取る。
     static func grouped(_ value: UInt) -> String {
         let digits = Array(String(value))

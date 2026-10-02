@@ -23,6 +23,16 @@ struct YenFormatterTests {
         #expect(YenFormatter.string(from: Int.min) == "-¥9,223,372,036,854,775,808")
     }
 
+    @Test("「¥」を付けない表記", arguments: [
+        (0, "0"),
+        (850, "850"),
+        (1_280, "1,280"),
+        (-12_000, "-12,000"),
+    ])
+    func formatsDigits(amount: Int, expected: String) {
+        #expect(YenFormatter.digits(from: amount) == expected)
+    }
+
     @Test("符号付きの表記", arguments: [
         (250_000, "+¥250,000"),
         (-850, "-¥850"),

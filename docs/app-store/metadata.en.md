@@ -15,7 +15,7 @@ App Store Connect の「英語（米国）」のローカライズに入れる�
 | アプリ名 | 30 文字 | 8 文字 |
 | サブタイトル | 30 文字 | 18 文字 |
 | プロモーション用テキスト | 170 文字 | 169 文字 |
-| 説明 | 4,000 文字 | 3,979 文字（改行を含む） |
+| 説明 | 4,000 文字 | 3,996 文字（改行を含む） |
 | キーワード | 100 バイト | 90 バイト |
 | 著作権 | — | 14 文字 |
 
@@ -52,18 +52,18 @@ Send one line like “ランチ 850” and it’s logged, the way you send a cha
 
 SaifuLog reads entries written in Japanese and records amounts in yen. The interface is also available in English.
 
-Text, receipts, and voice are read on your iPhone. There is no developer server, records are never sent to the developer, and no bank or card login is needed.
+Text, receipts, and voice are read on your iPhone. No developer server, nothing sent to the developer, and no bank or card login.
 
 LOG BY PAYING (APPLE PAY)
-• Set up a Shortcuts automation once. When you pay with Apple Pay, SaifuLog receives the amount and merchant and records it the next time you open the app. Settings shows how.
+• Set up a Shortcuts automation once (Settings shows how). When you pay with Apple Pay, SaifuLog gets the amount and merchant and records it next time you open the app.
 • The category comes from the merchant name. For unknown merchants SaifuLog asks once and remembers. Undo right away if something’s wrong.
 
 ONE-LINE ENTRY
-• Send “ランチ 850,” “昨日 焼肉12000 4人で割り勘” (yesterday, yakiniku ¥12,000 split four ways), or “給料 25万,” and SaifuLog records the date, category, and amount. Several entries in one line, dates, and discounts work too.
+• Send “ランチ 850,” “昨日 焼肉12000 4人で割り勘” (yesterday, yakiniku ¥12,000 split four ways), or “給料 25万,” and SaifuLog records the date, category, and amount. Multiple entries, dates, and discounts work too.
 • On iPhone models that support Apple Intelligence, on-device AI reads your text; otherwise a keyword dictionary does, so you can always record.
 • Splits, totals, and what’s left are calculated by the app, not by the AI.
-• Edit or Undo right after each entry, or touch and hold an entry to delete it.
-• When a category isn’t clear, the reply asks and remembers your choice. Create your own categories such as rent or clothing.
+• Edit or Undo right after each entry; touch and hold to delete.
+• If a category is unclear, the reply asks and remembers. Create your own categories such as rent or clothing.
 • Items you log often appear as buttons above the entry field.
 
 AUTOMATIC MONTHLY ENTRIES
@@ -73,7 +73,7 @@ SIRI AND SHORTCUTS
 • Say “Record in SaifuLog” to Siri. Questions, receipts, and voice input also work from Siri, Shortcuts, and the Action button.
 
 RECEIPTS AND VOICE
-• Photograph a receipt or pick a screenshot. SaifuLog reads the store, date, items, and total, sorts items into categories, and checks them against the total. Images are never saved or sent.
+• Photograph a receipt or pick a screenshot. SaifuLog reads the store, date, items, and total, sorts items into categories, and checks the total. Images are never saved or sent.
 • Speak into the microphone and your words are transcribed on your iPhone into the entry field. You send it yourself.
 
 QUESTIONS ABOUT YOUR SPENDING
@@ -81,6 +81,7 @@ QUESTIONS ABOUT YOUR SPENDING
 
 BUDGET AND REVIEWS
 • A monthly budget shows what’s left, a daily allowance, and whether you’re above or below today’s target.
+• Swipe left for a daily spending calendar and what’s left today after upcoming fixed costs.
 • The monthly summary shows spending, income, balance, daily average, and spending by category.
 • Each new week, Last Week in Review sums up last week’s spending.
 
@@ -91,7 +92,7 @@ EXPORT, SYNC, AND PRIVACY
 • No analytics, no ads, no tracking. The developer receives no data from the app.
 
 PRICING
-• Free to download, with no ads. One-line entry (including AI reading), Apple Pay logging, recurring entries, voice input, budgets, summaries, CSV export, and iCloud sync are free with no limits.
+• Free to download, with no ads. One-line entry (including AI reading), Apple Pay logging, recurring entries, voice input, budgets, the calendar, summaries, CSV export, and iCloud sync are free with no limits.
 • Free includes 5 receipt scans a month (only scans you record count) and 10 questions a month.
 • Premium is a one-time purchase of ¥1,800 in Japan, not a subscription. It removes the limits on receipts and questions, adds a short on-device AI note to your reviews (on iPhone models that support Apple Intelligence), and adds budgets by category. Family Sharing is supported.
 • Try Premium free for 14 days (once per Apple Account). You won’t be charged when the trial ends.
@@ -106,7 +107,7 @@ Privacy Policy: https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md
 ```
 
 - **カテゴリ別の予算:** 字数（上限 4,000 文字）のため「adds budgets by category」とだけ書く。ホームの帯や質問の答えに出るようには書かない（日本語と同じ）。
-- **字数:** 機能を足したときに上限を超えたので、各節を短くまとめた（2026-10-01）。足すときは、ほかの節を詰めて 4,000 文字に収める。
+- **字数:** 機能を足したときに上限を超えたので、各節を短くまとめた（2026-10-01。カレンダーを足した 2026-10-02 にも詰めた。残りは 4 文字）。足すときは、ほかの節を詰めて 4,000 文字に収める。
 - **価格:** 「¥1,800 in Japan」と国を添える。配信は日本だけにした（`../release-flow.md` の「一度だけの準備」の 5）。ほかの国や地域にも出すなら、
   価格はその国の App Store の表示になるので、この行を見直す（アプリは円だけを扱う。円以外の通貨は `docs/design.md` §13 で未決）。
 - **例文:** 入力の例は日本語のまま書き、意味を英語で括弧に添える（アプリの画面の例も日本語のまま出している）。

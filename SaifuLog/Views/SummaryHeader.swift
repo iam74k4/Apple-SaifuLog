@@ -8,6 +8,9 @@ import SwiftUI
 /// 主の塗りのバーで示す。予算を超えたら「¥… オーバー」を注意の色とアイコンと文字で出す（色だけに頼らない）。
 /// 予算を決めていなければ、今月の支出の合計と「予算を決める」のボタンを出す。
 ///
+/// 右上のカレンダーのボタンは、カレンダーのページ（左へスワイプした 2 枚目。`LedgerCalendarView`）の入口（`openCalendar` を
+/// 渡したとき）。スワイプは見つけにくく、VoiceOver では使えないので、ボタンでも行けるようにする。
+///
 /// 見出しと数字を押すと「月のまとめ」（⑦）へ進む（`openReport` を渡したとき）。見出しに「›」を添えて、押せば
 /// 詳しく見られることを示す。帯のほかにまとめの入口のボタンを置かないのは、ホームのナビゲーションバーを出さずに
 /// タイムラインを広く使っているのと、今月の合計を見て「何に使ったか」を知りたくなる場所がここだから。
@@ -22,6 +25,8 @@ struct SummaryHeader: View {
     var openReport: (() -> Void)?
     /// 設定へ進む。nil なら歯車のボタンを出さない（プレビューなど）。
     var openSettings: (() -> Void)?
+    /// カレンダーのページを出す。nil ならカレンダーのボタンを出さない（家族の家計・プレビュー）。
+    var openCalendar: (() -> Void)?
     /// 「自分／家族」の切り替え。家計に入っているときだけ渡す（nil なら出さない）。
     var ledgerScope: Binding<HomeModel.LedgerScope>?
     /// 家族の家計の今月の合計か（見出しを「家族の今月の支出」にする）。
@@ -140,19 +145,39 @@ struct SummaryHeader: View {
         }
     }
 
-    /// 見出しの行の右のボタン。予算のボタンと設定の歯車で、社内テスト用のビルドでは診断のボタンが前に付く。
+    /// 見出しの行の右のボタン。予算のボタン（予算を決めていないとき）・カレンダー・設定の歯車で、社内テスト用のビルドでは
+    /// 診断のボタンが前に付く。
     ///
-    /// 予算のボタンは設定の中へ移さずに残す。予算は月の途中でも見直すもので、ホームから 1 回押すだけで開けるほうが
-    /// よいため（設定の中からも開ける）。歯車は右の端に置く（設定の入口の置き場所として見慣れた位置のため）。
-    /// どれもガラスのボタンにする（ほかの画面のナビゲーションバーのボタンと同じ見た目。ホームはナビゲーションバーを隠しているので、
-    /// 帯の中に同じ形で置く）。ガラスの余白を足して、押せる範囲を 44pt にする。
+    /// 予算を決めたら「予算を変更」は帯に出さず、カレンダーのボタンに場所を譲る。予算を変えるのは月に何度もないので、帯には
+    /// 毎日使う入口を置く（予算はカレンダーのページの「今日あと」の欄と、設定から変えられる）。決めていないときは「予算を決める」を
+    /// 残す（予算を決めると「今月あと」が出て、帯がいちばん役に立つ形になるため）。歯車は右の端に置く（設定の入口の置き場所として
+    /// 見慣れた位置のため）。どれもガラスのボタンにする（ほかの画面のナビゲーションバーのボタンと同じ見た目。ホームはナビゲーション
+    /// バーを隠しているので、帯の中に同じ形で置く）。ガラスの余白を足して、押せる範囲を 44pt にする。
     private var trailingButtons: some View {
         GlassEffectContainer(spacing: 8) {
             HStack(spacing: 8) {
                 diagnosticsButton
                 budgetButton
+                calendarButton
                 settingsButton
             }
+        }
+    }
+
+    /// カレンダーのページを出すボタン（左へスワイプするのと同じ）。歯車と同じ、記号だけのガラスの丸。
+    @ViewBuilder
+    private var calendarButton: some View {
+        if let openCalendar {
+            Button(action: openCalendar) {
+                Image(systemName: "calendar")
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(Theme.ink)
+                    .frame(width: 30, height: 30)
+            }
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
+            .accessibilityLabel("カレンダー")
+            .accessibilityHint("日ごとの支出と、今日あといくら使えるかを出します")
         }
     }
 
@@ -206,9 +231,10 @@ struct SummaryHeader: View {
         .accessibilityHidden(true)
     }
 
+    /// 予算のボタン。カレンダーのボタンを出すときは、予算を決めていないときだけ出す（`trailingButtons`）。
     @ViewBuilder
     private var budgetButton: some View {
-        if let editBudget {
+        if let editBudget, budget == nil || openCalendar == nil {
             budgetButton(editBudget)
         }
     }
@@ -497,6 +523,7 @@ struct MonthSummaryHeader: View {
     private let editBudget: () -> Void
     private let openReport: () -> Void
     private let openSettings: () -> Void
+    private let openCalendar: (() -> Void)?
     private let ledgerScope: Binding<HomeModel.LedgerScope>?
     @Query private var records: [Entry]
     @Query private var budgets: [Budget]
@@ -507,6 +534,7 @@ struct MonthSummaryHeader: View {
         editBudget: @escaping () -> Void,
         openReport: @escaping () -> Void,
         openSettings: @escaping () -> Void,
+        openCalendar: (() -> Void)? = nil,
         ledgerScope: Binding<HomeModel.LedgerScope>? = nil
     ) {
         self.today = today
@@ -514,6 +542,7 @@ struct MonthSummaryHeader: View {
         self.editBudget = editBudget
         self.openReport = openReport
         self.openSettings = openSettings
+        self.openCalendar = openCalendar
         self.ledgerScope = ledgerScope
         _records = Query(Entry.monthDescriptor(containing: today, calendar: calendar))
     }
@@ -526,6 +555,7 @@ struct MonthSummaryHeader: View {
             editBudget: editBudget,
             openReport: openReport,
             openSettings: openSettings,
+            openCalendar: openCalendar,
             ledgerScope: ledgerScope,
             pace: figures.pace
         )
