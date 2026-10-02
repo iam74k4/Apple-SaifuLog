@@ -58,6 +58,31 @@ struct DateExpressionTests {
         #expect(DateExpression.daysAgo(year: 2027, month: 1, day: 1, now: Fixture.now, calendar: Fixture.calendar) == -95)
     }
 
+    @Test("月や年を語で指した日付は、その月・その年の日付（基準は 2026-10-28）", arguments: [
+        ("先月25日", 33), ("先月の25日", 33), ("今月25日", 3), ("来月1日", -4), ("再来月1日", -34),
+        ("去年10/1", 392), ("昨年10月1日", 392), ("今年10月1日", 27), ("来年1/5", -69),
+    ])
+    func relativeMonthAndYear(expression: String, expected: Int) {
+        let now = Fixture.date(2026, 10, 28, hour: 12)
+        #expect(DateExpression.daysAgo(in: expression, now: now, calendar: Fixture.calendar) == expected)
+    }
+
+    @Test("語と組にならない日付と、その月に無い日は読まない", arguments: [
+        "去年25日", "先月10/1", "先月9月25日", "先月31日", "去年2025/10/1",
+    ])
+    func unsupportedRelativeDates(expression: String) {
+        let now = Fixture.date(2026, 10, 28, hour: 12)
+        #expect(DateExpression.daysAgo(in: expression, now: now, calendar: Fixture.calendar) == nil)
+    }
+
+    @Test("1 月の「先月」は去年の 12 月、12 月の「来月」は来年の 1 月")
+    func relativeMonthAcrossYearEnd() {
+        let january = Fixture.date(2027, 1, 10, hour: 12)
+        let december = Fixture.date(2026, 12, 20, hour: 12)
+        #expect(DateExpression.daysAgo(monthOffset: -1, day: 25, now: january, calendar: Fixture.calendar) == 16)
+        #expect(DateExpression.daysAgo(monthOffset: 1, day: 5, now: december, calendar: Fixture.calendar) == -16)
+    }
+
     @Test("日だけの表記は今月のその日", arguments: [
         ("26日", 2),
         ("30日", -2),

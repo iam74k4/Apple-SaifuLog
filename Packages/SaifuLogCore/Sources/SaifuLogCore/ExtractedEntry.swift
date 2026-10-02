@@ -71,7 +71,9 @@ public struct ExtractedEntry: Sendable, Hashable {
     ///   モデルが違う人数や 1 を返しても、ルールベースと同じ額になるようにするため。
     ///   「1人あたり3000」のように 1 人分として書かれた額は割らない（メモに「1人分」と書き足す）
     /// - 収入: モデルが収入と返しても、区間に打ち消しの語（「収入印紙」）や支出の言い回し（「入金手数料」）が
-    ///   あれば支出にする。収入の語が無いだけなら収入のまま（「お小遣いもらった」）
+    ///   あれば支出にする。収入の語が無いだけなら収入のまま（「お小遣いもらった」）。品目に続けた「-」を区切りとして読んだ額
+    ///   （「ランチ-850」）は、モデルが「-」を見て返金と返しても支出にする。反対にモデルが支出と返しても、ルールベースで収入と
+    ///   読める区間（「給料 250000」「配当 1200」）は収入にする（どちらで読んでも、給料が支出にならないように）
     /// - 品目: 区間に書かれた言葉でなければ（「昨日」だけ・作った品目）ルールベースのメモにする
     ///   （`InputSegment.groundedItem(from:memo:)`）。そのときはカテゴリもルールベースの推定にする（根拠の無い「食費」を保存しない）
     public func resolved(against segment: InputSegment) throws -> ParsedEntry {
@@ -94,7 +96,8 @@ public struct ExtractedEntry: Sendable, Hashable {
         return ParsedEntry.assemble(
             total: candidate.value,
             category: groundedItem == nil ? segment.ruleCategory : EntryCategory(displayName: categoryName) ?? .other,
-            isIncome: amount.isNegative || (isIncome && !IncomeRule.contradictsIncome(segment.contextText)),
+            isIncome: amount.isNegative || IncomeRule.isIncome(segment.contextText)
+                || (isIncome && !amount.hasSeparatorHyphen && !IncomeRule.contradictsIncome(segment.contextText)),
             item: groundedItem ?? candidate.memo,
             daysAgo: daysAgo,
             splitCount: segment.splitCount ?? 1,

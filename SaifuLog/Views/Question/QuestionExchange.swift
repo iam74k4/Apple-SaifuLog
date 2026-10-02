@@ -29,9 +29,17 @@ struct QuestionExchange: Identifiable, Equatable {
         case unreadable
         /// 記録か質問か決められなかった（金額と質問の語が両方ある）。記録しない。
         case unclear
+        /// 前の記録を直そうとする文だった（「さっきのを900に直して」）。記録を直さず、新しい記録にもしない。
+        case correction
         /// 今月の無料の回数を使い切った。答えずに、プレミアムの案内を出す。
         case limitReached
         /// 保存先を読めなかった。
         case loadFailed
+
+        /// 質問として読んだ文か。記録か質問か決められなかった文と記録を直そうとする文は、質問として扱っていないので、
+        /// VoiceOver でも「質問」と名乗らない（下の案内と食い違うため）。
+        var isQuestion: Bool {
+            self != .unclear && self != .correction
+        }
     }
 }

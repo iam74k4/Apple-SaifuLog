@@ -10,8 +10,8 @@ import Foundation
 /// - 数量の行: 「2コX単98」「@98×2」「2個 @98」。前の品名だけの行か、同じ額の品目の行と合わせる
 /// - 値引きの行: 「値引 -20」「割引 ▲30」「20%OFF ▲96」「50-」。すぐ上の品目から引く。小計の後の値引きは品目に付けない。
 ///   品名の中の「OFF」「オフ」「引き」（「COFFEE」「オフィス」「引き出し」）では値引きにしない
-/// - 集計の行: 「小計」「合計」「消費税」「内税」「外税」「お預り」「お釣り」「ポイント」は、語で見分けて品目にしない。
-///   税率ごとの税の行とまとめた行（「消費税等」）が並ぶときは、まとめた行だけを税にする
+/// - 集計の行: 「小計」「合計」「現計」「消費税」「内税」「外税」「お預り」「お釣り」「ポイント」は、語で見分けて品目にしない
+///   （字間を空けた「小　計」「お　釣」も）。税率ごとの税の行とまとめた行（「消費税等」）が並ぶときは、まとめた行だけを税にする
 /// - そのほか: 電話番号・住所・登録番号・レジの番号・カード番号・挨拶・区切りの線は品目にしない
 ///
 /// 読めなかった値は nil のまま返し、推し量って埋めない（合計が読めなければ合計なしとして、利用者に確かめてもらう）。
@@ -347,6 +347,9 @@ extension ReceiptLineScanner {
         if cardNumberPattern.matches(text) || containsAny(text, cardWords) { return .cardNumber }
         // 「※印は軽減税率対象商品です」のような印の説明は、品目にも対象額にもしない。
         if text.contains("軽減"), text.contains("印") || text.contains("です") { return .noise }
+        // 住所の行（「東京都港区芝浦12-3-4」）は、日付を読む前に除く。番地の「12-3-4」を西暦の下 2 桁の日付（2012-03-04）と読むと、
+        // その下にある買った日時の行より先に採ってしまうため。
+        if isAddress(text) { return .noise }
         if let date = ReceiptDateReader.date(in: text, now: now, calendar: calendar) { return .date(date) }
         if let time = ReceiptDateReader.time(in: text), text.filter({ $0.isLetter && !"時分".contains($0) }).isEmpty {
             return .time(hour: time.hour, minute: time.minute)
@@ -360,7 +363,7 @@ extension ReceiptLineScanner {
         if let quantity = quantity(in: text) { return .quantity(quantity) }
 
         let parsed = trailing(in: text)
-        let label = cleanedLabel(parsed.body)
+        let label = compactedLabel(cleanedLabel(parsed.body))
         if containsAny(label, countWords) || countPattern.matches(label) {
             return .label(.count, amount: nil, taxMode: nil)
         }
@@ -430,6 +433,30 @@ extension ReceiptLineScanner {
         text.trimmingCharacters(in: CharacterSet(charactersIn: " ([（【<＜*※"))
     }
 
+    /// 集計の語を見る前に、かなと漢字の間の空白を詰める（「小　計」→「小計」、「お　釣」→「お釣」）。
+    ///
+    /// レシートは集計の語を字間を空けて印字することがある。空白のままでは語に当たらず、小計・合計・税・お釣りの行が品目として
+    /// 読まれ、品目の合計が何倍にもなって合計も読めないため。英字・数字・記号の前後の空白は詰めない（「8% 対象」「au PAY」の
+    /// 語の境目を変えないため）。品名には使わない（見分けにだけ使い、品目の名前は印字のまま残す）。
+    static func compactedLabel(_ text: String) -> String {
+        let chars = Array(text)
+        var result = ""
+        for index in chars.indices {
+            if chars[index].isWhitespace,
+               let previous = chars[..<index].last(where: { !$0.isWhitespace }), previous.isJapaneseLetter,
+               let next = chars[(index + 1)...].first(where: { !$0.isWhitespace }), next.isJapaneseLetter {
+                continue
+            }
+            result.append(chars[index])
+        }
+        return result
+    }
+
+    /// 住所の行か（「〒105-0023」「東京都港区芝浦12-3-4」「芝浦1丁目」「12番地」）。
+    private static func isAddress(_ text: String) -> Bool {
+        containsAny(text, addressWords) || addressPattern.matches(text)
+    }
+
     private static func isNoise(_ text: String) -> Bool {
         if containsAny(text, noiseWords) { return true }
         if noisePattern.matches(text) { return true }
@@ -464,6 +491,11 @@ extension ReceiptLineScanner {
     private static let noisePattern = TextPattern(
         #"レジ\s*[#:：No.]*\s*\d|責\s*[:：No.]*\s*\d|^#\d|\d+-\d+-\d+|T\d{13}|[都道府県市区町村郡]\S{0,12}\d+-\d+"#
     )
+    /// 住所にだけ出てくる語。
+    private static let addressWords = ["〒", "丁目", "番地"]
+    /// 都道府県・市区町村の字の後ろの番地（「港区芝浦12-3-4」「山下町25-10-3」）。番地は 1〜3 桁で、字との間に空白も数字も
+    /// 挟まないものだけにする（「町田店 2026-10-01」「町田店2026-10-01」のような、店名に続けた日付を住所にしないため）。
+    private static let addressPattern = TextPattern(#"[都道府県市区町村郡][^\s\d]{0,12}\d{1,3}-\d"#)
 
     private static let countWords = ["点数"]
     private static let countPattern = TextPattern(#"^\d+\s*点$"#)
@@ -488,8 +520,9 @@ extension ReceiptLineScanner {
         (["小計", "税抜合計", "税抜計", "本体合計", "税抜金額"], .subtotal),
         (
             [
-                "合計", "総計", "総合計", "税込合計", "お買上計", "お買上げ計", "お買い上げ計", "お買上合計", "お買上げ合計",
-                "お会計", "御会計", "会計", "ご請求", "請求額", "お支払金額", "お支払い金額", "支払金額", "TOTAL", "Total",
+                "合計", "総計", "総合計", "税込合計", "税込計", "現計", "お買上計", "お買上げ計", "お買い上げ計", "お買上合計",
+                "お買上げ合計", "お会計", "御会計", "会計", "ご請求", "請求額", "お支払金額", "お支払い金額", "支払金額", "TOTAL",
+                "Total",
             ],
             .total
         ),
@@ -587,13 +620,17 @@ extension ReceiptLineScanner {
             case .date(let found):
                 kinds[index] = .date
                 sawDate = true
-                if date == nil, var found {
+                if var found {
                     // 時刻を日付より上の行に印字するレシートもある。先に読んだ時刻を付けないと、読み取った時刻で記録してしまう。
-                    if found.hour == nil, let pendingTime {
+                    if date == nil, found.hour == nil, let pendingTime {
                         found.hour = pendingTime.hour
                         found.minute = pendingTime.minute
                     }
-                    date = found
+                    // 時刻の無い日付を先に読んでいても、後ろに時刻と同じ行の日付があればそちらを採る。買った日時は時刻と同じ行に
+                    // 印字することが多く、時刻の無い行の日付（番号や番地を日付と読んだもの）より確かなため。
+                    if date == nil || (date?.hour == nil && found.hour != nil) {
+                        date = found
+                    }
                 }
             case .time(let hour, let minute):
                 kinds[index] = .date

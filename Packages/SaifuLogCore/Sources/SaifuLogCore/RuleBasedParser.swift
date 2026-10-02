@@ -6,13 +6,15 @@ import Foundation
 /// ここでは「ランチ 850」の形を確実に読むことを優先する。
 ///
 /// - 金額: 区間の中の最後の数字（全角数字・桁区切り・「円」「¥」・「25万」「1万2千500」「5百」・「500×3」に対応）。
-///   「-500」のようにマイナスを付けた額は返金として収入にする（正の金額の後ろに置いた値引き「850(-100引き)」は除く）。
+///   「-500」のようにマイナスを付けた額は返金として収入にする（正の金額の後ろに置いた値引き「850(-100引き)」「850-100」と、
+///   返金の語の無い品目に続けた「-」（「ランチ-850」は品目と金額の区切り）は除く）。
 ///   主な金額に添えた額は語で見分ける。「100円引き」は引き、「税込1100円」は払った額として採り、合計・おつり・ポイントは記録しない
-/// - 日付: 「今日」「昨日」「一昨日」「3日前」「9/26」「9-26」「9月26日」「26日」「2026/9/26」「2025年9月26日」。
-///   年を省いた月日は、60 日先までは未来の日付として読む（`DateExpression`）
+/// - 日付: 「今日」「昨日」「一昨日」「3日前」「9/26」「9-26」「9月26日」「26日」「2026/9/26」「2025年9月26日」、
+///   月や年を語で指した「先月25日」「来月1日」「去年10/1」。年を省いた月日は、60 日先までは未来の日付として読む（`DateExpression`）
 /// - 割り勘: 「割り勘」の語と「N人」の両方があれば 1 人分に割る（割った内容はメモに残す）。
 ///   「1人あたり3000」のように 1 人分として書いた額は割らない（メモに「1人分」と書き足す）
-/// - 収入: 「給料」「ボーナス」などの語があれば収入（「給料日なので」「収入印紙」「年金保険」のような支出の言い回しは除く）
+/// - 収入: 「給料」「ボーナス」などの語があれば収入（「給料日なので」「収入印紙」「年金保険」のような支出の言い回しと、
+///   「Suica入金」「口座に入金」のようなお金を移しただけの入金、「ローン利息」のような払う側の利息は除く）
 /// - 複数件: 金額の後ろの「と」「、」・改行などで区切られ、それぞれに金額があれば分けて記録する。金額の後ろの空白も、
 ///   次に語や数字の日付が続くとき、金額の後ろの人数・数量・割り勘の句の後ろに語が続くときは区切る。
 ///   日付と割り勘は件ごとに割り当てる（`EntryScan.segments()`）
@@ -59,14 +61,18 @@ enum IncomeRule {
     ///
     /// 収入の語があっても、その後ろに支出を表す語が続けば収入にしない（「入金手数料」「収入保障保険」
     /// 「個人年金保険」「副業の経費」「給料から天引き」）。誤って収入にすると、残高が金額の 2 倍ずれるため。
-    /// 前にある支出の語は見ない（「所得税の還付」「保険金の入金」は収入）。
+    /// 前にある支出の語は見ない（「所得税の還付」「保険金の入金」は収入）。ただし「入金」「利息」は、直前の語で
+    /// 自分のお金を移しただけか払う側かが決まるので見る（`isNotIncome(_:before:)`）。
     static func isIncome(_ text: String) -> Bool {
         let haystack = masked(text)
         for keyword in RuleBasedParser.incomeKeywords.map(KeywordMatcher.fold) {
             var searchStart = haystack.startIndex
             while let range = haystack.range(of: keyword, range: searchStart..<haystack.endIndex) {
                 let rest = haystack[range.upperBound...]
-                if !expenseWords.contains(where: { rest.contains($0) }) { return true }
+                if !expenseWords.contains(where: { rest.contains($0) }),
+                   !isNotIncome(keyword, before: haystack[..<range.lowerBound]) {
+                    return true
+                }
                 searchStart = range.upperBound
             }
         }
@@ -111,6 +117,41 @@ enum IncomeRule {
         }
         return String(chars)
     }
+
+    /// 収入の語 `keyword`（そろえた形）が、直前の語（空白と「に」「へ」「で」「の」を挟んでもよい）で収入でない意味になるか。
+    ///
+    /// 交通系 IC・電子マネー・口座・ATM への「入金」は、自分のお金を移しただけ（チャージ・預け入れ）で、ローンやカードの「利息」は
+    /// 払う側。どちらも収入にすると、今月の収入と残高が金額の 2 倍ずれるため支出にする。誰かから受け取った入金（「親から入金」
+    /// 「会社から口座に入金」）は収入のまま。
+    private static func isNotIncome(_ keyword: String, before: Substring) -> Bool {
+        guard let contexts = nonIncomeContexts[keyword] else { return false }
+        if keyword == fromSourceKeyword, before.contains(fromSourceWord) { return false }
+        var head = before
+        func trimSpaces() { while head.last?.isWhitespace == true { head = head.dropLast() } }
+        trimSpaces()
+        while let last = head.last, contextParticles.contains(last) {
+            head = head.dropLast()
+            trimSpaces()
+        }
+        return contexts.contains { head.hasSuffix($0) }
+    }
+
+    /// 直前にあれば、その収入の語を収入でない意味にする語（そろえた形）。
+    private static let nonIncomeContexts: [String: [String]] = [
+        KeywordMatcher.fold("入金"): [
+            "Suica", "PASMO", "ICOCA", "Kitaca", "TOICA", "manaca", "SUGOCA", "nimoca", "nanaco", "WAON", "Edy", "PayPay",
+            "交通系", "ICカード", "電子マネー", "チャージ", "ATM", "口座", "銀行", "証券", "貯金",
+        ].map(KeywordMatcher.fold),
+        KeywordMatcher.fold("利息"): [
+            "ローン", "カード", "リボ", "キャッシング", "借入", "借り入れ", "支払", "支払い", "延滞", "遅延", "分割", "クレジット",
+            "クレカ", "奨学金",
+        ].map(KeywordMatcher.fold),
+    ]
+    /// 収入の語と直前の語の間に挟んでもよい助詞（そろえた形。ひらがなはカタカナになる）。
+    private static let contextParticles = Set(KeywordMatcher.fold("にへでの"))
+    /// 「から」（受け取った相手）があれば、移しただけとはみなさない収入の語と、その「から」（そろえた形）。
+    private static let fromSourceKeyword = KeywordMatcher.fold("入金")
+    private static let fromSourceWord = KeywordMatcher.fold("から")
 
     /// 打ち消しの語の後ろにこれが続けば、打ち消さない（「ボーナスでた」「ボーナスでました」は収入）。
     private static let exclusionExceptions: [String: [String]] = [

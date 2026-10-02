@@ -107,6 +107,16 @@ struct ExtractedEntryTests {
         #expect(try resolve(extracted(date: date), input).daysAgo == daysAgo)
     }
 
+    // 「先月25日」の入力では、区間の日付も AI の表記も、月の語を読んだ日（9/25）として突き合わせる。
+    @Test("月を語で指した日付は、AI が月日で返しても語のまま返しても、その日を使う（基準は 2026-10-28）", arguments: [
+        ("9月25日", 33), ("9/25", 33), ("先月25日", 33), ("25日", 33), ("", 33),
+    ])
+    func relativeDateFromModel(date: String, daysAgo: Int) throws {
+        let entry = try extracted(item: "家賃", amount: "80000", category: "その他", date: date)
+            .resolved(against: "先月25日 家賃 80000", now: Fixture.date(2026, 10, 28, hour: 12), calendar: Fixture.calendar)
+        #expect(entry == ParsedEntry(amount: 80_000, category: .other, memo: "家賃", daysAgo: daysAgo))
+    }
+
     @Test("日付が複数ある入力では、件ごとの日付の表記を使う")
     func perEntryDate() throws {
         let input = "昨日スーパー2480、今日ドラッグ1200"
@@ -146,6 +156,35 @@ struct ExtractedEntryTests {
             extracted(item: "焼肉", amount: "5000", category: "食費", isIncome: true), "給料日なので焼肉 5000"
         )
         #expect(!entry.isIncome)
+    }
+
+    // 以前はモデルが支出と返すと、辞書で収入と読める「給料」「配当」「年金」も支出として保存していた。
+    @Test("モデルが支出と返しても、ルールベースで収入と読める区間は収入にする", arguments: [
+        ("給料", "250000", "給料 250000"), ("配当", "1200", "配当 1200"), ("年金", "65000", "年金 65000"),
+        ("預金利息", "12", "預金利息 12"),
+    ])
+    func ruleIncomeWinsOverModelExpense(item: String, amount: String, input: String) throws {
+        let entry = try resolve(extracted(item: item, amount: amount, category: "その他", isIncome: false), input)
+        #expect(entry.isIncome)
+        #expect(entry.category == .other)
+        #expect(entry == Fixture.parser.entries(from: input).first)
+    }
+
+    @Test("お金を移しただけの入金と払う側の利息は、モデルが収入と返しても支出にする", arguments: [
+        ("Suica入金", "3000", "Suica入金 3000"), ("口座に入金", "50000", "口座に入金 50000"),
+        ("ローン利息", "5000", "ローン利息 5000"),
+    ])
+    func movedMoneyIsExpenseEvenIfModelSaysIncome(item: String, amount: String, input: String) throws {
+        let entry = try resolve(extracted(item: item, amount: amount, category: "その他", isIncome: true), input)
+        #expect(!entry.isIncome)
+    }
+
+    @Test("品目に続けた「-」は区切りなので、モデルが返金と返しても支出にし、返金の語があれば収入にする")
+    func hyphenAfterItemFromModel() throws {
+        let lunch = try resolve(extracted(item: "ランチ", amount: "850", category: "食費", isIncome: true), "ランチ-850")
+        #expect(lunch == ParsedEntry(amount: 850, category: .food, memo: "ランチ"))
+        let refund = try resolve(extracted(item: "返金", amount: "500", category: "その他", isIncome: false), "返金-500")
+        #expect(refund == ParsedEntry(amount: 500, category: .other, isIncome: true, memo: "返金"))
     }
 
     @Test("収入の語が無いだけなら、モデルの「収入」を採る")
@@ -209,6 +248,23 @@ struct ExtractedEntryTests {
         let entry = try resolve(extracted(item: item, amount: amount, category: "日用品"), input)
         #expect(entry.memo == item)
         #expect(entry.memo == Fixture.parser.entries(from: input).first?.memo)
+    }
+
+    // 語や名前の一部の数字（「2次会」の 2、「iPhone15」の 15）は、ほかに金額があれば金額として突き合わせない。
+    @Test("語や名前の一部の数字を金額として返されたら、ルールベースで読み直させる", arguments: [
+        ("2", "飲み会 5000 2次会"), ("15", "iPhone15 ケース 2000"), ("3", "電池 400 単3"),
+    ])
+    func numberInsideNameIsNotGrounded(amountText: String, input: String) {
+        #expect(throws: ExtractedEntry.ResolveError.ungroundedAmount) {
+            try resolve(extracted(item: "", amount: amountText, category: "その他"), input)
+        }
+    }
+
+    @Test("名前の数字を含む品目は、書いたとおりにメモにする")
+    func itemWithModelNumberIsKept() throws {
+        let entry = try resolve(extracted(item: "iPhone15 ケース", amount: "2000", category: "日用品"), "iPhone15 ケース 2000")
+        #expect(entry.amount == 2_000)
+        #expect(entry.memo == "iPhone15 ケース")
     }
 
     @Test("品目にその件の金額が入っていたら、金額は除いてメモにする")
