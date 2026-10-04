@@ -110,7 +110,7 @@ struct PremiumSheet: View {
     private var statusText: Text {
         switch model.status {
         case .free:
-            Text("レシートも家計への質問も、回数を気にせず使えます。カテゴリ別の予算と AI の一言も加わります。")
+            Text("欲しいものに回すお金を、いつもの支出から考える。買う前チェックの支出の組み替えに加え、レシート・質問の無制限、カテゴリ別の予算が使えます。")
         case .trial(let days, let endsAt):
             Text("無料体験中です。あと \(days) 日（\(endsAt.formatted(.dateTime.month().day().hour().minute())) まで）使えます。")
         case .trialEnded:
@@ -431,6 +431,7 @@ struct PremiumSymbolTile: View {
 
 /// プレミアムでできることの行（機能の名前・効きめ・無料との違い）。
 enum PremiumFeature: CaseIterable, Identifiable {
+    case spendingChoices
     case receiptScan
     case question
     case categoryBudget
@@ -442,13 +443,14 @@ enum PremiumFeature: CaseIterable, Identifiable {
     /// まだ出していない機能か（「近日」と書く。まだできないことを、できるように書かないため）。いまはすべて出している。
     var isComingSoon: Bool {
         switch self {
-        case .receiptScan, .question, .categoryBudget, .recapAI: false
+        case .spendingChoices, .receiptScan, .question, .categoryBudget, .recapAI: false
         }
     }
 
     /// 行の印（SF Symbols）。
     var symbolName: String {
         switch self {
+        case .spendingChoices: "arrow.triangle.branch"
         case .receiptScan: "doc.text.viewfinder"
         case .question: "bubble.left.and.text.bubble.right"
         case .categoryBudget: "chart.pie"
@@ -502,6 +504,7 @@ private struct PremiumBenefitRow: View {
 
     private var title: Text {
         switch feature {
+        case .spendingChoices: Text("いつもの支出を、欲しいものへ")
         case .receiptScan: Text("レシートの読み取りが無制限")
         case .question: Text("家計への質問が無制限")
         // 予算を決める画面の見出し（英語は Budgets by category）とは別のキーにする。行の名前は、英語でほかの行と同じく
@@ -517,6 +520,7 @@ private struct PremiumBenefitRow: View {
     private var note: Text {
         switch feature {
         // 読み取った後に確かめてから記録すること、数えるのは記録したときだけであることを添える（無料の 5 回の数え方が分かるように）。
+        case .spendingChoices: Text("買う前チェックで、カフェ・娯楽の記録をもとに回数を減らす案を組み合わせ、買い物後の余裕を比較できます。記録が十分にあるときに使え、AI対応は不要です。")
         case .receiptScan: Text("撮るか写真から選ぶと、品目ごとにカテゴリを分けて読み取ります。確かめてから記録し、数えるのは記録したときだけです。")
         // 例はホームの入力の例と同じ文にする（英語でも訳さない。解析は日本語の入力を前提にしているため）。
         case .question: Text("「今月カフェいくら?」のように聞くと、数字はアプリが計算して答えます。")
@@ -528,6 +532,7 @@ private struct PremiumBenefitRow: View {
 
     private var difference: Text {
         switch feature {
+        case .spendingChoices: Text("買い物前後の予算チェックは無料")
         case .receiptScan: Text("無料は月\(QuotaFeature.receiptScan.freeMonthlyLimit)回まで")
         case .question: Text("無料は月\(QuotaFeature.question.freeMonthlyLimit)回まで")
         case .categoryBudget: Text("無料は全体の予算だけ")

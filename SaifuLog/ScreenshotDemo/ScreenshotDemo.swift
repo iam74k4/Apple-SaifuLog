@@ -43,13 +43,15 @@ final class ScreenshotDemo {
         /// カレンダーのページ（今日あと・月のカレンダー・今日の記録）。くり返しの記録の予定（`ScreenshotDemoLedger.recurringDrafts`）も
         /// 入れ、予定の印と、固定費を引いた今月あとを写す。
         case calendar
+        case purchaseCheck
+        case purchaseChoices
 
         /// 購入の状態を指定しなかったときの状態。プレミアムのシートは購入と体験のボタンを写すので無料、ほかは購入済み
         /// （無料の残りの回数の行などを写さず、ふりかえりと月のまとめの AI の一言を写すため）。
         var defaultPremium: PremiumChoice {
             switch self {
             case .premium, .trial: .free
-            case .home, .ask, .report, .recap, .receipt, .voice, .calendar: .purchased
+            case .home, .ask, .report, .recap, .receipt, .voice, .calendar, .purchaseCheck, .purchaseChoices: .purchased
             }
         }
     }
@@ -326,6 +328,15 @@ final class ScreenshotDemo {
         case .trial:
             home.presentPremium()
             home.premiumSheet?.screenshotScrollsToBottom = true
+        case .purchaseCheck, .purchaseChoices:
+            home.presentPurchaseCheck(calendar: calendar)
+            home.purchaseCheck?.amountText = "12,000"
+            home.purchaseCheck?.reserveText = "10,000"
+            home.purchaseCheck?.reload()
+            home.purchaseCheck?.screenshotScrollsToBottom = screen == .purchaseChoices
+            if let check = home.purchaseCheck, let habit = check.analysis?.habits.first {
+                check.setReduction(3, for: habit)
+            }
         case .calendar:
             home.page = .calendar
         }

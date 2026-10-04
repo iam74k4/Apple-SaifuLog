@@ -110,6 +110,9 @@ struct HomeView: View {
                 .navigationDestination(item: $model.weeklyRecapDetail) { recap in
                     WeeklyRecapView(model: recap)
                 }
+                .sheet(item: $model.purchaseCheck) { check in
+                    PurchaseCheckView(model: check)
+                }
                 // 無料体験が終わった後の最初の起動に、一度だけプレミアム（⑨）を出す（`HomeModel.presentPremiumIfTrialEnded`）。
                 .sheet(item: $model.premiumSheet) { premium in
                     PremiumSheet(model: premium)
@@ -474,9 +477,12 @@ struct HomeView: View {
             // よく使うひとこと。レシートと声と同じく「自分」だけ（家計の記録は候補の元にしていない）。声の入力の間は出さない
             // （入力欄の代わりに書き起こしを出している間は、入力欄に文を入れられないため）。
             if !model.isHouseholdActive, model.voice.isActive == false {
-                QuickPhraseBar(phrases: model.quickPhraseSuggestions) {
-                    model.pickQuickPhrase($0)
-                }
+                QuickPhraseBar(
+                    phrases: model.quickPhraseSuggestions,
+                    pick: { model.pickQuickPhrase($0) },
+                    purchaseCheck: model.draft.isEmpty && !isTyping && !model.isParsing
+                        ? { model.presentPurchaseCheck(calendar: calendar) } : nil
+                )
                 // 候補は画面の端から端まで送れるようにする（下の入力欄の左右の余白の外まで）。
                 .padding(.horizontal, -16)
             }

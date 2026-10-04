@@ -122,6 +122,8 @@ final class HomeModel {
     var monthlyReport: MonthlyReportModel?
     /// 「設定」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
     var settings: SettingsModel?
+    /// 買い物前後の予算と、いつもの支出の組み替えを試すシート。
+    var purchaseCheck: PurchaseCheckModel?
     /// 無料体験が終わった後の最初の起動に出す「プレミアム」のシート。出していなければ nil（閉じると画面が nil に戻す）。
     var premiumSheet: PremiumSheetModel?
     /// 先週のふりかえりのカード（タイムラインの中）。出していなければ nil（「閉じる」で nil にする）。
@@ -288,7 +290,7 @@ final class HomeModel {
     var isPresentingOtherScreen: Bool {
         budgetSetup != nil || editing != nil || categoryEditor != nil || recurringEditor != nil || monthlyReport != nil
             || settings != nil
-            || premiumSheet != nil
+            || premiumSheet != nil || purchaseCheck != nil
             || weeklyRecapDetail != nil || receiptResult != nil || receiptCapture != nil || showsReceiptSourceChoice
     }
 
@@ -1566,6 +1568,12 @@ final class HomeModel {
     }
 
     // MARK: - プレミアム
+
+    /// 個人の記録から買い物前後の予算を比べる。入力中の処理と録音は遮らない。
+    func presentPurchaseCheck(calendar: Calendar) {
+        guard !isHouseholdActive, !isParsing, !voice.isActive else { return }
+        purchaseCheck = PurchaseCheckModel(context: store.context, purchases: purchases, calendar: calendar, now: now)
+    }
 
     /// 「プレミアム」のシートを出す（無料の質問やレシートの読み取りを使い切ったときの案内から）。
     func presentPremium() {
