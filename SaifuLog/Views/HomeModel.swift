@@ -51,6 +51,10 @@ final class HomeModel {
     private(set) var quickPhrases: [QuickPhrase] = []
     /// 送った文を読み取っている間（送信ボタンを押せなくし、読み取り中の印を出す）。
     private(set) var isParsing = false
+    /// 記録として送り、読み取っている文。読み取りが終わるまで、タイムラインのいちばん下に送った文の吹き出しと「読み取っています…」
+    /// を出す（質問の「計算しています…」と同じ）。読み取りは AI だと 1 秒以上かかることがあり、その間に何も出ないと、送った文が
+    /// 入力欄から消えただけに見え、送れたのか分からないため。記録したら記録した送信に替わり、読めなければ消えて文が入力欄に戻る。
+    private(set) var pendingRecord: PendingRecord?
     /// 直前の送信で記録したもの。その送信の返事に「取り消す」を出すため（時間では引っ込めない。次の文を送る・取り消す・
     /// その記録を直す・記録先を切り替えるまで残し、消した記録は外す）。
     private(set) var justRecorded: [Entry] = [] {
@@ -98,6 +102,7 @@ final class HomeModel {
     var pendingHouseholdDeletion: PendingHouseholdDeletion?
     /// 「家族」のときに、質問や読めない文を送った（家計には記録しない）ことの知らせ。
     var householdInputAlert: HouseholdInputAlert?
+    /// 「家族」のときに、金額の無い文を送った（家計のタイムラインには案内のカードを出さないので、アラートで知らせる）。
     var showsNoAmountAlert = false
     var storeFailure: StoreFailure?
     var pendingDeletion: PendingDeletion?
@@ -395,26 +400,22 @@ final class HomeModel {
         // 保存のときに時計を読み直すと、読み取りを待つ間に日付が変わったとき（23:59:59 に送って 0:00:01 に保存）、
         // 「9/26」と書いた記録が 1 日ずれて保存されるため。質問も、この日時で期間を区切る。
         let sentAt = now()
-        // 前の記録の「取り消す」（返事の見出しと VoiceOver の操作）を引っ込める。読み取りの間も出したままだと、押したときに
-        // 前の記録が消え、前の文が入力欄に戻る。それを送り直したり、いま送った文の記録だけが残ったりして、
-        // 取り消したつもりのものと違う記録が残るため。質問を送ったときも同じにする（送るたびに引っ込める、と揃える）。
-        justRecorded = []
-        justRecordedHousehold = []
-        categoryQuestionIDs = []
-        paymentOverlaps = [:]
         if isHouseholdActive {
             return sendToHousehold(text, source: source, sentAt: sentAt, calendar: calendar)
         }
-        if forcesQuestion {
-            return ask(text, source: source, sentAt: sentAt, calendar: calendar)
-        }
-        switch InputIntentClassifier.classify(text, now: sentAt, calendar: calendar, catalog: categories.catalog) {
+        let intent = forcesQuestion
+            ? .question
+            : InputIntentClassifier.classify(text, now: sentAt, calendar: calendar, catalog: categories.catalog)
+        switch intent {
         case .record:
+            retractLastReply()
             return record(text, source: source, sentAt: sentAt, calendar: calendar)
         case .question:
+            retractLastReply()
             return ask(text, source: source, sentAt: sentAt, calendar: calendar)
         case .unclear:
-            // 記録にはしない。書き直して送り直せるよう、送った文を入力欄に戻す。
+            // 記録にはしない。書き直して送り直せるよう、送った文を入力欄に戻す。前の記録の「取り消す」と聞き返しは引っ込めない
+            // （記録も答えもしていないので、前の返事はまだ直前の返事のまま）。
             appendQuestion(text, askedAt: sentAt, state: .unclear)
             restoreDraft(text, source: source)
             announce(String(localized: "記録か質問か分かりませんでした"))
@@ -423,11 +424,25 @@ final class HomeModel {
             // 前の記録を直そうとする文（「さっきのを900に直して」）。文から記録を直すことはせず、新しい記録にもしない
             // （記録すると、直したつもりの支出が二重に記録されるため）。直し方を案内し、決められなかった文と同じく、
             // 送った文を入力欄に戻す（記録し忘れた分を書き直して送れるように）。無料の回数は数えない。
+            // 前の記録の「取り消す」は引っ込めない。案内が「取り消す」で取り消して送り直す方法を勧めるのに、以前はこの送信の
+            // 時点で引っ込めていて、案内どおりにできなかった。
             appendQuestion(text, askedAt: sentAt, state: .correction)
             restoreDraft(text, source: source)
             announce(String(localized: "記録は直していません"))
             return Task {}
         }
+    }
+
+    /// 前の送信の返事の「取り消す」（返事の見出しと VoiceOver の操作）と聞き返しを引っ込める。記録するか答える送信のときに呼ぶ。
+    ///
+    /// 読み取りの間も出したままだと、押したときに前の記録が消え、前の文が入力欄に戻る。それを送り直したり、いま送った文の
+    /// 記録だけが残ったりして、取り消したつもりのものと違う記録が残るため。質問を送ったときも同じにする（答えるたびに引っ込める、
+    /// と揃える）。記録も答えもしない文（記録か質問か決められない文・前の記録を直そうとする文）では引っ込めない。
+    private func retractLastReply() {
+        justRecorded = []
+        justRecordedHousehold = []
+        categoryQuestionIDs = []
+        paymentOverlaps = [:]
     }
 
     /// 送った文を記録として読み取る。取り消されたら nil を返す。
@@ -450,6 +465,7 @@ final class HomeModel {
     /// - Parameter source: 送った文をどこから入れたか（声で入れた文なら、記録の入力元を「声」にする）。
     private func record(_ text: String, source: EntrySource, sentAt: Date, calendar: Calendar) -> Task<Void, Never> {
         isParsing = true
+        pendingRecord = PendingRecord(text: text, source: source, sentAt: sentAt)
         let parser = makeParser(sentAt, calendar)
         // 解析の間に保存先が開き直されないよう、Task を作る前に数える（Task は画面のツリーを畳んだ後も動き続け、
         // この後で前の保存先に書き込むため）。
@@ -457,6 +473,8 @@ final class HomeModel {
         return Task {
             defer {
                 isParsing = false
+                // 記録したときは、保存と同じ描き直しで記録した送信に替わる（吹き出しが同じ位置に残り、下のカードだけが替わる）。
+                pendingRecord = nil
                 pendingWrites.end()
             }
             guard let parsed = await parse(text, with: parser) else {
@@ -465,9 +483,11 @@ final class HomeModel {
                 return
             }
             guard !parsed.isEmpty else {
-                // 送った文を入力欄に戻し、その場で直せるようにする。
+                // 送った文と案内をタイムラインに出し、文を入力欄に戻して、その場で金額を足して送り直せるようにする（キーボードは
+                // 出したまま）。
+                appendQuestion(text, askedAt: sentAt, state: .noAmount)
                 restoreDraft(text, source: source)
-                showsNoAmountAlert = true
+                announce(String(localized: "金額が見つかりませんでした"))
                 return
             }
             // 作ったカテゴリの名前と覚えたカテゴリを、AI と辞書のどちらで読んだ記録にも当てる（修正の記憶）。覚えを読めなくても
@@ -523,6 +543,7 @@ final class HomeModel {
     private func sendToHousehold(_ text: String, source: EntrySource, sentAt: Date, calendar: Calendar) -> Task<Void, Never> {
         switch InputIntentClassifier.classify(text, now: sentAt, calendar: calendar, catalog: categories.catalog) {
         case .record:
+            retractLastReply()
             return recordToHousehold(text, source: source, sentAt: sentAt, calendar: calendar)
         case .question:
             restoreDraft(text, source: source)
@@ -652,10 +673,7 @@ final class HomeModel {
     func askFollowUp(_ followUp: QuestionFollowUp, calendar: Calendar) -> Task<Void, Never>? {
         guard !isParsing, !isHouseholdActive else { return nil }
         // 送信と同じく、前の記録の「取り消す」と聞き返しを引っ込める。
-        justRecorded = []
-        justRecordedHousehold = []
-        categoryQuestionIDs = []
-        paymentOverlaps = [:]
+        retractLastReply()
         return ask(followUp.text, source: .text, sentAt: now(), calendar: calendar)
     }
 
@@ -1669,6 +1687,16 @@ final class HomeModel {
         /// 確認を出した時点で控えた ID（確認の間にほかの端末で消されたかを、記録の値に触れずに確かめるため）。
         let id: PersistentIdentifier
         let summary: String
+    }
+
+    /// 記録として送り、読み取っている文（`pendingRecord`）。
+    struct PendingRecord: Identifiable, Equatable {
+        let id = UUID()
+        let text: String
+        /// どこから入れた文か（声で入れた文は、吹き出しにマイクの印を添える。記録した後の吹き出しと同じ）。
+        let source: EntrySource
+        /// 送った瞬間の日時（タイムラインの並びと日付の見出しに使う。記録した日時と同じ値）。
+        let sentAt: Date
     }
 
     /// 削除の確認を待っている家計の記録。

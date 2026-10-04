@@ -32,6 +32,11 @@ struct SummaryHeader: View {
     var isHousehold = false
     /// 今日までの日割りの目安（月のまとめと同じ `MonthlyReport.budgetPace`・`spentBeyondPace`）。予算を決めていないときは nil。
     var pace: Pace?
+    /// 低い帯にするか（入力欄にキーボードを出している間）。見出しの行に残り（予算が無ければ合計）を並べ、大きな数字・1 日あたり・
+    /// バー・目安の一言を出さない。キーボードが画面の下の半分ほどを占める間も帯が同じ高さのままだと、タイムラインが 230pt ほどしか
+    /// 残らず、送った記録の返事の「取り消す」やカテゴリの聞き返しが帯の下に隠れたため（iPhone 17 Pro のシミュレータ）。
+    /// 送った後の残りの額は、返事のカードの今月の状況の一行にも出る。
+    var isCompact = false
 
     /// 今日までの日割りの目安と、今日までに使った額がそれより多い額（少なければ負）。
     struct Pace: Equatable {
@@ -51,19 +56,24 @@ struct SummaryHeader: View {
                 LedgerScopePicker(selection: ledgerScope)
                     .padding(.top, 8)
             }
-            titleRow
-            figuresElement
+            if isCompact {
+                compactRow
+            } else {
+                titleRow
+                figuresElement(figures)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal)
         // 上はボタンの高さ（44pt）の中に余白があるので詰める。
         .padding(.top, 4)
-        .padding(.bottom, 12)
+        .padding(.bottom, isCompact ? 4 : 12)
         // 地は塗らない（ホームが帯を safeAreaBar に置き、スクロール端の効果が地になる。`HomeView`）。
         .accessibilityElement(children: .contain)
         .animation(.default, value: summary)
         .animation(.default, value: budget)
         .animation(.default, value: pace)
+        .animation(.default, value: isCompact)
     }
 
     /// 見出し（予算の有無と超えたかで変わる）。
@@ -79,7 +89,7 @@ struct SummaryHeader: View {
     /// 数字の要素。VoiceOver では数字をまとめて 1 つの要素として読ませる（見出し・残り・1 日あたり・残りの日数・
     /// 予算と使った額・収入の順）。ボタンより先に読ませる。まとめへ進めるときは、その要素を押すとまとめを開く。
     @ViewBuilder
-    private var figuresElement: some View {
+    private func figuresElement(_ figures: some View) -> some View {
         if let openReport {
             Button(action: openReport) {
                 figures
@@ -132,6 +142,58 @@ struct SummaryHeader: View {
                 titleButton
                 trailingButtons
             }
+        }
+    }
+
+    /// 低い帯の行（`isCompact`）。数字の行と右のボタンを 1 行に並べ、収まらなければ（アクセシビリティサイズの文字・英語の大きな
+    /// 文字）ボタンを出さない。積む形にすると帯がまた高くなるため（予算と設定は、キーボードを閉じれば出る）。
+    private var compactRow: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 0) {
+                figuresElement(compactFigures)
+                Spacer(minLength: 8)
+                trailingButtons
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+            figuresElement(compactFigures)
+        }
+    }
+
+    /// 低い帯の数字の行。見出し・残り（超えたら超えた額。予算が無ければ今月の支出）・「›」を 1 行に並べる。
+    private var compactFigures: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            title
+                .font(.subheadline)
+                .foregroundStyle(Theme.inkSecondary)
+            compactAmount
+                .font(.title3.bold())
+                .monospacedDigit()
+                .contentTransition(.numericText())
+            if openReport != nil {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.inkSecondary)
+            }
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+        // 押せる範囲を 44pt の高さ以上にする（見出しの行のボタンと同じ）。
+        .frame(minHeight: 44)
+    }
+
+    /// 低い帯の額。超えたことは、注意の色だけでなく、アイコンと「オーバー」の語でも伝える（大きな数字と同じ）。
+    @ViewBuilder
+    private var compactAmount: some View {
+        if let budget, budget.isOver {
+            Label {
+                Text("\(YenFormatter.string(from: budget.overspent)) オーバー")
+            } icon: {
+                Image(systemName: "exclamationmark.triangle.fill")
+            }
+            .foregroundStyle(Theme.danger)
+        } else {
+            Text(YenFormatter.string(from: budget?.remaining ?? summary.expense))
+                .foregroundStyle(Theme.ink)
         }
     }
 
@@ -513,6 +575,8 @@ struct MonthSummaryHeader: View {
     private let openSettings: () -> Void
     private let openCalendar: (() -> Void)?
     private let ledgerScope: Binding<HomeModel.LedgerScope>?
+    /// 低い帯にするか（入力欄にキーボードを出している間。`SummaryHeader.isCompact`）。
+    private let isCompact: Bool
     @Query private var records: [Entry]
     @Query private var budgets: [Budget]
 
@@ -523,7 +587,8 @@ struct MonthSummaryHeader: View {
         openReport: @escaping () -> Void,
         openSettings: @escaping () -> Void,
         openCalendar: (() -> Void)? = nil,
-        ledgerScope: Binding<HomeModel.LedgerScope>? = nil
+        ledgerScope: Binding<HomeModel.LedgerScope>? = nil,
+        isCompact: Bool = false
     ) {
         self.today = today
         self.calendar = calendar
@@ -532,6 +597,7 @@ struct MonthSummaryHeader: View {
         self.openSettings = openSettings
         self.openCalendar = openCalendar
         self.ledgerScope = ledgerScope
+        self.isCompact = isCompact
         _records = Query(Entry.monthDescriptor(containing: today, calendar: calendar))
     }
 
@@ -545,7 +611,8 @@ struct MonthSummaryHeader: View {
             openSettings: openSettings,
             openCalendar: openCalendar,
             ledgerScope: ledgerScope,
-            pace: figures.pace
+            pace: figures.pace,
+            isCompact: isCompact
         )
     }
 
@@ -582,16 +649,19 @@ struct HouseholdSummaryHeader: View {
     private let calendar: Calendar
     private let openSettings: () -> Void
     private let ledgerScope: Binding<HomeModel.LedgerScope>
+    /// 低い帯にするか（入力欄にキーボードを出している間。`SummaryHeader.isCompact`）。
+    private let isCompact: Bool
     @Query private var records: [HouseholdEntry]
 
     init(
         zoneName: String, today: Date, calendar: Calendar, ledgerScope: Binding<HomeModel.LedgerScope>,
-        openSettings: @escaping () -> Void
+        openSettings: @escaping () -> Void, isCompact: Bool = false
     ) {
         self.today = today
         self.calendar = calendar
         self.ledgerScope = ledgerScope
         self.openSettings = openSettings
+        self.isCompact = isCompact
         _records = Query(HouseholdEntry.monthDescriptor(zoneName: zoneName, containing: today, calendar: calendar))
     }
 
@@ -603,7 +673,8 @@ struct HouseholdSummaryHeader: View {
             openReport: nil,
             openSettings: openSettings,
             ledgerScope: ledgerScope,
-            isHousehold: true
+            isHousehold: true,
+            isCompact: isCompact
         )
     }
 

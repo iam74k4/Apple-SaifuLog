@@ -38,6 +38,8 @@ struct HomeView: View {
     @State private var model: HomeModel
     /// 写真の選択で選んだもの。読み取りに渡したら nil に戻す（写真はメモリの上で読み、保存しない）。
     @State private var photoItem: PhotosPickerItem?
+    /// 入力欄にフォーカスがあるか（キーボードを出している間）。上の帯を低くして、タイムラインを広く見せる（`SummaryHeader.isCompact`）。
+    @State private var isTyping = false
     #if DEBUG || INTERNAL_DIAGNOSTICS
     /// 診断画面を出しているか。社内テスト用のビルドと DEBUG だけの画面なので、App Store へ出すビルドにも入る
     /// `HomeModel` には持たせず、ここに置く。
@@ -404,6 +406,7 @@ struct HomeView: View {
                 canShowMore: model.canShowMoreTimeline,
                 today: model.today,
                 questions: model.questions,
+                pendingRecord: model.pendingRecord,
                 weeklyRecap: model.weeklyRecap,
                 // 控えた ID を渡す（ほかの端末で消された記録の値に、描くときに触れないため）。
                 undoableEntryIDs: Set(model.justRecordedIDs),
@@ -439,7 +442,8 @@ struct HomeView: View {
                 today: model.today,
                 calendar: calendar,
                 ledgerScope: $model.ledgerScope,
-                openSettings: { model.presentSettings() }
+                openSettings: { model.presentSettings() },
+                isCompact: isTyping
             )
             .modelContainer(household.container)
         } else {
@@ -450,7 +454,8 @@ struct HomeView: View {
                 openReport: { model.presentMonthlyReport(calendar: calendar) },
                 openSettings: { model.presentSettings() },
                 openCalendar: { withAnimation { model.page = .calendar } },
-                ledgerScope: model.showsLedgerSwitch ? $model.ledgerScope : nil
+                ledgerScope: model.showsLedgerSwitch ? $model.ledgerScope : nil,
+                isCompact: isTyping
             )
         }
     }
@@ -492,7 +497,8 @@ struct HomeView: View {
                 voice: model.isHouseholdActive ? nil : model.voice,
                 targetsHousehold: model.isHouseholdActive,
                 focusRequest: model.inputFocusRequest,
-                isOnScreen: model.page == .conversation
+                isOnScreen: model.page == .conversation,
+                focusChanged: { isTyping = $0 }
             )
         }
         .padding(.horizontal)
@@ -641,6 +647,8 @@ private struct EntryTimeline: View {
     let canShowMore: Bool
     let today: Date
     let questions: [QuestionExchange]
+    /// 記録として送り、読み取っている文（読み取りが終わるまで、いちばん下に送った文と「読み取っています…」を出す）。
+    let pendingRecord: HomeModel.PendingRecord?
     let weeklyRecap: WeeklyRecapModel?
     /// 直前の送信で記録したもの（まだ取り消せるもの）。これを含む送信の返事にだけ「取り消す」を出す。取り消せなければ空。
     let undoableEntryIDs: Set<PersistentIdentifier>
@@ -679,6 +687,7 @@ private struct EntryTimeline: View {
         canShowMore: Bool,
         today: Date,
         questions: [QuestionExchange],
+        pendingRecord: HomeModel.PendingRecord?,
         weeklyRecap: WeeklyRecapModel?,
         undoableEntryIDs: Set<PersistentIdentifier>,
         askingCategory: Set<PersistentIdentifier>,
@@ -704,6 +713,7 @@ private struct EntryTimeline: View {
         self.canShowMore = canShowMore
         self.today = today
         self.questions = questions
+        self.pendingRecord = pendingRecord
         self.weeklyRecap = weeklyRecap
         self.undoableEntryIDs = undoableEntryIDs
         self.askingCategory = askingCategory
@@ -727,9 +737,10 @@ private struct EntryTimeline: View {
         _recentEntries = Query(Entry.timelineDescriptor(limit: limit))
     }
 
-    /// タイムラインのやりとりの 1 つ（送信か、質問とその答えか、先週のふりかえり）。
+    /// タイムラインのやりとりの 1 つ（送信か、読み取っている送信か、質問とその答えか、先週のふりかえり）。
     private enum Exchange {
         case send(EntrySend)
+        case pendingRecord(HomeModel.PendingRecord)
         case question(QuestionExchange)
         case weeklyRecap(WeeklyRecapModel)
 
@@ -737,6 +748,7 @@ private struct EntryTimeline: View {
         var date: Date {
             switch self {
             case .send(let send): send.sentAt
+            case .pendingRecord(let pending): pending.sentAt
             case .question(let exchange): exchange.askedAt
             case .weeklyRecap(let recap): recap.shownAt
             }
@@ -748,6 +760,7 @@ private struct EntryTimeline: View {
         case day(Date)
         case sentText(EntrySend)
         case reply(EntrySend)
+        case pendingRecord(HomeModel.PendingRecord)
         case question(QuestionExchange)
         case weeklyRecap(WeeklyRecapModel)
 
@@ -756,6 +769,7 @@ private struct EntryTimeline: View {
             case .day(let day): .day(day)
             case .sentText(let send): .sentText(send.id)
             case .reply(let send): .reply(send.id)
+            case .pendingRecord(let pending): .pendingRecord(pending.id)
             case .question(let exchange): .question(exchange.id)
             case .weeklyRecap(let recap): .weeklyRecap(recap.id)
             }
@@ -766,6 +780,7 @@ private struct EntryTimeline: View {
         case day(Date)
         case sentText(PersistentIdentifier)
         case reply(PersistentIdentifier)
+        case pendingRecord(UUID)
         case question(UUID)
         case weeklyRecap(UUID)
     }
@@ -774,6 +789,7 @@ private struct EntryTimeline: View {
     private var items: [Item] {
         let sends = EntrySend.sends(from: Array(recentEntries.reversed()))
         let exchanges = (sends.map(Exchange.send) + questions.map(Exchange.question)
+            + (pendingRecord.map { [Exchange.pendingRecord($0)] } ?? [])
             + (weeklyRecap.map { [Exchange.weeklyRecap($0)] } ?? []))
             .sorted { $0.date < $1.date }
         let headers = Set(TimelineDay.headerIndices(for: exchanges.map(\.date), calendar: calendar))
@@ -789,6 +805,8 @@ private struct EntryTimeline: View {
                     items.append(.sentText(send))
                 }
                 items.append(.reply(send))
+            case .pendingRecord(let pending):
+                items.append(.pendingRecord(pending))
             case .question(let exchange):
                 items.append(.question(exchange))
             case .weeklyRecap(let recap):
@@ -801,7 +819,7 @@ private struct EntryTimeline: View {
     var body: some View {
         ScrollViewReader { proxy in
             TimelineScrollView {
-                if recentEntries.isEmpty && questions.isEmpty && weeklyRecap == nil {
+                if recentEntries.isEmpty && questions.isEmpty && pendingRecord == nil && weeklyRecap == nil {
                     EmptyTimelineView(fill: fillDraft)
                 }
                 // 読み込んだ件数が上限に届いていれば、まだ前の記録があるかもしれない。
@@ -826,6 +844,9 @@ private struct EntryTimeline: View {
                         )
                         // 送信のいちばん下（返事のカード）の位置を知らせる。
                         .reportsTimelineFrame(.row(send.id))
+                    case .pendingRecord(let pending):
+                        PendingRecordView(pending: pending)
+                            .reportsTimelineFrame(.row(pending.id))
                     case .question(let exchange):
                         QuestionExchangeView(
                             exchange: exchange, openReport: openReport, setBudget: setBudget, openPremium: openPremium,
@@ -848,6 +869,11 @@ private struct EntryTimeline: View {
             // 送る先はどれも、いちばん下の行ではなく中身の下端で、動きを付けない（`scrollToTimelineBottom`）。
             // 記録を足した（いちばん新しい記録が替わった）ら、下端まで送る。
             .onChange(of: recentEntries.first?.persistentModelID) { _, id in
+                guard id != nil else { return }
+                proxy.scrollToTimelineBottom()
+            }
+            // 記録として送った文を読み取り始めたら、下端まで送る（送った文と「読み取っています…」が見えるように）。
+            .onChange(of: pendingRecord?.id) { _, id in
                 guard id != nil else { return }
                 proxy.scrollToTimelineBottom()
             }
