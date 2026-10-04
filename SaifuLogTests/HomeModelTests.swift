@@ -107,6 +107,11 @@ struct HomeModelTests {
             model.questions.last?.state
         }
 
+        /// 「金額が見つかりませんでした」を知らせたか（自分の記録はタイムラインの案内、「家族」のときはアラート）。
+        var showedNoAmount: Bool {
+            model.showsNoAmountAlert || model.questions.contains { $0.state == .noAmount }
+        }
+
         /// 保存先にある記録（記録した順）。
         func entries() throws -> [Entry] {
             try context.fetch(FetchDescriptor<Entry>(sortBy: [SortDescriptor(\.createdAt)]))
@@ -151,11 +156,40 @@ struct HomeModelTests {
         #expect(!fixture.model.isParsing)
         #expect(fixture.model.canUndo)
         #expect(fixture.model.justRecorded.map(\.amount) == [850])
-        #expect(!fixture.model.showsNoAmountAlert)
+        #expect(!fixture.showedNoAmount)
         #expect(fixture.model.storeFailure == nil)
         // 何円を記録したかを VoiceOver に読み上げる。
         #expect(fixture.announcements.count == 1)
         #expect(fixture.announcements.first?.contains("¥850") == true)
+    }
+
+    /// 記録として送った文は、読み取りの間もタイムラインに出す（以前は送った文が入力欄から消えるだけで、AI の読み取りを待つ
+    /// 1〜数秒のあいだ何も出ず、送れたのか分からなかった）。記録したら消え（記録した送信に替わる）、読めなくても消える
+    /// （文は入力欄に戻る）。質問は質問の「計算しています…」を出すので、こちらには出さない。
+    @Test func pendingRecordShowsWhileParsing() async throws {
+        let fixture = try Fixture()
+        fixture.model.draft = "ランチ 850"
+
+        let recorded = fixture.model.send(calendar: TestSupport.calendar)
+        #expect(fixture.model.pendingRecord?.text == "ランチ 850")
+        #expect(fixture.model.pendingRecord?.source == .text)
+        #expect(fixture.model.pendingRecord?.sentAt == TestSupport.now)
+        await recorded?.value
+        #expect(fixture.model.pendingRecord == nil)
+        #expect(try fixture.entries().map(\.amount) == [850])
+
+        fixture.model.draft = "ランチ"
+        let unreadable = fixture.model.send(calendar: TestSupport.calendar)
+        #expect(fixture.model.pendingRecord?.text == "ランチ")
+        await unreadable?.value
+        #expect(fixture.model.pendingRecord == nil)
+        #expect(fixture.model.draft == "ランチ")
+
+        fixture.model.draft = "今月いくら?"
+        let question = fixture.model.send(calendar: TestSupport.calendar)
+        #expect(fixture.model.pendingRecord == nil)
+        await question?.value
+        #expect(fixture.model.questions.count == 1)
     }
 
     /// 1 回の送信で複数件を記録したら、取り消しの対象もその全部。
@@ -199,9 +233,12 @@ struct HomeModelTests {
 
         #expect(try fixture.entries().isEmpty)
         #expect(fixture.model.draft == "ランチ")
-        #expect(fixture.model.showsNoAmountAlert)
+        // アラートではなく、送った文と案内をタイムラインに出す（キーボードを下げずに、そのまま金額を足して送れるように）。
+        #expect(fixture.lastQuestionState == .noAmount)
+        #expect(fixture.model.questions.last?.text == "ランチ")
+        #expect(!fixture.model.showsNoAmountAlert)
         #expect(!fixture.model.canUndo)
-        #expect(fixture.announcements.isEmpty)
+        #expect(fixture.announcements == [String(localized: "金額が見つかりませんでした")])
         #expect(!fixture.model.isParsing)
     }
 
@@ -214,7 +251,7 @@ struct HomeModelTests {
 
         #expect(try fixture.entries().isEmpty)
         #expect(fixture.model.draft == "ランチ 850")
-        #expect(fixture.model.showsNoAmountAlert)
+        #expect(fixture.showedNoAmount)
     }
 
     /// 解析の間に次の入力を打ち始めていたら、送った文で上書きしない。
@@ -228,7 +265,7 @@ struct HomeModelTests {
         await fixture.send("ランチ")
 
         #expect(fixture.model.draft == "コーヒー")
-        #expect(fixture.model.showsNoAmountAlert)
+        #expect(fixture.showedNoAmount)
     }
 
     /// 保存に失敗したら記録したことにしない。入れかけた記録は残さず、文を戻して知らせる。
@@ -259,7 +296,7 @@ struct HomeModelTests {
         #expect(fixture.pendingWrites.count == 0)
 
         await fixture.send("ランチ")
-        #expect(fixture.model.showsNoAmountAlert)
+        #expect(fixture.showedNoAmount)
         #expect(fixture.pendingWrites.count == 0)
 
         fixture.failsSave = true
@@ -313,7 +350,7 @@ struct HomeModelTests {
         // AI を待たずに、キーワード辞書で読んだ記録にする（利用者には時間切れを知らせない）。
         #expect(try fixture.entries().map(\.amount) == [850])
         #expect(fixture.model.justRecorded.map(\.amount) == [850])
-        #expect(!fixture.model.showsNoAmountAlert)
+        #expect(!fixture.showedNoAmount)
         #expect(fixture.model.draft.isEmpty)
         #expect(!fixture.model.isParsing)
         #expect(fixture.pendingWrites.count == 0)
@@ -341,7 +378,7 @@ struct HomeModelTests {
         await task.value
 
         #expect(try fixture.entries().isEmpty)
-        #expect(!fixture.model.showsNoAmountAlert)
+        #expect(!fixture.showedNoAmount)
         // 送った文は入力欄に戻す（送り直せるように）。
         #expect(fixture.model.draft == "ランチ 850")
         #expect(!fixture.model.isParsing)
@@ -437,7 +474,7 @@ struct HomeModelTests {
 
         await fixture.send("コーヒー")
 
-        #expect(fixture.model.showsNoAmountAlert)
+        #expect(fixture.showedNoAmount)
         #expect(fixture.model.draft == "コーヒー")
         #expect(try fixture.entries().map(\.amount) == [850])
         #expect(!fixture.model.canUndo)
@@ -1159,7 +1196,7 @@ struct HomeModelTests {
         #expect(freeQuestionsLeft == nil)
         #expect(fixture.model.draft.isEmpty)
         #expect(!fixture.model.canUndo)
-        #expect(!fixture.model.showsNoAmountAlert)
+        #expect(!fixture.showedNoAmount)
         #expect(!fixture.model.isParsing)
         // 答えを VoiceOver に読み上げる。
         #expect(fixture.announcements.last?.contains("¥1,600") == true)
@@ -1406,6 +1443,37 @@ struct HomeModelTests {
         #expect(fixture.answererCalls == 0)
         #expect(fixture.freeQuestionsLeft == .limited(remaining: 10, limit: 10))
         #expect(!fixture.model.isParsing)
+        // 案内が勧めるとおり、前の記録の「取り消す」で取り消せる（以前はこの送信の時点で引っ込めていた）。打ちかけの文
+        // （戻した直す文）は取り消しで上書きしない。
+        #expect(fixture.model.canUndo)
+        #expect(fixture.model.justRecorded.map(\.amount) == [850])
+        fixture.model.undoLastRecord()
+        #expect(try fixture.entries().isEmpty)
+        #expect(fixture.model.draft == "さっきのを900に直して")
+    }
+
+    /// 記録か質問か決められない文も、記録も答えもしないので、前の記録の「取り消す」と聞き返しを引っ込めない。
+    @Test func unclearTextKeepsPreviousUndo() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ユニクロ 3990")
+        let recorded = try #require(try fixture.entries().first)
+        #expect(fixture.model.categoryQuestionIDs == [recorded.persistentModelID])
+
+        await fixture.send("予算 5万")
+
+        #expect(fixture.lastQuestionState == .unclear)
+        #expect(fixture.model.canUndo)
+        #expect(fixture.model.categoryQuestionIDs == [recorded.persistentModelID])
+    }
+
+    /// 質問に答えたら、前の記録の「取り消す」は引っ込める（答えるたびに引っ込める、と揃える）。
+    @Test func answeredQuestionRetractsPreviousUndo() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+
+        await fixture.send("今月いくら?")
+
+        #expect(!fixture.model.canUndo)
     }
 
     /// 比べる文（金額と「超えた」「多い」など）は、記録か質問か決められないものとして記録しない。

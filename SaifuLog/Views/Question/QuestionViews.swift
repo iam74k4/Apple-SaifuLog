@@ -21,7 +21,7 @@ struct QuestionExchangeView: View {
         VStack(spacing: 12) {
             UserMessageBubble(
                 text: exchange.text,
-                // 記録か質問か決められなかった文と記録を直そうとする文は、VoiceOver でも「質問」と読まない。下の案内が
+                // 記録か質問か決められなかった文・記録を直そうとする文・金額の無い文は、VoiceOver でも「質問」と読まない。下の案内が
                 // 「記録か質問か分かりませんでした」「記録は直していません」と言うのに、吹き出しが質問と名乗ると食い違うため。
                 accessibilityLabel: exchange.state.isQuestion ? Text("質問: \(exchange.text)") : Text("送った文: \(exchange.text)")
             )
@@ -78,6 +78,11 @@ private struct QuestionReplyCard: View {
             NoticeContent(
                 title: "記録か質問か分かりませんでした",
                 message: "金額と「残り」「予算」「合計」のような語が一緒に入っていたので、記録しませんでした。記録するときは金額と品目だけを、質問するときは「?」を付けて送ってください。"
+            )
+        case .noAmount:
+            NoticeContent(
+                title: "金額が見つかりませんでした",
+                message: "「ランチ 850」のように、金額の数字を入れてください。"
             )
         case .correction:
             NoticeContent(

@@ -91,11 +91,12 @@ struct SentTextBubble: View {
     let send: EntrySend
 
     var body: some View {
-        UserMessageBubble(text: send.originalText, symbol: symbol, accessibilityLabel: accessibilityLabel)
+        UserMessageBubble(text: send.originalText, symbol: Self.symbol(for: send.source), accessibilityLabel: accessibilityLabel)
     }
 
-    private var symbol: String? {
-        switch send.source {
+    /// 文の前に添える記号（入力元ごと）。読み取っている間の吹き出し（`PendingRecordView`）も同じものを添える。
+    static func symbol(for source: EntrySource) -> String? {
+        switch source {
         case .text: nil
         case .voice: "mic.fill"
         case .receipt: "receipt"
@@ -108,6 +109,33 @@ struct SentTextBubble: View {
     /// レシートの要約は「レシート: …」と名乗っているので、そのまま読む。送った文は、質問の吹き出しの「質問: …」と同じ形で読む。
     private var accessibilityLabel: Text {
         send.source == .receipt ? Text(verbatim: send.originalText) : Text("送った文: \(send.originalText)")
+    }
+}
+
+/// 記録として送り、読み取っている間の、送った文の吹き出しと返事のカード（「読み取っています…」。`HomeModel.pendingRecord`）。
+///
+/// 読み取りは AI だと 1 秒以上かかることがある。その間に何も出ないと、送った文が入力欄から消えただけに見え、送れたのか
+/// 分からないため（質問の「計算しています…」と同じ形）。読み取りが終わったら、記録した送信（`SentTextBubble` と
+/// `RecordedReplyCard`）に替わる。吹き出しと返事の間は、記録した送信（別々の行）と同じくタイムラインの行どうしの間（12pt）にする。
+struct PendingRecordView: View {
+    let pending: HomeModel.PendingRecord
+
+    var body: some View {
+        VStack(spacing: 12) {
+            UserMessageBubble(
+                text: pending.text, symbol: SentTextBubble.symbol(for: pending.source),
+                accessibilityLabel: Text("送った文: \(pending.text)")
+            )
+            HStack(spacing: 8) {
+                ProgressView()
+                    .accessibilityHidden(true)
+                Text("読み取っています…")
+                    .foregroundStyle(Theme.inkSecondary)
+            }
+            .accessibilityElement(children: .combine)
+            .replyCardSurface()
+            .leadingReply()
+        }
     }
 }
 

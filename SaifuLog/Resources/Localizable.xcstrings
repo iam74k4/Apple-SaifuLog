@@ -8715,6 +8715,17 @@
         }
       }
     },
+    "読み取っています…" : {
+      "comment" : "ホームのタイムライン。記録として送った文を読み取っている間の、返事のカード",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading…"
+          }
+        }
+      }
+    },
     "読み取り中" : {
       "comment" : "送信後、解析中の送信ボタンの VoiceOver ラベル",
       "localizations" : {

@@ -34,6 +34,8 @@ struct InputBar: View {
     /// 入力欄のあるページ（ホームの会話）を出しているか。カレンダーのページへ移ったらキーボードを閉じる（見えない入力欄に
     /// キーボードを残して、カレンダーを隠さないように）。
     var isOnScreen = true
+    /// 入力欄にフォーカスが入った・外れた（キーボードを出している間、ホームが上の帯を低くする）。
+    var focusChanged: (Bool) -> Void = { _ in }
 
     @FocusState private var isFocused: Bool
     /// VoiceOver のフォーカス。キーボードを出す頼み（`focusRequest`）では、VoiceOver のフォーカスも入力欄へ移す（キーボードが出ても、
@@ -65,10 +67,17 @@ struct InputBar: View {
     }
 
     var body: some View {
-        if let voice, voice.isActive {
-            VoiceInputPanel(model: voice, prefix: text)
-        } else {
-            textInput
+        Group {
+            if let voice, voice.isActive {
+                VoiceInputPanel(model: voice, prefix: text)
+            } else {
+                textInput
+            }
+        }
+        // 入力欄の外に付ける。声の入力の間は入力欄ごと書き起こしの表示に替わり、入力欄に付けた onChange は呼ばれないため
+        // （フォーカスが外れたことを知らせないと、声の入力の後もホームの帯が低いまま残る）。
+        .onChange(of: isFocused) { _, focused in
+            focusChanged(focused)
         }
     }
 

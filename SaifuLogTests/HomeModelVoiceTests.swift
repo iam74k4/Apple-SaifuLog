@@ -99,7 +99,7 @@ struct HomeModelVoiceTests {
 
         await fixture.model.send(calendar: TestSupport.calendar)?.value
 
-        #expect(fixture.model.showsNoAmountAlert)
+        #expect(fixture.model.questions.last?.state == .noAmount)
         #expect(fixture.model.draft == "ランチ")
         #expect(fixture.model.draftSource == .voice)
     }
