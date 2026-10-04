@@ -189,7 +189,8 @@ struct HomeModelTests {
         let question = fixture.model.send(calendar: TestSupport.calendar)
         #expect(fixture.model.pendingRecord == nil)
         await question?.value
-        #expect(fixture.model.questions.count == 1)
+        // 金額の無い文の案内と、質問の答え（読み取りの間の吹き出しは、どちらにも残らない）。
+        #expect(fixture.model.questions.map(\.text) == ["ランチ", "今月いくら?"])
     }
 
     /// 1 回の送信で複数件を記録したら、取り消しの対象もその全部。
