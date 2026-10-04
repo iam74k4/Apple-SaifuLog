@@ -11,12 +11,12 @@
 ### お問い合わせ
 
 - **ご質問・不具合のご報告・ご要望:** GitHub の Issues にお寄せください。
-  https://github.com/iam74k4/SaifuLog-Apple/issues
+  https://github.com/iam74k4/Apple-SaifuLog/issues
   **Issues は公開されます。** 個人情報や家計の記録（金額・メモ・スクリーンショットに写った記録など）は書き込まないでください。
   お使いの iPhone の機種と iOS のバージョン、アプリのバージョン（設定の画面のいちばん下）を添えていただけると助かります。
 - **セキュリティやプライバシーに関わる問題、公開の場に書けないご相談:** Issues ではなく、GitHub の非公開の報告窓口
   （リポジトリの Security タブの「Report a vulnerability」）からお知らせください。内容は開発者とご本人だけが見られます。
-  https://github.com/iam74k4/SaifuLog-Apple/security/advisories/new
+  https://github.com/iam74k4/Apple-SaifuLog/security/advisories/new
 - **購入の返金:** 購入と支払いは Apple の App Store が扱っており、開発者は返金の手続きができません。Apple の「問題を報告する」
   （https://reportaproblem.apple.com ）からお申し込みください。
 
@@ -51,7 +51,7 @@ iPhone の「設定」→「サイフログ」で、マイクやカメラの許�
 
 **入力した記録は、どこかへ送られますか？**
 開発者へは送りません。開発者のサーバーはありません。詳しくはプライバシーポリシーをご覧ください。
-https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md
+https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md
 
 ---
 
@@ -60,12 +60,12 @@ https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md
 ### Contact
 
 - **Questions, bug reports, and requests:** Please open an issue on GitHub.
-  https://github.com/iam74k4/SaifuLog-Apple/issues
+  https://github.com/iam74k4/Apple-SaifuLog/issues
   **Issues are public.** Please don't include personal information or your records (amounts, notes, or screenshots that show your
   records). It helps to include your iPhone model, iOS version, and the app version (at the bottom of Settings).
 - **Security or privacy issues, or anything you can't post publicly:** Please use GitHub's private reporting channel instead of Issues
   ("Report a vulnerability" on the repository's Security tab). Only the developer and you can see it.
-  https://github.com/iam74k4/SaifuLog-Apple/security/advisories/new
+  https://github.com/iam74k4/Apple-SaifuLog/security/advisories/new
 - **Refunds:** Purchases and payments are handled by Apple's App Store, and the developer can't issue refunds. Please request one
   from Apple's Report a Problem page (https://reportaproblem.apple.com ).
 
@@ -100,4 +100,4 @@ Touch and hold a record and choose Delete, or tap it and use Delete This Record.
 
 **Are my records sent anywhere?**
 Not to the developer; there is no developer server. See the privacy policy for details.
-https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md
+https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md

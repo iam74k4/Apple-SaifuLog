@@ -444,7 +444,7 @@ struct SettingsModelTests {
 
     /// プライバシーポリシーとライセンスは、公開リポジトリの main のファイルを開く。
     @Test func linksPointToRepositoryDocuments() {
-        #expect(SettingsModel.privacyPolicyURL.absoluteString == "https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md")
-        #expect(SettingsModel.licenseURL.absoluteString == "https://github.com/iam74k4/SaifuLog-Apple/blob/main/LICENSE")
+        #expect(SettingsModel.privacyPolicyURL.absoluteString == "https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md")
+        #expect(SettingsModel.licenseURL.absoluteString == "https://github.com/iam74k4/Apple-SaifuLog/blob/main/LICENSE")
     }
 }

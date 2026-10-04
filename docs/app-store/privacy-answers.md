@@ -8,7 +8,7 @@ App Store Connect → アプリ → 「App のプライバシー」に入れる�
 
 | 質問 | 回答 |
 |---|---|
-| プライバシーポリシーの URL | https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md （アプリの設定から開く URL と同じ。main に入るのは初めてのリリースのとき。[`metadata.ja.md`](metadata.ja.md) の「URL」） |
+| プライバシーポリシーの URL | https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md （アプリの設定から開く URL と同じ。main に入るのは初めてのリリースのとき。[`metadata.ja.md`](metadata.ja.md) の「URL」） |
 | あなた、またはあなたの第三者パートナーは、この App からデータを収集しますか？ | **いいえ、この App からデータを収集しません** |
 
 「いいえ」にすると、App Store の表示は「データの収集なし」になり、データの種類ごとの質問（連絡先情報・購入・位置情報・
