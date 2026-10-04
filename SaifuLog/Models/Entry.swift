@@ -37,6 +37,13 @@ final class Entry {
     /// 同じ月の分を記録したときにも見つけて片づける（`RecurringEntryStore.removeDuplicateOccurrences`）。
     /// 後から足した項目（既定値があるので、足す前の保存先も移行なしで開ける。`ModelContainerFactoryTests`）。
     @Attribute(.allowsCloudEncryption) var recurrenceKey: String = ""
+    /// 確認待ちの記録を、保存先の開き直し・iCloud 同期の後にも結び付ける。古い記録は必要になったときに採番する。
+    @Attribute(.allowsCloudEncryption) var reviewID: String = ""
+    @Attribute(.allowsCloudEncryption) var needsCategoryReview: Bool = false
+    /// 分類が終わる前にアプリを閉じても、次の起動で再開するための印。
+    @Attribute(.allowsCloudEncryption) var needsPaymentClassification: Bool = false
+    /// 重複候補の相手と、確認を作った時点の金額・日付。記録と同じ保存処理で書く。
+    @Attribute(.allowsCloudEncryption) var paymentReviewJSON: String = ""
 
     init(
         amount: Int,
@@ -56,6 +63,7 @@ final class Entry {
         self.createdAt = createdAt
         self.sourceRawValue = source.rawValue
         self.originalText = originalText
+        self.reviewID = UUID().uuidString
     }
 
     var category: EntryCategory {

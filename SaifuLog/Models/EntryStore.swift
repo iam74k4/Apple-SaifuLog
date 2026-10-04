@@ -24,9 +24,13 @@ struct EntryStore {
     /// 戻さないと、画面には直した値が出たまま、次の自動保存で黙って書き込まれたり、次の起動で直す前に戻ったりする。
     /// ほかの端末（iCloud）で消された記録なら、値に触れずに `EntryDeletedElsewhere` を throw する（消えた記録の値を読み書き
     /// すると、アプリが落ちうるため。直したつもりで何も残らないことも避ける）。
-    func update(_ entry: Entry, with edits: EntryEdits) throws {
+    func update(_ entry: Entry, with edits: EntryEdits, resolvesCategory: Bool = true) throws {
         guard exists(entry.persistentModelID) else { throw EntryDeletedElsewhere() }
         edits.apply(to: entry)
+        if resolvesCategory {
+            entry.needsCategoryReview = false
+            entry.needsPaymentClassification = false
+        }
         do {
             try commit()
         } catch {
@@ -39,7 +43,18 @@ struct EntryStore {
 
     /// 記録を消す。ほかの端末（iCloud）で消された記録は飛ばす（もう無いので、消したのと同じ）。
     func delete(_ entries: [Entry]) throws {
-        for entry in entries where exists(entry.persistentModelID) {
+        let existing = entries.filter { exists($0.persistentModelID) }
+        let keys = Set(existing.map(\.reviewID).filter { !$0.isEmpty })
+        // 相手の記録を消したら、確認用に控えた金額や品目も同じ保存処理で片づける。
+        if !keys.isEmpty {
+            let pending = try context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.paymentReviewJSON != "" }))
+            for anchor in pending {
+                guard let evidence = PaymentReviewEvidence(json: anchor.paymentReviewJSON),
+                      keys.contains(evidence.payment.key) || evidence.records.contains(where: { keys.contains($0.key) }) else { continue }
+                anchor.paymentReviewJSON = ""
+            }
+        }
+        for entry in existing {
             context.delete(entry)
         }
         try commit()
@@ -64,7 +79,7 @@ struct EntryStore {
 
     /// 書き込めなかった変更は取り消す。残しておくと、画面には出たまま次の自動保存で
     /// 黙って書き込まれたり、書き込まれずに消えたりして、画面と保存先が食い違うため。
-    private func commit() throws {
+    func commit() throws {
         do {
             try save(context)
         } catch {

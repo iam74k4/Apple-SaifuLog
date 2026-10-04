@@ -72,6 +72,21 @@ struct PurchaseCheckTests {
         #expect(try check(records: Array(records().suffix(7))).projectedVariable != nil)
     }
 
+    @Test func newUserPaceDoesNotTreatTimeBeforeFirstRecordAsZeroSpending() throws {
+        let history = Array(records(amount: 1000).prefix(14))
+        let check = try check(records: history)
+        #expect(check.observationDays == 14)
+        #expect(check.historyDays == 14)
+        #expect(check.projectedVariable == 16_000)
+        #expect(check.habits.first?.remainingCount == 16)
+    }
+
+    @Test func fullMonthKeepsTwentyEightDayObservationWindow() throws {
+        let check = try check(records: records(amount: 1000))
+        #expect(check.observationDays == 28)
+        #expect(check.projectedVariable == 16_000)
+    }
+
     @Test func incomeFixedCostsAndTodayDoNotBecomeHabits() throws {
         var history = records()
         history.append(.init(amount: 90_000, memo: "家賃", category: .cafe, spentAt: calendar.date(byAdding: .day, value: -1, to: now)!, isRecurring: true))

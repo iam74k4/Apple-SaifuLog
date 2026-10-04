@@ -886,6 +886,9 @@ release.yml はアップロードの前に `make export-ipa` で書き出した�
 
 #### CloudKit のスキーマ（所有者の作業）
 
+2026-10-05の配布前レビューで、対象コンテナのDevelopment/ProductionのRecord Typesは`Users`のみと確認した。
+`CD_Entry`等は未作成で、TestFlightのアップロードだけでは同期できる状態にならない。下記の初期化・暗号化確認・Production反映と実機の同期確認が未完了。
+
 iCloud 同期は、SwiftData が記録と予算を CloudKit のレコード（`CD_Entry`・`CD_Budget`）として置く。レコードの型と項目（スキーマ）は、
 開発用の環境（Development）では、アプリが初めて書き込んだときに自動で作られる。Production の環境では自動では作られないので、
 所有者が CloudKit Console で出す。TestFlight と App Store のビルドは Production の環境を使う（Xcode から入れた Debug のビルドは
@@ -910,14 +913,15 @@ CloudKit は、スキーマに載った項目を後から暗号化フィール�
      作り直す。Production に出した後はリセットできない
 2. **暗号化フィールドになっているかを確かめる。** 同じ画面で、`CD_Entry` と `CD_Budget` のアプリの項目の型が、すべて「Encrypted」で
    始まっているかを見る（Console は暗号化フィールドの型を「Encrypted String」「Encrypted Double」「Encrypted Timestamp」のように
-   表す。Apple の説明）。確かめる項目は次の 11（名前は Core Data が付ける `CD_` つき）
-   - `CD_Entry`: `CD_amount`・`CD_isIncome`・`CD_categoryRawValue`・`CD_memo`・`CD_spentAt`・`CD_createdAt`・`CD_sourceRawValue`・`CD_originalText`
+   表す。Apple の説明）。次の項目を含め、全モデルのアプリ由来の項目を確かめる（名前は Core Data が付ける `CD_` つき）
+   - `CD_Entry`: `CD_amount`・`CD_isIncome`・`CD_categoryRawValue`・`CD_memo`・`CD_spentAt`・`CD_createdAt`・`CD_sourceRawValue`・`CD_originalText`・`CD_recurrenceKey`・`CD_reviewID`・`CD_needsCategoryReview`・`CD_needsPaymentClassification`・`CD_paymentReviewJSON`
    - `CD_Budget`: `CD_scopeRawValue`・`CD_amount`・`CD_updatedAt`
    - Core Data が足す管理用の項目（`CD_entityName` と、文字の項目ごとの `…_ckAsset`）と、CloudKit のシステムの項目（`recordName`・
      `createdTimestamp` など）は、アプリから暗号化を指定しないので、ここでは見ない（`…_ckAsset` はアセットで、アセットは CloudKit が
      いつも暗号化する）
    - 暗号化でない型の項目が 1 つでもあれば、Production に出さない。アプリのモデルで指定が外れていないか（`make test-app` の
      `ModelContainerFactoryTests` が止めるはず）と、0 のリセットを済ませたかを確かめてから、0 からやり直す
+   - `CD_LearnedCategory`・`CD_CustomCategory`・`CD_RecurringEntry`も、開発用アプリでカテゴリの確定・独自カテゴリの作成・くり返しの設定を行って型を作り、モデルの全属性に対応する暗号化フィールドがあるか確かめる。記録と予算の2型だけでは、これらの設定を同期できない
 3. **Production に出す。** CloudKit Console → Deploy Schema Changes で、Development のスキーマを Production に反映する。
    初回リリースの審査の前に済ませる（「[初回リリース（0.1.0）の進め方](#初回リリース010の進め方)」の 5）。TestFlight
    （`mode=testflight`）で同期を試すのも、これを済ませてから

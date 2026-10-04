@@ -30,6 +30,7 @@ struct PurchaseCheckView: View {
                             } else {
                                 Label("記録が増えると、いつもの支出も組み替えられます", systemImage: "chart.bar.xaxis")
                                     .font(.subheadline).foregroundStyle(Theme.inkSecondary)
+                                SpendingChoicesPreview()
                             }
                             evidence(analysis)
                         } else {
@@ -37,6 +38,7 @@ struct PurchaseCheckView: View {
                                 .font(.subheadline).foregroundStyle(Theme.inkSecondary)
                                 .frame(maxWidth: .infinity, minHeight: 100)
                         }
+                        if analysis.outlook.budget == nil { SpendingChoicesPreview() }
                     }
                 }.padding()
                     .containerRelativeFrame(.horizontal)
@@ -135,13 +137,13 @@ struct PurchaseCheckView: View {
                     PurchaseHabitCard(habit: habit, count: model.reduction(for: habit)) { model.setReduction($0, for: habit) }
                 }
                 Divider()
-                Text("いつものペースで暮らしたら").font(.subheadline.weight(.semibold))
+                Text("記録のペースで試算").font(.subheadline.weight(.semibold))
                 PurchaseComparisonBars(rows: [
                     .init(title: "そのまま買う", amount: projected, symbol: "bag"),
                     .init(title: "組み替えて買う", amount: comparison.projectedWithAdjustment ?? projected, symbol: "arrow.triangle.branch")
                 ])
             } else {
-                Text("いつものペースで暮らしたら").font(.subheadline.weight(.semibold))
+                Text("記録のペースで試算").font(.subheadline.weight(.semibold))
                 PurchaseComparisonBars(rows: [
                     .init(title: "見送る", amount: comparison.projectedWithoutPurchase ?? 0, symbol: "pause.circle"),
                     .init(title: "買う", amount: projected, symbol: "bag")
@@ -162,7 +164,7 @@ struct PurchaseCheckView: View {
                         .font(.caption).foregroundStyle(Theme.inkSecondary)
                 }
             }
-            Text("月末の余裕の目安。記録がない日は支出0円として試算。")
+            Text("記録を始めてからのペースです。記録していない支払いは反映されません。")
                 .font(.caption).foregroundStyle(Theme.inkSecondary)
         }.checkCard()
     }
@@ -181,9 +183,9 @@ struct PurchaseCheckView: View {
                 Text("試算だけです。支出や予算は変更しません。")
                 if let projected = analysis.projectedVariable {
                     moneyRow("これからの日々の支出見込み", projected)
-                    Text("過去28日中\(analysis.historyDays)日の支出から、明日以降\(analysis.futureDays)日分を試算。記録のない日は0円として計算します。")
+                    Text("直近\(analysis.observationDays)日間のうち\(analysis.historyDays)日にある記録から、明日以降\(analysis.futureDays)日分を試算。期間内で記録のない日は0円として計算します。")
                     Text("今日これから使う分は含みません。固定費と先の日付で記録した支出は別に確保済みです。残しておく額を引いた目安で、実際の残高の予測ではありません。")
-                    Text("回数の上限は過去28日の頻度、金額は中央値が基準です。節約分は将来の支出見込みだけから引き、今ある予算には足しません。")
+                    Text("回数の上限は記録期間の頻度、金額は中央値が基準です。節約分は将来の支出見込みだけから引き、今ある予算には足しません。")
                     ForEach(analysis.habits) { habit in
                         VStack(alignment: .leading) {
                             Text(verbatim: habit.name).fontWeight(.semibold)

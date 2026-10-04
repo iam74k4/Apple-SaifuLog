@@ -12,12 +12,26 @@ struct QuickPhraseBar: View {
     let pick: (QuickPhrase) -> Void
     var purchaseCheck: (() -> Void)?
     var paymentSetup: (() -> Void)?
+    var reviewCount: Int?
+    var review: (() -> Void)?
 
     var body: some View {
-        if !phrases.isEmpty || purchaseCheck != nil || paymentSetup != nil {
+        if !phrases.isEmpty || purchaseCheck != nil || paymentSetup != nil || review != nil {
             ScrollView(.horizontal) {
                 GlassEffectContainer(spacing: 8) {
                     HStack(spacing: 8) {
+                        if let review {
+                            Button(action: review) {
+                                Group {
+                                    if let reviewCount { Label("確認待ち \(reviewCount)件", systemImage: "checklist") }
+                                    else { Label("確認を再読み込み", systemImage: "arrow.clockwise") }
+                                }
+                                    .font(.subheadline.weight(.semibold)).lineLimit(1)
+                                    .padding(.horizontal, 4).frame(minHeight: 32)
+                            }
+                            .buttonStyle(.glass).buttonBorderShape(.capsule)
+                            .accessibilityIdentifier("open-pending-reviews")
+                        }
                         if let paymentSetup {
                             Button(action: paymentSetup) {
                                 Label("自動記録", systemImage: "wave.3.right.circle")

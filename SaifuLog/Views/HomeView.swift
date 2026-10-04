@@ -113,6 +113,9 @@ struct HomeView: View {
                 .sheet(item: $model.purchaseCheck) { check in
                     PurchaseCheckView(model: check)
                 }
+                .sheet(isPresented: $model.showsReviewQueue) {
+                    EntryReviewQueueView(model: model)
+                }
                 .sheet(item: $model.walletCapture) { capture in
                     NavigationStack {
                         WalletCaptureView(model: capture)
@@ -238,6 +241,7 @@ struct HomeView: View {
                     model.weeklyRecap?.reload()
                     model.refreshQuickPhrases()
                     model.calendarPage.reload()
+                    model.refreshPendingReviews()
                 }
                 // iCloud で届いたほかの端末の変更でも読み直す（didSave にならないため。帯とタイムラインは @Query が追う）。
                 // ほかの端末が同じ月のくり返しの記録を記録していたら片づける。
@@ -249,6 +253,7 @@ struct HomeView: View {
                     model.weeklyRecap?.reload()
                     model.refreshQuickPhrases()
                     model.calendarPage.reload()
+                    model.refreshPendingReviews()
                 }
                 #if DEBUG || INTERNAL_DIAGNOSTICS
                 .sheet(isPresented: $showsDiagnostics) {
@@ -499,7 +504,9 @@ struct HomeView: View {
                     purchaseCheck: model.draft.isEmpty && !isTyping && !model.isParsing
                         ? { model.presentPurchaseCheck(calendar: calendar) } : nil,
                     paymentSetup: model.draft.isEmpty && !isTyping && !model.isParsing
-                        ? { model.presentWalletCapture() } : nil
+                        ? { model.presentWalletCapture() } : nil,
+                    reviewCount: model.reviewLoadFailed ? nil : model.reviewItems.count,
+                    review: !model.reviewItems.isEmpty || model.reviewLoadFailed ? { model.showsReviewQueue = true } : nil
                 )
                 // 候補は画面の端から端まで送れるようにする（下の入力欄の左右の余白の外まで）。
                 .padding(.horizontal, -16)
@@ -542,7 +549,7 @@ struct HomeView: View {
         if let action = quickActions.take() {
             model.receive(action)
         }
-        guard !hidesContent else { return }
+        guard scenePhase == .active, !hidesContent else { return }
         // Apple Pay の支払いの受け箱も、ここで記録にする（ロックを解いた後・読み取りが終わった後にも見るため）。
         model.importCapturedPayments(calendar: calendar)
         model.performPendingQuickAction(calendar: calendar)
@@ -603,7 +610,7 @@ struct HomeView: View {
     }
 
     private var showsStoreFailure: Binding<Bool> {
-        Binding(get: { model.storeFailure != nil }, set: { if !$0 { model.storeFailure = nil } })
+        Binding(get: { model.storeFailure != nil && !model.showsReviewQueue }, set: { if !$0 && !model.showsReviewQueue { model.storeFailure = nil } })
     }
 
     private var showsDeletionConfirmation: Binding<Bool> {
@@ -636,20 +643,21 @@ struct HomeView: View {
 }
 
 /// 保存先への書き込みの失敗を利用者に知らせる文。
-private extension HomeModel.StoreFailure {
+extension HomeModel.StoreFailure {
     var title: Text {
         switch self {
         case .record: Text("記録できませんでした")
         case .undo: Text("取り消せませんでした")
         case .delete: Text("削除できませんでした")
         case .categoryChoice: Text("カテゴリを変えられませんでした")
+        case .reviewChoice: Text("確認を保存できませんでした")
         }
     }
 
     var message: Text {
         switch self {
         case .record: Text("保存に失敗しました。もう一度送ってください。")
-        case .undo, .delete, .categoryChoice: Text("保存に失敗しました。もう一度お試しください。")
+        case .undo, .delete, .categoryChoice, .reviewChoice: Text("保存に失敗しました。もう一度お試しください。")
         }
     }
 }

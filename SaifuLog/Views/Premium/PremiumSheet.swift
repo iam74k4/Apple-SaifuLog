@@ -30,7 +30,10 @@ struct PremiumSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
                     hero
-                    benefits
+                    SpendingChoicesPreview()
+                    Text("自分の記録での組み替えには、14日以上前から7日以上の支出記録が必要です。記録が揃ってから無料体験を始めると、十分に試せます。")
+                        .font(.footnote).foregroundStyle(Theme.inkSecondary)
+                    DisclosureGroup("ほかにできること") { benefits.padding(.top, 12) }
                     if model.status.canPurchase {
                         priceSection
                     }
@@ -45,6 +48,7 @@ struct PremiumSheet: View {
                 .foregroundStyle(Theme.ink)
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .containerRelativeFrame(.horizontal)
             }
             #if DEBUG
             // 撮影用のデモで、体験の説明とボタンを写すときだけ下の端から開く。
@@ -98,9 +102,8 @@ struct PremiumSheet: View {
 
     private var hero: some View {
         VStack(alignment: .leading, spacing: 12) {
-            PremiumSymbolTile(symbolName: "sparkles", size: 60)
             Text("サイフログ プレミアム")
-                .font(.largeTitle.bold())
+                .font(.title2.bold())
                 .accessibilityAddTraits(.isHeader)
             statusText
                 .foregroundStyle(Theme.inkSecondary)
@@ -110,7 +113,7 @@ struct PremiumSheet: View {
     private var statusText: Text {
         switch model.status {
         case .free:
-            Text("欲しいものに回すお金を、いつもの支出から考える。買う前チェックの支出の組み替えに加え、レシート・質問の無制限、カテゴリ別の予算が使えます。")
+            Text("いつもの支出を、欲しいものへ。まずは回数を変えてみてください。")
         case .trial(let days, let endsAt):
             Text("無料体験中です。あと \(days) 日（\(endsAt.formatted(.dateTime.month().day().hour().minute())) まで）使えます。")
         case .trialEnded:

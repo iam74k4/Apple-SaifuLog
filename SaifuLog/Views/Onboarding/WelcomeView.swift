@@ -5,16 +5,27 @@ import SwiftUI
 /// 何ができるか（入力の例）、この iPhone で AI が文を読むか（読まなくても記録できること）、記録をどこに置くかを
 /// 伝え、「はじめる」で ② 予算を決める へ進む。状態と操作は `OnboardingModel` が持つ。
 struct WelcomeView: View {
-    let model: OnboardingModel
+    @Bindable var model: OnboardingModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @ScaledMetric(relativeTo: .largeTitle) private var markSize = 64
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 32) {
+            VStack(alignment: .leading, spacing: 24) {
                 header
-                examples
-                VStack(alignment: .leading, spacing: 20) {
+                paymentPreview
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "checklist").font(.title2)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("迷った記録だけ確認").font(.headline)
+                        Text("分類や重複の確認は、あとからまとめて。")
+                            .font(.subheadline).foregroundStyle(Theme.inkSecondary)
+                    }
+                }
+                DisclosureGroup("手入力・声・レシートでも記録") { examples.padding(.top, 12) }
+                DisclosureGroup("AIとデータの扱い") {
+                  VStack(alignment: .leading, spacing: 20) {
                     let aiStatus = model.aiStatus
                     WelcomeNote(
                         symbolName: aiStatus.isAvailable ? "sparkles" : "text.book.closed",
@@ -28,11 +39,12 @@ struct WelcomeView: View {
                         // 設定でオンにしたときだけ利用者の iCloud にも置くことを書き添え、あとで同期を選んでも食い違わないようにする。
                         message: "記録はこの iPhone の中に保存し、文の読み取りもこの iPhone の中で行います。開発者のサーバーはなく、記録や入力した文を開発者や第三者に送ることはありません。設定で iCloud の同期をオンにしたときだけ、記録をあなたの iCloud にも保存し、同じ Apple アカウントの端末どうしでそろえます。"
                     )
-                }
+                  }.padding(.top, 12)
+                }.font(.subheadline)
             }
             .foregroundStyle(Theme.ink)
             .padding(.horizontal)
-            .padding(.top, 32)
+            .padding(.top, 24)
             .padding(.bottom, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -51,11 +63,17 @@ struct WelcomeView: View {
                 .padding(.horizontal)
                 .padding(.vertical, 8)
         }
+        .sheet(item: $model.walletCapture) { capture in
+            NavigationStack {
+                WalletCaptureView(model: capture)
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("閉じる") { model.walletCapture = nil } } }
+            }
+        }
     }
 
     private var header: some View {
         // 飾りの印は文字に合わせて大きくするが、最大の文字サイズでは本文の場所を取りすぎないよう上限を設ける。
-        let size = min(markSize, 88)
+        let size = min(markSize, 48)
         return VStack(alignment: .leading, spacing: 12) {
             // 主の塗りに onAccent の記号（アプリのアイコンの地と財布と同じ白と黒。Theme の説明）。
             Image(systemName: "wallet.bifold.fill")
@@ -65,10 +83,10 @@ struct WelcomeView: View {
                 .background(Theme.accentFill, in: .rect(cornerRadius: size * 0.28))
                 .accessibilityHidden(true)
             // 画面でいちばん上の見出し。VoiceOver の見出しの移動で、ここから順に読めるようにする。
-            Text("ひとことで家計簿")
+            Text("払ったら、家計簿へ。")
                 .font(.largeTitle.bold())
                 .accessibilityAddTraits(.isHeader)
-            Text("サイフログは、「ランチ 850」のように一行送るだけで記録できる家計簿です。分類と計算はアプリが引き受け、同じ入力欄で家計について聞くこともできます。")
+            Text("Apple Payの支払いを取り込み、カテゴリまで整理。最初に一度、ショートカットを設定します。")
                 .foregroundStyle(Theme.inkSecondary)
         }
     }
@@ -85,18 +103,56 @@ struct WelcomeView: View {
     }
 
     private var startButton: some View {
-        Button {
-            model.start()
-        } label: {
-            Text("はじめる")
-                .fontWeight(.semibold)
-                // 主ボタンは主の塗りに onAccent の文字（Theme の説明）。
-                .foregroundStyle(Theme.onAccent)
+        VStack(spacing: 8) {
+            Button {
+                if model.hasOpenedPaymentGuide { model.start() } else { model.showPaymentGuide() }
+            } label: {
+                Group {
+                    if model.hasOpenedPaymentGuide { Text("家計簿へ進む") } else { Text("自動記録を設定") }
+                }
+                .fontWeight(.semibold).foregroundStyle(Theme.onAccent)
                 .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.glassProminent).tint(Theme.accentFill)
+            if model.hasOpenedPaymentGuide {
+                Button("自動記録の設定を見る") { model.showPaymentGuide() }
+            } else {
+                Button("手入力からはじめる") { model.start() }
+            }
         }
-        .buttonStyle(.glassProminent)
-        .tint(Theme.accentFill)
-        .accessibilityHint("月の予算を決める画面に進みます")
+    }
+
+    private var paymentPreview: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label("記録の流れを体験・サンプル", systemImage: "hand.tap")
+                .font(.caption.weight(.semibold)).foregroundStyle(Theme.inkSecondary)
+            HStack(spacing: 14) {
+                Image(systemName: model.previewsRecordedPayment ? "cup.and.saucer.fill" : "wave.3.right.circle.fill")
+                    .font(.largeTitle).foregroundStyle(model.previewsRecordedPayment ? Theme.color(for: .cafe) : Theme.ink)
+                    .frame(width: 56, height: 64).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(verbatim: "STARBUCKS").font(.headline)
+                    Text(verbatim: "¥450").font(.title.bold()).monospacedDigit()
+                }
+            }
+            if model.previewsRecordedPayment {
+                Label("カフェに分類して記録", systemImage: "checkmark.circle.fill")
+                    .font(.headline).foregroundStyle(Theme.color(for: .cafe))
+                Text("次にアプリを開くと、このように確認できます。")
+                    .font(.subheadline).foregroundStyle(Theme.inkSecondary)
+                Button("もう一度見る") { model.previewsRecordedPayment = false }
+            } else {
+                Button { model.previewsRecordedPayment = true } label: {
+                    Label("支払い後を見てみる", systemImage: "arrow.right.circle")
+                        .frame(maxWidth: .infinity, minHeight: 32)
+                }.buttonStyle(.glass)
+            }
+            Text("実際の記録には追加しません。")
+                .font(.caption).foregroundStyle(Theme.inkSecondary)
+        }
+        .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surface, in: .rect(cornerRadius: 20))
+        .animation(reduceMotion ? nil : .snappy, value: model.previewsRecordedPayment)
     }
 }
 

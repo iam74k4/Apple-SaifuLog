@@ -26,13 +26,14 @@ public struct PurchaseCheck: Sendable {
         public let category: EntryCategory
         public let count: Int
         public let typicalAmount: Int
-        /// 過去28日の頻度を残りの日数に当てはめた上限。実際の予定ではない。
+        /// 記録のある期間（最長28日）の頻度を残りの日数に当てはめた上限。実際の予定ではない。
         public let remainingCount: Int
     }
 
     public let outlook: SpendingOutlook
     public let habits: [Habit]
     public let historyDays: Int
+    public let observationDays: Int
     public let futureDays: Int
     public let projectedVariable: Int?
 
@@ -44,8 +45,10 @@ public struct PurchaseCheck: Sendable {
         let futureDays = max(0, outlook.remainingDays - 1)
         self.futureDays = futureDays
         historyDays = Set(history.map { calendar.startOfDay(for: $0.spentAt) }).count
-        // 少数日の記録から「いつものペース」を言い切らない。欠けた日は0として扱う旨も画面で示す。
+        // 利用開始前の空白は支出ゼロに数えない。最初の支出の日から昨日までを分母にする。
         let span = history.map(\.spentAt).min().map { calendar.dateComponents([.day], from: calendar.startOfDay(for: $0), to: today).day ?? 0 } ?? 0
+        let observationDays = min(28, span)
+        self.observationDays = observationDays
         let hasHistory = historyDays >= 7 && span >= 14
         var total = 0
         for record in history {
@@ -53,7 +56,7 @@ public struct PurchaseCheck: Sendable {
             guard !addition.overflow, addition.partialValue <= Int.max / 32 else { return nil }
             total = addition.partialValue
         }
-        projectedVariable = hasHistory ? total * futureDays / 28 : nil
+        projectedVariable = hasHistory ? total * futureDays / observationDays : nil
         let groups = Dictionary(grouping: history) { record in
             // カテゴリをまたいだ同名の買い物を、一つの節約案にまとめない。
             record.category.rawValue + "/" + (CategoryMemory.key(for: record.memo) ?? "")
@@ -66,7 +69,7 @@ public struct PurchaseCheck: Sendable {
             let amounts = rows.map(\.amount).sorted()
             // 外れ値を含む平均で節約額を大きく見せない。偶数件では小さい側の中央値を使う。
             let typical = amounts[(amounts.count - 1) / 2]
-            let remaining = rows.count * futureDays / 28
+            let remaining = rows.count * futureDays / observationDays
             guard remaining > 0 else { return nil }
             return Habit(id: key, name: latest.memo, category: latest.category, count: rows.count, typicalAmount: typical, remainingCount: remaining)
         }.sorted {
