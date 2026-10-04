@@ -153,8 +153,9 @@ struct CategoryRefinementTests {
         )
 
         #expect(refined.map(\.category) == [.cafe, .other, .other])
-        // 止まった品目の後ろは聞かない。止まった AI が終わるのも待たない。
-        #expect(log.items == ["a", "b"])
+        // 1件目の答えを受け取ってから次のループへ戻る間に期限を過ぎた場合、2件目は呼ばないのが正しい。
+        // CIの負荷によるスケジューラの遅れを、アプリの不具合と扱わない。3件目はどちらの場合も聞かない。
+        #expect(log.items == ["a"] || log.items == ["a", "b"])
         #expect(log.reasons == ["timedOut"])
         #expect(start.duration(to: clock.now) < .seconds(60))
     }
