@@ -120,7 +120,7 @@ App Store は Markdown を表示しないので、見出しは「■」、箇条
 ・Apple Pay の支払いの記録は、「ショートカット」App でオートメーションを作ったときに使えます。円の支払いだけを記録します。
 ・入力の読み取りは日本語の文を前提にしています。金額は円で記録します。
 
-プライバシーポリシー: https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md
+プライバシーポリシー: https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md
 ```
 
 説明の中身は README の「主な機能」「価格」と、`docs/design.md` §6 の料金表に合わせている。機能を足したり料金を変えたりしたら、
@@ -161,9 +161,9 @@ App Store がそちらで拾うので入れない。他社のアプリ名と価�
 
 | 項目 | URL | 注記 |
 |---|---|---|
-| サポート URL（必須） | https://github.com/iam74k4/SaifuLog-Apple/blob/main/docs/support.md | 問い合わせ先とよくある質問（[`../support.md`](../support.md)）。個人のメールアドレスは載せない |
+| サポート URL（必須） | https://github.com/iam74k4/Apple-SaifuLog/blob/main/docs/support.md | 問い合わせ先とよくある質問（[`../support.md`](../support.md)）。個人のメールアドレスは載せない |
 | マーケティング URL（任意） | 入れない | 専用のページを持たない |
-| プライバシーポリシー URL | https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md | アプリの設定の「プライバシーポリシー」が開く URL と同じ（`SettingsModel.privacyPolicyURL`） |
+| プライバシーポリシー URL | https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md | アプリの設定の「プライバシーポリシー」が開く URL と同じ（`SettingsModel.privacyPolicyURL`） |
 
 **どちらの URL も main のファイルを指す。** main には、初めてのリリース（develop → main のマージ）まで `PRIVACY.md` も
 `docs/support.md` も入っていない（いまの main は README だけ）。App Store Connect に入れる前に開けることを確かめ、

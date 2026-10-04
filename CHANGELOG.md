@@ -69,5 +69,5 @@
 - 大きな文字サイズと VoiceOver に対応
 - 日本語と英語の表示に対応
 
-[未リリース]: https://github.com/iam74k4/SaifuLog-Apple/compare/main...develop
-[0.1.0]: https://github.com/iam74k4/SaifuLog-Apple/releases/tag/v0.1.0
+[未リリース]: https://github.com/iam74k4/Apple-SaifuLog/compare/main...develop
+[0.1.0]: https://github.com/iam74k4/Apple-SaifuLog/releases/tag/v0.1.0

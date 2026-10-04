@@ -103,7 +103,7 @@ REQUIREMENTS
 • Apple Pay logging needs a Shortcuts automation and records payments in yen only.
 • Entries are read as Japanese text, and amounts are in yen.
 
-Privacy Policy: https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md
+Privacy Policy: https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md
 ```
 
 - **カテゴリ別の予算:** 字数（上限 4,000 文字）のため「adds budgets by category」とだけ書く。ホームの帯や質問の答えに出るようには書かない（日本語と同じ）。

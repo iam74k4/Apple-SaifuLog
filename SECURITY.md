@@ -9,7 +9,7 @@ SaifuLog の脆弱性や、プライバシーに関わる問題（記録が端�
 
 1. このリポジトリの **Security** タブを開く
 2. **Report a vulnerability** を押す（直接開くなら
-   https://github.com/iam74k4/SaifuLog-Apple/security/advisories/new ）
+   https://github.com/iam74k4/Apple-SaifuLog/security/advisories/new ）
 3. 内容を書いて送る
 
 報告の内容は、開発者と報告した人だけが見られます。Issues は誰でも読めるため、脆弱性の
@@ -51,7 +51,7 @@ through GitHub instead:
 
 1. Open the **Security** tab of this repository
 2. Click **Report a vulnerability**
-   (or go to https://github.com/iam74k4/SaifuLog-Apple/security/advisories/new )
+   (or go to https://github.com/iam74k4/Apple-SaifuLog/security/advisories/new )
 3. Describe the problem and submit
 
 Only the developer and you can see the report. Issues are public, so please do not put

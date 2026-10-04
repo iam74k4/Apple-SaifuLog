@@ -158,7 +158,7 @@ Apple アカウントにつき 1 回です。始めた日時は App Store の記
 
 ```bash
 brew install xcodegen
-git clone https://github.com/iam74k4/SaifuLog-Apple.git
+git clone https://github.com/iam74k4/Apple-SaifuLog.git
 cd SaifuLog-Apple
 make generate
 make open

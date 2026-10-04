@@ -16,11 +16,11 @@ import SwiftData
 @Observable
 final class SettingsModel {
     /// プライバシーポリシー（リポジトリの main の PRIVACY.md。Safari で開く）。
-    static let privacyPolicyURL = URL(string: "https://github.com/iam74k4/SaifuLog-Apple/blob/main/PRIVACY.md")!
+    static let privacyPolicyURL = URL(string: "https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md")!
     /// ライセンス（リポジトリの main の LICENSE。Safari で開く）。
-    static let licenseURL = URL(string: "https://github.com/iam74k4/SaifuLog-Apple/blob/main/LICENSE")!
+    static let licenseURL = URL(string: "https://github.com/iam74k4/Apple-SaifuLog/blob/main/LICENSE")!
     /// ヘルプ・お問い合わせ（リポジトリの main の docs/support.md。App Store Connect のサポート URL と同じページ。Safari で開く）。
-    static let supportURL = URL(string: "https://github.com/iam74k4/SaifuLog-Apple/blob/main/docs/support.md")!
+    static let supportURL = URL(string: "https://github.com/iam74k4/Apple-SaifuLog/blob/main/docs/support.md")!
 
     /// 書き出す期間。開くたびに今月から始める（前に選んだ期間を覚えておくほどの設定ではないため）。
     var exportPeriod: LedgerExportPeriod = .thisMonth

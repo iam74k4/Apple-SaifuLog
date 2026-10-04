@@ -271,14 +271,14 @@ SaifuLog を削除すると、端末内の記録と設定も併せて削除さ�
 本ポリシーに関するご質問は、GitHub リポジトリの Issues までお寄せください。Issues は
 公開されるため、個人情報や家計の記録は書き込まないでください。
 
-https://github.com/iam74k4/SaifuLog-Apple/issues
+https://github.com/iam74k4/Apple-SaifuLog/issues
 
 セキュリティやプライバシーに関わる問題（記録が端末の外へ送られている疑いなど）や、公開の
 場に書けないご相談は、Issues ではなく GitHub の非公開の報告窓口（リポジトリの Security
 タブの「Report a vulnerability」）からお知らせください。内容は開発者とご本人だけが
 見られます。詳しくは [`SECURITY.md`](SECURITY.md) を参照してください。
 
-https://github.com/iam74k4/SaifuLog-Apple/security/advisories/new
+https://github.com/iam74k4/Apple-SaifuLog/security/advisories/new
 
 ---
 
@@ -587,11 +587,11 @@ history of changes can be viewed in the GitHub repository.
 Questions about this policy may be raised via Issues on the GitHub repository. Issues are
 public, so please do not include personal information or your financial records.
 
-https://github.com/iam74k4/SaifuLog-Apple/issues
+https://github.com/iam74k4/Apple-SaifuLog/issues
 
 For security or privacy problems (for example, a sign that records leave the device), or for
 anything you cannot write in public, please use GitHub's private reporting channel instead of
 Issues ("Report a vulnerability" on the repository's Security tab). Only the developer and you
 can see the report. See [`SECURITY.md`](SECURITY.md) for details.
 
-https://github.com/iam74k4/SaifuLog-Apple/security/advisories/new
+https://github.com/iam74k4/Apple-SaifuLog/security/advisories/new
