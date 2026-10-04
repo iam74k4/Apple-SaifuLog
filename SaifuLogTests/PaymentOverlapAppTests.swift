@@ -158,8 +158,8 @@ struct PaymentOverlapAppTests {
 
     // MARK: - 聞き返しをやめるとき
 
-    /// 次を送ると、聞き返しを引っ込める（記録はどちらも残る）。
-    @Test func nextSendClearsQuestion() async throws {
+    /// 次を送っても、確認待ちから重複を解決できる。
+    @Test func nextSendKeepsUnresolvedQuestion() async throws {
         let fixture = try Fixture()
         try Self.pay(fixture, 450, at: TestSupport.date(2026, 9, 28, hour: 8))
         await fixture.send("コーヒー 450")
@@ -167,7 +167,7 @@ struct PaymentOverlapAppTests {
 
         await fixture.send("パン 280")
 
-        #expect(fixture.model.paymentOverlaps.isEmpty)
+        #expect(fixture.model.paymentOverlaps.count == 1)
         #expect(try fixture.entries().count == 3)
     }
 

@@ -38,22 +38,39 @@ final class PaymentInbox {
 
     /// 受け取った支払い（受け取った順）。読めない・無ければ空。
     func pending() -> [CapturedPayment] {
-        guard let data = try? Data(contentsOf: fileURL) else { return [] }
-        return (try? JSONDecoder().decode([CapturedPayment].self, from: data)) ?? []
+        (try? readPending()) ?? []
+    }
+
+    /// 読めない受け箱を空と扱って上書きしない。存在しない場合だけ空で返す。
+    func readPending() throws -> [CapturedPayment] {
+        let data: Data
+        do { data = try Data(contentsOf: fileURL) }
+        catch let error as CocoaError where error.code == .fileReadNoSuchFile { return [] }
+        return try JSONDecoder().decode([CapturedPayment].self, from: data)
+    }
+
+    /// 金額や店名を残さず、受信したことだけを設定画面で確認するための日時。
+    var lastReceivedAt: Date? {
+        guard let data = try? Data(contentsOf: directory.appending(path: "last-received.json")) else { return nil }
+        return try? JSONDecoder().decode(Date.self, from: data)
     }
 
     /// 支払いを足す。
     @discardableResult
     func append(amount: Int, merchant: String, paidAt: Date) throws -> CapturedPayment {
         let payment = CapturedPayment(id: UUID(), amount: amount, merchant: merchant, paidAt: paidAt)
-        try write(pending() + [payment])
+        try write(readPending() + [payment])
+        // 支払い本体の保存が正。状態表示だけの失敗で再送を促し、二重受信させない。
+        if let data = try? JSONEncoder().encode(paidAt) {
+            try? data.write(to: directory.appending(path: "last-received.json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        }
         NotificationCenter.default.post(name: Self.didReceive, object: nil)
         return payment
     }
 
     /// 記録にした支払いを消す。空になったらファイルごと消す（家計の中身を残しておかないため）。
     func remove(_ ids: Set<UUID>) throws {
-        let remaining = pending().filter { !ids.contains($0.id) }
+        let remaining = try readPending().filter { !ids.contains($0.id) }
         if remaining.isEmpty {
             if FileManager.default.fileExists(atPath: fileURL.path) {
                 try FileManager.default.removeItem(at: fileURL)

@@ -110,6 +110,22 @@ struct HomeView: View {
                 .navigationDestination(item: $model.weeklyRecapDetail) { recap in
                     WeeklyRecapView(model: recap)
                 }
+                .sheet(item: $model.purchaseCheck) { check in
+                    PurchaseCheckView(model: check)
+                }
+                .sheet(isPresented: $model.showsReviewQueue) {
+                    EntryReviewQueueView(model: model)
+                }
+                .sheet(item: $model.walletCapture) { capture in
+                    NavigationStack {
+                        WalletCaptureView(model: capture)
+                            .toolbar {
+                                ToolbarItem(placement: .cancellationAction) {
+                                    Button("閉じる") { model.walletCapture = nil }
+                                }
+                            }
+                    }
+                }
                 // 無料体験が終わった後の最初の起動に、一度だけプレミアム（⑨）を出す（`HomeModel.presentPremiumIfTrialEnded`）。
                 .sheet(item: $model.premiumSheet) { premium in
                     PremiumSheet(model: premium)
@@ -189,6 +205,10 @@ struct HomeView: View {
                 ))
                 // アプリを開いている間に Apple Pay の支払いを受け取ったら、すぐ記録にする。
                 .onReceive(NotificationCenter.default.publisher(for: PaymentInbox.didReceive)) { _ in deliverQuickActions() }
+                .onChange(of: hidesContent) { _, hides in
+                    if hides { model.cancelPaymentClassification() }
+                }
+                .onDisappear { model.cancelPaymentClassification() }
                 // この端末で声の入力を使えるか（マイクのボタンを出すか）を調べる。前面に戻ったときにも調べ直す（下の scenePhase）。
                 .task {
                     await model.voice.refreshAvailability()
@@ -221,6 +241,7 @@ struct HomeView: View {
                     model.weeklyRecap?.reload()
                     model.refreshQuickPhrases()
                     model.calendarPage.reload()
+                    model.refreshPendingReviews()
                 }
                 // iCloud で届いたほかの端末の変更でも読み直す（didSave にならないため。帯とタイムラインは @Query が追う）。
                 // ほかの端末が同じ月のくり返しの記録を記録していたら片づける。
@@ -232,6 +253,7 @@ struct HomeView: View {
                     model.weeklyRecap?.reload()
                     model.refreshQuickPhrases()
                     model.calendarPage.reload()
+                    model.refreshPendingReviews()
                 }
                 #if DEBUG || INTERNAL_DIAGNOSTICS
                 .sheet(isPresented: $showsDiagnostics) {
@@ -307,6 +329,7 @@ struct HomeView: View {
                         showWeeklyRecapIfDue()
                         Task { await model.voice.refreshAvailability() }
                     case .background:
+                        model.cancelPaymentClassification()
                         // 裏に回ったら、聞き取れた分を入力欄へ入れて止める（裏ではマイクを使い続けない）。
                         model.voice.stop(.background)
                     default:
@@ -411,6 +434,7 @@ struct HomeView: View {
                 // 控えた ID を渡す（ほかの端末で消された記録の値に、描くときに触れないため）。
                 undoableEntryIDs: Set(model.justRecordedIDs),
                 askingCategory: model.categoryQuestionIDs,
+                classifyingCategory: model.classifyingPaymentIDs,
                 paymentOverlaps: model.paymentOverlaps,
                 showMore: { model.showMoreTimeline() },
                 undo: { model.undoLastRecord() },
@@ -474,9 +498,16 @@ struct HomeView: View {
             // よく使うひとこと。レシートと声と同じく「自分」だけ（家計の記録は候補の元にしていない）。声の入力の間は出さない
             // （入力欄の代わりに書き起こしを出している間は、入力欄に文を入れられないため）。
             if !model.isHouseholdActive, model.voice.isActive == false {
-                QuickPhraseBar(phrases: model.quickPhraseSuggestions) {
-                    model.pickQuickPhrase($0)
-                }
+                QuickPhraseBar(
+                    phrases: model.quickPhraseSuggestions,
+                    pick: { model.pickQuickPhrase($0) },
+                    purchaseCheck: model.draft.isEmpty && !isTyping && !model.isParsing
+                        ? { model.presentPurchaseCheck(calendar: calendar) } : nil,
+                    paymentSetup: model.draft.isEmpty && !isTyping && !model.isParsing
+                        ? { model.presentWalletCapture() } : nil,
+                    reviewCount: model.reviewLoadFailed ? nil : model.reviewItems.count,
+                    review: !model.reviewItems.isEmpty || model.reviewLoadFailed ? { model.showsReviewQueue = true } : nil
+                )
                 // 候補は画面の端から端まで送れるようにする（下の入力欄の左右の余白の外まで）。
                 .padding(.horizontal, -16)
             }
@@ -518,7 +549,7 @@ struct HomeView: View {
         if let action = quickActions.take() {
             model.receive(action)
         }
-        guard !hidesContent else { return }
+        guard scenePhase == .active, !hidesContent else { return }
         // Apple Pay の支払いの受け箱も、ここで記録にする（ロックを解いた後・読み取りが終わった後にも見るため）。
         model.importCapturedPayments(calendar: calendar)
         model.performPendingQuickAction(calendar: calendar)
@@ -579,7 +610,7 @@ struct HomeView: View {
     }
 
     private var showsStoreFailure: Binding<Bool> {
-        Binding(get: { model.storeFailure != nil }, set: { if !$0 { model.storeFailure = nil } })
+        Binding(get: { model.storeFailure != nil && !model.showsReviewQueue }, set: { if !$0 && !model.showsReviewQueue { model.storeFailure = nil } })
     }
 
     private var showsDeletionConfirmation: Binding<Bool> {
@@ -612,20 +643,21 @@ struct HomeView: View {
 }
 
 /// 保存先への書き込みの失敗を利用者に知らせる文。
-private extension HomeModel.StoreFailure {
+extension HomeModel.StoreFailure {
     var title: Text {
         switch self {
         case .record: Text("記録できませんでした")
         case .undo: Text("取り消せませんでした")
         case .delete: Text("削除できませんでした")
         case .categoryChoice: Text("カテゴリを変えられませんでした")
+        case .reviewChoice: Text("確認を保存できませんでした")
         }
     }
 
     var message: Text {
         switch self {
         case .record: Text("保存に失敗しました。もう一度送ってください。")
-        case .undo, .delete, .categoryChoice: Text("保存に失敗しました。もう一度お試しください。")
+        case .undo, .delete, .categoryChoice, .reviewChoice: Text("保存に失敗しました。もう一度お試しください。")
         }
     }
 }
@@ -654,6 +686,7 @@ private struct EntryTimeline: View {
     let undoableEntryIDs: Set<PersistentIdentifier>
     /// カテゴリを聞き返している記録。その記録の行の下にカテゴリのボタンを出す。
     let askingCategory: Set<PersistentIdentifier>
+    let classifyingCategory: Set<PersistentIdentifier>
     /// Apple Pay の支払いとの重なりを聞き返している記録。その記録の行の下に聞き返しを出す。
     let paymentOverlaps: [PersistentIdentifier: PaymentOverlapQuestion]
     let showMore: () -> Void
@@ -691,6 +724,7 @@ private struct EntryTimeline: View {
         weeklyRecap: WeeklyRecapModel?,
         undoableEntryIDs: Set<PersistentIdentifier>,
         askingCategory: Set<PersistentIdentifier>,
+        classifyingCategory: Set<PersistentIdentifier>,
         paymentOverlaps: [PersistentIdentifier: PaymentOverlapQuestion],
         showMore: @escaping () -> Void,
         undo: @escaping () -> Void,
@@ -717,6 +751,7 @@ private struct EntryTimeline: View {
         self.weeklyRecap = weeklyRecap
         self.undoableEntryIDs = undoableEntryIDs
         self.askingCategory = askingCategory
+        self.classifyingCategory = classifyingCategory
         self.paymentOverlaps = paymentOverlaps
         self.showMore = showMore
         self.undo = undo
@@ -838,6 +873,7 @@ private struct EntryTimeline: View {
                         RecordedReplyCard(
                             send: send, today: today, canUndo: isLatest, showsStatus: isLatest,
                             askingCategory: isLatest ? askingCategory : [], overlaps: isLatest ? paymentOverlaps : [:],
+                            classifyingCategory: classifyingCategory,
                             undo: undo, edit: edit, requestDelete: requestDelete, chooseCategory: chooseCategory,
                             createCategory: createCategory, makeRecurring: makeRecurring, removeOverlap: removeOverlap,
                             keepOverlap: keepOverlap

@@ -36,6 +36,62 @@ struct PaymentCaptureAppTests {
 
     // MARK: - ショートカットの操作
 
+    @Test func unreadableInboxIsNeverReplacedOrRemoved() throws {
+        let inbox = Self.temporaryInbox()
+        try FileManager.default.createDirectory(at: inbox.directory, withIntermediateDirectories: true)
+        let url = inbox.directory.appending(path: "pending.json")
+        let damaged = Data("broken payment data".utf8)
+        try damaged.write(to: url)
+        #expect(throws: (any Error).self) { try inbox.readPending() }
+        #expect(throws: (any Error).self) { try inbox.append(amount: 450, merchant: "Cafe", paidAt: TestSupport.now) }
+        #expect(throws: (any Error).self) { try inbox.remove([UUID()]) }
+        #expect(try Data(contentsOf: url) == damaged)
+        let model = WalletCaptureModel(inbox: inbox)
+        #expect(model.loadFailed)
+        try JSONEncoder().encode([CapturedPayment]()).write(to: url)
+        model.reload()
+        #expect(!model.loadFailed)
+    }
+
+    @Test func receiptStatusSurvivesImportWithoutRetainingPaymentDetails() throws {
+        let inbox = Self.temporaryInbox()
+        #expect(inbox.lastReceivedAt == nil)
+        let payment = try inbox.append(amount: 450, merchant: "PRIVATE SHOP", paidAt: TestSupport.now)
+        try inbox.remove([payment.id])
+        let reopened = PaymentInbox(directory: inbox.directory)
+        #expect(try reopened.readPending().isEmpty)
+        #expect(reopened.lastReceivedAt == TestSupport.now)
+        let metadata = try Data(contentsOf: inbox.directory.appending(path: "last-received.json"))
+        #expect(try JSONDecoder().decode(Date.self, from: metadata) == TestSupport.now)
+        let model = WalletCaptureModel(inbox: reopened)
+        #expect(model.pendingCount == 0)
+        #expect(model.lastReceivedAt == TestSupport.now)
+    }
+
+    @Test func missingReceiptMetadataDoesNotHidePendingPayments() throws {
+        let inbox = Self.temporaryInbox()
+        try inbox.append(amount: 450, merchant: "Cafe", paidAt: TestSupport.now)
+        try FileManager.default.removeItem(at: inbox.directory.appending(path: "last-received.json"))
+        let model = WalletCaptureModel(inbox: inbox)
+        #expect(model.pendingCount == 1)
+        #expect(model.lastReceivedAt == nil)
+        #expect(!model.loadFailed)
+    }
+
+    @Test func duplicateLookupFailureKeepsPaymentForRetry() throws {
+        let fixture = try Fixture()
+        try fixture.paymentInbox.append(amount: 450, merchant: "Cafe", paidAt: TestSupport.now)
+        let lookup = fixture.model.loadPaymentOccurrenceKeys
+        fixture.model.loadPaymentOccurrenceKeys = { throw CocoaError(.fileReadNoPermission) }
+        #expect(fixture.model.importCapturedPayments(calendar: TestSupport.calendar).isEmpty)
+        #expect(fixture.paymentInbox.pending().count == 1)
+        #expect(try fixture.context.fetchCount(FetchDescriptor<Entry>()) == 0)
+        fixture.model.loadPaymentOccurrenceKeys = lookup
+        #expect(fixture.model.importCapturedPayments(calendar: TestSupport.calendar).count == 1)
+        #expect(fixture.model.importCapturedPayments(calendar: TestSupport.calendar).isEmpty)
+        #expect(try fixture.context.fetchCount(FetchDescriptor<Entry>()) == 1)
+    }
+
     /// 円の支払いを受け箱に置き、アプリは開かない。円のほかの通貨は受け取らない。
     @Test func intentStoresYenPayments() async throws {
         let previous = PaymentInbox.shared

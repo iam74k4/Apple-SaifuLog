@@ -156,19 +156,18 @@ struct HomeModelCategoryTests {
         #expect(fixture.model.categoryQuestionIDs.isEmpty)
     }
 
-    /// 次の文を送ったら、前の返事の聞き返しは引っ込める（取り消すと同じ）。
-    @Test func sendingNextClearsQuestion() async throws {
+    /// 次の文を送っても、未解決のカテゴリは確認待ちから選べる。
+    @Test func sendingNextKeepsPendingCategory() async throws {
         let fixture = try Fixture()
         await fixture.send("ユニクロ 3990")
         let entry = try #require(try fixture.entries().first)
 
         await fixture.send("ランチ 850")
 
-        #expect(fixture.model.categoryQuestionIDs.isEmpty)
-        // 引っ込めた後は選べない（前の記録は、返事の行から直す）。
+        #expect(fixture.model.categoryQuestionIDs == [entry.persistentModelID])
         fixture.model.chooseCategory(.daily, for: entry)
-        #expect(entry.category == .other)
-        #expect(try learned(fixture).memory().rules.isEmpty)
+        #expect(entry.category == .daily)
+        #expect(try learned(fixture).memory().rules.isEmpty == false)
     }
 
     /// 取り消したら、聞き返しも消す（消えた記録を選ばないように）。

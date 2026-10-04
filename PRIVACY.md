@@ -2,7 +2,7 @@
 
 **SaifuLog（サイフログ）**
 
-最終更新日 / Last updated: 2026-10-01
+最終更新日 / Last updated: 2026-10-05
 
 施行日 / Effective date: 初回リリース時に確定します / To be set at the first release
 
@@ -54,6 +54,8 @@ iOS の機能で、開発者はその内容を見られません。
 
 Apple Intelligence を使えない端末では、端末内のキーワード辞書で読み取ります。この場合も
 外部へ送信することはありません。
+
+Apple Payの支払いで分類できなかったお店は、店名だけを端末内AIに渡してカテゴリを補います。金額や日時、覚えた分類の一覧はAIに渡しません。AIの結果を学習ルールとして保存せず、利用者が選んだ分類を優先します。AIが使えない場合や判断できない場合も、支払い自体は保存します。
 
 ### 家計への質問
 
@@ -142,6 +144,10 @@ iOS が管理し、ほかのアプリと共有されます）。このダウン�
 ファイルに置きます。iPhone がロックされたままでも受け取れるよう、このファイルは、iPhone を起動して最初にロックを解いた後から
 読み書きできる保護（iOS のデータ保護の「最初のユーザ認証まで保護」）にしています。記録にしたら、このファイルから消します。記録にした後は、上の「入力した家計の記録」と同じく扱います。**受け取った支払いを
 開発者や第三者へ送信することはありません。** オートメーションはいつでも「ショートカット」App で消せます。
+
+受信の動作を確かめるため、最後に支払いを受け取った日時だけを端末内に保存します。この状態表示には金額・店名を残さず、外部送信やiCloud同期はしません。アプリを削除すると消えます。
+
+分類や重複の確認が必要な記録には、確認待ちの状態と、重複候補を取り違えないための識別子・金額・品目・日時の控えを、家計の記録と同じ保存先に残します。iCloud同期を選んだ場合は、この状態も記録と一緒に同期します。確認を終えたときや、関係する記録をアプリで削除したときは、確認用の控えも消します。中断したカテゴリ分類は、次にアプリを開いたときに再試行します。
 
 ### Siri・ショートカット
 
@@ -329,6 +335,8 @@ enter and your records are never sent anywhere for analysis.**
 On devices where Apple Intelligence is not available, the app reads your entries with an
 on-device keyword dictionary. Nothing is sent anywhere in that case either.
 
+For uncategorized Apple Pay payments, only the merchant name is passed to on-device AI to suggest a category. Amounts, dates, and the list of learned choices are not passed to AI. AI results are not saved as learned rules, and your own choices take priority. Payments remain saved when AI is unavailable or cannot classify them.
+
 ### Questions About Your Spending
 
 When you ask about your spending in the same field you use for records (for example, "今月カフェいくら?"), the app
@@ -433,6 +441,8 @@ protection class that makes it readable after you first unlock your iPhone follo
 once recorded, after which they are handled as
 described in Your Records above. **Received payments are never sent to the developer or to any third party.** You can delete the automation
 in the Shortcuts app at any time.
+
+To help you check reception, only the date of the last received payment is retained locally. This status contains no amount or merchant, is not transmitted or synced with iCloud, and is removed when the app is deleted.
 
 ### Siri and Shortcuts
 

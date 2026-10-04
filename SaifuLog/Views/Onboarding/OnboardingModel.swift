@@ -11,6 +11,9 @@ import SwiftData
 final class OnboardingModel {
     /// ② 予算を決める画面を出しているか（① の「はじめる」で進み、戻ると false に戻る）。
     var showsBudgetSetup = false
+    var walletCapture: WalletCaptureModel?
+    private(set) var hasOpenedPaymentGuide = false
+    var previewsRecordedPayment = false
     /// 案内を終えた。終えたら呼び出し側（`AppRootView`）がホームに切り替える。
     private(set) var isCompleted = false
     /// ② の状態と操作。① に戻ってから進み直しても入れた額が残るよう、案内の間は同じものを使う。
@@ -18,6 +21,7 @@ final class OnboardingModel {
 
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let currentAIStatus: @MainActor () -> OnDeviceAIStatus
+    @ObservationIgnored private let makeWalletCapture: @MainActor () -> WalletCaptureModel
 
     /// - Parameters:
     ///   - defaults: 案内を終えたことを書く先。テストでは使い捨ての領域を渡す。
@@ -27,11 +31,13 @@ final class OnboardingModel {
         budgetStore: BudgetStore,
         defaults: UserDefaults = .standard,
         aiStatus: @escaping @MainActor () -> OnDeviceAIStatus = { EntryParserFactory.aiStatus },
+        makeWalletCapture: @escaping @MainActor () -> WalletCaptureModel = { WalletCaptureModel() },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
     ) {
         self.budgetSetup = BudgetSetupModel(store: budgetStore, announce: announce)
         self.defaults = defaults
         self.currentAIStatus = aiStatus
+        self.makeWalletCapture = makeWalletCapture
     }
 
     /// この端末でいま AI を使えるか。
@@ -46,6 +52,11 @@ final class OnboardingModel {
     /// ① の「はじめる」。② 予算を決める へ進む。
     func start() {
         showsBudgetSetup = true
+    }
+
+    func showPaymentGuide() {
+        hasOpenedPaymentGuide = true
+        walletCapture = makeWalletCapture()
     }
 
     /// ② で予算を保存した（`BudgetSetupView` の `onFinish`）。案内を終える。

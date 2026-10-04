@@ -43,13 +43,17 @@ final class ScreenshotDemo {
         /// カレンダーのページ（今日あと・月のカレンダー・今日の記録）。くり返しの記録の予定（`ScreenshotDemoLedger.recurringDrafts`）も
         /// 入れ、予定の印と、固定費を引いた今月あとを写す。
         case calendar
+        case purchaseCheck
+        case automaticPayments
+        case paymentCategories
+        case purchaseChoices
 
         /// 購入の状態を指定しなかったときの状態。プレミアムのシートは購入と体験のボタンを写すので無料、ほかは購入済み
         /// （無料の残りの回数の行などを写さず、ふりかえりと月のまとめの AI の一言を写すため）。
         var defaultPremium: PremiumChoice {
             switch self {
             case .premium, .trial: .free
-            case .home, .ask, .report, .recap, .receipt, .voice, .calendar: .purchased
+            case .home, .ask, .report, .recap, .receipt, .voice, .calendar, .purchaseCheck, .purchaseChoices, .automaticPayments, .paymentCategories: .purchased
             }
         }
     }
@@ -108,6 +112,7 @@ final class ScreenshotDemo {
     let defaultsDomain: String
     /// デモのアプリのロックと iCloud 同期の設定（一時フォルダのファイル。毎回どちらもオフで始める）。
     let launchSettings: LaunchSettingsStore
+    private let paymentInbox = PaymentInbox(directory: URL.temporaryDirectory.appending(path: "ScreenshotPayments-\(UUID().uuidString)"))
 
     /// 起動した瞬間（デモの「いま」をこの月の 15 日に決めるのに使う）。
     private let launchedAt: Date
@@ -255,8 +260,10 @@ final class ScreenshotDemo {
         let clock = makeClock()
         let writesRemarks = showsAIRemarks
         let receiptLines = ScreenshotDemoReceipt.lines(now: now, calendar: calendar)
+        let demonstratesCategories = screen == .paymentCategories
         return HomeModel(
             store: EntryStore(context: context),
+            paymentInbox: paymentInbox,
             pendingWrites: pendingWrites,
             purchases: purchases,
             storeHost: storeHost,
@@ -264,7 +271,7 @@ final class ScreenshotDemo {
             defaults: defaults,
             // 端末内 AI を使わず、キーワード辞書で読む（端末によって読み方が変わらないように）。カテゴリの聞き直しも AI なので使わない。
             makeParser: { now, calendar in RuleBasedParser(calendar: calendar, now: { now }) },
-            makeCategoryRefiner: { nil },
+            makeCategoryRefiner: { demonstratesCategories ? CategoryRefiner(classifier: ScreenshotPaymentClassifier(), onFallback: nil) : nil },
             makeAnswerer: { ScreenshotDemoAnswerer(writesRemark: writesRemarks) },
             makeRemarkWriter: { writesRemarks ? ScreenshotDemoRemarkWriter() : nil },
             receiptReader: ReceiptReader(recognize: { _ in receiptLines }, makeRefiner: { nil }),
@@ -326,6 +333,23 @@ final class ScreenshotDemo {
         case .trial:
             home.presentPremium()
             home.premiumSheet?.screenshotScrollsToBottom = true
+        case .purchaseCheck, .purchaseChoices:
+            home.presentPurchaseCheck(calendar: calendar)
+            home.purchaseCheck?.amountText = "12,000"
+            home.purchaseCheck?.reserveText = "10,000"
+            home.purchaseCheck?.reload()
+            home.purchaseCheck?.screenshotScrollsToBottom = screen == .purchaseChoices
+            if let check = home.purchaseCheck, let habit = check.analysis?.habits.first {
+                check.setReduction(3, for: habit)
+            }
+        case .automaticPayments:
+            let inbox = PaymentInbox(directory: URL.temporaryDirectory.appending(path: "ScreenshotPayments-\(UUID().uuidString)"))
+            home.walletCapture = WalletCaptureModel(inbox: inbox)
+        case .paymentCategories:
+            try? paymentInbox.append(amount: 450, merchant: "STARBUCKS", paidAt: now.addingTimeInterval(-60))
+            try? paymentInbox.append(amount: 3990, merchant: "ユニクロ", paidAt: now)
+            home.importCapturedPayments(calendar: calendar)
+            await home.waitForPaymentClassification()
         case .calendar:
             home.page = .calendar
         }
@@ -333,5 +357,10 @@ final class ScreenshotDemo {
 
     /// 質問の画面で送る質問（ようこそとタイムラインの例と同じ書き方）。デモの「いま」は月の半ばなので、今月を聞く。
     nonisolated static let questions = ["今月カフェいくら?", "今月あと何日でいくら使える?"]
+}
+
+/// 画面の再現用。実機モデルの精度の証拠には使わない。
+private struct ScreenshotPaymentClassifier: ItemCategoryClassifying {
+    func categoryName(for item: String) async throws -> String { "日用品" }
 }
 #endif
