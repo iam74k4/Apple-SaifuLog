@@ -714,6 +714,26 @@
         }
       }
     },
+    "AIがカテゴリを振り分け中" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI is sorting categories"
+          }
+        }
+      }
+    },
+    "AIが使えるiPhoneでは、未分類のお店を端末内で振り分けます。金額や日時は変えません。AIの判断は学習せず、あなたが選んだ分類を次回に使います。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On iPhones with AI available, uncategorized stores are classified on device. Amounts and dates stay unchanged. Only your category choices are remembered for next time, not AI guesses."
+          }
+        }
+      }
+    },
     "App Store に接続できませんでした" : {
       "comment" : "購入・復元に失敗したときのアラートの見出し（通信の失敗）",
       "localizations" : {
@@ -1423,6 +1443,16 @@
         }
       }
     },
+    "あなたが直した分類を最優先" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your corrections come first"
+          }
+        }
+      }
+    },
     "あなたの名前" : {
       "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計を作る・名前を直すシートの入力欄の名前と見出し。家族に見える「記録した人」の名前",
       "localizations" : {
@@ -1614,6 +1644,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Can't Purchase Right Now"
+          }
+        }
+      }
+    },
+    "お店の辞書と端末内AIで補う" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use known stores and on-device AI"
           }
         }
       }
@@ -3060,6 +3100,16 @@
         }
       }
     },
+    "カテゴリもおまかせ" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Categories, taken care of"
+          }
+        }
+      }
+    },
     "カテゴリを作る" : {
       "comment" : "カテゴリを作るシートの題名と、設定の「カテゴリ」とホームの返事の聞き返しの、カテゴリを作るボタン",
       "localizations" : {
@@ -3089,6 +3139,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Edit Category"
+          }
+        }
+      }
+    },
+    "カテゴリを自動で振り分ける" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sort categories automatically"
           }
         }
       }
@@ -5360,6 +5420,16 @@
         }
       }
     },
+    "分からないものだけ確認" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only unclear items need a check"
+          }
+        }
+      }
+    },
     "別の支払い" : {
       "comment" : "ホームの返事の重なりの聞き返しのボタン。Apple Pay の支払いと、いま記録したものは別の買い物なので、どちらも残す",
       "localizations" : {
@@ -7185,6 +7255,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Try spending trade-offs"
+          }
+        }
+      }
+    },
+    "支払いのカテゴリを自動で振り分けました" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment categories sorted automatically"
           }
         }
       }

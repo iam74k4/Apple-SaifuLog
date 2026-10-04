@@ -63,6 +63,8 @@ struct WalletCaptureView: View {
                     }
                     Text("払うたびに金額を入力したり、アプリを開いたりする必要はありません。")
                         .font(.subheadline)
+                    Label("カテゴリもおまかせ", systemImage: "sparkles")
+                        .font(.subheadline.weight(.semibold))
                 }.padding(.vertical, 8)
             }.listRowBackground(Theme.surface)
 
@@ -111,6 +113,15 @@ struct WalletCaptureView: View {
             }.listRowBackground(Theme.surface)
 
             Section {
+                DisclosureGroup("カテゴリを自動で振り分ける") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("あなたが直した分類を最優先", systemImage: "checkmark.circle")
+                        Label("お店の辞書と端末内AIで補う", systemImage: "sparkles")
+                        Label("分からないものだけ確認", systemImage: "questionmark.circle")
+                        Text("AIが使えるiPhoneでは、未分類のお店を端末内で振り分けます。金額や日時は変えません。AIの判断は学習せず、あなたが選んだ分類を次回に使います。")
+                            .foregroundStyle(Theme.inkSecondary)
+                    }.padding(.vertical, 8)
+                }
                 DisclosureGroup("最初の支払いで確かめる") {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("次のタッチ決済のあと、サイフログを開いて金額と店名を確認してください。試すために買い物をする必要はありません。")

@@ -202,6 +202,10 @@ struct HomeView: View {
                 ))
                 // アプリを開いている間に Apple Pay の支払いを受け取ったら、すぐ記録にする。
                 .onReceive(NotificationCenter.default.publisher(for: PaymentInbox.didReceive)) { _ in deliverQuickActions() }
+                .onChange(of: hidesContent) { _, hides in
+                    if hides { model.cancelPaymentClassification() }
+                }
+                .onDisappear { model.cancelPaymentClassification() }
                 // この端末で声の入力を使えるか（マイクのボタンを出すか）を調べる。前面に戻ったときにも調べ直す（下の scenePhase）。
                 .task {
                     await model.voice.refreshAvailability()
@@ -320,6 +324,7 @@ struct HomeView: View {
                         showWeeklyRecapIfDue()
                         Task { await model.voice.refreshAvailability() }
                     case .background:
+                        model.cancelPaymentClassification()
                         // 裏に回ったら、聞き取れた分を入力欄へ入れて止める（裏ではマイクを使い続けない）。
                         model.voice.stop(.background)
                     default:
@@ -424,6 +429,7 @@ struct HomeView: View {
                 // 控えた ID を渡す（ほかの端末で消された記録の値に、描くときに触れないため）。
                 undoableEntryIDs: Set(model.justRecordedIDs),
                 askingCategory: model.categoryQuestionIDs,
+                classifyingCategory: model.classifyingPaymentIDs,
                 paymentOverlaps: model.paymentOverlaps,
                 showMore: { model.showMoreTimeline() },
                 undo: { model.undoLastRecord() },
@@ -672,6 +678,7 @@ private struct EntryTimeline: View {
     let undoableEntryIDs: Set<PersistentIdentifier>
     /// カテゴリを聞き返している記録。その記録の行の下にカテゴリのボタンを出す。
     let askingCategory: Set<PersistentIdentifier>
+    let classifyingCategory: Set<PersistentIdentifier>
     /// Apple Pay の支払いとの重なりを聞き返している記録。その記録の行の下に聞き返しを出す。
     let paymentOverlaps: [PersistentIdentifier: PaymentOverlapQuestion]
     let showMore: () -> Void
@@ -709,6 +716,7 @@ private struct EntryTimeline: View {
         weeklyRecap: WeeklyRecapModel?,
         undoableEntryIDs: Set<PersistentIdentifier>,
         askingCategory: Set<PersistentIdentifier>,
+        classifyingCategory: Set<PersistentIdentifier>,
         paymentOverlaps: [PersistentIdentifier: PaymentOverlapQuestion],
         showMore: @escaping () -> Void,
         undo: @escaping () -> Void,
@@ -735,6 +743,7 @@ private struct EntryTimeline: View {
         self.weeklyRecap = weeklyRecap
         self.undoableEntryIDs = undoableEntryIDs
         self.askingCategory = askingCategory
+        self.classifyingCategory = classifyingCategory
         self.paymentOverlaps = paymentOverlaps
         self.showMore = showMore
         self.undo = undo
@@ -856,6 +865,7 @@ private struct EntryTimeline: View {
                         RecordedReplyCard(
                             send: send, today: today, canUndo: isLatest, showsStatus: isLatest,
                             askingCategory: isLatest ? askingCategory : [], overlaps: isLatest ? paymentOverlaps : [:],
+                            classifyingCategory: classifyingCategory,
                             undo: undo, edit: edit, requestDelete: requestDelete, chooseCategory: chooseCategory,
                             createCategory: createCategory, makeRecurring: makeRecurring, removeOverlap: removeOverlap,
                             keepOverlap: keepOverlap

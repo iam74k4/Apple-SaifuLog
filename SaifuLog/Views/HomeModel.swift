@@ -51,6 +51,9 @@ final class HomeModel {
     private(set) var quickPhrases: [QuickPhrase] = []
     /// 送った文を読み取っている間（送信ボタンを押せなくし、読み取り中の印を出す）。
     private(set) var isParsing = false
+    /// 保存済みの支払いのうち、端末内AIがカテゴリを補っている記録。
+    private(set) var classifyingPaymentIDs: Set<PersistentIdentifier> = []
+    @ObservationIgnored private var paymentClassificationTasks: [UUID: Task<Void, Never>] = [:]
     /// 記録として送り、読み取っている文。読み取りが終わるまで、タイムラインのいちばん下に送った文の吹き出しと「読み取っています…」
     /// を出す（質問の「計算しています…」と同じ）。読み取りは AI だと 1 秒以上かかることがあり、その間に何も出ないと、送った文が
     /// 入力欄から消えただけに見え、送れたのか分からないため。記録したら記録した送信に替わり、読めなければ消えて文が入力欄に戻る。
@@ -73,6 +76,7 @@ final class HomeModel {
     var ledgerScope: LedgerScope = .personal {
         didSet {
             guard ledgerScope != oldValue else { return }
+            cancelPaymentClassification()
             justRecorded = []
             justRecordedHousehold = []
             categoryQuestionIDs = []
@@ -1084,6 +1088,7 @@ final class HomeModel {
     /// 直した内容の保存は同期的に書き込む（送信のように、あとで書き込む処理ではない）ので、`pendingWrites` には数えない。
     /// - Parameter calendar: 日付の区切りの基準（画面の暦）。今日より先かの判定と、日付を直したかの判定に使う。
     func presentEdit(_ entry: Entry, calendar: Calendar) {
+        classifyingPaymentIDs.remove(entry.persistentModelID)
         editing = EditEntryModel(
             entry: entry,
             store: store,
@@ -1160,6 +1165,7 @@ final class HomeModel {
     func chooseCategory(_ category: EntryCategory, for entry: Entry) {
         let id = entry.persistentModelID
         guard categoryQuestionIDs.contains(id) else { return }
+        classifyingPaymentIDs.remove(id)
         if entry.category != category {
             var edits = EntryEdits(entry)
             edits.category = category
@@ -1307,7 +1313,66 @@ final class HomeModel {
         case (false, false): String(localized: "Apple Pay の支払いを記録しました: \(list)。カテゴリと、前の記録と同じかを選べます")
         }
         announce(message)
+        classifyPaymentCategories(recorded, memory: memory, catalog: catalog)
         return recorded
+    }
+
+    /// 金額と日時を先に保存し、分からない店名だけをAIに渡す。後から届く答えで利用者の修正を上書きしない。
+    private func classifyPaymentCategories(_ entries: [Entry], memory: CategoryMemory, catalog: CategoryCatalog) {
+        let parsed = entries.map { ParsedEntry(amount: $0.amount, category: $0.category, memo: $0.memo) }
+        let requests = CategoryRefinement.requests(for: parsed, memory: memory, catalog: catalog)
+        guard !requests.isEmpty, let refiner = makeCategoryRefiner() else { return }
+        let snapshots = requests.map { request in
+            (index: request.index, id: entries[request.index].persistentModelID, edits: EntryEdits(entries[request.index]))
+        }
+        let ids = Set(snapshots.map(\.id))
+        let batch = UUID()
+        classifyingPaymentIDs.formUnion(ids)
+        pendingWrites.begin()
+        paymentClassificationTasks[batch] = Task {
+            defer {
+                classifyingPaymentIDs.subtract(ids)
+                paymentClassificationTasks[batch] = nil
+                pendingWrites.end()
+            }
+            guard let refined = try? await refiner.refine(parsed, memory: memory, catalog: catalog),
+                  !Task.isCancelled,
+                  let currentMemory = try? learnedCategories.memory() else { return }
+            var changed = false
+            for snapshot in snapshots {
+                guard classifyingPaymentIDs.contains(snapshot.id), refined[snapshot.index].category != .other else { continue }
+                // fetchに失敗した場合や削除された場合は触れない。保持していたEntryの値を読まない。
+                let id = snapshot.id
+                guard let matches = try? store.context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.persistentModelID == id })),
+                      let entry = matches.first, EntryEdits(entry) == snapshot.edits,
+                      currentMemory.asksCategory(memo: entry.memo, amount: entry.amount, category: entry.category,
+                                                isIncome: entry.isIncome, catalog: categories.catalog) else { continue }
+                var edits = snapshot.edits
+                edits.category = refined[snapshot.index].category
+                do {
+                    try store.update(entry, with: edits)
+                    categoryQuestionIDs.remove(id)
+                    changed = true
+                } catch {
+                    // 支払い本体は保存済み。分類だけ失敗したら、元のカテゴリと確認を残す。
+                }
+            }
+            if changed {
+                forgetRecordsDeletedElsewhere()
+                snapshotJustRecorded()
+                announce(String(localized: "支払いのカテゴリを自動で振り分けました"))
+            }
+        }
+    }
+
+    /// ロック・背景移行では推論と遅れて届く書き換えを止める。保存済みの支払いは残る。
+    func cancelPaymentClassification() {
+        classifyingPaymentIDs.removeAll()
+        for task in paymentClassificationTasks.values { task.cancel() }
+    }
+
+    func waitForPaymentClassification() async {
+        for task in Array(paymentClassificationTasks.values) { await task.value }
     }
 
     // MARK: - Apple Pay の支払いとの重なり

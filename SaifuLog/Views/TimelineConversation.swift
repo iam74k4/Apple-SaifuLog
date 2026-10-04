@@ -163,6 +163,7 @@ struct RecordedReplyCard: View {
     var askingCategory: Set<PersistentIdentifier> = []
     /// Apple Pay の支払いとの重なりを聞き返している記録（`HomeModel.paymentOverlaps`）。その記録の行の下に聞き返しを出す。
     var overlaps: [PersistentIdentifier: PaymentOverlapQuestion] = [:]
+    var classifyingCategory: Set<PersistentIdentifier> = []
     let undo: () -> Void
     let edit: (Entry) -> Void
     /// 削除を求める（確認は呼び出し側で出す）。
@@ -183,6 +184,14 @@ struct RecordedReplyCard: View {
     var body: some View {
         LeadingStack(spacing: 2) {
             RecordedReplyHeader(count: send.entries.count, source: send.source, undo: canUndo ? undo : nil)
+            if send.entries.contains(where: { classifyingCategory.contains($0.persistentModelID) }) {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("AIがカテゴリを振り分け中").font(.caption)
+                }
+                .foregroundStyle(Theme.inkSecondary)
+                .padding(.vertical, 6)
+            }
             // たいていの送信は 1 件なので、1 件のときは行を並べる入れ物（`LeadingStack`・ForEach）を挟まない（行はすべて測るため）。
             // 記録ごとの一言や選択肢を足すときは、行の下（ここと ForEach の中）に並べる。
             if send.entries.count == 1 {
@@ -216,7 +225,7 @@ struct RecordedReplyCard: View {
             makeRecurring: entry.source == .recurring ? nil : { makeRecurring(entry) }
         )
         let id = entry.persistentModelID
-        let asksCategory = askingCategory.contains(id)
+        let asksCategory = askingCategory.contains(id) && !classifyingCategory.contains(id)
         if let overlap = overlaps[id] {
             LeadingStack(spacing: 10) {
                 recorded

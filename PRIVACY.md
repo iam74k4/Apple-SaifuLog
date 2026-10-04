@@ -55,6 +55,8 @@ iOS の機能で、開発者はその内容を見られません。
 Apple Intelligence を使えない端末では、端末内のキーワード辞書で読み取ります。この場合も
 外部へ送信することはありません。
 
+Apple Payの支払いで分類できなかったお店は、店名だけを端末内AIに渡してカテゴリを補います。金額や日時、覚えた分類の一覧はAIに渡しません。AIの結果を学習ルールとして保存せず、利用者が選んだ分類を優先します。AIが使えない場合や判断できない場合も、支払い自体は保存します。
+
 ### 家計への質問
 
 記録と同じ入力欄で家計について質問したとき（「今月カフェいくら?」など）、答えの数字は本アプリがお使いの iPhone の中の
@@ -330,6 +332,8 @@ enter and your records are never sent anywhere for analysis.**
 
 On devices where Apple Intelligence is not available, the app reads your entries with an
 on-device keyword dictionary. Nothing is sent anywhere in that case either.
+
+For uncategorized Apple Pay payments, only the merchant name is passed to on-device AI to suggest a category. Amounts, dates, and the list of learned choices are not passed to AI. AI results are not saved as learned rules, and your own choices take priority. Payments remain saved when AI is unavailable or cannot classify them.
 
 ### Questions About Your Spending
 
