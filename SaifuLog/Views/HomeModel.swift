@@ -124,6 +124,7 @@ final class HomeModel {
     var settings: SettingsModel?
     /// 買い物前後の予算と、いつもの支出の組み替えを試すシート。
     var purchaseCheck: PurchaseCheckModel?
+    var walletCapture: WalletCaptureModel?
     /// 無料体験が終わった後の最初の起動に出す「プレミアム」のシート。出していなければ nil（閉じると画面が nil に戻す）。
     var premiumSheet: PremiumSheetModel?
     /// 先週のふりかえりのカード（タイムラインの中）。出していなければ nil（「閉じる」で nil にする）。
@@ -171,6 +172,8 @@ final class HomeModel {
     @ObservationIgnored private let recurring: RecurringEntryStore
     /// Apple Pay の支払いの受け箱（ショートカットのオートメーションから受け取ったもの）。アプリを開いたときに記録にする。
     @ObservationIgnored private let paymentInbox: PaymentInbox
+    /// 重複判定の読み込みに失敗したときは、支払いを受け箱に残して再試行する。
+    @ObservationIgnored var loadPaymentOccurrenceKeys: () throws -> Set<String>
     /// くり返しの記録を記録するときの暦（時間帯と読み上げの日付）。画面から最後に渡された暦（設定の画面から足したときにも使う）。
     @ObservationIgnored private var recurringCalendar: Calendar = .autoupdatingCurrent
     @ObservationIgnored private let pendingWrites: PendingStoreWrites
@@ -255,6 +258,9 @@ final class HomeModel {
             store: store, budgetStore: budgetStore, recurring: recurring, now: now, announce: announce
         )
         self.paymentInbox = paymentInbox ?? .shared
+        self.loadPaymentOccurrenceKeys = {
+            Set(try store.context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.recurrenceKey != "" })).map(\.recurrenceKey))
+        }
         self.pendingWrites = pendingWrites
         self.storeHost = storeHost
         self.household = household
@@ -290,7 +296,7 @@ final class HomeModel {
     var isPresentingOtherScreen: Bool {
         budgetSetup != nil || editing != nil || categoryEditor != nil || recurringEditor != nil || monthlyReport != nil
             || settings != nil
-            || premiumSheet != nil || purchaseCheck != nil
+            || premiumSheet != nil || purchaseCheck != nil || walletCapture != nil
             || weeklyRecapDetail != nil || receiptResult != nil || receiptCapture != nil || showsReceiptSourceChoice
     }
 
@@ -1250,12 +1256,9 @@ final class HomeModel {
     @discardableResult
     func importCapturedPayments(calendar: Calendar) -> [Entry] {
         guard !isParsing, !isHouseholdActive else { return [] }
-        let payments = paymentInbox.pending()
+        guard let payments = try? paymentInbox.readPending() else { return [] }
         guard !payments.isEmpty else { return [] }
-        let existing = Set(
-            ((try? store.context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.recurrenceKey != "" }))) ?? [])
-                .map(\.recurrenceKey)
-        )
+        guard let existing = try? loadPaymentOccurrenceKeys() else { return [] }
         let catalog = categories.catalog
         let memory = (try? learnedCategories.memory()) ?? CategoryMemory()
         let recordedAt = now()
@@ -1573,6 +1576,11 @@ final class HomeModel {
     func presentPurchaseCheck(calendar: Calendar) {
         guard !isHouseholdActive, !isParsing, !voice.isActive else { return }
         purchaseCheck = PurchaseCheckModel(context: store.context, purchases: purchases, calendar: calendar, now: now)
+    }
+
+    func presentWalletCapture() {
+        guard !isHouseholdActive, !isParsing, !voice.isActive else { return }
+        walletCapture = WalletCaptureModel(inbox: paymentInbox)
     }
 
     /// 「プレミアム」のシートを出す（無料の質問やレシートの読み取りを使い切ったときの案内から）。

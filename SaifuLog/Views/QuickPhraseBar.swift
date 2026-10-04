@@ -5,18 +5,28 @@ import SwiftUI
 /// （額を直してから送れるように）。入力欄が空なら 2 回以上記録した品目を、打ち始めたら打った文字で始まる品目を出す。
 ///
 /// 毎日の記録を、打たずに 2 回押すだけにするため（候補を押して、送信を押す）。キーボードを出していないときにも出す
-/// （出していなければ、キーボードを開かずに送れる）。候補と買う前チェックの操作が無ければ何も出さない。
+/// （出していなければ、キーボードを開かずに送れる）。候補と買う前チェック・自動記録の操作が無ければ何も出さない。
 /// ボタンは横に送れる 1 行に並べ、ガラスのボタンにする（`GlassEffectContainer` でまとめて描く）。
 struct QuickPhraseBar: View {
     let phrases: [QuickPhrase]
     let pick: (QuickPhrase) -> Void
     var purchaseCheck: (() -> Void)?
+    var paymentSetup: (() -> Void)?
 
     var body: some View {
-        if !phrases.isEmpty || purchaseCheck != nil {
+        if !phrases.isEmpty || purchaseCheck != nil || paymentSetup != nil {
             ScrollView(.horizontal) {
                 GlassEffectContainer(spacing: 8) {
                     HStack(spacing: 8) {
+                        if let paymentSetup {
+                            Button(action: paymentSetup) {
+                                Label("自動記録", systemImage: "wave.3.right.circle")
+                                    .font(.subheadline.weight(.semibold)).lineLimit(1)
+                                    .padding(.horizontal, 4).frame(minHeight: 32)
+                            }
+                            .buttonStyle(.glass).buttonBorderShape(.capsule)
+                            .accessibilityIdentifier("open-payment-setup")
+                        }
                         if let purchaseCheck {
                             Button(action: purchaseCheck) {
                                 Label("買う前チェック", systemImage: "arrow.triangle.branch")
@@ -42,7 +52,7 @@ struct QuickPhraseBar: View {
             // 候補の文字は入力欄と同じく大きさに上限を設ける（最大の文字では 1 つの候補が画面の幅を超え、1 つずつしか見えないため）。
             .dynamicTypeSize(...DynamicTypeSize.accessibility1)
             .accessibilityElement(children: .contain)
-            .accessibilityLabel(purchaseCheck == nil ? Text("よく使うひとこと") : Text("記録と買い物の操作"))
+            .accessibilityLabel(purchaseCheck == nil && paymentSetup == nil ? Text("よく使うひとこと") : Text("記録と買い物の操作"))
         }
     }
 

@@ -44,6 +44,7 @@ final class ScreenshotDemo {
         /// 入れ、予定の印と、固定費を引いた今月あとを写す。
         case calendar
         case purchaseCheck
+        case automaticPayments
         case purchaseChoices
 
         /// 購入の状態を指定しなかったときの状態。プレミアムのシートは購入と体験のボタンを写すので無料、ほかは購入済み
@@ -51,7 +52,7 @@ final class ScreenshotDemo {
         var defaultPremium: PremiumChoice {
             switch self {
             case .premium, .trial: .free
-            case .home, .ask, .report, .recap, .receipt, .voice, .calendar, .purchaseCheck, .purchaseChoices: .purchased
+            case .home, .ask, .report, .recap, .receipt, .voice, .calendar, .purchaseCheck, .purchaseChoices, .automaticPayments: .purchased
             }
         }
     }
@@ -337,6 +338,9 @@ final class ScreenshotDemo {
             if let check = home.purchaseCheck, let habit = check.analysis?.habits.first {
                 check.setReduction(3, for: habit)
             }
+        case .automaticPayments:
+            let inbox = PaymentInbox(directory: URL.temporaryDirectory.appending(path: "ScreenshotPayments-\(UUID().uuidString)"))
+            home.walletCapture = WalletCaptureModel(inbox: inbox)
         case .calendar:
             home.page = .calendar
         }

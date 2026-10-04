@@ -2,7 +2,7 @@
 
 **SaifuLog（サイフログ）**
 
-最終更新日 / Last updated: 2026-10-01
+最終更新日 / Last updated: 2026-10-05
 
 施行日 / Effective date: 初回リリース時に確定します / To be set at the first release
 
@@ -142,6 +142,8 @@ iOS が管理し、ほかのアプリと共有されます）。このダウン�
 ファイルに置きます。iPhone がロックされたままでも受け取れるよう、このファイルは、iPhone を起動して最初にロックを解いた後から
 読み書きできる保護（iOS のデータ保護の「最初のユーザ認証まで保護」）にしています。記録にしたら、このファイルから消します。記録にした後は、上の「入力した家計の記録」と同じく扱います。**受け取った支払いを
 開発者や第三者へ送信することはありません。** オートメーションはいつでも「ショートカット」App で消せます。
+
+受信の動作を確かめるため、最後に支払いを受け取った日時だけを端末内に保存します。この状態表示には金額・店名を残さず、外部送信やiCloud同期はしません。アプリを削除すると消えます。
 
 ### Siri・ショートカット
 
@@ -433,6 +435,8 @@ protection class that makes it readable after you first unlock your iPhone follo
 once recorded, after which they are handled as
 described in Your Records above. **Received payments are never sent to the developer or to any third party.** You can delete the automation
 in the Shortcuts app at any time.
+
+To help you check reception, only the date of the last received payment is retained locally. This status contains no amount or merchant, is not transmitted or synced with iCloud, and is removed when the app is deleted.
 
 ### Siri and Shortcuts
 

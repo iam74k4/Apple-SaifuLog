@@ -780,17 +780,6 @@
         }
       }
     },
-    "Apple Pay で払うと、金額と店名をサイフログが受け取り、次に開いたときに記録して返事でお知らせします。銀行やカードのログインは要らず、受け取った支払いはこの iPhone の中にだけ置きます。" : {
-      "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の画面の説明",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "When you pay with Apple Pay, SaifuLog receives the amount and merchant, records it the next time you open the app, and tells you in a reply. No bank or card login is needed, and received payments stay on this iPhone."
-          }
-        }
-      }
-    },
     "Apple Pay で払ったときに自動で記録する方法を開きます" : {
       "comment" : "設定の「Apple Pay の支払い」の行の VoiceOver の説明",
       "localizations" : {
@@ -1270,6 +1259,22 @@
         }
       }
     },
+    "「ショートカット」App がインストールされているか確認してください。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check that the Shortcuts app is installed."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「ショートカット」App がインストールされているか確認してください。"
+          }
+        }
+      }
+    },
     "「ショートカット」App の「オートメーション」で「＋」を押し、「取引」を選びます。" : {
       "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の手順 1",
       "localizations" : {
@@ -1288,6 +1293,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Open the Shortcuts App"
+          }
+        }
+      }
+    },
+    "「ショートカットの入力」から選びます。固定の金額や店名は入力しません。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose properties of Shortcut Input. Do not type a fixed amount or merchant name."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「ショートカットの入力」から選びます。固定の金額や店名は入力しません。"
           }
         }
       }
@@ -1376,17 +1397,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send the name with an amount, like “Clothing 3000”, to record it in this category."
-          }
-        }
-      }
-    },
-    "「金額」に「ショートカットの入力」の「金額」を、「店名」に「加盟店」を入れて、「完了」を押します。" : {
-      "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の手順 4",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Set Amount to the Shortcut Input’s Amount and Merchant to Merchant, then tap Done."
           }
         }
       }
@@ -2605,6 +2615,22 @@
         }
       }
     },
+    "まだ支払いを受け取っていません" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No payments received yet"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "まだ支払いを受け取っていません"
+          }
+        }
+      }
+    },
     "まだ覚えたカテゴリはありません。記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、ここに並びます。" : {
       "comment" : "設定の「覚えたカテゴリ」に何も無いときの案内",
       "localizations" : {
@@ -2942,28 +2968,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "When this is on, your records and budgets are saved in your iCloud and kept in sync across devices signed in to the same Apple Account. While it’s off, they’re saved only on this iPhone."
-          }
-        }
-      }
-    },
-    "オートメーションの作り方" : {
-      "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の画面の節の見出し",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Setting Up the Automation"
-          }
-        }
-      }
-    },
-    "オートメーションを作るために、ショートカット App を開きます" : {
-      "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の画面の、ショートカット App を開くボタンの VoiceOver の説明",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Opens the Shortcuts app to create the automation"
           }
         }
       }
@@ -3315,6 +3319,22 @@
         }
       }
     },
+    "サイフログへ渡す" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send to SaifuLog"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サイフログへ渡す"
+          }
+        }
+      }
+    },
     "シャツ" : {
       "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
       "localizations" : {
@@ -3322,6 +3342,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Shirt"
+          }
+        }
+      }
+    },
+    "ショートカットを開けませんでした" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not open Shortcuts"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ショートカットを開けませんでした"
           }
         }
       }
@@ -3355,6 +3391,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Security"
+          }
+        }
+      }
+    },
+    "タッチ決済" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to pay"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タッチ決済"
           }
         }
       }
@@ -5495,6 +5547,22 @@
         }
       }
     },
+    "加盟店" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merchant"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加盟店"
+          }
+        }
+      }
+    },
     "医療" : {
       "comment" : "カテゴリ",
       "localizations" : {
@@ -5605,6 +5673,22 @@
         }
       }
     },
+    "取り込み待ちはありません" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No payments waiting"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取り込み待ちはありません"
+          }
+        }
+      }
+    },
     "受け取った支払いが %lld 件あります。ホームに戻ると記録します。" : {
       "comment" : "Apple Pay の支払いの自動記録（ショートカットのオートメーション）の画面。受け取って、まだ記録していない支払いの数。%lld は件数",
       "localizations" : {
@@ -5635,6 +5719,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Received payments (amount, merchant, and time) are kept in a small file on this iPhone until they’re recorded. So payments can be received while the iPhone is locked, this file uses protection that makes it readable after you first unlock the iPhone following a restart. It’s deleted once the payments are recorded."
+          }
+        }
+      }
+    },
+    "受信されない場合は、対象カード・「すぐに実行」・金額と加盟店の割り当てを確認してください。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If nothing arrives, check the selected card, Run Immediately, and the Amount and Merchant mappings."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "受信されない場合は、対象カード・「すぐに実行」・金額と加盟店の割り当てを確認してください。"
+          }
+        }
+      }
+    },
+    "受信日時は、オートメーションが今も有効かを保証するものではありません。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A past receipt does not confirm that the automation is still enabled."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "受信日時は、オートメーションが今も有効かを保証するものではありません。"
+          }
+        }
+      }
+    },
+    "受信状況" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment reception"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "受信状況"
+          }
+        }
+      }
+    },
+    "受信確認のため、最後に受け取った日時だけを端末内に残します。金額や店名は受信状況には残しません。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only the last received date stays on this device to show reception status. The status does not retain amounts or merchant names."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "受信確認のため、最後に受け取った日時だけを端末内に残します。金額や店名は受信状況には残しません。"
           }
         }
       }
@@ -6691,6 +6839,22 @@
         }
       }
     },
+    "対象は、このiPhoneで選んだカードを使うタッチ決済です。銀行・カードの利用明細全体を取得する機能ではありません。円の支払いに対応します。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This covers contactless payments with the selected cards on this iPhone. It does not fetch your full bank or card statement. Payments must be in yen."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "対象は、このiPhoneで選んだカードを使うタッチ決済です。銀行・カードの利用明細全体を取得する機能ではありません。円の支払いに対応します。"
+          }
+        }
+      }
+    },
     "工具" : {
       "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
       "localizations" : {
@@ -6856,6 +7020,22 @@
         }
       }
     },
+    "払うたびに金額を入力したり、アプリを開いたりする必要はありません。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You do not need to enter the amount or open the app each time you pay."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "払うたびに金額を入力したり、アプリを開いたりする必要はありません。"
+          }
+        }
+      }
+    },
     "払うだけで、自動で記録" : {
       "comment" : "設定の「Apple Pay の支払い」の画面の見出し（Apple Pay で払うと自動で記録できること）",
       "localizations" : {
@@ -7005,6 +7185,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Try spending trade-offs"
+          }
+        }
+      }
+    },
+    "支払いをきっかけにする" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start when you pay"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "支払いをきっかけにする"
           }
         }
       }
@@ -7306,6 +7502,54 @@
         }
       }
     },
+    "最初に一度だけ設定" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up once to get started"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最初に一度だけ設定"
+          }
+        }
+      }
+    },
+    "最初の支払いで確かめる" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check after your first payment"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最初の支払いで確かめる"
+          }
+        }
+      }
+    },
+    "最初の設定・4ステップ" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up in 4 steps"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最初の設定・4ステップ"
+          }
+        }
+      }
+    },
     "最後のエラー" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。起動してから最後に端末内 AI が失敗したときのエラーの型・ドメイン・番号の項目名",
       "localizations" : {
@@ -7335,6 +7579,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Feature of last error"
+          }
+        }
+      }
+    },
+    "最終受信" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last received"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最終受信"
           }
         }
       }
@@ -7627,6 +7887,22 @@
         }
       }
     },
+    "次に開くと記録" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record on next launch"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "次に開くと記録"
+          }
+        }
+      }
+    },
     "次のように聞いてみてください。答えられる期間は、今日・昨日・今週・先週・今月・先月・今年と、「直近7日」のような日数です。" : {
       "comment" : "家計への質問の回答カード。質問を読めなかったときの説明。下に質問の例（日本語のまま）を出す。例の「直近7日」は訳さない",
       "localizations" : {
@@ -7634,6 +7910,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Try asking like the examples below. Periods you can ask about are today, yesterday, this week, last week, this month, last month, this year, and a number of days such as “直近7日”."
+          }
+        }
+      }
+    },
+    "次のタッチ決済のあと、サイフログを開いて金額と店名を確認してください。試すために買い物をする必要はありません。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After your next contactless payment, open SaifuLog to check the amount and merchant. There is no need to make a purchase just to test this."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "次のタッチ決済のあと、サイフログを開いて金額と店名を確認してください。試すために買い物をする必要はありません。"
           }
         }
       }
@@ -7743,6 +8035,22 @@
         }
       }
     },
+    "毎回の確認をなくす" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Run without asking each time"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "毎回の確認をなくす"
+          }
+        }
+      }
+    },
     "毎月%lld日" : {
       "comment" : "くり返しの記録の記録する日（毎月の何日か）。%lld は日",
       "localizations" : {
@@ -7794,6 +8102,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Asks the on-device AI to generate once from a fixed short prompt (up to %lld seconds). Your records are not sent."
+          }
+        }
+      }
+    },
+    "決済やカードによって、金額や店名が渡らないことがあります。金額がない支払いを推測で記録することはありません。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some payments or cards may not provide an amount or merchant. Payments without an amount are never guessed and recorded."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "決済やカードによって、金額や店名が渡らないことがあります。金額がない支払いを推測で記録することはありません。"
           }
         }
       }
@@ -8272,6 +8596,22 @@
         }
       }
     },
+    "自動で受信" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Receive automatically"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動で受信"
+          }
+        }
+      }
+    },
     "自動で記録" : {
       "comment" : "設定の節の見出し（くり返しの記録と Apple Pay の支払い）",
       "localizations" : {
@@ -8279,6 +8619,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Automatic Entries"
+          }
+        }
+      }
+    },
+    "自動記録" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto-record"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動記録"
+          }
+        }
+      }
+    },
+    "自動記録の範囲" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What gets recorded"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動記録の範囲"
           }
         }
       }
@@ -9010,6 +9382,22 @@
         }
       }
     },
+    "設定できたら「完了」を押します。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap Done to finish setting up."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定できたら「完了」を押します。"
+          }
+        }
+      }
+    },
     "設定の「iCloud で同期」" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。設定の「iCloud で同期」がオンかの項目名",
       "localizations" : {
@@ -9671,6 +10059,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your message had an amount along with words like “残り”, “予算”, or “合計”, so it wasn’t recorded. To record, send just the item and amount. To ask a question, add “?”."
+          }
+        }
+      }
+    },
+    "金額と店名をつなぐ" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect amount and merchant"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "金額と店名をつなぐ"
           }
         }
       }

@@ -113,6 +113,16 @@ struct HomeView: View {
                 .sheet(item: $model.purchaseCheck) { check in
                     PurchaseCheckView(model: check)
                 }
+                .sheet(item: $model.walletCapture) { capture in
+                    NavigationStack {
+                        WalletCaptureView(model: capture)
+                            .toolbar {
+                                ToolbarItem(placement: .cancellationAction) {
+                                    Button("閉じる") { model.walletCapture = nil }
+                                }
+                            }
+                    }
+                }
                 // 無料体験が終わった後の最初の起動に、一度だけプレミアム（⑨）を出す（`HomeModel.presentPremiumIfTrialEnded`）。
                 .sheet(item: $model.premiumSheet) { premium in
                     PremiumSheet(model: premium)
@@ -481,7 +491,9 @@ struct HomeView: View {
                     phrases: model.quickPhraseSuggestions,
                     pick: { model.pickQuickPhrase($0) },
                     purchaseCheck: model.draft.isEmpty && !isTyping && !model.isParsing
-                        ? { model.presentPurchaseCheck(calendar: calendar) } : nil
+                        ? { model.presentPurchaseCheck(calendar: calendar) } : nil,
+                    paymentSetup: model.draft.isEmpty && !isTyping && !model.isParsing
+                        ? { model.presentWalletCapture() } : nil
                 )
                 // 候補は画面の端から端まで送れるようにする（下の入力欄の左右の余白の外まで）。
                 .padding(.horizontal, -16)
