@@ -60,6 +60,8 @@ struct BudgetStore {
             try save(context)
         } catch {
             context.rollback()
+            // iOS 26 では読み込み済みの行が変更後のまま残る。ホームの @Query も保存済みの予算に戻す。
+            _ = try? context.fetch(FetchDescriptor<Budget>())
             throw error
         }
     }

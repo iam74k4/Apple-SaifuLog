@@ -118,6 +118,7 @@ struct BudgetStoreTests {
         try Self.makeStore(context: context, now: Self.earlier).setAmount(150_000, for: .total)
         context.insert(Budget(scope: .total, amount: 100_000, updatedAt: TestSupport.date(2026, 8, 1)))
         try context.save()
+        let displayed = try Self.rows(context)
         var store = Self.makeStore(context: context)
         store.save = { _ in throw TestError() }
 
@@ -126,6 +127,11 @@ struct BudgetStoreTests {
         }
 
         #expect(!context.hasChanges)
+        // ホームの帯は @Query の行を持ち続ける。一覧を読み直す前にも、保存できなかった予算を表示しない。
+        #expect(BudgetPlan.resolve(displayed).total == 150_000)
+        #expect(displayed.contains { $0.amount == 150_000 && $0.updatedAt == Self.earlier })
+        let header = MonthSummaryHeader.figures(records: [], budgets: displayed, today: TestSupport.now, calendar: TestSupport.calendar)
+        #expect(header.budget?.remaining == 150_000)
         #expect(try store.plan().total == 150_000)
         // 片づけかけた重複の行も戻る。
         #expect(try Self.rows(context).count == 2)
