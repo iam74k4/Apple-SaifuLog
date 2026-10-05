@@ -261,8 +261,9 @@ docs: add privacy policy
   動かし、1 つでも飛ばされたら失敗にする（`scripts/test-storekit.sh`。シミュレータが無ければ `scripts/prepare-storekit-simulator.sh`）
 - `make check-strings` — `make build` が書き出した Debug の .stringsdata と `Localizable.xcstrings` を突き合わせ、
   足りないキー・使われていないキー・en の無いキー・ja と en の書式指定子の不一致があれば止まる（`scripts/check-strings.py`）
-- `make ci` — 必須チェック `build`（build.yml）と同じ 8 つ（`make build`・`make check-strings`・`make test`・`make build-tests`・
+- `make ci` — 必須チェック `build`（build.yml）と同じ 8 種類（`make build`・`make check-strings`・`make test`・`make build-tests`・
   `make test-app`・`make test-storekit`・`make check-version`・`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を順に通す。
+  `make test-app` は最新 iOS と購入テスト用の iOS 26.2 の両方で実行する（SwiftData などの動作の違いも確かめる）。
   **`make build` が通るだけでは CI が通るとは限らない。** PR の前はこれを通す
 - `make clean` / `make open` — 生成物の削除 / Xcode で開く
 - `release.mk`（Makefile の末尾で読み込む）:

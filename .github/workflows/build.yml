@@ -135,6 +135,12 @@ jobs:
         if: ${{ !cancelled() && steps.storekit-simulator.outcome == 'success' }}
         run: make test-storekit
 
+      # iOS 27 では通っても iOS 26 の SwiftData で失敗する処理があるため、本体も両方で確かめる。
+      # 購入テストのために用意済みの iOS 26.2 を使い、別のランタイムは追加しない。
+      - name: iOS 26 でアプリの互換性を確認
+        if: ${{ !cancelled() && steps.storekit-simulator.outcome == 'success' }}
+        run: make test-app TEST_DESTINATION="$(./scripts/pick-simulator.sh "$(make -s print-storekit-os)")"
+
       # Config/Base.xcconfig と CHANGELOG.md が食い違ったまま main へ進むと、
       # App Store のリリースノートが別バージョンのものになる。
       # リリースノートは CHANGELOG の節をそのまま使うため、ここでずれを止める。

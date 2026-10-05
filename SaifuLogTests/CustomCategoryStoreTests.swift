@@ -17,9 +17,9 @@ struct CustomCategoryStoreTests {
         private var nextID = 0
         private(set) var store: CustomCategoryStore!
 
-        init() throws {
-            context = try TestSupport.makeContext()
-            var store = CustomCategoryStore(context: context)
+        init(context: ModelContext? = nil) throws {
+            self.context = try context ?? TestSupport.makeContext()
+            var store = CustomCategoryStore(context: self.context)
             store.now = { [unowned self] in now }
             store.makeID = { [unowned self] in
                 nextID += 1
@@ -119,6 +119,23 @@ struct CustomCategoryStoreTests {
         #expect(try fixture.store.catalog().name(of: clothes) == "衣服")
     }
 
+    /// 一覧を読み直す前でも、保存できなかった名前・記号・色が画面に残らない。
+    @Test func updateFailureRestoresLoadedRows() throws {
+        let fixture = try Fixture()
+        let clothes = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
+        let row = try #require(try fixture.context.fetch(FetchDescriptor<CustomCategory>()).first)
+        fixture.now = TestSupport.now.addingTimeInterval(60)
+        fixture.failsSave = true
+
+        #expect(throws: TestError.self) {
+            try fixture.store.update(clothes, name: "服", symbolName: "bag", colorIndex: 4)
+        }
+
+        #expect(row.info == CustomCategoryInfo(id: "id-1", name: "衣服", symbolName: "tshirt", colorIndex: 0))
+        #expect(row.updatedAt == TestSupport.now)
+        #expect(!fixture.context.hasChanges)
+    }
+
     // MARK: - 並べ替える
 
     @Test func reorderChangesOrder() throws {
@@ -133,6 +150,21 @@ struct CustomCategoryStoreTests {
         // 並べ替えた後に作ったカテゴリも後ろに並ぶ。
         let fourth = try fixture.store.create(name: "旅行", symbolName: "airplane", colorIndex: 0)
         #expect(try fixture.store.catalog().customs.map(\.category) == [third, first, second, fourth])
+    }
+
+    @Test func reorderFailureRestoresLoadedRows() throws {
+        let fixture = try Fixture()
+        let clothes = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
+        let housing = try fixture.store.create(name: "住居", symbolName: "house", colorIndex: 0)
+        let rows = try fixture.context.fetch(FetchDescriptor<CustomCategory>(sortBy: [SortDescriptor(\.sortOrder)]))
+        fixture.now = TestSupport.now.addingTimeInterval(60)
+        fixture.failsSave = true
+
+        #expect(throws: TestError.self) { try fixture.store.reorder([housing, clothes]) }
+
+        #expect(rows.map(\.sortOrder) == [0, 1])
+        #expect(rows.allSatisfy { $0.updatedAt == TestSupport.now })
+        #expect(!fixture.context.hasChanges)
     }
 
     // MARK: - 削除する
@@ -173,18 +205,55 @@ struct CustomCategoryStoreTests {
     }
 
     /// 書き込めなければ、記録もカテゴリも元のまま（一部だけ消えて、消したカテゴリを指す記録が残らないように）。
-    @Test func deleteFailureRollsBackEverything() throws {
-        let fixture = try Fixture()
+    @Test(arguments: [false, true])
+    func deleteFailureRollsBackEverything(usesFileStore: Bool) throws {
+        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appending(path: "default.store", directoryHint: .notDirectory)
+        let container = try usesFileStore
+            ? ModelContainerFactory.makeContainer(url: url, cloudKitDatabase: .none)
+            : ModelContainerFactory.makeInMemoryContainer()
+        let fixture = try Fixture(context: container.mainContext)
         let clothes = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
         let entry = TestSupport.entry(amount: 3000, category: clothes)
+        let budget = Budget(scope: .category(clothes), amount: 10_000, updatedAt: TestSupport.now)
+        let learned = LearnedCategory(phrase: "ユニクロ", category: clothes, updatedAt: TestSupport.now)
+        let recurring = RecurringEntry(
+            recurrenceID: "clothes", draft: RecurringDraft(amount: 3000, memo: "衣服", isIncome: false, category: clothes, dayOfMonth: 1),
+            startMonth: RecurringMonth(year: 2026, month: 10), createdAt: TestSupport.now
+        )
         fixture.context.insert(entry)
+        fixture.context.insert(budget)
+        fixture.context.insert(learned)
+        fixture.context.insert(recurring)
         try fixture.context.save()
+        fixture.now = TestSupport.now.addingTimeInterval(60)
         fixture.failsSave = true
 
         #expect(throws: TestError.self) { try fixture.store.delete(clothes) }
 
+        // fetch で偶然直る前に、画面が持っている行そのものを確かめる。
         #expect(entry.category == clothes)
+        #expect(budget.amount == 10_000)
+        #expect(budget.updatedAt == TestSupport.now)
+        #expect(recurring.category == clothes)
+        #expect(recurring.updatedAt == TestSupport.now)
+        #expect(!fixture.context.hasChanges)
+        #expect(try LearnedCategoryStore(context: fixture.context).memory().rules == ["ユニクロ": clothes])
         #expect(try fixture.store.catalog().customs.map(\.category) == [clothes])
+
+        // 別の操作による次の保存でも、失敗した削除が紛れ込まない。ファイルを開き直しても全項目が残る。
+        fixture.context.insert(TestSupport.entry(amount: 850, category: .food))
+        try fixture.context.save()
+        let reopened = try usesFileStore
+            ? ModelContainerFactory.makeContainer(url: url, cloudKitDatabase: .none)
+            : container
+        let saved = ModelContext(reopened)
+        #expect(try saved.fetch(FetchDescriptor<Entry>()).filter { $0.category == clothes }.count == 1)
+        #expect(try BudgetStore(context: saved).plan().byCategory[clothes] == 10_000)
+        #expect(try LearnedCategoryStore(context: saved).memory().rules == ["ユニクロ": clothes])
+        #expect(try RecurringEntryStore(context: saved).rules().first?.category == clothes)
+        #expect(try CustomCategoryStore(context: saved).catalog().customs.map(\.category) == [clothes])
     }
 
     // MARK: - iCloud の行き違い
