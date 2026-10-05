@@ -142,34 +142,49 @@ struct CustomCategoryStore {
     func delete(_ category: EntryCategory) throws {
         guard let id = category.customID else { return }
         let rawValue = category.rawValue
-        for entry in try context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.categoryRawValue == rawValue })) {
+        // 読み込みが途中で失敗しても、書きかけの変更を残さないよう、すべて読めてから書き換える。
+        let entries = try context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.categoryRawValue == rawValue }))
+        let budgets = try context.fetch(FetchDescriptor<Budget>(predicate: #Predicate { $0.scopeRawValue == rawValue }))
+        let memories = try context.fetch(FetchDescriptor<LearnedCategory>(predicate: #Predicate { $0.categoryRawValue == rawValue }))
+        let rules = try context.fetch(FetchDescriptor<RecurringEntry>(predicate: #Predicate { $0.categoryRawValue == rawValue }))
+        let categories = try context.fetch(FetchDescriptor<CustomCategory>(predicate: #Predicate { $0.categoryID == id }))
+        for entry in entries {
             entry.category = .other
         }
         // 予算は行を消さずに 0（設定なし）を書く（`BudgetStore` と同じ考え方。ほかの端末の古い額が勝たないように）。
-        for budget in try context.fetch(FetchDescriptor<Budget>()) where budget.scopeRawValue == rawValue && budget.amount != 0 {
+        for budget in budgets where budget.amount != 0 {
             budget.amount = 0
             budget.updatedAt = now()
         }
-        for learned in try context.fetch(FetchDescriptor<LearnedCategory>()) where learned.categoryRawValue == rawValue {
+        for learned in memories {
             context.delete(learned)
         }
         // くり返しの記録も「その他」にする（次の月から、消したカテゴリで記録しないように）。
-        for recurring in try context.fetch(FetchDescriptor<RecurringEntry>()) where recurring.categoryRawValue == rawValue {
+        for recurring in rules {
             recurring.category = .other
             recurring.updatedAt = now()
         }
-        for row in try context.fetch(FetchDescriptor<CustomCategory>()) where row.categoryID == id {
+        for row in categories {
             context.delete(row)
         }
-        try commit()
+        try commit {
+            // rollback の後は保存先のカテゴリで探す。EntryStore.update と同じく、読み込み済みの行も元の値に戻す。
+            _ = try? context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.categoryRawValue == rawValue }))
+            _ = try? context.fetch(FetchDescriptor<Budget>(predicate: #Predicate { $0.scopeRawValue == rawValue }))
+            _ = try? context.fetch(FetchDescriptor<LearnedCategory>(predicate: #Predicate { $0.categoryRawValue == rawValue }))
+            _ = try? context.fetch(FetchDescriptor<RecurringEntry>(predicate: #Predicate { $0.categoryRawValue == rawValue }))
+        }
     }
 
     /// 書き込めなかった変更は取り消す（EntryStore と同じ理由。画面と保存先を食い違わせないため）。
-    private func commit() throws {
+    private func commit(afterRollback: () -> Void = {}) throws {
         do {
             try save(context)
         } catch {
             context.rollback()
+            // iOS 26 では rollback だけだと、画面が持つ名前や並びが変更後のまま残る。保存済みの値を読み直す。
+            _ = try? context.fetch(FetchDescriptor<CustomCategory>())
+            afterRollback()
             throw error
         }
     }

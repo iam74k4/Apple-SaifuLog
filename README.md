@@ -188,12 +188,14 @@ Xcode で開きます。スキーム **SaifuLog** とシミュレータを選ん
 | `make test-storekit` | 購入のテスト（StoreKit）を iOS 26.2 のシミュレータで動かす（1 つでも飛ばされたら失敗） |
 | `make check-version` | アプリのバージョンと `CHANGELOG.md` の先頭の見出しが一致しているか確かめる |
 | `make check-strings` | 画面の文字列の一覧（String Catalog）とコードの文字列が食い違っていないか（足りない・使っていない・英語の訳が無い・`%@` などの数や種類が違う）を確かめる（`make build` の後に） |
-| `make ci` | CI（`build`）と同じ 8 つ（`make build`・`make check-strings`・`make test`・`make build-tests`・`make test-app`・`make test-storekit`・`make check-version`・署名なしの `make archive`）を順に通す |
+| `make ci` | CI（`build`）と同じ 8 種類（`make build`・`make check-strings`・`make test`・`make build-tests`・`make test-app`・`make test-storekit`・`make check-version`・署名なしの `make archive`）を順に通す |
 | `make clean` | ビルドの生成物を消す |
 
 `make test-app` は、入っているシミュレータのうち、いちばん新しい iOS の iPhone を選んで動かします。
 機種を決めたいときは `make test-app TEST_DESTINATION='platform=iOS Simulator,name=iPhone 17 Pro'`
 のように渡します。Xcode でスキーム **SaifuLog** の Test を実行しても動かせます。
+CI と `make ci` は、最新の iOS に加え、購入テスト用の iOS 26.2 でもアプリのテストをすべて実行します。
+最新の iOS だけでは見つからない SwiftData などの動作の違いも確かめるためです。
 
 購入のテスト（StoreKit の設定ファイル `Config/SaifuLog.storekit` と SKTestSession を使うもの）は、
 iOS 26.3・26.4 のシミュレータでは Apple の不具合で動かないため、`make test-app` では除き、`make test-storekit` が
@@ -242,7 +244,7 @@ CloudKit のゾーンと同期し、ゾーンごと共有します（`docs/desig
   （詳しくは [`CLAUDE.md`](CLAUDE.md)）
 - PR では CI（`build`）が `make build`・`make check-strings`（String Catalog の整合）・`make test`・`make build-tests`・
   `make test-app`（アプリのテスト）・`make test-storekit`（購入のテスト）・`make check-version` と、署名なしの `make archive`
-  （提出物と同じ組み立て）を通します。手元では `make ci` で同じ 8 つを通せます
+  （提出物と同じ組み立て）を通します。手元では `make ci` で同じ 8 種類を通せます
 - `develop` → `main` の PR は **merge commit でマージします**（`main` は merge しか受け付けない
   設定です）。squash すると `develop` と履歴が分かれ、次のリリースから毎回衝突するためです
 - **`main` へのマージがリリースの合図です。** App Store Connect へのアップロードと

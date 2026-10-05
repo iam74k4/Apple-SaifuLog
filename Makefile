@@ -166,6 +166,7 @@ ci:
 	$(MAKE) build-tests
 	$(MAKE) test-app
 	$(MAKE) test-storekit
+	$(MAKE) test-app TEST_DESTINATION='$(STOREKIT_TEST_DESTINATION)'
 	$(MAKE) check-version
 	$(MAKE) archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999
 
