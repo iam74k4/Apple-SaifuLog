@@ -1,17 +1,6 @@
 {
   "sourceLanguage" : "ja",
   "strings" : {
-    "${merchant} の ${amount} を記録" : {
-      "comment" : "ショートカットの「支払いを記録」の操作の要約。${merchant} は店名、${amount} は金額",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Record ${amount} at ${merchant}"
-          }
-        }
-      }
-    },
     "%@ で購入する" : {
       "comment" : "プレミアムのシート（⑨）の下の帯の購入のボタン（大きな文字で「（買い切り）」まで収まらないとき）。%@ は App Store の価格の表示（「¥1,800」）",
       "localizations" : {
@@ -278,16 +267,6 @@
         }
       }
     },
-    "%@分を組み替え" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Shift %@ toward your purchase"
-          }
-        }
-      }
-    },
     "%lld か月の推移: %@" : {
       "comment" : "家計への質問の回答カードの推移の棒を VoiceOver で読むときの文。%lld は月の数、%@ は月と金額の一覧",
       "localizations" : {
@@ -443,16 +422,6 @@
         }
       }
     },
-    "%lld%%" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld%%"
-          }
-        }
-      }
-    },
     "%lldページ目からは読み取っていません。合計や品目が足りないときは、%lldページまでで撮り直してください。" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。書類カメラで上限より多く撮ったときの注意（画面のいちばん上と VoiceOver の読み上げ）。1 つ目の %lld は読み取らなかった最初のページ、2 つ目は読み取るページの上限",
       "localizations" : {
@@ -471,16 +440,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Recorded as your share of a %lld-way split."
-          }
-        }
-      }
-    },
-    "%lld回見送る" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Skip %lld times"
           }
         }
       }
@@ -602,36 +561,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Recorded as one person’s share."
-          }
-        }
-      }
-    },
-    "1円以上、999,999,999,999円以下で入力してください。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enter an amount from ¥1 to ¥999,999,999,999."
-          }
-        }
-      }
-    },
-    "1回500円・欲しいもの6,000円の例" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Example: ¥500 coffee and a ¥6,000 purchase"
-          }
-        }
-      }
-    },
-    "1回の目安 %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Typical cost %@"
           }
         }
       }
@@ -1292,36 +1221,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Biggest spending day"
-          }
-        }
-      }
-    },
-    "いつもの支出の試算には、過去28日で7日以上、かつ14日以上前からの支出の記録が必要です。買い物前後の予算は上で比べられます。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "To estimate your usual spending, add expenses on at least 7 of the past 28 days, starting at least 14 days ago. You can still compare your budget above."
-          }
-        }
-      }
-    },
-    "いつもの支出を、欲しいものへ" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Make room for what you want"
-          }
-        }
-      }
-    },
-    "いつもの支出を、欲しいものへ。まずは回数を変えてみてください。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Make room for something you want. Try changing the number below."
           }
         }
       }
@@ -2093,16 +1992,6 @@
         }
       }
     },
-    "これからの日々の支出見込み" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Estimated everyday spending ahead"
-          }
-        }
-      }
-    },
     "これまでの支出から見た、月の予算の目安: %@" : {
       "comment" : "先週のふりかえりのカード。%@ は直近の月の支出の中央値を 1,000 円単位に丸めた額",
       "localizations" : {
@@ -2154,16 +2043,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Forget All"
-          }
-        }
-      }
-    },
-    "そのまま買う" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buy as usual"
           }
         }
       }
@@ -2346,16 +2225,6 @@
         }
       }
     },
-    "ほかにできること" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "More premium features"
-          }
-        }
-      }
-    },
     "ほかの家計に入っています" : {
       "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。家計に入っているときに別の家計の招待を開いたときのアラートの題名",
       "localizations" : {
@@ -2374,16 +2243,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "It was deleted on another device, so your changes weren’t saved."
-          }
-        }
-      }
-    },
-    "まずは月の予算から" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Start with a monthly budget"
           }
         }
       }
@@ -2977,16 +2836,6 @@
         }
       }
     },
-    "カフェ・娯楽で同じ品目を3回以上記録すると、回数を減らした場合を試せます。月末までの回数の目安が1回未満の品目は出しません。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Record the same café or entertainment item at least 3 times to try reducing its frequency. Items estimated to occur less than once before month-end are not shown."
-          }
-        }
-      }
-    },
     "カメラ" : {
       "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
       "localizations" : {
@@ -3074,16 +2923,6 @@
         }
       }
     },
-    "コーヒーを何回、欲しいものへ？" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "How many coffees would you swap?"
-          }
-        }
-      }
-    },
     "サイフログ プレミアム" : {
       "comment" : "プレミアムのシート（⑨）の見出しと、設定の「プレミアム」の節の行の名前（課金アイテムの表示名と同じ）",
       "localizations" : {
@@ -3113,26 +2952,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SaifuLog is a budget app where you record spending by sending a single line, like “ランチ 850”. The app takes care of the categories and the math, and you can ask about your spending in the same field."
-          }
-        }
-      }
-    },
-    "サンプルで体験・購入不要" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Try a sample · No purchase needed"
-          }
-        }
-      }
-    },
-    "サンプルの月末の余裕です。あなたの記録・予算・無料体験は変わりません。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sample month-end headroom. Your records, budget, and free trial stay unchanged."
           }
         }
       }
@@ -3375,16 +3194,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Opens a screen showing what Premium adds, where you can buy it."
-          }
-        }
-      }
-    },
-    "プレミアムで回数を減らす案を比較" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Try cutting back with Premium"
           }
         }
       }
@@ -3653,6 +3462,17 @@
         }
       }
     },
+    "レシートも家計への質問も、回数を気にせず使えます。カテゴリ別の予算と AI の一言も加わります。" : {
+      "comment" : "プレミアムのシート（⑨）の見出しの下の一文（無料のとき。体験が終わった後は別の文）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan receipts and ask about your spending as often as you like. Budgets by category and AI notes are included too."
+          }
+        }
+      }
+    },
     "レシートを読み取っています…" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。文字を読み取っている間の文",
       "localizations" : {
@@ -3814,16 +3634,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send an entry from the field below to record it to the household you share with your family. Entries your family records also appear here. Switch to “Me” at the top to see your own entries."
-          }
-        }
-      }
-    },
-    "不足" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Shortfall"
           }
         }
       }
@@ -4070,16 +3880,6 @@
         }
       }
     },
-    "今日これから使う分は含みません。固定費と先の日付で記録した支出は別に確保済みです。残しておく額を引いた目安で、実際の残高の予測ではありません。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Excludes any further spending today. Fixed costs and future-dated entries are set aside separately. This estimate also sets aside your cushion; it is not a forecast of your bank balance."
-          }
-        }
-      }
-    },
     "今日の日付で ¥850 を記録" : {
       "comment" : "ようこその画面。入力の例「ランチ 850」がどう記録されるか。カテゴリは書かない（AI とキーワード辞書で変わりうるため）",
       "localizations" : {
@@ -4164,16 +3964,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This date is in the future. If this isn’t a planned record, check the date."
-          }
-        }
-      }
-    },
-    "今日を含む残り%lld日で日割りします。収入は予算に足しません。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Divided over the %lld days left, including today. Income is not added to your budget."
           }
         }
       }
@@ -4468,16 +4258,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "What would you like to record?"
-          }
-        }
-      }
-    },
-    "余裕" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Room left"
           }
         }
       }
@@ -5636,16 +5416,6 @@
         }
       }
     },
-    "回数の上限は記録期間の頻度、金額は中央値が基準です。節約分は将来の支出見込みだけから引き、今ある予算には足しません。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The count limit uses the frequency over your recorded period; the amount uses the median. Reductions lower projected spending and never increase your current budget."
-          }
-        }
-      }
-    },
     "固定費" : {
       "localizations" : {
         "en" : {
@@ -5663,16 +5433,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Left after fixed costs"
-          }
-        }
-      }
-    },
-    "固定費・残す額を確保済み。口座残高ではありません。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fixed costs and your cushion set aside. Not your bank balance."
           }
         }
       }
@@ -6677,16 +6437,6 @@
         }
       }
     },
-    "支出の組み替えを試す" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Try spending trade-offs"
-          }
-        }
-      }
-    },
     "教育" : {
       "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
       "localizations" : {
@@ -7144,36 +6894,6 @@
         }
       }
     },
-    "月末の余裕を比較" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Compare room left at month-end"
-          }
-        }
-      }
-    },
-    "月末までに使える分" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Available until month-end"
-          }
-        }
-      }
-    },
-    "月末まで残しておく額" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cushion to keep this month"
-          }
-        }
-      }
-    },
     "期間" : {
       "comment" : "設定の「記録を書き出す」の、書き出す期間の選択の見出し（今月・先月・今年・すべて）",
       "localizations" : {
@@ -7181,16 +6901,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Period"
-          }
-        }
-      }
-    },
-    "未記録の固定費" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fixed costs not yet recorded"
           }
         }
       }
@@ -7334,46 +7044,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Next entry: %@."
-          }
-        }
-      }
-    },
-    "欲しいものに回せる目安" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Room for your purchase"
-          }
-        }
-      }
-    },
-    "残しておく額は999,999,999,999円以下で入力してください。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enter a cushion of no more than ¥999,999,999,999."
-          }
-        }
-      }
-    },
-    "残しておく額は、この試算だけで確保します。空欄は0円です。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your cushion is set aside only in this estimate. Leave blank for ¥0."
-          }
-        }
-      }
-    },
-    "残す" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cushion"
           }
         }
       }
@@ -7766,16 +7436,6 @@
         }
       }
     },
-    "直近%lld日間のうち%lld日にある記録から、明日以降%lld日分を試算。期間内で記録のない日は0円として計算します。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uses spending recorded on %2$lld of the last %1$lld days to estimate the next %3$lld days, starting tomorrow. Unrecorded days within that period count as zero."
-          }
-        }
-      }
-    },
     "破棄して閉じる" : {
       "comment" : "直すシート（⑥）とレシートの読み取り結果のシート（⑤）の破棄の確認のボタン。直した内容を捨ててシートを閉じる",
       "localizations" : {
@@ -7904,26 +7564,6 @@
         }
       }
     },
-    "組み替えて買う" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cut back and buy"
-          }
-        }
-      }
-    },
-    "組み替えられるカフェ・娯楽の記録がまだありません" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No café or entertainment habits to adjust yet"
-          }
-        }
-      }
-    },
     "経路のモデルの状態" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。声の入力で使っている経路の、書き起こしのモデルが入っているかの項目名",
       "localizations" : {
@@ -7986,16 +7626,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Me"
-          }
-        }
-      }
-    },
-    "自分の記録での組み替えには、14日以上前から7日以上の支出記録が必要です。記録が揃ってから無料体験を始めると、十分に試せます。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Personal spending swaps need at least 7 recorded spending days, starting at least 14 days ago. Start your free trial once you have enough history to explore them fully."
           }
         }
       }
@@ -8088,16 +7718,6 @@
         }
       }
     },
-    "見送る" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Skip it"
-          }
-        }
-      }
-    },
     "覚えたカテゴリ" : {
       "comment" : "設定の行と、その一覧の画面の題名。記録の返事や直す画面で選んだカテゴリを、同じ言葉に次から使う（修正の記憶）",
       "localizations" : {
@@ -8153,16 +7773,6 @@
         }
       }
     },
-    "計算に使った記録" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Behind the numbers"
-          }
-        }
-      }
-    },
     "記号" : {
       "comment" : "カテゴリを作る・直すシートの、記号の見出し",
       "localizations" : {
@@ -8192,16 +7802,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t tell if this was a record or a question"
-          }
-        }
-      }
-    },
-    "記録が増えると、いつもの支出も組み替えられます" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "With more history, try spending trade-offs too"
           }
         }
       }
@@ -8382,16 +7982,6 @@
         }
       }
     },
-    "記録と買い物の操作" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Recording and purchase tools"
-          }
-        }
-      }
-    },
     "記録と質問の会話に戻ります" : {
       "comment" : "カレンダーのページの上の帯の会話のボタンの VoiceOver のヒント",
       "localizations" : {
@@ -8432,16 +8022,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "How to Record"
-          }
-        }
-      }
-    },
-    "記録のペースで試算" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "At your recorded spending pace"
           }
         }
       }
@@ -8572,16 +8152,6 @@
         }
       }
     },
-    "記録を始めてからのペースです。記録していない支払いは反映されません。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Based on the period since your first record. Payments you have not recorded are not included."
-          }
-        }
-      }
-    },
     "記録を書き出す" : {
       "comment" : "設定の節の見出し。記録を CSV ファイルに書き出す",
       "localizations" : {
@@ -8703,16 +8273,6 @@
         }
       }
     },
-    "記録済みの支出（先の日付も含む）" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Recorded expenses, including future dates"
-          }
-        }
-      }
-    },
     "設定" : {
       "comment" : "設定の画面のタイトルと、ホームの帯の右上の歯車のボタンの VoiceOver ラベル",
       "localizations" : {
@@ -8764,16 +8324,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Diagnostics"
-          }
-        }
-      }
-    },
-    "試算だけです。支出や予算は変更しません。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Just an estimate. Your entries and budget stay as they are."
           }
         }
       }
@@ -8883,16 +8433,6 @@
         }
       }
     },
-    "買いたいものの金額" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Purchase amount"
-          }
-        }
-      }
-    },
     "買い切りで、レシートと質問が無制限に" : {
       "comment" : "設定の「サイフログ プレミアム」の行の 2 行目（体験が終わった後）",
       "localizations" : {
@@ -8911,86 +8451,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "One-time purchase · Family Sharing"
-          }
-        }
-      }
-    },
-    "買い物代の%lld%%分" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld%% of your purchase"
-          }
-        }
-      }
-    },
-    "買い物前後の予算チェックは無料" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Before-and-after budget check is free"
-          }
-        }
-      }
-    },
-    "買う" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buy it"
-          }
-        }
-      }
-    },
-    "買うと、どう変わる？" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "What changes if you buy?"
-          }
-        }
-      }
-    },
-    "買うと、確保したい額を下回ります" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buying would dip into money you want to keep"
-          }
-        }
-      }
-    },
-    "買う前チェック" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Before You Buy"
-          }
-        }
-      }
-    },
-    "買う前チェックで、カフェ・娯楽の記録をもとに回数を減らす案を組み合わせ、買い物後の余裕を比較できます。記録が十分にあるときに使え、AI対応は不要です。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In Before You Buy, try fewer café and entertainment purchases from your history and compare the room left. Requires enough recorded history; no AI support needed."
-          }
-        }
-      }
-    },
-    "買った後は1日 %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "After buying: %@ per day"
           }
         }
       }
@@ -9302,16 +8762,6 @@
         }
       }
     },
-    "過去28日で%lld回・1回の目安 %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld times in the past 28 days · Typical cost %@"
-          }
-        }
-      }
-    },
     "選ぶと、次から「%@」の記録にも使います。" : {
       "comment" : "ホームの返事でカテゴリを聞き返したときの注記。%@ は品目",
       "localizations" : {
@@ -9440,16 +8890,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enter an amount."
-          }
-        }
-      }
-    },
-    "金額を入れると、ここで比べられます" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enter an amount to compare"
           }
         }
       }

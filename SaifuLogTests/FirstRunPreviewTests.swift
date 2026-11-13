@@ -9,22 +9,6 @@ import UIKit
 @MainActor
 @Suite(.serialized)
 struct FirstRunPreviewTests {
-    @Test func purchasePreviewDoesNotStartTrialOrCreateRecords() throws {
-        let fixture = try HomeModelTests.Fixture()
-        let onboarding = OnboardingModel(budgetStore: BudgetStore(context: fixture.context), defaults: fixture.defaults)
-        let preview = SpendingChoicesPreviewModel()
-        preview.count = 0
-        let original = try #require(preview.comparison)
-        preview.count = 6
-        let changed = try #require(preview.comparison)
-        #expect(changed.adjustment == 3000)
-        #expect(original.withPurchase == changed.withPurchase)
-        #expect(changed.projectedWithAdjustment == original.projectedWithPurchase! + 3000)
-        #expect(try fixture.entries().isEmpty)
-        #expect(fixture.purchases.status == .free)
-        #expect(!onboarding.isCompleted)
-    }
-
     @Test(arguments: ["ja_JP", "en_US"], [UIContentSizeCategory.large, .accessibilityExtraExtraExtraLarge])
     func firstRunAndPaidPreviewFitPhone(locale: String, size: UIContentSizeCategory) async throws {
         let fixture = try HomeModelTests.Fixture()

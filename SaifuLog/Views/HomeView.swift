@@ -110,9 +110,6 @@ struct HomeView: View {
                 .navigationDestination(item: $model.weeklyRecapDetail) { recap in
                     WeeklyRecapView(model: recap)
                 }
-                .sheet(item: $model.purchaseCheck) { check in
-                    PurchaseCheckView(model: check)
-                }
                 .sheet(isPresented: $model.showsReviewQueue) {
                     EntryReviewQueueView(model: model)
                 }
@@ -479,8 +476,6 @@ struct HomeView: View {
                 QuickPhraseBar(
                     phrases: model.quickPhraseSuggestions,
                     pick: { model.pickQuickPhrase($0) },
-                    purchaseCheck: model.draft.isEmpty && !isTyping && !model.isParsing
-                        ? { model.presentPurchaseCheck(calendar: calendar) } : nil,
                     reviewCount: model.reviewLoadFailed ? nil : model.reviewItems.count,
                     review: !model.reviewItems.isEmpty || model.reviewLoadFailed ? { model.showsReviewQueue = true } : nil
                 )
