@@ -92,28 +92,11 @@ extension XCUIApplication {
     }
 
     /// 入力欄に打って送る。
-    ///
-    /// 打った文が入力欄に入らないことがある（CI の遅いシミュレータで、キーボードが出きる前に打つと文字が落ちる）。文が入って
-    /// 送信のボタンが押せるようになるまで、3 回まで打ち直す（打ち直すときは入力欄を空にしてから打つ）。
     func send(_ text: String, file: StaticString = #filePath, line: UInt = #line) {
-        let field = inputField
-        var entered = false
-        for attempt in 1...3 {
-            if attempt == 1 {
-                focusField(AccessibilityID.Home.inputField, file: file, line: line)
-                dismissKeyboardTipIfNeeded()
-                field.typeText(text)
-            } else {
-                print("入力欄に文が入らなかったので、打ち直します（\(attempt) 回目）: \(text)")
-                replaceText(in: AccessibilityID.Home.inputField, with: text, file: file, line: line)
-            }
-            if sendButton.waitUntilEnabled(timeout: 5), field.waitForValue(containing: text, timeout: 2) {
-                entered = true
-                break
-            }
-        }
+        type(text, into: AccessibilityID.Home.inputField, file: file, line: line)
         XCTAssertTrue(
-            entered, "送信のボタンが押せません: \(text)（入力欄の値: \(String(describing: field.value))）", file: file, line: line
+            sendButton.waitUntilEnabled(timeout: 5),
+            "送信のボタンが押せません: \(text)（入力欄の値: \(String(describing: inputField.value))）", file: file, line: line
         )
         sendButton.tap()
     }
@@ -139,6 +122,9 @@ extension XCUIApplication {
                 field.tap()
             }
             if focused.waitForExistence(timeout: 10) {
+                // キーボードが出きる前に打つと、文字が落ちることがあった。出るまで待つ（ハードウェアキーボードの設定で出ない
+                // シミュレータでは、待ちきってから打つ）。
+                _ = keyboards.firstMatch.waitForExistence(timeout: 3)
                 return field
             }
             print("入力欄にフォーカスが入らなかったので、押し直します（\(attempt) 回目）: \(identifier)")
@@ -147,18 +133,56 @@ extension XCUIApplication {
         return field
     }
 
-    /// 名前の入力欄を押して、文を打つ。
-    func type(_ text: String, into identifier: String, file: StaticString = #filePath, line: UInt = #line) {
-        focusField(identifier, file: file, line: line).typeText(text)
+    /// 名前の入力欄を押して、文を打つ。入力欄が `shows`（省けば打った文。金額の欄は打つたびに「60,000」の形にそろえるので、
+    /// その形を渡す）になったことを確かめる。
+    ///
+    /// CI の遅いシミュレータでは、打った文字が落ちることがあった（入力欄が出きる前の文字や、金額の欄で「60000」の 0 が 1 つ
+    /// 落ちて「6,000」になった。打つたびに桁の区切りを入れて文を差し替えるので、続けて速く打つと間に合わない）。そうなったら
+    /// 入力欄を空にして、1 文字ずつ（アプリが落ち着くのを待ちながら）打ち直す。3 回まで。
+    func type(
+        _ text: String, into identifier: String, shows expected: String? = nil, replacing: Bool = false,
+        file: StaticString = #filePath, line: UInt = #line
+    ) {
+        let expected = expected ?? text
+        let field = element(identifier)
+        for attempt in 1...3 {
+            if attempt == 1 {
+                if replacing {
+                    clearText(in: identifier, file: file, line: line)
+                } else {
+                    focusField(identifier, file: file, line: line)
+                    dismissKeyboardTipIfNeeded()
+                }
+                field.typeText(text)
+            } else {
+                print("入力欄が「\(expected)」になりませんでした（いまの値: \(String(describing: field.value))）。空にして 1 文字ずつ打ち直します（\(attempt) 回目）")
+                clearText(in: identifier, file: file, line: line)
+                for character in text {
+                    field.typeText(String(character))
+                }
+            }
+            if field.wait(until: NSPredicate(format: "value == %@", expected), timeout: 3) {
+                return
+            }
+        }
+        XCTFail(
+            "入力欄が「\(expected)」になりません（いまの値: \(String(describing: field.value))）: \(identifier)", file: file, line: line
+        )
     }
 
-    /// 名前の入力欄の文を消してから打つ。右の端を押して、文の終わりから消す。
-    func replaceText(in identifier: String, with text: String, file: StaticString = #filePath, line: UInt = #line) {
+    /// 名前の入力欄の文を消してから打つ（`type(_:into:shows:replacing:)`）。
+    func replaceText(
+        in identifier: String, with text: String, shows expected: String? = nil, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        type(text, into: identifier, shows: expected, replacing: true, file: file, line: line)
+    }
+
+    /// 名前の入力欄の文を消す。右の端を押して、文の終わりから消す。
+    func clearText(in identifier: String, file: StaticString = #filePath, line: UInt = #line) {
         let field = focusField(identifier, atEnd: true, file: file, line: line)
         let current = (field.value as? String) ?? ""
         // 空の入力欄の値は案内の文（placeholder）になるので、消す数は多めでよい（空の欄で消しても何も起きない）。
         field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 2))
-        field.typeText(text)
     }
 
     /// 新しいシミュレータで初めてキーボードを出したときの案内（なぞって入力など）を閉じる。出ていなければ何もしない。
