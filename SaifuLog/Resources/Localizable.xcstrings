@@ -410,29 +410,6 @@
         }
       }
     },
-    "%lld 日" : {
-      "comment" : "先週のふりかえりの内訳。記録のある日の数。%lld は日数",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld day"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld days"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "%lld 番目にしました" : {
       "comment" : "設定の「カテゴリ」で、VoiceOver の操作で作ったカテゴリを動かした後に読み上げる位置。%lld は何番目か",
       "localizations" : {
