@@ -171,7 +171,7 @@ struct LedgerCalendarModelTests {
         #expect(fixture.model.month?.start == TestSupport.date(2026, 9, 1))
     }
 
-    /// 週の始まりの設定を変えると、1 日の前の空きを数え直す。
+    /// 暦の週の始まりが変わると、1 日の前の空きを数え直す。
     @Test func followsWeekStart() throws {
         let fixture = try Fixture()
         fixture.open()

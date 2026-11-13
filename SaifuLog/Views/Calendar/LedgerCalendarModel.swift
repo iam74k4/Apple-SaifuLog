@@ -52,7 +52,7 @@ final class LedgerCalendarModel {
     @ObservationIgnored private let store: EntryStore
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
-    /// 日を区切る暦（画面の暦。週の始まりは設定のとおり）。`configure(calendar:)` で受け取る。
+    /// 日を区切る暦（画面の暦。週の始まりは端末の設定のとおり）。`configure(calendar:)` で受け取る。
     @ObservationIgnored private(set) var calendar = Calendar.current
     /// 見せている月の記録（日を選び直すたびに読み直さないよう持っておく）。
     @ObservationIgnored private var monthRecords: [DayRecord] = []
@@ -73,7 +73,7 @@ final class LedgerCalendarModel {
 
     // MARK: - 見せる月
 
-    /// 画面の暦を受け取る（ホームが出たときと、週の始まりの設定が変わったとき）。まだ月を決めていなければ今月を見せる。
+    /// 画面の暦を受け取る（ホームが出たときと、端末の週の始まりや時間帯の設定が変わったとき）。まだ月を決めていなければ今月を見せる。
     func configure(calendar: Calendar) {
         let changed = calendar != self.calendar
         self.calendar = calendar

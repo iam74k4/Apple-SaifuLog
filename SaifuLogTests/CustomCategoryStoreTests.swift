@@ -218,6 +218,8 @@ struct CustomCategoryStoreTests {
         fixture.context.insert(learned)
         fixture.context.insert(recurring)
         try fixture.context.save()
+        // 削除の確認に出す数（くり返しの記録も「その他」になる）。
+        #expect(try fixture.store.recurringCount(of: clothes) == 1)
         fixture.now = TestSupport.now.addingTimeInterval(60)
         fixture.failsSave = true
 

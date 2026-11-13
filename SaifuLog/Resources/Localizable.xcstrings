@@ -360,7 +360,7 @@
       }
     },
     "%lld 件（覚えたカテゴリ）" : {
-      "comment" : "設定の「覚えたカテゴリ」の行の右に出す、覚えた言葉の数。%lld は数",
+      "comment" : "設定の「カテゴリ」の画面の「覚えたカテゴリ」の行の右に出す、覚えた言葉の数。%lld は数",
       "localizations" : {
         "en" : {
           "variations" : {
@@ -807,7 +807,7 @@
       }
     },
     "iPhone の設定でパスコードを設定すると、使えるようになります。" : {
-      "comment" : "アプリのロックをオンにしようとしたが、端末にパスコードが設定されていなかったときのアラートの本文",
+      "comment" : "パスコードを設定していない端末で、アプリのロックをオンにできないことの説明（設定の「セキュリティ」の注記と、オンにできなかったときのアラートの本文）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -901,6 +901,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Forgot “%@”"
+          }
+        }
+      }
+    },
+    "「iCloud で同期」は切り替わっていません。もう一度お試しください。" : {
+      "comment" : "設定の「iCloud で同期」を切り替えようとして、設定をファイルに書けなかったときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync with iCloud hasn’t changed. Please try again."
           }
         }
       }
@@ -1314,6 +1325,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Updated the entry with this category."
+          }
+        }
+      }
+    },
+    "このカテゴリのくり返しの記録 %lld 件は「その他」になります。覚えたカテゴリからも外します。" : {
+      "comment" : "作ったカテゴリを削除する前の確認の説明（記録は無く、くり返しの記録があるとき）。%lld はそのカテゴリのくり返しの記録の数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld recurring entry in this category will move to Other. The category is also removed from learned categories."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld recurring entries in this category will move to Other. The category is also removed from learned categories."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "このカテゴリの記録 %lld 件と、くり返しの記録 %lld 件は「その他」になります。覚えたカテゴリからも外します。" : {
+      "comment" : "作ったカテゴリを削除する前の確認の説明（記録とくり返しの記録の両方があるとき）。1 つめの %lld はそのカテゴリの記録の件数、2 つめの %lld はそのカテゴリのくり返しの記録の数",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entries in this category (%1$lld) and recurring entries (%2$lld) will move to Other. The category is also removed from learned categories."
           }
         }
       }
@@ -2147,17 +2192,6 @@
         }
       }
     },
-    "カレンダーの週を何曜日から始めるかを選びます。" : {
-      "comment" : "設定の「週の始まり」の節の注記",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose which day your calendar week starts on."
-          }
-        }
-      }
-    },
     "キャンセル" : {
       "comment" : "予算を決める画面・直すシートを保存せずに閉じるボタンと、端末内 AI が選んだチャットの操作の確認のアラートのやめるボタン",
       "localizations" : {
@@ -2418,17 +2452,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send something like “ランチ 850” from the field on Home, and this shows what you spent and on what."
-          }
-        }
-      }
-    },
-    "ライセンス" : {
-      "comment" : "設定の「このアプリについて」の行。押すと Safari でライセンス（GitHub の LICENSE）を開く",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "License"
           }
         }
       }
@@ -3309,17 +3332,6 @@
         }
       }
     },
-    "共有の画面で、渡すアプリや保存先を選びます" : {
-      "comment" : "設定の「CSV ファイルを書き出す」の VoiceOver の説明（ヒント）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose an app or place to send it to on the share sheet."
-          }
-        }
-      }
-    },
     "再読み込み" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。値を読み直すボタン",
       "localizations" : {
@@ -3716,13 +3728,13 @@
         }
       }
     },
-    "同じ言葉の記録を、次からこのカテゴリで記録します。前に記録したものは変わりません。覚えた言葉は記録と同じ場所（この iPhone、iCloud で同期しているときはあなたの iCloud）に保存し、外へ送りません。" : {
+    "同じ言葉の記録を、次からこのカテゴリで記録します。前に記録したものは変わりません。忘れても、同じ言葉の記録がたまっていれば、その記録でいつも使うカテゴリで記録します。覚えた言葉は記録と同じ場所（この iPhone、iCloud で同期しているときはあなたの iCloud）に保存し、外へ送りません。" : {
       "comment" : "設定の「覚えたカテゴリ」の一覧の注記",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Entries with the same words are recorded in these categories from now on. Earlier entries don’t change. Learned words are stored with your records (on this iPhone, and in your iCloud when sync is on) and are never sent anywhere else."
+            "value" : "Entries with the same words are recorded in these categories from now on. Earlier entries don’t change. Even after you forget a word, if you’ve recorded it several times, it goes to the category you usually use for it. Learned words are stored with your records (on this iPhone, and in your iCloud when sync is on) and are never sent anywhere else."
           }
         }
       }
@@ -3991,13 +4003,13 @@
         }
       }
     },
-    "家賃・サブスク・給料のように毎月同じ記録を、決めた日に自動で記録します。" : {
-      "comment" : "設定の「毎月の記録」の節の注記",
+    "家賃・サブスク・給料のように毎月同じ記録を、決めた日を過ぎて最初にアプリを開いたときに記録します。" : {
+      "comment" : "設定の「毎月の記録」の節の注記。アプリは決めた日に裏で記録しないので、決めた日を過ぎて開いたときに記録することを書く",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Records entries that repeat every month, such as rent, subscriptions, or salary, on the day you choose."
+            "value" : "Records entries that repeat every month, such as rent, subscriptions, or salary, the first time you open the app on or after the day you choose."
           }
         }
       }
@@ -4354,6 +4366,17 @@
         }
       }
     },
+    "書き出す期間を選びます。書き出したら、共有の画面で渡すアプリや保存先を選びます" : {
+      "comment" : "設定の「CSV ファイルを書き出す」のメニューの VoiceOver の説明（ヒント）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a period to export. Then choose an app or place to send the file to on the share sheet."
+          }
+        }
+      }
+    },
     "書き出す記録がありません" : {
       "comment" : "設定で選んだ期間に記録が無かったときのアラートの見出し",
       "localizations" : {
@@ -4559,7 +4582,7 @@
       }
     },
     "期間" : {
-      "comment" : "設定の「記録を書き出す」の、書き出す期間の選択の見出し（今月・先月・今年・すべて）",
+      "comment" : "設定の「CSV ファイルを書き出す」のメニューの見出し（今月・先月・今年・すべてを選ぶ）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4796,17 +4819,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Version"
-          }
-        }
-      }
-    },
-    "理由: %@ %@" : {
-      "comment" : "iCloud と同期する保存先を開けず、端末の中だけに戻した理由。アラートの文の途中に入る。1 つ目の %@ はエラーのドメイン、2 つ目の %@ はその番号（どちらも訳さない。番号は桁区切りを入れずに文字にしてある）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reason: %@ %@"
           }
         }
       }
@@ -5050,17 +5062,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Device"
-          }
-        }
-      }
-    },
-    "端末の設定（%@）" : {
-      "comment" : "設定の「週の始まり」の選択肢。地域と iOS の設定の週の始まりに合わせる。%@ は「日曜日」のような曜日の名前（端末の設定がどの曜日か）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Device Setting (%@)"
           }
         }
       }
@@ -5395,6 +5396,17 @@
         }
       }
     },
+    "記録と予算を、あなたの iCloud で同じ Apple アカウントの端末とそろえています。iCloud からサインアウトする前に、ここでオフにしてください（オンのままだと、この iPhone から記録が消えて見えることがあります）。" : {
+      "comment" : "設定の「同期」の節の注記（「iCloud で同期」がオンのとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your records and budgets are kept in sync through your iCloud across devices with the same Apple Account. Turn this off here before you sign out of iCloud (if it’s on, records may seem to disappear from this iPhone)."
+          }
+        }
+      }
+    },
     "記録と予算を、あなたの iCloud で同じ Apple アカウントの端末とそろえます" : {
       "comment" : "設定の「iCloud で同期」のトグルの VoiceOver の説明（ヒント）",
       "localizations" : {
@@ -5402,17 +5414,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Keeps your records and budgets in sync with devices on the same Apple Account, using your iCloud."
-          }
-        }
-      }
-    },
-    "記録と予算を、あなたの iCloud に保存し、同じ Apple アカウントの端末どうしでそろえています。開発者は中身を見られません。同期されないときは、iCloud にサインインしているかと、iCloud の空き容量を確かめてください。iCloud からサインアウトする前に、ここでオフにしてください（オンのままサインアウトすると、同期した記録がこの iPhone から消えることがあります。iCloud には残ります）。オフにしても、この iPhone の記録は残ります。" : {
-      "comment" : "設定の「同期」の節の注記（「iCloud で同期」がオンのとき）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your records and budgets are saved in your iCloud and kept in sync across devices signed in to the same Apple Account. The developer can’t see them. If they don’t sync, check that you’re signed in to iCloud and that you have enough iCloud storage. Turn this off here before you sign out of iCloud (if you sign out while it’s on, synced records may disappear from this iPhone; they stay in iCloud). Turning it off keeps the records on this iPhone."
           }
         }
       }
@@ -5489,13 +5490,24 @@
         }
       }
     },
-    "記録はこの iPhone の中だけに保存しています（「iCloud で同期」はオフに戻しました）。%@ 設定からもう一度オンにできます。" : {
-      "comment" : "iCloud と同期する保存先を開けず、端末の中だけの保存先に戻したときのアラートの本文。%@ は理由の文（「iCloud の空き容量が足りません。」など）",
+    "記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。" : {
+      "comment" : "設定の「カテゴリ」の画面の「覚えたカテゴリ」の行の注記",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your records are being saved only on this iPhone (Sync with iCloud has been turned off). %@ You can turn it on again in Settings."
+            "value" : "When you choose a category in a reply or change one on the edit screen, SaifuLog records the same words in that category from now on."
+          }
+        }
+      }
+    },
+    "記録はこの iPhone の中だけに保存しています（「iCloud で同期」はオフに戻しました）。iCloud にサインインしているかと、iCloud の空き容量を確かめてから、設定でもう一度オンにできます。" : {
+      "comment" : "iCloud と同期する保存先を開けず、端末の中だけの保存先に戻したときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your records are being saved only on this iPhone (Sync with iCloud has been turned off). Check that you’re signed in to iCloud and have enough iCloud storage, then you can turn it on again in Settings."
           }
         }
       }
@@ -5522,13 +5534,13 @@
         }
       }
     },
-    "記録は消えません。次からは、いつもどおり AI とキーワード辞書でカテゴリを読みます。" : {
+    "記録は消えません。次からは、同じ言葉の前の記録でいつも使うカテゴリか、AI とキーワード辞書でカテゴリを決めます。" : {
       "comment" : "設定の「覚えたカテゴリ」の「すべて忘れる」の確認の本文",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your entries stay. From now on, categories are read by AI and the keyword dictionary as usual."
+            "value" : "Your entries stay. From now on, categories come from the category you usually use for the same words, or from AI and the keyword dictionary."
           }
         }
       }
@@ -5699,7 +5711,7 @@
       }
     },
     "設定を保存できませんでした" : {
-      "comment" : "アプリのロックの設定をファイルに書けなかったときのアラートの題名",
+      "comment" : "アプリのロック・iCloud で同期の設定をファイルに書けなかったときのアラートの題名",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5920,17 +5932,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send"
-          }
-        }
-      }
-    },
-    "週の始まり" : {
-      "comment" : "設定の行。カレンダーの週を何曜日から始めるか（端末の設定・日曜日・月曜日）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Week Starts On"
           }
         }
       }

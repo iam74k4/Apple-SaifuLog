@@ -5,6 +5,7 @@ import SwiftUI
 /// 設定の「覚えたカテゴリ」。覚えた言葉とカテゴリの一覧（修正の記憶）。行を押すとカテゴリを変えられ、左へのスワイプで忘れる。
 ///
 /// 状態と操作は `LearnedCategoriesModel` が持つ。ここは表示と、確認・アラートの出し入れだけ。
+/// ほかの端末（iCloud）の変更での読み直しは、下にある設定の画面が受け持つ（`SettingsView`）。
 struct LearnedCategoriesView: View {
     @Bindable var model: LearnedCategoriesModel
 
@@ -30,7 +31,7 @@ struct LearnedCategoriesView: View {
                             .listRowBackground(Theme.surface)
                     }
                 } footer: {
-                    Text("同じ言葉の記録を、次からこのカテゴリで記録します。前に記録したものは変わりません。覚えた言葉は記録と同じ場所（この iPhone、iCloud で同期しているときはあなたの iCloud）に保存し、外へ送りません。")
+                    Text("同じ言葉の記録を、次からこのカテゴリで記録します。前に記録したものは変わりません。忘れても、同じ言葉の記録がたまっていれば、その記録でいつも使うカテゴリで記録します。覚えた言葉は記録と同じ場所（この iPhone、iCloud で同期しているときはあなたの iCloud）に保存し、外へ送りません。")
                         .foregroundStyle(Theme.inkSecondary)
                 }
             }
@@ -53,7 +54,8 @@ struct LearnedCategoriesView: View {
         ) {
             Button("すべて忘れる", role: .destructive) { model.forgetAll() }
         } message: {
-            Text("記録は消えません。次からは、いつもどおり AI とキーワード辞書でカテゴリを読みます。")
+            // 忘れた後も、同じ言葉の過去の記録のいつものカテゴリ（`CategoryHistory`）は使う。「AI と辞書だけで読む」とは書かない。
+            Text("記録は消えません。次からは、同じ言葉の前の記録でいつも使うカテゴリか、AI とキーワード辞書でカテゴリを決めます。")
         }
         .alert(
             model.failure == .load ? Text("読み込めませんでした") : Text("保存できませんでした"),
@@ -63,8 +65,6 @@ struct LearnedCategoriesView: View {
         } message: {
             Text("もう一度お試しください。")
         }
-        // iCloud で届いたほかの端末の覚えも一覧に出す。
-        .onReceive(StoreChanges.remote) { _ in model.reload() }
     }
 
     /// 覚えた言葉と、いまのカテゴリ。押すとカテゴリを選ぶメニューを開く。

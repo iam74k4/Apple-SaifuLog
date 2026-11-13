@@ -38,15 +38,16 @@ struct StoreRootView<Content: View>: View {
         .onAppear { host.start() }
         .modifier(ProtectedDataObserver(host: host))
         // iCloud と同期する保存先を開けず、端末の中だけに戻したとき（設定で切り替えた直後にも、起動したときにも起こる）。
-        // 黙って戻すと、同期しているつもりのまま別の端末の記録とそろわなくなるので、戻したことと理由を知らせる。
+        // 黙って戻すと、同期しているつもりのまま別の端末の記録とそろわなくなるので、戻したことを知らせる。エラーの番号は
+        // 読んでも分からないので出さない（ログに残す。`StoreHost.fallBackToLocalStore`）。
         .alert(
             "iCloud で同期できませんでした",
             isPresented: showsICloudFallback,
             presenting: host.iCloudFallback
         ) { _ in
             Button("OK", role: .cancel) { host.acknowledgeICloudFallback() }
-        } message: { failure in
-            Text("記録はこの iPhone の中だけに保存しています（「iCloud で同期」はオフに戻しました）。\(failure.reasonText) 設定からもう一度オンにできます。")
+        } message: { _ in
+            Text("記録はこの iPhone の中だけに保存しています（「iCloud で同期」はオフに戻しました）。iCloud にサインインしているかと、iCloud の空き容量を確かめてから、設定でもう一度オンにできます。")
         }
     }
 

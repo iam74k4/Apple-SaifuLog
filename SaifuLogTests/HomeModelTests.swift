@@ -32,7 +32,7 @@ struct HomeModelTests {
         var remarkWriter: (any RecapRemarkWriting)?
         /// 記録の返事の AI の一言の書き手。既定は無し（AI が使えない端末と同じ）。
         var recordRemarkWriter: (any RecapRemarkWriting)?
-        /// 設定の置き場所（設定の画面に渡す週の始まりなど）。テストごとの使い捨ての領域。
+        /// 設定の置き場所（初回の案内を終えたかなど）。テストごとの使い捨ての領域。
         let suiteName = "HomeModelTests.Fixture.\(UUID().uuidString)"
         let defaults: UserDefaults
         /// レシートの読み取りの代わり（OCR が読んだ文字と、品名を整える AI）。既定は文字なし・AI なし。
@@ -55,7 +55,6 @@ struct HomeModelTests {
             model = HomeModel(
                 store: store,
                 pendingWrites: pendingWrites,
-                defaults: defaults,
                 makeParser: { [unowned self] now, calendar in makeParser?(now, calendar) ?? parser },
                 makeCategoryRefiner: { [unowned self] in categoryRefiner },
                 makeCommandInterpreter: { [unowned self] in commandInterpreter },
@@ -909,8 +908,23 @@ struct HomeModelTests {
         fixture.model.presentSettings()
 
         let settings = try #require(fixture.model.settings)
-        #expect(settings.exportPeriod == .thisMonth)
         #expect(settings.budgetSetup == nil)
+    }
+
+    /// 設定を閉じたら、途中の書き出しをやめる（設定から進んだ先の画面へ行っただけではやめない。`SettingsModel.close`）。
+    @Test func closingSettingsCancelsExport() async throws {
+        let fixture = try Fixture()
+        fixture.model.presentSettings()
+        let settings = try #require(fixture.model.settings)
+        let task = settings.export(calendar: TestSupport.calendar)
+        #expect(settings.isExporting)
+
+        fixture.model.settings = nil
+        await task?.value
+
+        #expect(settings.exportAlert == nil)
+        #expect(settings.sharedFile == nil)
+        #expect(!settings.isExporting)
     }
 
     // MARK: - 月のまとめ

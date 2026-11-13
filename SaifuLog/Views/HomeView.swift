@@ -147,7 +147,7 @@ struct HomeView: View {
                 .onChange(of: model.isPresentingOtherScreen) { _, presenting in
                     if !presenting { deliverQuickActions() }
                 }
-                // 週の始まりの設定を変えると画面の暦が変わるので、カレンダーの並びを変えた後の暦で決め直す。
+                // 端末の週の始まりや時間帯の設定を変えると画面の暦が変わるので、カレンダーの並びを変えた後の暦で決め直す。
                 .onChange(of: calendar) { _, calendar in
                     model.calendarPage.configure(calendar: calendar)
                 }

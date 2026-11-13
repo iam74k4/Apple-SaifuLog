@@ -3,16 +3,23 @@ import SwiftData
 import SwiftUI
 
 /// 設定の「カテゴリ」。組み込みのカテゴリと作ったカテゴリの一覧。作ったカテゴリは押すと直せ、左へのスワイプで削除し、
-/// 「編集」で並べ替える。
+/// 「編集」で並べ替える。いちばん下から「覚えたカテゴリ」（修正の記憶の一覧）へ進む（カテゴリの決まり方のことなので、
+/// 設定の行を分けずにここにまとめた）。
 ///
 /// 状態と操作は `CategoryListModel` が持つ。ここは表示と、シート・確認・アラートの出し入れだけ。
+/// ほかの端末（iCloud）の変更での読み直しは、この画面の下にある設定の画面が受け持つ（`SettingsView`）。
 struct CategoryListView: View {
     @Bindable var model: CategoryListModel
+    /// 「覚えたカテゴリ」の状態と操作。無ければ（プレビュー）行を出さない。
+    var learnedCategories: LearnedCategoriesModel?
 
     var body: some View {
         List {
             customSection
             builtInSection
+            if let learnedCategories {
+                learnedSection(learnedCategories)
+            }
         }
         .scrollContentBackground(.hidden)
         .background(Theme.background)
@@ -37,8 +44,14 @@ struct CategoryListView: View {
         ) { deletion in
             Button("削除", role: .destructive) { model.confirmDeletion(deletion) }
         } message: { deletion in
-            if deletion.entryCount > 0 {
+            // くり返しの記録も「その他」になる（`CustomCategoryStore.delete`）。次の月から黙って「その他」で記録されないよう、
+            // 件数を出して先に伝える。
+            if deletion.entryCount > 0, deletion.recurringCount > 0 {
+                Text("このカテゴリの記録 \(deletion.entryCount) 件と、くり返しの記録 \(deletion.recurringCount) 件は「その他」になります。覚えたカテゴリからも外します。")
+            } else if deletion.entryCount > 0 {
                 Text("このカテゴリの記録 \(deletion.entryCount) 件は「その他」になります。覚えたカテゴリからも外します。")
+            } else if deletion.recurringCount > 0 {
+                Text("このカテゴリのくり返しの記録 \(deletion.recurringCount) 件は「その他」になります。覚えたカテゴリからも外します。")
             } else {
                 Text("覚えたカテゴリからも外します。")
             }
@@ -51,8 +64,6 @@ struct CategoryListView: View {
         } message: {
             Text("もう一度お試しください。")
         }
-        // iCloud で届いたほかの端末のカテゴリも一覧に出す。
-        .onReceive(StoreChanges.remote) { _ in model.reload() }
         // 作ったカテゴリの印と色を、この画面の一覧から引く（作った・直した直後にも合うように）。
         .environment(\.categoryCatalog, model.catalog)
     }
@@ -151,6 +162,41 @@ struct CategoryListView: View {
                 .foregroundStyle(Theme.inkSecondary)
         } footer: {
             Text("はじめからあるカテゴリは、名前を変えたり削除したりできません。どれにも当てはまらない記録は「その他」になります。")
+                .foregroundStyle(Theme.inkSecondary)
+        }
+    }
+
+    // MARK: - 覚えたカテゴリ
+
+    /// 覚えたカテゴリの一覧へ進む行。覚えた言葉の数を出す。
+    private func learnedSection(_ learned: LearnedCategoriesModel) -> some View {
+        Section {
+            NavigationLink {
+                LearnedCategoriesView(model: learned)
+                    .onAppear { learned.reload() }
+            } label: {
+                LabeledContent {
+                    // 記録の件数の「件」とは別のキーにする（英語では記録ではなく言葉の数として訳すため）。
+                    Text(LocalizedStringResource(
+                        "%lld 件（覚えたカテゴリ）", defaultValue: "\(learned.rules.count) 件",
+                        comment: "カテゴリの画面の「覚えたカテゴリ」の行の右に出す、覚えた言葉の数。%lld は数"
+                    ))
+                        .foregroundStyle(Theme.inkSecondary)
+                        .monospacedDigit()
+                } label: {
+                    Label {
+                        Text("覚えたカテゴリ")
+                            .foregroundStyle(Theme.ink)
+                    } icon: {
+                        SettingsRowIcon(symbolName: "lightbulb", fill: SettingsRowIcon.teal)
+                    }
+                }
+                .frame(minHeight: 44)
+            }
+            .accessibilityHint("覚えた言葉とカテゴリの一覧を開きます")
+            .listRowBackground(Theme.surface)
+        } footer: {
+            Text("記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。")
                 .foregroundStyle(Theme.inkSecondary)
         }
     }

@@ -157,7 +157,6 @@ private final class TimelineFixture {
         let now = now
         model = HomeModel(
             store: EntryStore(context: context),
-            defaults: defaults,
             makeParser: { now, calendar in RuleBasedParser(calendar: calendar, now: { now }) },
             makeCategoryRefiner: { nil },
             makeAnswerer: { RuleBasedQuestionAnswerer() },

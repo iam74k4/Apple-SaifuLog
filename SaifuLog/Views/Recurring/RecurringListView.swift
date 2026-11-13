@@ -5,6 +5,7 @@ import SwiftUI
 /// 設定の「くり返しの記録」。家賃・サブスク・給料のように毎月同じ記録の一覧。行を押すと直せ、左へのスワイプでやめる。
 ///
 /// 状態と操作は `RecurringListModel` が持つ。ここは表示と、シート・確認・アラートの出し入れだけ。
+/// ほかの端末（iCloud）の変更での読み直しは、下にある設定の画面が受け持つ（`SettingsView`）。
 struct RecurringListView: View {
     @Bindable var model: RecurringListModel
 
@@ -71,8 +72,6 @@ struct RecurringListView: View {
         } message: {
             Text("もう一度お試しください。")
         }
-        // iCloud で届いたほかの端末のくり返しの記録も一覧に出す。
-        .onReceive(StoreChanges.remote) { _ in model.reload() }
     }
 
     /// 1 行（印・品目・毎月の日とカテゴリ・次に記録する日・金額）。押すと直すシートを開く。

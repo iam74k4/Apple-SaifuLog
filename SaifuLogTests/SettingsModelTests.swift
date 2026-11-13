@@ -32,13 +32,11 @@ struct SettingsModelTests {
             try? FileManager.default.removeItem(at: directory)
         }
 
-        func makeModel(language: LedgerCSVWriter.Language = .japanese, systemFirstWeekday: Int = 1) -> SettingsModel {
+        func makeModel(language: LedgerCSVWriter.Language = .japanese) -> SettingsModel {
             SettingsModel(
                 context: context,
-                defaults: defaults,
                 exporter: LedgerExporter(container: context.container, directory: directory, willRead: willRead),
                 csvLanguage: language,
-                systemFirstWeekday: systemFirstWeekday,
                 bundleInfo: ["CFBundleShortVersionString": "0.1.0", "CFBundleVersion": "12"],
                 now: { [unowned self] in now },
                 announce: { _ in }
@@ -73,70 +71,6 @@ struct SettingsModelTests {
         return lines
     }
 
-    // MARK: - 週の始まり
-
-    @Test func weekStartDefaultsToSystem() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanUp() }
-        let saturdayFirst = { () -> Calendar in
-            var calendar = TestSupport.calendar
-            calendar.firstWeekday = 7
-            return calendar
-        }()
-
-        let model = fixture.makeModel()
-
-        #expect(model.weekStart == .system)
-        #expect(model.calendar(applyingTo: saturdayFirst) == saturdayFirst)
-    }
-
-    /// 選んだ週の始まりは設定に書き、次に開いたときも同じにする。画面の根元（`AppRootView` の `@AppStorage`）と同じキーで読む。
-    @Test func weekStartIsSavedAndAppliedToReportPeriod() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanUp() }
-        var saturdayFirst = TestSupport.calendar
-        saturdayFirst.firstWeekday = 7
-        let model = fixture.makeModel()
-
-        model.weekStart = .monday
-
-        #expect(fixture.defaults.string(forKey: AppSettings.weekStart.key) == "monday")
-        #expect(fixture.defaults.value(for: AppSettings.weekStart) == .monday)
-        #expect(fixture.makeModel().weekStart == .monday)
-        // 2026-09-28 は月曜日。
-        #expect(ReportPeriod.thisWeek.interval(now: TestSupport.now, calendar: model.calendar(applyingTo: saturdayFirst))
-            == DateInterval(start: TestSupport.date(2026, 9, 28), end: TestSupport.date(2026, 10, 5)))
-
-        model.weekStart = .sunday
-
-        #expect(ReportPeriod.thisWeek.interval(now: TestSupport.now, calendar: model.calendar(applyingTo: saturdayFirst))?.start
-            == TestSupport.date(2026, 9, 27))
-
-        // 端末の設定に戻すと、端末の暦の週の始まり（ここでは土曜）になる。
-        model.weekStart = .system
-
-        #expect(fixture.defaults.string(forKey: AppSettings.weekStart.key) == "system")
-        #expect(ReportPeriod.thisWeek.interval(now: TestSupport.now, calendar: model.calendar(applyingTo: saturdayFirst))?.start
-            == TestSupport.date(2026, 9, 26))
-    }
-
-    /// 知らない値（新しい版で足した選択肢を古い版で読んだときなど）は、端末の設定に合わせる。
-    @Test func unknownWeekStartFallsBackToSystem() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanUp() }
-        fixture.defaults.set("saturday", forKey: AppSettings.weekStart.key)
-
-        #expect(fixture.makeModel().weekStart == .system)
-    }
-
-    @Test func weekdayNamesFollowDisplayLanguage() {
-        #expect(SettingsModel.weekdayName(1, localization: "ja") == "日曜日")
-        #expect(SettingsModel.weekdayName(2, localization: "ja") == "月曜日")
-        #expect(SettingsModel.weekdayName(7, localization: "ja") == "土曜日")
-        #expect(SettingsModel.weekdayName(2, localization: "en") == "Monday")
-        #expect(SettingsModel.weekdayName(0, localization: "en") == "")
-    }
-
     // MARK: - 書き出し
 
     /// 期間の境目の前後の記録（日本時間）。
@@ -161,9 +95,8 @@ struct SettingsModelTests {
             try fixture.insert(Self.entry(record.amount, record.spentAt))
         }
         let model = fixture.makeModel()
-        model.exportPeriod = period
 
-        await model.export(calendar: TestSupport.calendar)?.value
+        await model.export(period: period, calendar: TestSupport.calendar)?.value
 
         let file = try #require(model.sharedFile)
         #expect(file.recordCount == amounts.count)
@@ -304,9 +237,8 @@ struct SettingsModelTests {
         defer { fixture.cleanUp() }
         try fixture.insert(Self.entry(850, TestSupport.date(2026, 8, 10)))
         let model = fixture.makeModel()
-        model.exportPeriod = .thisMonth
 
-        await model.export(calendar: TestSupport.calendar)?.value
+        await model.export(period: .thisMonth, calendar: TestSupport.calendar)?.value
 
         #expect(model.sharedFile == nil)
         #expect(model.exportAlert == .empty)
@@ -327,7 +259,7 @@ struct SettingsModelTests {
         #expect(fixture.exportedFiles().count == 1)
     }
 
-    /// 書き出しの途中で画面を離れたら、ファイルを残さず、アラートも出さない。
+    /// 書き出しの途中で設定を閉じたら、ファイルを残さず、アラートも出さない。
     @Test func cancellingExportLeavesNoFile() async throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
@@ -336,7 +268,7 @@ struct SettingsModelTests {
 
         let task = model.export(calendar: TestSupport.calendar)
         #expect(model.isExporting)
-        model.cancelExport()
+        model.close()
         await task?.value
 
         #expect(model.sharedFile == nil)
@@ -386,9 +318,9 @@ struct SettingsModelTests {
         #expect(SettingsModel.versionText(info: [:]) == "- (-)")
     }
 
-    /// プライバシーポリシーとライセンスは、公開リポジトリの main のファイルを開く。
+    /// プライバシーポリシーとヘルプは、公開リポジトリの main のファイルを開く。
     @Test func linksPointToRepositoryDocuments() {
         #expect(SettingsModel.privacyPolicyURL.absoluteString == "https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md")
-        #expect(SettingsModel.licenseURL.absoluteString == "https://github.com/iam74k4/Apple-SaifuLog/blob/main/LICENSE")
+        #expect(SettingsModel.supportURL.absoluteString == "https://github.com/iam74k4/Apple-SaifuLog/blob/main/docs/support.md")
     }
 }

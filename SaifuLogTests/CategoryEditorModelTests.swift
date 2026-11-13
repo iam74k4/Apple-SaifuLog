@@ -167,6 +167,7 @@ struct CategoryEditorModelTests {
         let deletion = try #require(list.pendingDeletion)
         #expect(deletion.name == "衣服")
         #expect(deletion.entryCount == 2)
+        #expect(deletion.recurringCount == 0)
 
         list.confirmDeletion(deletion)
 

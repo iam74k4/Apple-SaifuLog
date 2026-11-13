@@ -3,8 +3,9 @@ import SwiftUI
 
 /// ⑧ 設定。必要なときだけ開く画面。ホームの帯の右上の歯車から横に進む。
 ///
-/// 月の予算（② のシートを開く）、週の始まり、iCloud で同期（既定はオフ）、記録の CSV 書き出し、
-/// このアプリについて（プライバシーポリシー・ライセンス・版）を並べる。
+/// 月の予算（② のシートを開く）、カテゴリ（覚えたカテゴリはその中）、くり返しの記録、iCloud で同期（既定はオフ）、
+/// アプリのロック、記録の CSV 書き出し、このアプリについて（ヘルプ・プライバシーポリシー・版）を並べる。週の始まりは
+/// 選ばせない（端末の設定のまま）。
 ///
 /// 状態と操作は `SettingsModel` が持つ。ここは表示と、共有のシート・アラートの出し入れだけ。
 /// 押せる行の名前は墨にし、操作のボタン（「CSV ファイルを書き出す」）だけ、ほかの画面のボタンと同じ tint（AccentColor。
@@ -13,7 +14,7 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var model: SettingsModel
 
-    /// 画面の暦（週の始まりを当てはめたもの）。書き出す期間を、ホームの今月と同じ月で区切るのに使う。
+    /// 画面の暦。書き出す期間を、ホームの今月と同じ月で区切るのに使う。
     @Environment(\.calendar) private var calendar
     /// アプリのロック（アプリで 1 つ。`SaifuLogApp` が渡す）。無ければ（プレビュー）ロックの節を出さない。
     @Environment(AppLock.self) private var appLock: AppLock?
@@ -23,7 +24,6 @@ struct SettingsView: View {
             budgetSection
             learningSection
             recurringSection
-            calendarSection
             if model.showsICloudSync {
                 iCloudSection
             }
@@ -76,6 +76,12 @@ struct SettingsView: View {
                 Text("この iPhone の記録は残り、これからはこの iPhone の中だけに保存します。iCloud に保存した記録は iCloud に残り、ほかの端末とはそろわなくなります。\n\n切り替えると記録を開き直します。")
             }
         }
+        // 切り替えようとしたら設定を書けなかった（切り替わっていない）。
+        .alert("設定を保存できませんでした", isPresented: $model.showsICloudSyncSaveFailure) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("「iCloud で同期」は切り替わっていません。もう一度お試しください。")
+        }
         // オンにしようとしたら iCloud を使えなかった。何をすればよいかを案内する（同期はオフのまま）。
         .alert(
             "iCloud を使えません",
@@ -94,13 +100,15 @@ struct SettingsView: View {
             )
                 .accessibilityHidden(true)
         )
-        .onDisappear {
-            model.cancelExport()
-            model.cancelICloudAccountCheck()
-        }
+        // 途中の書き出しとアカウントの確かめは、設定を閉じたときにやめる（`SettingsModel.close`。ここの onDisappear では
+        // やめない。設定から「カテゴリ」などへ進んだだけでも呼ばれるため）。
         // 同期がオンのとき、iCloud をいまも使えるかを確かめる（使えなければ節の中に案内を出す）。
         .task { await model.refreshICloudAccountStatus() }
-        // iCloud で届いたほかの端末の変更（予算を変えた・カテゴリを作った・覚えたなど）で、月の予算とカテゴリの行を読み直す。
+        // Face ID の登録やパスコードは設定の App で変わるので、開くたびに読み直す（描き直すたびには調べない）。
+        .onAppear { appLock?.refreshMethod() }
+        // iCloud で届いたほかの端末の変更（予算を変えた・カテゴリを作った・覚えたなど）で、月の予算と、この画面から進む一覧
+        // （カテゴリ・覚えたカテゴリ・くり返しの記録）を読み直す。進んだ先の画面では読み直さない（設定の画面は進んだ先の下に
+        // 残っていて、ここでも受け取るので、二度読むことになるため）。
         .onReceive(StoreChanges.remote) { _ in
             model.reloadBudget()
             model.categoryList.reload()
@@ -157,11 +165,11 @@ struct SettingsView: View {
 
     // MARK: - カテゴリ
 
-    /// カテゴリの一覧（作る・直す・削除する）と、修正の記憶（覚えたカテゴリ）の一覧へ進む行。それぞれ数を出す。
+    /// カテゴリの一覧（作る・直す・削除する。修正の記憶（覚えたカテゴリ）の一覧もその中から）へ進む行。カテゴリの数を出す。
     private var learningSection: some View {
         Section {
             NavigationLink {
-                CategoryListView(model: model.categoryList)
+                CategoryListView(model: model.categoryList, learnedCategories: model.learnedCategories)
                     .onAppear { model.categoryList.reload() }
             } label: {
                 LabeledContent {
@@ -183,30 +191,6 @@ struct SettingsView: View {
                 .frame(minHeight: 44)
             }
             .accessibilityHint("カテゴリの一覧を開きます。カテゴリを作ったり直したりできます")
-            .listRowBackground(Theme.surface)
-            NavigationLink {
-                LearnedCategoriesView(model: model.learnedCategories)
-                    .onAppear { model.learnedCategories.reload() }
-            } label: {
-                LabeledContent {
-                    // 記録の件数の「件」とは別のキーにする（英語では記録ではなく言葉の数として訳すため）。
-                    Text(LocalizedStringResource(
-                        "%lld 件（覚えたカテゴリ）", defaultValue: "\(model.learnedCategories.rules.count) 件",
-                        comment: "設定の「覚えたカテゴリ」の行の右に出す、覚えた言葉の数。%lld は数"
-                    ))
-                        .foregroundStyle(Theme.inkSecondary)
-                        .monospacedDigit()
-                } label: {
-                    Label {
-                        Text("覚えたカテゴリ")
-                            .foregroundStyle(Theme.ink)
-                    } icon: {
-                        SettingsRowIcon(symbolName: "lightbulb", fill: SettingsRowIcon.teal)
-                    }
-                }
-                .frame(minHeight: 44)
-            }
-            .accessibilityHint("覚えた言葉とカテゴリの一覧を開きます")
             .listRowBackground(Theme.surface)
         } header: {
             Text(.categoriesTitle)
@@ -248,39 +232,8 @@ struct SettingsView: View {
         } header: {
             sectionHeader("毎月の記録")
         } footer: {
-            sectionFooter("家賃・サブスク・給料のように毎月同じ記録を、決めた日に自動で記録します。")
-        }
-    }
-
-    // MARK: - 週の始まり
-
-    private var calendarSection: some View {
-        Section {
-            SettingsPickerRow(
-                title: "週の始まり",
-                icon: SettingsRowIcon(symbolName: "calendar", fill: SettingsRowIcon.red),
-                selection: $model.weekStart,
-                value: weekStartLabel(model.weekStart)
-            ) {
-                ForEach(WeekStart.allCases) { option in
-                    weekStartLabel(option).tag(option)
-                }
-            }
-            .listRowBackground(Theme.surface)
-        } header: {
-            sectionHeader("カレンダー")
-        } footer: {
-            sectionFooter("カレンダーの週を何曜日から始めるかを選びます。")
-        }
-    }
-
-    private func weekStartLabel(_ option: WeekStart) -> Text {
-        switch option {
-        case .system:
-            // 端末の設定がどの曜日かを添える（地域によっては土曜始まりなどもある）。
-            Text("端末の設定（\(SettingsModel.weekdayName(model.systemFirstWeekday))）")
-        case .sunday, .monday:
-            Text(verbatim: SettingsModel.weekdayName(option.firstWeekday ?? 1))
+            // アプリは決めた日に裏で動かないので、「決めた日に自動で」とは書かない（決めた日を過ぎて開いたときに記録する）。
+            sectionFooter("家賃・サブスク・給料のように毎月同じ記録を、決めた日を過ぎて最初にアプリを開いたときに記録します。")
         }
     }
 
@@ -328,7 +281,8 @@ struct SettingsView: View {
             sectionHeader("同期")
         } footer: {
             if model.isICloudSyncEnabled {
-                sectionFooter("記録と予算を、あなたの iCloud に保存し、同じ Apple アカウントの端末どうしでそろえています。開発者は中身を見られません。同期されないときは、iCloud にサインインしているかと、iCloud の空き容量を確かめてください。iCloud からサインアウトする前に、ここでオフにしてください（オンのままサインアウトすると、同期した記録がこの iPhone から消えることがあります。iCloud には残ります）。オフにしても、この iPhone の記録は残ります。")
+                // サインアウトの前にオフにすることだけは、記録が消えて見えることがあるので、オンの間ずっと書いておく。
+                sectionFooter("記録と予算を、あなたの iCloud で同じ Apple アカウントの端末とそろえています。iCloud からサインアウトする前に、ここでオフにしてください（オンのままだと、この iPhone から記録が消えて見えることがあります）。")
             } else {
                 sectionFooter("オンにすると、記録と予算をあなたの iCloud に保存し、同じ Apple アカウントの端末どうしでそろえます。オフのあいだは、この iPhone の中だけに保存します。")
             }
@@ -361,7 +315,10 @@ struct SettingsView: View {
     /// 「Face ID でロック」（Face ID の無い端末では Touch ID・パスコード）。オンにするときもオフにするときも、その場で 1 回認証して
     /// から切り替える。
     private func lockSection(_ lock: AppLock) -> some View {
-        Section {
+        // パスコードを設定していない端末ではオンにできない（解除できないロックにしない）。押してから断るより、先に押せなく
+        // して理由を書く。オンのまま（後からパスコードを外した）なら、オフにはできるよう押せるままにする。
+        let cannotEnable = lock.method == .unavailable && !lock.isEnabled
+        return Section {
             Toggle(isOn: Binding(get: { lock.isEnabled }, set: { enabled in Task { await lock.setEnabled(enabled) } })) {
                 Label {
                     lockTitle(lock.method)
@@ -370,13 +327,18 @@ struct SettingsView: View {
                     SettingsRowIcon(symbolName: lockSymbol(lock.method), fill: SettingsRowIcon.green)
                 }
             }
+            .disabled(cannotEnable)
             .frame(minHeight: 44)
             .accessibilityHint("アプリを開くときに、ロックの解除を求めます")
             .listRowBackground(Theme.surface)
         } header: {
             sectionHeader("セキュリティ")
         } footer: {
-            sectionFooter("オンにすると、アプリを開くときにロックの解除を求めます。アプリの切り替えの画面でも記録を隠します。")
+            if cannotEnable {
+                sectionFooter("iPhone の設定でパスコードを設定すると、使えるようになります。")
+            } else {
+                sectionFooter("オンにすると、アプリを開くときにロックの解除を求めます。アプリの切り替えの画面でも記録を隠します。")
+            }
         }
         .alert(
             lockFailureTitle(lock.enableFailure),
@@ -422,22 +384,20 @@ struct SettingsView: View {
 
     // MARK: - 書き出し
 
+    /// 書き出しは 1 行のメニューにする（押すと期間を選び、選んだらすぐ書き出す）。期間を選ぶ行と書き出すボタンを分けると、
+    /// 期間を選んだだけで書き出したと思ったり、書き出すたびに 2 か所を触ったりするため。
     private var exportSection: some View {
         Section {
-            SettingsPickerRow(
-                title: "期間",
-                icon: SettingsRowIcon(symbolName: "calendar.badge.clock", fill: SettingsRowIcon.gray),
-                selection: $model.exportPeriod,
-                value: periodLabel(model.exportPeriod)
-            ) {
-                ForEach(LedgerExportPeriod.allCases) { period in
-                    periodLabel(period).tag(period)
+            Menu {
+                Section("期間") {
+                    ForEach(LedgerExportPeriod.allCases) { period in
+                        Button {
+                            model.export(period: period, calendar: calendar)
+                        } label: {
+                            periodLabel(period)
+                        }
+                    }
                 }
-            }
-            .disabled(model.isExporting)
-            .listRowBackground(Theme.surface)
-            Button {
-                model.export(calendar: calendar)
             } label: {
                 HStack(spacing: 12) {
                     Label {
@@ -460,7 +420,7 @@ struct SettingsView: View {
                 .contentShape(.rect)
             }
             .disabled(model.isExporting || model.sharedFile != nil)
-            .accessibilityHint("共有の画面で、渡すアプリや保存先を選びます")
+            .accessibilityHint("書き出す期間を選びます。書き出したら、共有の画面で渡すアプリや保存先を選びます")
             .listRowBackground(Theme.surface)
         } header: {
             sectionHeader("記録を書き出す")
@@ -504,7 +464,6 @@ struct SettingsView: View {
         Section {
             externalLink("ヘルプ・お問い合わせ", symbolName: "questionmark", fill: SettingsRowIcon.blue, destination: SettingsModel.supportURL)
             externalLink("プライバシーポリシー", symbolName: "hand.raised", fill: SettingsRowIcon.blue, destination: SettingsModel.privacyPolicyURL)
-            externalLink("ライセンス", symbolName: "doc.text", fill: SettingsRowIcon.gray, destination: SettingsModel.licenseURL)
             LabeledContent {
                 Text(verbatim: model.versionText)
                     .foregroundStyle(Theme.inkSecondary)
@@ -565,78 +524,6 @@ struct SettingsView: View {
     }
 }
 
-/// 選ぶ行（週の始まり・書き出す期間）。名前と選んだ値が 1 行に収まれば横に並べ、収まらなければ値を名前の下に積んで折り返す。
-///
-/// 既定のメニューの Picker を使わないのは、値を 1 行に収めて途中を省くため。アクセシビリティサイズの文字では
-/// 「端末の設定（日曜日）」が「端末…曜日）」になり、端末の設定がどの曜日かが読めなかった。行はメニューを開くボタンとして
-/// 自前で組み、選ぶところだけ Picker にする（メニューの中の Picker は、選んでいるものに印の付いた選択肢の並びになる）。
-private struct SettingsPickerRow<Value: Hashable, Options: View>: View {
-    let title: LocalizedStringKey
-    /// 行の頭の印。
-    let icon: SettingsRowIcon
-    @Binding var selection: Value
-    /// 選んでいる値の表示。
-    let value: Text
-    @ViewBuilder let options: Options
-
-    @Environment(\.isEnabled) private var isEnabled
-
-    var body: some View {
-        Menu {
-            Picker(selection: $selection) {
-                options
-            } label: {
-                Text(title)
-            }
-        } label: {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) {
-                    titleText
-                    Spacer(minLength: 0)
-                    // 値は縮めない（名前との幅の取り合いで値が省かれないように。収まらなければ下の積む形になる）。
-                    valueLabel
-                        .fixedSize(horizontal: true, vertical: false)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    titleText
-                    valueLabel
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            // 折り返した行を左にそろえる。メニューのボタンの中の文字は、既定では折り返した行が中央にそろい、
-            // 「Week / Starts On」のように行ごとに頭の位置がずれた（シミュレータの iOS 26.4 の AX5 で確かめた）。
-            .multilineTextAlignment(.leading)
-            .frame(minHeight: 44)
-            .contentShape(.rect)
-        }
-        // 名前と値を 1 つの要素として読ませる（メニューを開くボタンであることは残る）。
-        .accessibilityLabel(Text(title))
-        .accessibilityValue(value)
-    }
-
-    private var titleText: some View {
-        Label {
-            Text(title)
-                .foregroundStyle(Theme.ink)
-        } icon: {
-            icon
-        }
-    }
-
-    /// 選んでいる値と、押すと選択肢が開くことを示す上下の矢印（既定のメニューの Picker と同じ形）。
-    private var valueLabel: some View {
-        HStack(spacing: 4) {
-            value
-            Image(systemName: "chevron.up.chevron.down")
-                .imageScale(.small)
-                .accessibilityHidden(true)
-        }
-        .foregroundStyle(Theme.inkSecondary)
-        // 書き出しの途中で選べないときは薄くする（名前の色は変えない。既定の Picker と同じ）。
-        .opacity(isEnabled ? 1 : 0.5)
-    }
-}
-
 /// 設定の行の頭の印（iOS の設定 App と同じ、色の付いた角丸の四角に記号）。行を目で探しやすくするための飾りなので読ませない。
 ///
 /// 塗りはライトとダークで同じ濃い色にし、白い記号を載せる（カテゴリの丸と同じく、白い記号に 4:1 以上の濃さの色。
@@ -662,7 +549,6 @@ struct SettingsRowIcon: View {
 
     static let green = fixed(Palette.category(.daily).light)
     static let blue = fixed(Palette.category(.transport).light)
-    static let red = fixed(Palette.category(.food).light)
     static let purple = fixed(Palette.category(.entertainment).light)
     static let teal = fixed(Palette.category(.utilities).light)
     static let gray = fixed(Palette.category(.other).light)

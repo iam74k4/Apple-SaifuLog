@@ -102,6 +102,8 @@ final class HomeModel {
     /// 「設定」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
     var settings: SettingsModel? {
         didSet {
+            // 閉じた（作り直した）設定の、途中の書き出しとアカウントの確かめをやめる（`SettingsModel.close`）。
+            if let oldValue, oldValue !== settings { oldValue.close() }
             // 設定の「予算」で予算を変えたかもしれない（上の `budgetSetup` と同じ）。
             if settings == nil, oldValue != nil { discardReplyRemarkIfBudgetChanged() }
         }
@@ -144,7 +146,6 @@ final class HomeModel {
     @ObservationIgnored private let pendingWrites: PendingStoreWrites
     /// 保存先を開いたもの。設定の「iCloud で同期」の切り替え先として設定に渡す。無ければ設定に iCloud の節を出さない（テスト用）。
     @ObservationIgnored private let storeHost: StoreHost?
-    @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let makeParser: (Date, Calendar) -> any EntryParsing
     @ObservationIgnored private let makeCategoryRefiner: () -> CategoryRefiner?
     @ObservationIgnored private let makeCommandInterpreter: () -> ChatCommandInterpreter?
@@ -169,7 +170,6 @@ final class HomeModel {
     ///   - pendingWrites: 解析を待ってから記録する処理を数える先（`StoreHost.pendingWrites`）。保存先を開き直すとき、
     ///     記録し終えるのを待ってもらうため。
     ///   - storeHost: 保存先を開いたもの（設定の「iCloud で同期」の切り替え先）。アプリは `SaifuLogApp` の 1 つを渡す。
-    ///   - defaults: 設定の置き場所（設定の画面に渡す週の始まりなど）。アプリは `UserDefaults.standard`、テストは使い捨ての領域。
     ///   - makeParser: 送信のたびに解析器を選ぶ（AI の使える・使えないは途中から変わるため）。送った瞬間の日時と暦を渡し、
     ///     「昨日」「9/26」をその日時を基準に読ませる。テストで差し替える。
     ///   - makeCategoryRefiner: 記録のたびに、辞書で決まらなかった品目のカテゴリを AI に聞き直すものを選ぶ（AI が使えなければ nil）。
@@ -192,7 +192,6 @@ final class HomeModel {
         recurring: RecurringEntryStore? = nil,
         pendingWrites: PendingStoreWrites = PendingStoreWrites(),
         storeHost: StoreHost? = nil,
-        defaults: UserDefaults = .standard,
         makeParser: @escaping (Date, Calendar) -> any EntryParsing = { EntryParserFactory.makeParser(now: $0, calendar: $1) },
         makeCategoryRefiner: @escaping () -> CategoryRefiner? = { CategoryRefiner.forDevice() },
         makeCommandInterpreter: @escaping () -> ChatCommandInterpreter? = { ChatCommandInterpreter.forDevice() },
@@ -215,7 +214,6 @@ final class HomeModel {
         self.calendarPage = LedgerCalendarModel(store: store, now: now, announce: announce)
         self.pendingWrites = pendingWrites
         self.storeHost = storeHost
-        self.defaults = defaults
         self.makeParser = makeParser
         self.makeCategoryRefiner = makeCategoryRefiner
         self.makeCommandInterpreter = makeCommandInterpreter
@@ -1429,7 +1427,7 @@ final class HomeModel {
     func presentSettings() {
         settings = SettingsModel(
             context: store.context, budgetStore: budgetStore, categories: categories, storeHost: storeHost,
-            defaults: defaults, now: now, announce: announce,
+            now: now, announce: announce,
             // 足した・直したくり返しの記録の、記録する日を過ぎた分をすぐ記録する（ホームに戻ると返事のカードが出ている）。
             recurringDidChange: { [weak self] in
                 guard let self else { return }

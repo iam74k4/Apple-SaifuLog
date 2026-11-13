@@ -244,7 +244,7 @@ private struct ReportLink: View {
 
 // MARK: - カレンダー
 
-/// 月のカレンダー（7 列）。週の始まりは設定のとおり（画面の暦の `firstWeekday`）。
+/// 月のカレンダー（7 列）。週の始まりは端末の設定のとおり（画面の暦の `firstWeekday`）。
 private struct CalendarMonthGrid: View {
     let model: LedgerCalendarModel
     let days: LedgerCalendarMonth

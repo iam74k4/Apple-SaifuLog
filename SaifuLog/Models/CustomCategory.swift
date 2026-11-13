@@ -134,6 +134,12 @@ struct CustomCategoryStore {
         return try context.fetchCount(FetchDescriptor<Entry>(predicate: #Predicate { $0.categoryRawValue == rawValue }))
     }
 
+    /// そのカテゴリのくり返しの記録の数（削除の確認に出す。消すと「その他」になるため）。
+    func recurringCount(of category: EntryCategory) throws -> Int {
+        let rawValue = category.rawValue
+        return try context.fetchCount(FetchDescriptor<RecurringEntry>(predicate: #Predicate { $0.categoryRawValue == rawValue }))
+    }
+
     /// カテゴリを消す。そのカテゴリの記録とくり返しの記録は「その他」にし、覚えたカテゴリからも外してから、1 回で書き込む
     /// （一部だけ書かれて、消したカテゴリを指す記録が残らないように）。
     ///

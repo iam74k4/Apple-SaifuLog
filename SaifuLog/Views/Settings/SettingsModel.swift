@@ -3,10 +3,10 @@ import Observation
 import SaifuLogCore
 import SwiftData
 
-/// 「設定」（⑧）の状態と操作。月の予算を開く、週の始まり、iCloud で同期、記録の CSV 書き出し、このアプリについて。
+/// 「設定」（⑧）の状態と操作。月の予算を開く、カテゴリ、くり返しの記録、iCloud で同期、記録の CSV 書き出し、このアプリについて。
 ///
-/// 画面（`SettingsView`）から切り離し、保存先・設定の置き場所・時計・書き出し先を差し替えて SaifuLogTests で
-/// 確かめられるようにしている。CSV の中身はコア（`LedgerCSVWriter`）、ファイルの作成は `LedgerExporter` が受け持つ。
+/// 画面（`SettingsView`）から切り離し、保存先・時計・書き出し先を差し替えて SaifuLogTests で確かめられるようにしている。
+/// CSV の中身はコア（`LedgerCSVWriter`）、ファイルの作成は `LedgerExporter` が受け持つ。
 ///
 /// iCloud 同期は、オンにする前に iCloud のアカウントを確かめ（使えなければ案内だけ）、説明を読んでもらってから
 /// `StoreHost.setICloudSyncEnabled(_:)` に頼む（保存先を開き直すので、この画面ごと作り直される）。オフにするときも説明を出す。
@@ -15,13 +15,9 @@ import SwiftData
 final class SettingsModel {
     /// プライバシーポリシー（リポジトリの main の PRIVACY.md。Safari で開く）。
     static let privacyPolicyURL = URL(string: "https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md")!
-    /// ライセンス（リポジトリの main の LICENSE。Safari で開く）。
-    static let licenseURL = URL(string: "https://github.com/iam74k4/Apple-SaifuLog/blob/main/LICENSE")!
     /// ヘルプ・お問い合わせ（リポジトリの main の docs/support.md。App Store Connect のサポート URL と同じページ。Safari で開く）。
     static let supportURL = URL(string: "https://github.com/iam74k4/Apple-SaifuLog/blob/main/docs/support.md")!
 
-    /// 書き出す期間。開くたびに今月から始める（前に選んだ期間を覚えておくほどの設定ではないため）。
-    var exportPeriod: LedgerExportPeriod = .thisMonth
     /// 書き出しの途中（ボタンを押せなくし、進行中の印を出す）。
     private(set) var isExporting = false
     /// 共有に出しているファイル。共有のシートを閉じると `finishSharing()` で消して nil に戻す。
@@ -32,8 +28,6 @@ final class SettingsModel {
     var budgetSetup: BudgetSetupModel?
     /// いまの月の予算。決めていないか、読めなければ nil。
     private(set) var totalBudget: Int?
-    /// 端末の設定（地域と iOS の設定）の週の始まり（1 = 日曜）。「端末の設定に合わせる」の選択肢に曜日を添える。
-    let systemFirstWeekday: Int
     /// このアプリについての版とビルド番号（「0.1.0 (12)」）。
     let versionText: String
 
@@ -52,8 +46,10 @@ final class SettingsModel {
     var iCloudSyncConfirmation: ICloudSyncChange?
     /// オンにしようとしたら iCloud を使えなかった（案内のアラートを出す）。
     var iCloudAccountAlert: ICloudAccountStatus?
+    /// 切り替えようとしたら設定を書けなかった（切り替えていない。アラートを出す）。
+    var showsICloudSyncSaveFailure = false
 
-    /// 「覚えたカテゴリ」（修正の記憶の一覧）の状態と操作。行には覚えた言葉の数を出す。
+    /// 「覚えたカテゴリ」（修正の記憶の一覧）の状態と操作。「カテゴリ」の画面から進み、行には覚えた言葉の数を出す。
     let learnedCategories: LearnedCategoriesModel
 
     /// 「カテゴリ」（組み込みと作ったカテゴリの一覧。作る・直す・並べ替える・削除する）の状態と操作。
@@ -62,19 +58,8 @@ final class SettingsModel {
     /// 「くり返しの記録」（毎月同じ記録の一覧。足す・直す・やめる）の状態と操作。
     let recurringList: RecurringListModel
 
-    /// 週の始まり。変えるとすぐ設定に書く（画面の根元が `@AppStorage` で読み、画面の暦に当てはめる）。
-    var weekStart: WeekStart {
-        get { storedWeekStart }
-        set {
-            storedWeekStart = newValue
-            defaults.set(newValue, for: AppSettings.weekStart)
-        }
-    }
-
-    private var storedWeekStart: WeekStart
     @ObservationIgnored private var exportTask: Task<Void, Never>?
     @ObservationIgnored private let budgetStore: BudgetStore
-    @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let exporter: LedgerExporter
     @ObservationIgnored private let csvLanguage: LedgerCSVWriter.Language
     @ObservationIgnored private let now: () -> Date
@@ -90,11 +75,9 @@ final class SettingsModel {
     ///   - storeHost: 保存先を開いたもの。「iCloud で同期」の切り替えを頼む。渡さなければ iCloud の節を出さない。
     ///   - accountStatus: iCloud のアカウントの状態の問い合わせ。テストでは CloudKit に問い合わせない値に差し替える
     ///     （iCloud の entitlement の無いテストのプロセスで `CKContainer` を作ると落ちるため）。
-    ///   - defaults: 設定の置き場所。アプリは `UserDefaults.standard`（`AppSettings` の決まり）、テストは使い捨ての領域。
     ///   - exporter: 記録をファイルに書き出す。渡さなければ `context` と同じ保存先から、アプリの一時ディレクトリへ書き出す。
     ///     テストで書き出し先を使い捨ての場所にし、書き出しがメインスレッドの外で進むかを確かめる。
     ///   - csvLanguage: CSV の見出しと値の言語。アプリの表示の言語に合わせる。
-    ///   - systemFirstWeekday: 端末の設定の週の始まり。テストで決める。
     ///   - bundleInfo: 版とビルド番号を読む Info.plist の中身。テストで決める。
     ///   - now: 書き出す期間の基準とファイル名の日付。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる（予算を決める画面に渡す）。
@@ -105,10 +88,8 @@ final class SettingsModel {
         categories: CategoryCatalogModel? = nil,
         storeHost: StoreHost? = nil,
         accountStatus: @escaping @MainActor () async -> ICloudAccountStatus = { await ICloudAccountStatus.current() },
-        defaults: UserDefaults = .standard,
         exporter: LedgerExporter? = nil,
         csvLanguage: LedgerCSVWriter.Language = LedgerCSVWriter.Language(localization: Bundle.main.preferredLocalizations.first),
-        systemFirstWeekday: Int = Calendar.autoupdatingCurrent.firstWeekday,
         bundleInfo: [String: Any] = Bundle.main.infoDictionary ?? [:],
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
@@ -126,25 +107,15 @@ final class SettingsModel {
         )
         self.accountStatus = accountStatus
         self.isICloudSyncEnabled = storeHost?.cloudKitDatabase.isSyncEnabled ?? false
-        self.defaults = defaults
         self.exporter = exporter ?? LedgerExporter(container: context.container)
         self.csvLanguage = csvLanguage
-        self.systemFirstWeekday = systemFirstWeekday
         self.versionText = Self.versionText(info: bundleInfo)
         self.now = now
         self.announce = announce
-        self.storedWeekStart = defaults.value(for: AppSettings.weekStart)
         // 前に書き出して残ったファイル（共有の途中でアプリが終了したときなど）を片づける。設定を開いた時点では、
         // 共有のシートは出ていない（共有のシートは設定の画面の上にしか出ない）ので、消しても共有を妨げない。
         self.exporter.removeAll()
         reloadBudget()
-    }
-
-    // MARK: - 週の始まり
-
-    /// 週の始まりを当てはめた暦（画面の根元が当てはめるものと同じ）。`ReportPeriod` の今週・先週の区切りに使われる。
-    func calendar(applyingTo systemCalendar: Calendar) -> Calendar {
-        weekStart.applied(to: systemCalendar)
     }
 
     // MARK: - iCloud 同期
@@ -181,7 +152,10 @@ final class SettingsModel {
     /// `iCloudSyncConfirmation` を nil にすることがあるため）。
     func confirmICloudSync(_ change: ICloudSyncChange) {
         iCloudSyncConfirmation = nil
-        storeHost?.setICloudSyncEnabled(change == .enable)
+        // 設定を書けなければ切り替わらない（トグルは元のまま）。黙っていると押しても何も起きないように見えるので知らせる。
+        if storeHost?.setICloudSyncEnabled(change == .enable) == false {
+            showsICloudSyncSaveFailure = true
+        }
     }
 
     /// 同期がオンのとき、iCloud のアカウントがいまも使えるかを確かめる（設定の画面を開いたとき）。
@@ -193,7 +167,7 @@ final class SettingsModel {
         iCloudAccountStatus = await accountStatus()
     }
 
-    /// 設定の画面を離れたら、途中のアカウントの確かめをやめる（戻った後で説明やアラートを出さない）。
+    /// 設定の画面を閉じたら、途中のアカウントの確かめをやめる（閉じた後で説明やアラートを出さない）。
     func cancelICloudAccountCheck() {
         accountCheckTask?.cancel()
         accountCheckTask = nil
@@ -216,15 +190,16 @@ final class SettingsModel {
 
     /// 選んだ期間の記録を CSV ファイルにし、共有のシートに渡す（`sharedFile`）。書き終えるのを待つ Task を返す（テストで使う）。
     ///
-    /// 利用者がボタンを押したときだけ書き出す。どこへ渡すかは利用者が共有のシートで選び、アプリからは送らない。
+    /// 利用者が期間を選んだときだけ書き出す。どこへ渡すかは利用者が共有のシートで選び、アプリからは送らない。
     /// 書き出しの途中や、共有のシートを出している間は受け付けない（nil を返す）。
-    /// - Parameter calendar: 期間を区切る暦（画面の暦。ホームの今月と同じ月で区切るため）。
+    /// - Parameters:
+    ///   - period: 書き出す期間（書き出しのメニューで選んだもの）。
+    ///   - calendar: 期間を区切る暦（画面の暦。ホームの今月と同じ月で区切るため）。
     @discardableResult
-    func export(calendar: Calendar) -> Task<Void, Never>? {
+    func export(period: LedgerExportPeriod = .thisMonth, calendar: Calendar) -> Task<Void, Never>? {
         guard !isExporting, sharedFile == nil else { return nil }
         isExporting = true
         let exporter = exporter
-        let period = exportPeriod
         let exportedAt = now()
         let language = csvLanguage
         let task = Task {
@@ -266,7 +241,16 @@ final class SettingsModel {
         if !sheetWasShown { exportAlert = .failed }
     }
 
-    /// 設定の画面を離れたら、途中の書き出しをやめる（書き終えていたファイルは、書き出しの Task が消す）。
+    /// 設定の画面を閉じた（ホームが `settings` を nil に戻した・作り直した）。途中の書き出しとアカウントの確かめをやめる。
+    ///
+    /// 画面の onDisappear でやめると、設定から「カテゴリ」などへ進んだだけでも書き出しが止まり、戻ると何も起きていない
+    /// ように見えるため、閉じたときだけにする。
+    func close() {
+        cancelExport()
+        cancelICloudAccountCheck()
+    }
+
+    /// 途中の書き出しをやめる（書き終えていたファイルは、書き出しの Task が消す）。
     func cancelExport() {
         exportTask?.cancel()
         exportTask = nil
@@ -279,14 +263,6 @@ final class SettingsModel {
         let version = info["CFBundleShortVersionString"] as? String ?? "-"
         let build = info["CFBundleVersion"] as? String ?? "-"
         return "\(version) (\(build))"
-    }
-
-    /// 曜日の名前（1 = 日曜）。アプリの表示の言語（日本語か英語）で書く。
-    static func weekdayName(_ weekday: Int, localization: String? = Bundle.main.preferredLocalizations.first) -> String {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.locale = Locale(identifier: localization ?? "ja")
-        let symbols = calendar.standaloneWeekdaySymbols
-        return symbols.indices.contains(weekday - 1) ? symbols[weekday - 1] : ""
     }
 
     // MARK: - 型

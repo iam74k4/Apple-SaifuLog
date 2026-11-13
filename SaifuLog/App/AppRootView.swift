@@ -25,10 +25,8 @@ struct AppRootView: View {
     /// 開いた状態から始めるとき（iCloud 同期の切り替えの後）に、捨てるモデルが「設定に戻す」の知らせを先に読んでしまうと、
     /// 実際に使うモデルでは設定が開かないため。
     @State private var home: HomeModel?
-    /// 設定の「週の始まり」。画面の暦に当てはめて、ここから下の画面に渡す。
-    @AppStorage(AppSettings.weekStart) private var weekStart: WeekStart
-    /// 端末の暦（地域と iOS の設定のもの）。
-    @Environment(\.calendar) private var systemCalendar
+    /// 端末の暦（地域と iOS の設定のもの。週の始まりも端末の設定のまま）。
+    @Environment(\.calendar) private var calendar
 
     var body: some View {
         ZStack {
@@ -53,13 +51,9 @@ struct AppRootView: View {
             guard let demo = ScreenshotDemo.current else { return }
             try? await Task.sleep(for: .milliseconds(800))
             guard let home else { return }
-            await demo.stage(on: home, calendar: weekStart.applied(to: systemCalendar))
+            await demo.stage(on: home, calendar: calendar)
         }
         #endif
-        // 週の始まりを、画面の暦（ホーム・まとめ・直すシートの日付の選択が使う環境の calendar）に当てはめる。ホームは
-        // この暦を解析や期間の区切り（`ReportPeriod`）に渡すので、今週・先週の区切りも設定に従う。暦を 1 か所で
-        // 置き換えるのは、画面ごとに当てはめると、当てはめ忘れた画面だけ別の週になるため。
-        .environment(\.calendar, weekStart.applied(to: systemCalendar))
     }
 
     /// 案内を出すかを決める。最初に出るときに一度だけ（記録があれば、ここで案内を終えたことにする）。
