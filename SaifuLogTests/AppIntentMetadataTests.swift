@@ -17,7 +17,6 @@ struct AppIntentMetadataTests {
             AskQuestionIntent.title, AskQuestionIntent.description.descriptionText,
             ComposeEntryIntent.title, ComposeEntryIntent.description.descriptionText,
             ScanReceiptIntent.title, ScanReceiptIntent.description.descriptionText,
-            VoiceEntryIntent.title, VoiceEntryIntent.description.descriptionText,
         ]
     }
 

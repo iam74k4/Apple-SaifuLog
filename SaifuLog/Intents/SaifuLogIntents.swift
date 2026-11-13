@@ -68,19 +68,6 @@ struct ScanReceiptIntent: AppIntent {
     }
 }
 
-/// アプリを開いて、声で入力する（マイクのボタンを押したときと同じ。送信は利用者が押したときだけ）。
-struct VoiceEntryIntent: AppIntent {
-    static let title: LocalizedStringResource = "声で入力"
-    static let description = IntentDescription("アプリを開いて、話した内容を入力欄に入れます。送るのは、あなたが送信を押したときだけです。")
-    static let openAppWhenRun = true
-
-    @MainActor
-    func perform() async throws -> some IntentResult {
-        QuickActionInbox.shared.post(.voice)
-        return .result()
-    }
-}
-
 /// Siri と Spotlight とアクションボタンに出す操作と、呼び出しの言い方。言い方にはアプリの名前を入れる（App Shortcuts の決まり）。
 /// 英語の言い方は `AppShortcuts.xcstrings` に置く。
 struct SaifuLogShortcuts: AppShortcutsProvider {
@@ -102,12 +89,6 @@ struct SaifuLogShortcuts: AppShortcutsProvider {
             phrases: ["\(.applicationName)でレシートを読み取る", "\(.applicationName)でレシート"],
             shortTitle: "レシートを読み取る",
             systemImageName: "receipt"
-        )
-        AppShortcut(
-            intent: VoiceEntryIntent(),
-            phrases: ["\(.applicationName)で声で入力", "\(.applicationName)で声で記録"],
-            shortTitle: "声で入力",
-            systemImageName: "mic"
         )
         AppShortcut(
             intent: ComposeEntryIntent(),

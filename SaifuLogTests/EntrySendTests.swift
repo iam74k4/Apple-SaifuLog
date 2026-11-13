@@ -67,20 +67,6 @@ struct EntrySendTests {
         #expect(sends.map(\.originalText) == ["スーパー2480、ドラッグ1200 コーヒー400"])
     }
 
-    @Test("声で入れた文の送信は、入力元が声の 1 つの送信")
-    func voiceSendKeepsItsSource() async throws {
-        let fixture = try Fixture(voice: VoiceInputModel(transcriber: FakeVoiceTranscriber()))
-        // 書き起こした文を入力欄に入れる（マイクで聞いて止めたときと同じ入れ方。`HomeModelVoiceTests`）。
-        fixture.model.voice.insertTranscript("コーヒー 480 パン 320")
-        #expect(fixture.model.draftSource == .voice)
-        await fixture.model.send(calendar: TestSupport.calendar)?.value
-
-        let sends = try Self.sends(fixture)
-
-        #expect(Self.amounts(sends) == [[480, 320]])
-        #expect(sends.map(\.source) == [.voice])
-    }
-
     @Test("レシートから記録した品目は 1 つの送信（入力元はレシート、送った文は店名と合計の要約）")
     func receiptIsOneSend() async throws {
         let fixture = try Fixture()

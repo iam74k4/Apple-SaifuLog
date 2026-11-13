@@ -14,7 +14,7 @@ import SwiftData
 /// - 保存先はメモリの上だけにし、架空の記録と予算を入れる（利用者の記録のファイル default.store を開かない）。
 /// - 設定（UserDefaults）は専用の領域（`defaultsSuiteName`）を毎回空にして使う（利用者の設定に触れない）。
 /// - 初回の案内を出さず、診断画面のボタン（帯の聴診器）など開発用の表示を出さない。
-/// - 端末や AI によって変わるもの（AI の一言・レシートの文字認識・声の書き起こし・App Store の価格）は、決まった中身にする
+/// - 端末や AI によって変わるもの（AI の一言・レシートの文字認識・App Store の価格）は、決まった中身にする
 ///   （どれも実際のアプリが出しうる中身にする）。
 /// - 「いま」は撮影の月の 15 日の 20:30 に置き、日付はそこから相対で作る（`pinnedNow(on:calendar:)`）。月のどの日に撮っても
 ///   同じ画面になるようにする。
@@ -32,8 +32,6 @@ final class ScreenshotDemo {
         case recap
         /// レシートの読み取り結果のシート。
         case receipt
-        /// 声の入力の聞いている表示。
-        case voice
         /// プレミアムのシートの上のほう（プレミアムでできることと、下の帯の体験と購入のボタン。プレミアムの課金アイテムの審査用の
         /// スクリーンショット）。
         case premium
@@ -48,7 +46,7 @@ final class ScreenshotDemo {
         var defaultPremium: PremiumChoice {
             switch self {
             case .premium, .trial: .free
-            case .home, .ask, .report, .recap, .receipt, .voice, .calendar: .purchased
+            case .home, .ask, .report, .recap, .receipt, .calendar: .purchased
             }
         }
     }
@@ -246,7 +244,7 @@ final class ScreenshotDemo {
         ]
     }
 
-    /// ホームのモデル。設定・時計・解析・質問の答え方・AI の一言・レシートの読み取り・声の入力を、デモのものに差し替える。
+    /// ホームのモデル。設定・時計・解析・質問の答え方・AI の一言・レシートの読み取りを、デモのものに差し替える。
     func makeHomeModel(
         context: ModelContext, pendingWrites: PendingStoreWrites, purchases: PurchaseManager, storeHost: StoreHost?
     ) -> HomeModel {
@@ -267,15 +265,6 @@ final class ScreenshotDemo {
             makeRemarkWriter: { writesRemarks ? ScreenshotDemoRemarkWriter() : nil },
             receiptReader: ReceiptReader(recognize: { _ in receiptLines }, makeRefiner: { nil }),
             canUseDocumentCamera: false,
-            voice: VoiceInputModel(
-                transcriber: ScreenshotDemoTranscriber(),
-                microphone: ScreenshotDemoMicrophone(),
-                network: ScreenshotDemoNetwork(),
-                // 時計を止めておき、話し終えた・話し始めない・30 秒で止まらないようにする（撮るまで聞いている表示のまま）。
-                now: { [pinned = now] in pinned },
-                announce: { _ in },
-                announceAndWait: { _ in }
-            ),
             now: clock,
             announce: { _ in }
         )
@@ -317,8 +306,6 @@ final class ScreenshotDemo {
             home.monthlyReport?.screenshotScrollsToBottom = true
         case .receipt:
             await home.readReceipt([ScreenshotDemoReceipt.image()], source: .photos, calendar: calendar).value
-        case .voice:
-            await home.voice.toggle()?.value
         case .premium:
             home.presentPremium()
         case .trial:

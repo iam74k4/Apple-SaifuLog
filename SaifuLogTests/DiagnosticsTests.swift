@@ -9,11 +9,6 @@ import Testing
 /// 診断画面の値の集め方と、まとめてコピーする文。
 @MainActor
 struct DiagnosticsTests {
-    /// 音声の書き起こしの問い合わせの代わり（テストでは OS に問い合わせない。資産の問い合わせは環境で時間がかかりうるため）。
-    nonisolated static let speech = DiagnosticsReport.SpeechStatus(
-        isAvailable: true, japaneseLocale: "ja_JP", isJapaneseInstalled: false, route: "speechTranscriber", model: "needsDownload"
-    )
-
     /// クリップボードと読み上げの代わり。
     @MainActor
     final class Sink {
@@ -24,19 +19,19 @@ struct DiagnosticsTests {
         func announce(_ text: String) { announcements.append(text) }
     }
 
-    /// 音声の書き起こしの問い合わせを、テストが答えを渡すまで返さない代わり（遅い・返らない問い合わせを再現する）。
-    actor SpeechGate {
-        private var waiting: [CheckedContinuation<DiagnosticsReport.SpeechStatus, Never>] = []
+    /// iCloud のアカウントの問い合わせを、テストが答えを渡すまで返さない代わり（遅い・返らない問い合わせを再現する）。
+    actor AccountGate {
+        private var waiting: [CheckedContinuation<ICloudAccountStatus, Never>] = []
 
         /// 答えを待っている問い合わせの数（答えを渡した後も減らない。何番目の問い合わせかを数えるため）。
         var count: Int { waiting.count }
 
-        func wait() async -> DiagnosticsReport.SpeechStatus {
+        func wait() async -> ICloudAccountStatus {
             await withCheckedContinuation { waiting.append($0) }
         }
 
         /// `index` 番目（0 から）の問い合わせに答える。
-        func answer(_ index: Int, with status: DiagnosticsReport.SpeechStatus) {
+        func answer(_ index: Int, with status: ICloudAccountStatus) {
             waiting[index].resume(returning: status)
         }
     }
@@ -77,7 +72,6 @@ struct DiagnosticsTests {
             context: context,
             storeURL: storeURL,
             isProtectedDataAvailable: { protectedDataAvailable },
-            speech: { speech },
             iCloudAccount: { .noAccount },
             settings: settings,
             copy: { sink.copy($0) },
@@ -168,19 +162,18 @@ struct DiagnosticsTests {
 
     // MARK: - 読み込み
 
-    /// 音声の資産の問い合わせが遅い・返らない端末でも、実機で見たい値（保存先の保護クラス・端末内 AI）を隠さない。
-    @Test("音声の書き起こしの問い合わせを待たずにほかの値を出し、返ったら音声の行を埋める")
-    func loadShowsReportBeforeSpeechAnswers() async throws {
+    /// iCloud のアカウントの問い合わせが遅い・返らない端末でも、実機で見たい値（保存先の保護クラス・端末内 AI）を隠さない。
+    @Test("iCloud のアカウントの問い合わせを待たずにほかの値を出し、返ったらアカウントの行を埋める")
+    func loadShowsReportBeforeAccountAnswers() async throws {
         let context = try TestSupport.makeContext()
         let folder = try Self.makeFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
-        let gate = SpeechGate()
+        let gate = AccountGate()
         let model = DiagnosticsModel(
             context: context,
             storeURL: folder.appending(path: "default.store", directoryHint: .notDirectory),
             isProtectedDataAvailable: { true },
-            speech: { await gate.wait() },
-            iCloudAccount: { .available },
+            iCloudAccount: { await gate.wait() },
             settings: Self.isolatedSettings,
             copy: { _ in },
             announce: { _ in }
@@ -190,11 +183,6 @@ struct DiagnosticsTests {
         try #require(await Self.eventually { await gate.count == 1 })
 
         let pending = try #require(model.report)
-        #expect(pending.value(for: "speech.available") == DiagnosticsReport.checking)
-        #expect(pending.value(for: "speech.japaneseLocale") == DiagnosticsReport.checking)
-        #expect(pending.value(for: "speech.japaneseInstalled") == DiagnosticsReport.checking)
-        #expect(pending.value(for: "speech.route") == DiagnosticsReport.checking)
-        #expect(pending.value(for: "speech.model") == DiagnosticsReport.checking)
         #expect(pending.value(for: "store.default.store") == "missing")
         #expect(pending.value(for: "store.protectedDataAvailable") == "true")
         #expect(pending.value(for: "fm.availability") != nil)
@@ -203,15 +191,10 @@ struct DiagnosticsTests {
         #expect(pending.value(for: "icloud.account") == DiagnosticsReport.checking)
         #expect(pending.value(for: "icloud.database") == "none")
 
-        await gate.answer(0, with: Self.speech)
+        await gate.answer(0, with: .available)
         await loading.value
 
         let answered = try #require(model.report)
-        #expect(answered.value(for: "speech.available") == "true")
-        #expect(answered.value(for: "speech.japaneseLocale") == "ja_JP")
-        #expect(answered.value(for: "speech.japaneseInstalled") == "false")
-        #expect(answered.value(for: "speech.route") == "speechTranscriber")
-        #expect(answered.value(for: "speech.model") == "needsDownload")
         #expect(answered.value(for: "icloud.account") == "available")
     }
 
@@ -226,7 +209,6 @@ struct DiagnosticsTests {
             context: context,
             storeURL: folder.appending(path: "default.store", directoryHint: .notDirectory),
             isProtectedDataAvailable: { true },
-            speech: { Self.speech },
             iCloudAccount: { .failed(domain: "CKErrorDomain", code: 4) },
             settings: settings,
             copy: { _ in },
@@ -253,23 +235,19 @@ struct DiagnosticsTests {
     }
 
     @Test("読み直しの後に前の問い合わせの答えが返っても、新しい答えを上書きしない")
-    func staleSpeechAnswerDoesNotOverwriteNewerLoad() async throws {
+    func staleAccountAnswerDoesNotOverwriteNewerLoad() async throws {
         let context = try TestSupport.makeContext()
         let folder = try Self.makeFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
-        let gate = SpeechGate()
+        let gate = AccountGate()
         let model = DiagnosticsModel(
             context: context,
             storeURL: folder.appending(path: "default.store", directoryHint: .notDirectory),
             isProtectedDataAvailable: { true },
-            speech: { await gate.wait() },
-            iCloudAccount: { .available },
+            iCloudAccount: { await gate.wait() },
             settings: Self.isolatedSettings,
             copy: { _ in },
             announce: { _ in }
-        )
-        let stale = DiagnosticsReport.SpeechStatus(
-            isAvailable: false, japaneseLocale: nil, isJapaneseInstalled: false, route: "none", model: "none"
         )
 
         let first = Task { await model.load() }
@@ -278,15 +256,13 @@ struct DiagnosticsTests {
         try #require(await Self.eventually { await gate.count == 2 })
 
         // 後から始めた読み直しが先に返り、そのあとで前の問い合わせが返る。
-        await gate.answer(1, with: Self.speech)
+        await gate.answer(1, with: .available)
         await second.value
-        await gate.answer(0, with: stale)
+        await gate.answer(0, with: .noAccount)
         await first.value
 
         let report = try #require(model.report)
-        #expect(report.value(for: "speech.available") == "true")
-        #expect(report.value(for: "speech.japaneseLocale") == "ja_JP")
-        #expect(report.value(for: "speech.route") == "speechTranscriber")
+        #expect(report.value(for: "icloud.account") == "available")
     }
 
     // MARK: - 端末内 AI の失敗と生成の試し
@@ -501,8 +477,6 @@ struct DiagnosticsTests {
         #expect(report.value(for: "store.default.store-wal") == "missing")
         #expect(report.value(for: "store.default.store-shm") == "missing")
         #expect(report.value(for: "store.protectedDataAvailable") == "false")
-        #expect(report.value(for: "speech.japaneseLocale") == "ja_JP")
-        #expect(report.value(for: "speech.japaneseInstalled") == "false")
         #expect(report.value(for: "icloud.account") == "noAccount")
         // テストの保存先はメモリの上で、iCloud と同期しない。
         #expect(report.value(for: "icloud.database") == "none")

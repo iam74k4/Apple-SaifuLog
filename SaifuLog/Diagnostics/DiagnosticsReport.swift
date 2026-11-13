@@ -115,21 +115,8 @@ extension DiagnosticsReport {
         }
     }
 
-    /// 音声の書き起こしの問い合わせがまだ返っていないときの値（`init` の `speech` が nil のとき）。
+    /// iCloud のアカウントの問い合わせがまだ返っていないときの値。
     static let checking = "checking"
-
-    struct SpeechStatus: Equatable, Sendable {
-        /// この端末で SpeechTranscriber が使えるか。
-        var isAvailable: Bool
-        /// 日本語に当たる言語（例: ja_JP）。対応していなければ nil。
-        var japaneseLocale: String?
-        /// 日本語のモデルが端末に入っているか。
-        var isJapaneseInstalled: Bool
-        /// 声の入力で使っている経路（speechTranscriber / dictationTranscriber / none。`VoiceRoute`）。
-        var route: String
-        /// その経路のモデルの状態（installed / needsReservation / needsDownload / downloading。経路が無ければ none）。
-        var model: String
-    }
 
     /// 保存先のファイル 1 つの保護クラス。
     struct StoreFile: Equatable, Sendable {
@@ -177,7 +164,6 @@ extension DiagnosticsReport {
         app: AppInfo,
         device: DeviceInfo,
         foundationModels: FoundationModelsStatus,
-        speech: SpeechStatus?,
         storeFiles: [StoreFile],
         isProtectedDataAvailable: Bool,
         counts: RecordCounts,
@@ -205,21 +191,6 @@ extension DiagnosticsReport {
                 ),
                 Row(key: "fm.generation", label: "生成の試し", value: generationProbe.description),
             ] + Self.fallbackRows(aiFallbacks)),
-            // 音声の問い合わせは返るまで待たずに画面を出すので、返る前はすべて checking にする。
-            Section(id: "speech", title: "音声の書き起こし（SpeechTranscriber）", rows: [
-                Row(key: "speech.available", label: "使えるか", value: speech.map { String($0.isAvailable) } ?? Self.checking),
-                Row(
-                    key: "speech.japaneseLocale", label: "日本語の言語",
-                    value: speech.map { $0.japaneseLocale ?? "none" } ?? Self.checking
-                ),
-                Row(
-                    key: "speech.japaneseInstalled", label: "日本語のモデルが入っているか",
-                    value: speech.map { String($0.isJapaneseInstalled) } ?? Self.checking
-                ),
-                // SpeechTranscriber が日本語に対応しない端末では DictationTranscriber に切り替えるので、どちらを使っているかも出す。
-                Row(key: "speech.route", label: "使っている経路", value: speech.map(\.route) ?? Self.checking),
-                Row(key: "speech.model", label: "経路のモデルの状態", value: speech.map(\.model) ?? Self.checking),
-            ]),
             Section(
                 id: "store", title: "保存先",
                 rows: storeFiles.map { file in

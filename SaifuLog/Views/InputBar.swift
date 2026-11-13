@@ -1,11 +1,7 @@
 import SwiftUI
 
 /// ホームの下の入力欄。記録も家計への質問も、ここに打つ（見分けは `HomeModel` がコアに任せる）。
-/// 左のカメラのボタンから、レシートを読み取って記録できる。右のマイクのボタンから、話した内容を入力欄に入れられる
-/// （入力欄が空のときは、送信ボタンの位置にマイクを出す。空の入力は送れないので、その位置を声の入力の入口に使う）。
-///
-/// マイクのボタンは、日本語の書き起こしを使える端末でだけ出す（押しても何も起きないボタンは置かない）。
-/// 声の入力の間は、入力欄の代わりに書き起こしの表示（`VoiceInputPanel`）を出す。
+/// 左のカメラのボタンから、レシートを読み取って記録できる。声で入れたいときは、キーボードの音声入力を使う。
 struct InputBar: View {
     @Binding var text: String
     let isSending: Bool
@@ -24,8 +20,6 @@ struct InputBar: View {
     var recorded: [RecordedItem] = []
     /// 「直す」のシートを出す。
     var edit: (RecordedItem) -> Void = { _ in }
-    /// 声の入力。渡さなければマイクのボタンを出さない。
-    var voice: VoiceInputModel?
     /// 入力欄にキーボードを出す頼みの数（Siri・ショートカットの「入力欄を開く」・カレンダーの「この日に記録」）。増えるたびに
     /// フォーカスを入れる。
     var focusRequest = 0
@@ -54,29 +48,11 @@ struct InputBar: View {
         canSend ? Theme.onAccent : Theme.inkSecondary
     }
 
-    /// マイクのボタンを出すか（日本語の書き起こしを使える端末だけ）。
-    private var showsMicrophone: Bool {
-        voice?.isAvailable == true
-    }
-
-    /// 送信ボタンを出すか。マイクを出す端末では、入力欄が空の間はマイクに譲る（読み取り中の印は出したままにする）。
-    private var showsSendButton: Bool {
-        !showsMicrophone || isSending || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
     var body: some View {
-        Group {
-            if let voice, voice.isActive {
-                VoiceInputPanel(model: voice, prefix: text)
-            } else {
-                textInput
+        textInput
+            .onChange(of: isFocused) { _, focused in
+                focusChanged(focused)
             }
-        }
-        // 入力欄の外に付ける。声の入力の間は入力欄ごと書き起こしの表示に替わり、入力欄に付けた onChange は呼ばれないため
-        // （フォーカスが外れたことを知らせないと、声の入力の後もホームの帯が低いまま残る）。
-        .onChange(of: isFocused) { _, focused in
-            focusChanged(focused)
-        }
     }
 
     private var textInput: some View {
@@ -124,12 +100,7 @@ struct InputBar: View {
             .simultaneousGesture(TapGesture().onEnded { isFocused = true })
             .glassEffect(.regular, in: .rect(cornerRadius: 22))
 
-            if let voice, showsMicrophone {
-                VoiceMicButton(isEnabled: voice.canStart) { voice.toggle() }
-            }
-            if showsSendButton {
-                sendButton
-            }
+            sendButton
         }
     }
 
@@ -186,7 +157,7 @@ struct InputBar: View {
     /// 前提にしているため）。
     ///
     /// 色は補足の文字と同じにする。システムの既定の薄い灰色は、ガラスの地の上で 3:1 に届かないため。
-    /// 字は本文より一回り小さく（subheadline）する。入力欄はカメラとマイクのボタンに挟まれて狭く、本文の大きさでは標準の文字でも
+    /// 字は本文より一回り小さく（subheadline）する。入力欄はカメラと送信のボタンに挟まれて狭く、本文の大きさでは標準の文字でも
     /// 「記録も質問も、ひとことで」が「…」で切れたため（iPhone 17 Pro のシミュレータ）。打った文は本文の大きさのまま。
     private var prompt: Text {
         let text = if dynamicTypeSize.isAccessibilitySize {

@@ -416,23 +416,6 @@ struct ScreenshotDemoTests {
         #expect(demo.calendar.isDate(result.day, inSameDayAs: demo.now))
     }
 
-    @Test("声の画面: 聞いている表示のまま止まらず、確定した文と途中の文を出す")
-    func voiceScreenKeepsListening() async throws {
-        let (demo, home) = try Self.makeHome(.voice, uiLanguage: "ja")
-        defer { Self.removeDefaults(of: demo) }
-        await demo.stage(on: home, calendar: demo.calendar)
-        await Self.waitUntil { !home.voice.preview(prefix: "").full.isEmpty }
-
-        #expect(home.voice.phase == .listening)
-        let preview = home.voice.preview(prefix: "")
-        #expect(preview.settled == "ドラッグストア")
-        #expect(preview.tentative == "1280円")
-        // 時計を止めてあるので、時間がたっても自動で止まらない。
-        home.voice.tick()
-        #expect(home.voice.phase == .listening)
-        home.voice.cancel()
-    }
-
     @Test("月のまとめの画面: 今月を下の端（カテゴリ別のグラフと金額の行）から開き、カテゴリ別の予算の進みを出し、日本語の画面では照合を通る一言を添える")
     func reportScreenOpensMonthWithRemark() async throws {
         let (demo, home) = try Self.makeHome(.report, uiLanguage: "ja")

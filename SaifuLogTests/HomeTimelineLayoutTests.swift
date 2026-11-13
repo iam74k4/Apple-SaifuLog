@@ -133,10 +133,8 @@ struct HomeTimelineLayoutTests {
         try Self.expectAtTheBottom(frames, key: .row(exchange.id), size: size)
     }
 
-    /// 開いたまま週が替わってふりかえりのカードが出たときも、下の余白を残して下の端に出る。同じときに見える範囲の高さが変わっても
-    /// （ここでは入力欄の上に声の入力の知らせを出す。見える範囲が縮む）。
-    /// 動きを付けて送っていたときは、変わった分が下端に合わせ直されず、AX1 と AX5 ではカードが見える範囲の下に 400pt 以上隠れた。
-    @Test("開いたままふりかえりのカードが出ると、見える範囲が同時に縮んでも、カードが下の余白を残して下の端に見える", arguments: sendSizes)
+    /// 開いたまま週が替わってふりかえりのカードが出たときも、下の余白を残して下の端に出る。
+    @Test("開いたままふりかえりのカードが出ると、カードが下の余白を残して下の端に見える", arguments: sendSizes)
     func weeklyRecapShownWhileOpenIsAtTheBottom(size: UIContentSizeCategory) async throws {
         let fixture = try TimelineFixture()
         try fixture.insertDemoLedger()
@@ -148,13 +146,10 @@ struct HomeTimelineLayoutTests {
             #expect(fixture.model.weeklyRecap == nil)
             fixture.defaults.set(nil, for: AppSettings.weeklyRecapShownAt)
             fixture.model.showWeeklyRecapIfDue(calendar: TestSupport.calendar)
-            fixture.model.voice.notice = .nothingHeard
             return .row(try #require(fixture.model.weeklyRecap).id)
         }
 
         let recap = try #require(fixture.model.weeklyRecap)
-        // 前提: 知らせが出たまま（画面が 5 秒で引っ込める）。
-        #expect(fixture.model.voice.notice == .nothingHeard)
         try Self.expectAtTheBottom(frames, key: .row(recap.id), size: size)
     }
 
@@ -206,8 +201,6 @@ private final class TimelineFixture {
             makeAnswerer: { RuleBasedQuestionAnswerer() },
             makeRemarkWriter: { nil },
             canUseDocumentCamera: true,
-            // 端末の書き起こしを使わない（マイクのボタンを出すかを調べるだけでも、音声のフレームワークに問い合わせるため）。
-            voice: VoiceInputModel(transcriber: FakeVoiceTranscriber()),
             now: { now },
             announce: { _ in }
         )

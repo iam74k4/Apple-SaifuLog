@@ -32,8 +32,6 @@ struct QuickActionTests {
         #expect(QuickActionInbox.shared.take() == .receipt)
         _ = try await ComposeEntryIntent().perform()
         #expect(QuickActionInbox.shared.take() == .compose)
-        _ = try await VoiceEntryIntent().perform()
-        #expect(QuickActionInbox.shared.take() == .voice)
         #expect(RecordEntryIntent.openAppWhenRun)
     }
 

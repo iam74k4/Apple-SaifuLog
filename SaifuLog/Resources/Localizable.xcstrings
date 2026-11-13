@@ -2346,17 +2346,6 @@
         }
       }
     },
-    "アプリを開いて、話した内容を入力欄に入れます。送るのは、あなたが送信を押したときだけです。" : {
-      "comment" : "Siri・ショートカットの操作「声で入力」の説明",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Opens SaifuLog and puts what you say into the input field. It’s sent only when you tap Send."
-          }
-        }
-      }
-    },
     "アプリを開くときに、ロックの解除を求めます" : {
       "comment" : "設定の「Face ID でロック」のトグルの VoiceOver の説明",
       "localizations" : {
@@ -2793,39 +2782,6 @@
         }
       }
     },
-    "ダウンロード" : {
-      "comment" : "声の入力の、日本語の音声モデルをダウンロードするかの確認の、ダウンロードするボタン",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Download"
-          }
-        }
-      }
-    },
-    "ダウンロードが続いていれば、次にマイクのボタンを押したときに使えます。" : {
-      "comment" : "声の入力の、日本語の音声モデルのダウンロードの進みを閉じるボタンの VoiceOver の説明。OS はダウンロードを続けることがある",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "If the download continues, you can use it the next time you tap the microphone button."
-          }
-        }
-      }
-    },
-    "ダウンロードの表示を閉じる" : {
-      "comment" : "声の入力の、日本語の音声モデルのダウンロードの進みの横の × ボタンの VoiceOver の名前",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hide Download Progress"
-          }
-        }
-      }
-    },
     "ダブルタップで記録から外します" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。品目の行の印の VoiceOver の説明（記録する行のとき）",
       "localizations" : {
@@ -3141,17 +3097,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send something like “ランチ 850” from the field on Home, and this shows what you spent and on what."
-          }
-        }
-      }
-    },
-    "マイクを使えません" : {
-      "comment" : "声の入力で、マイクの使用が許可されていない・断られたときのアラートの見出し",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Microphone Not Available"
           }
         }
       }
@@ -4095,17 +4040,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Spent %@"
-          }
-        }
-      }
-    },
-    "使っている経路" : {
-      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。声の入力で使っている書き起こしの経路（SpeechTranscriber / DictationTranscriber / なし）の項目名",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Route in use"
           }
         }
       }
@@ -5123,28 +5057,6 @@
         }
       }
     },
-    "声で入力" : {
-      "comment" : "ホームの入力欄の右のマイクのボタンの VoiceOver の名前。話した内容を書き起こして入力欄に入れる",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Voice Input"
-          }
-        }
-      }
-    },
-    "声で入力するには、設定でサイフログのマイクの使用を許可してください。" : {
-      "comment" : "声の入力で、マイクの使用が許可されていないときのアラートの本文。「設定を開く」ボタンを添える",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "To enter by voice, allow SaifuLog to use the microphone in Settings."
-          }
-        }
-      }
-    },
     "声の入力と Siri・ショートカット" : {
       "comment" : "プレミアムのシート（⑨）の「無料のまま使えること」の行",
       "localizations" : {
@@ -5152,83 +5064,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Voice input, Siri, and Shortcuts"
-          }
-        }
-      }
-    },
-    "声の入力を使えませんでした。もう一度お試しください。" : {
-      "comment" : "声の入力を始められなかった・途中で失敗したときに、入力欄の上に少しの間だけ出す知らせ。VoiceOver にも読み上げる",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Voice input didn’t work. Please try again."
-          }
-        }
-      }
-    },
-    "声の入力を始めます" : {
-      "comment" : "声の入力を始める前に VoiceOver で読み上げる文。読み終えてからマイクを開く",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Starting voice input"
-          }
-        }
-      }
-    },
-    "声の入力を止める" : {
-      "comment" : "声の入力の間の、止めるボタン（主の塗りの丸）の VoiceOver の名前",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stop Voice Input"
-          }
-        }
-      }
-    },
-    "声の入力を終えました。入力欄: %@" : {
-      "comment" : "声の入力を終えたときに VoiceOver で読み上げる文。%@ は入力欄に入れた書き起こしの文（送信はしていない）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Voice input ended. In the field: %@"
-          }
-        }
-      }
-    },
-    "声を文字にするための日本語のモデルを、Apple からこの iPhone にダウンロードします。声や記録は送りません。" : {
-      "comment" : "声の入力で、日本語の音声モデルが入っていないときのダウンロードの確認の本文（Wi‑Fi のとき）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "SaifuLog will download a Japanese speech model from Apple to this iPhone. Your voice and records are not sent."
-          }
-        }
-      }
-    },
-    "声を文字にするための日本語のモデルを、Apple からこの iPhone にダウンロードします。声や記録は送りません。いまはモバイル回線か低データモードです。大きなファイルなので、Wi‑Fi でのダウンロードをおすすめします。" : {
-      "comment" : "声の入力で、日本語の音声モデルが入っていないときのダウンロードの確認の本文（モバイル回線か低データモードのとき。Wi‑Fi をすすめる）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "SaifuLog will download a Japanese speech model from Apple to this iPhone. Your voice and records are not sent. You’re on cellular data or in Low Data Mode. The file is large, so downloading over Wi‑Fi is recommended."
-          }
-        }
-      }
-    },
-    "声を聞き取れませんでした。マイクのボタンを押して、もう一度話してください。" : {
-      "comment" : "声の入力で何も聞き取れなかったときに、入力欄の上に少しの間だけ出す知らせ。VoiceOver にも読み上げる",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn’t hear your voice. Tap the microphone button and try again."
           }
         }
       }
@@ -5306,17 +5141,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "House"
-          }
-        }
-      }
-    },
-    "家族" : {
-      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。ホームの帯の「自分／家族」の切り替えの、家計の側",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Family"
           }
         }
       }
@@ -5651,17 +5475,6 @@
         }
       }
     },
-    "文字にしています…" : {
-      "comment" : "声の入力を止めた後、書き起こしの確定を待っている間に入力欄の代わりに出す文と、その VoiceOver の名前",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Transcribing…"
-          }
-        }
-      }
-    },
     "料金はかかりません。App Store の確認が出ます" : {
       "comment" : "プレミアムのシート（⑨）。体験を始めるボタンの VoiceOver の説明",
       "localizations" : {
@@ -5724,72 +5537,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Supports Japanese"
-          }
-        }
-      }
-    },
-    "日本語のモデルが入っているか" : {
-      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。音声の書き起こしの日本語のモデルが端末に入っているかの項目名",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Japanese model installed"
-          }
-        }
-      }
-    },
-    "日本語の言語" : {
-      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。音声の書き起こしで日本語に当たる言語の項目名",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Japanese locale"
-          }
-        }
-      }
-    },
-    "日本語の音声モデルをダウンロードしています" : {
-      "comment" : "声の入力の、日本語の音声モデルのダウンロードの進みの文と VoiceOver の名前（値に % を読む）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Downloading the Japanese speech model"
-          }
-        }
-      }
-    },
-    "日本語の音声モデルをダウンロードしますか？" : {
-      "comment" : "声の入力で、日本語の音声モデルが入っていないときのダウンロードの確認の見出し",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Download the Japanese Speech Model?"
-          }
-        }
-      }
-    },
-    "日本語の音声モデルを入れました。マイクのボタンで話せます。" : {
-      "comment" : "声の入力の日本語の音声モデルを入れ終えたときに、入力欄の上に少しの間だけ出す知らせ。VoiceOver にも読み上げる",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The Japanese speech model is ready. Tap the microphone button to speak."
-          }
-        }
-      }
-    },
-    "日本語の音声モデルを入れられませんでした。インターネットにつないで、もう一度お試しください。" : {
-      "comment" : "声の入力の日本語の音声モデルを入れられなかったときに、入力欄の上に少しの間だけ出す知らせ。VoiceOver にも読み上げる",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn’t install the Japanese speech model. Connect to the internet and try again."
           }
         }
       }
@@ -6350,17 +6097,6 @@
         }
       }
     },
-    "準備しています…" : {
-      "comment" : "声の入力を始めている間に、入力欄の代わりに出す文",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Getting ready…"
-          }
-        }
-      }
-    },
     "無料のまま使えること" : {
       "comment" : "プレミアムのシート（⑨）の見出し。プレミアムを買わなくても使える機能の一覧",
       "localizations" : {
@@ -6727,17 +6463,6 @@
         }
       }
     },
-    "経路のモデルの状態" : {
-      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。声の入力で使っている経路の、書き起こしのモデルが入っているかの項目名",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Model status for the route"
-          }
-        }
-      }
-    },
     "続けて聞く" : {
       "comment" : "家計への質問の回答カードの、続けて聞く質問のボタンの並びの VoiceOver の名前",
       "localizations" : {
@@ -6767,28 +6492,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ultramarine"
-          }
-        }
-      }
-    },
-    "聞いています…" : {
-      "comment" : "声の入力の間、まだ何も聞き取れていないときに入力欄の代わりに出す文と、その間の表示の VoiceOver の名前（値に書き起こしの文を読む）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Listening…"
-          }
-        }
-      }
-    },
-    "自分" : {
-      "comment" : "家計の共有（DEBUG と社内テスト用のビルドだけ）。ホームの帯の「自分／家族」の切り替えの、自分の記録の側",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Me"
           }
         }
       }
@@ -7393,17 +7096,6 @@
         }
       }
     },
-    "設定を開く" : {
-      "comment" : "マイクの使用が許可されていないときのアラートの、iOS の設定を開くボタン",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open Settings"
-          }
-        }
-      }
-    },
     "診断" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面の題と、ホームの帯の右上にある診断画面を開くボタンの VoiceOver ラベル",
       "localizations" : {
@@ -7411,28 +7103,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Diagnostics"
-          }
-        }
-      }
-    },
-    "話した内容を入力欄に入れます。送信はしません。" : {
-      "comment" : "声の入力の間の、止めるボタンの VoiceOver の説明。送信は利用者が送信ボタンを押したときだけ",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Puts what you said in the field. It isn’t sent until you tap Send."
-          }
-        }
-      }
-    },
-    "話した内容を文字にして入力欄に入れます。送信はしません。" : {
-      "comment" : "ホームの入力欄のマイクのボタンの VoiceOver の説明。送信は利用者が送信ボタンを押したときだけ",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Transcribes what you say into the field. It isn’t sent until you tap Send."
           }
         }
       }
@@ -8055,17 +7725,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "閉じる"
-          }
-        }
-      }
-    },
-    "音声の書き起こし（SpeechTranscriber）" : {
-      "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。区切りの見出し",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Speech transcription (SpeechTranscriber)"
           }
         }
       }

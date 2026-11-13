@@ -11,8 +11,6 @@ enum QuickAction: Equatable, Sendable {
     case compose
     /// レシートを読み取る（カメラのボタンを押したときと同じ）。
     case receipt
-    /// 声で入力する（マイクのボタンを押したときと同じ。送信は利用者が押したときだけ）。
-    case voice
 }
 
 /// Siri・ショートカットからの頼みを、ホームが受け取るまで持っておく受け箱（アプリで 1 つ）。

@@ -37,8 +37,8 @@ read -r -a LANGUAGES <<< "${SCREENSHOT_LANGUAGES:-ja en}"
 # 撮る順（ファイル名の番号の順）。App Store に並べる順の案でもある。premium（プレミアムのシートのプレミアムでできることと、下の帯の体験と購入のボタン）と
 # trial（同じシートの 14 日間の無料体験）は課金アイテムの審査用で、ストアには載せない（ガイドライン 2.3.7。ストアの
 # スクリーンショットに価格を入れない）。
-read -r -a SCREENS <<< "${SCREENSHOT_SCREENS:-home ask receipt voice report recap premium trial}"
-ALL_SCREENS=(home ask receipt voice report recap premium trial calendar)
+read -r -a SCREENS <<< "${SCREENSHOT_SCREENS:-home ask receipt report recap premium trial}"
+ALL_SCREENS=(home ask receipt report recap premium trial calendar)
 # 起動したばかりのシミュレータは、しばらくの間 iOS の知らせ（「Apple Intelligence の準備ができました」など）を画面の上に
 # 出す。写り込まないよう、起動し直したときはこの秒数だけ待ってから撮る。
 BOOT_SETTLE_SECONDS="${SCREENSHOT_BOOT_SETTLE_SECONDS:-45}"

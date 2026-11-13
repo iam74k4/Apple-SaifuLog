@@ -17,18 +17,16 @@ final class DiagnosticsModel {
     private(set) var copyCount = 0
     /// 生成の試し（「生成を試す」）の状態と結果。読み直しても消さない（試した結果をコピーする文に残すため）。
     private(set) var generationProbe: DiagnosticsReport.GenerationProbe = .notRun
-    /// 読み込みを始めた回数。前の読み込みの音声の答えが、後から始めた読み込みより遅れて返ったときに、
+    /// 読み込みを始めた回数。前の読み込みの iCloud のアカウントの答えが、後から始めた読み込みより遅れて返ったときに、
     /// 新しい値を古い値で上書きしないため。
     @ObservationIgnored private var loadGeneration = 0
-    /// いちばん新しい読み込みの、音声の書き起こしと iCloud のアカウントの答え（返るまでは nil）。生成の試しが終わって値を
-    /// 作り直すときに、問い合わせ直さずに使う。
-    @ObservationIgnored private var speechAnswer: DiagnosticsReport.SpeechStatus?
+    /// いちばん新しい読み込みの、iCloud のアカウントの答え（返るまでは nil）。生成の試しが終わって値を作り直すときに、
+    /// 問い合わせ直さずに使う。
     @ObservationIgnored private var accountAnswer: ICloudAccountStatus?
 
     @ObservationIgnored private let context: ModelContext
     @ObservationIgnored private let storeURL: URL
     @ObservationIgnored private let isProtectedDataAvailable: @MainActor () -> Bool
-    @ObservationIgnored private let speech: @Sendable () async -> DiagnosticsReport.SpeechStatus
     @ObservationIgnored private let iCloudAccount: @Sendable () async -> ICloudAccountStatus
     @ObservationIgnored private let settings: LaunchSettingsStore
     @ObservationIgnored private let copy: @MainActor (String) -> Void
@@ -41,7 +39,6 @@ final class DiagnosticsModel {
     ///   - context: 件数を数える保存先。
     ///   - storeURL: 保護クラスを見る保存先のファイル。テストで一時フォルダを渡す。
     ///   - isProtectedDataAvailable: 保護されたデータを読めるか（ロック中でないか）。
-    ///   - speech: 音声の書き起こしが使えるかの問い合わせ。テストでは OS に問い合わせない値に差し替える。
     ///   - iCloudAccount: iCloud のアカウントの状態の問い合わせ。テストでは CloudKit に問い合わせない値に差し替える
     ///     （iCloud の entitlement の無いテストのプロセスで `CKContainer` を作ると落ちるため）。
     ///   - settings: 設定の「iCloud で同期」を読む置き場所（`LaunchSettingsStore`）。
@@ -54,7 +51,6 @@ final class DiagnosticsModel {
         context: ModelContext,
         storeURL: URL = ModelContainerFactory.storeURL,
         isProtectedDataAvailable: @escaping @MainActor () -> Bool = { UIApplication.shared.isProtectedDataAvailable },
-        speech: @escaping @Sendable () async -> DiagnosticsReport.SpeechStatus = { await DiagnosticsProbe.speech() },
         iCloudAccount: @escaping @Sendable () async -> ICloudAccountStatus = { await ICloudAccountStatus.current() },
         settings: LaunchSettingsStore = LaunchSettingsStore(),
         copy: @escaping @MainActor (String) -> Void = { UIPasteboard.general.string = $0 },
@@ -69,7 +65,6 @@ final class DiagnosticsModel {
         self.context = context
         self.storeURL = storeURL
         self.isProtectedDataAvailable = isProtectedDataAvailable
-        self.speech = speech
         self.iCloudAccount = iCloudAccount
         self.settings = settings
         self.copy = copy
@@ -78,24 +73,18 @@ final class DiagnosticsModel {
 
     /// 値を読み直す。画面を開いたときと、再読み込みのボタンで呼ぶ（ロックの解除や設定の変更の後に見直せるように）。
     ///
-    /// 音声の書き起こしの問い合わせ（端末の資産の問い合わせ）と iCloud のアカウントの問い合わせ（CloudKit）は、時間が
-    /// かかったり返らなかったりしうる。実機で見たいもの（保存先の保護クラス・端末内 AI の可否・いまの保存先の iCloud の扱い）は
-    /// それに関係なく読めるので、答えを待たずに先に出し、両方が返ったら埋める。
+    /// iCloud のアカウントの問い合わせ（CloudKit）は、時間がかかったり返らなかったりしうる。実機で見たいもの（保存先の
+    /// 保護クラス・端末内 AI の可否・いまの保存先の iCloud の扱い）はそれに関係なく読めるので、答えを待たずに先に出し、
+    /// 返ったら埋める。
     func load() async {
         loadGeneration += 1
         let generation = loadGeneration
-        speechAnswer = nil
         accountAnswer = nil
         report = makeReport()
-        let speech = speech
-        let iCloudAccount = iCloudAccount
-        async let speechStatus = speech()
-        async let accountStatus = iCloudAccount()
-        let answers = await (speech: speechStatus, account: accountStatus)
+        let account = await iCloudAccount()
         // 待つ間に読み直しが始まっていれば、そちらに任せる（そちらの方が新しい値を読む）。
         guard generation == loadGeneration else { return }
-        speechAnswer = answers.speech
-        accountAnswer = answers.account
+        accountAnswer = account
         report = makeReport()
     }
 
@@ -124,7 +113,6 @@ final class DiagnosticsModel {
             app: DiagnosticsProbe.appInfo(),
             device: DiagnosticsProbe.deviceInfo(),
             foundationModels: DiagnosticsProbe.foundationModels(),
-            speech: speechAnswer,
             storeFiles: DiagnosticsProbe.storeFiles(storeURL: storeURL),
             isProtectedDataAvailable: isProtectedDataAvailable(),
             counts: DiagnosticsProbe.counts(context: context),
