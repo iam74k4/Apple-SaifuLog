@@ -141,6 +141,7 @@ Xcode で開きます。スキーム **SaifuLog** とシミュレータを選ん
 | `make test-app` | アプリ側のテストをシミュレータで動かす（保存と読み込みの条件など） |
 | `make test-app-ios26` | アプリ側のテストを iOS 26 の版（`IOS26_TEST_OS`、いまは 26.2）のシミュレータでも動かす（無ければ入れ方を示して止まる） |
 | `make test-ui` | 画面を操作する UI テスト（`SaifuLogUITests`）をシミュレータで動かす（初回の案内・記録と取り消し・カテゴリ・チャットの操作・質問・直す・削除・カレンダー・月のまとめ・設定・書き出し・レシート・アクセシビリティの検査・大きな文字） |
+| `make test-ai` | 本物の端末内 AI（Apple Intelligence）の答え方のテストを動かす（読み取り・カテゴリ・チャットの操作・質問・一言。Apple Intelligence をオンにした Mac で。使えなければ失敗する。CI には入れない） |
 | `make check-version` | アプリのバージョンと `CHANGELOG.md` の先頭の見出しが一致しているか確かめる |
 | `make check-strings` | 画面の文字列の一覧（String Catalog）とコードの文字列が食い違っていないか（足りない・使っていない・英語の訳が無い・`%@` などの数や種類が違う）を確かめる（`make build` の後に） |
 | `make ci` | CI（`build`）と同じ 9 種類（`make build`・`make check-strings`・`make test`・`make build-tests`・`make test-app`・`make test-ui`・`make test-app-ios26`・`make check-version`・署名なしの `make archive`）を順に通す |
@@ -157,7 +158,9 @@ CI と `make ci` は、最新の iOS に加え、iOS 26.2 でもアプリのテ�
 iOS 26.2 のシミュレータが無ければ、`./scripts/prepare-simulator.sh 26.2` で入れられます（ランタイムは数 GB）。
 
 シミュレータで AI の機能を試すには、Mac 側でも Apple Intelligence が有効になっている
-必要があります。
+必要があります。`make test-app` はアプリのテストのうち本物の AI を呼ぶもの（`SaifuLogTests/AIEvaluation/`）を外して動かします。
+それは `make test-ai` で、Apple Intelligence をオンにし、モデルを入れ終えた Mac（Apple シリコン、macOS 26 以降）で動かします
+（モデルの答えは版や端末で揺れるので、表ごとの割合で確かめます）。
 
 実機で動かすときは、署名のチーム（`DEVELOPMENT_TEAM`）と Bundle ID の接頭辞（`ORG_PREFIX`）を
 ご自身のものに置き換えてください。Bundle ID（`com.iam74k4.SaifuLog`）は作者のチームで

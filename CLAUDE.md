@@ -191,6 +191,9 @@
   - 実機での確認の手段: release.yml の手動実行 `mode=testflight` で、develop のビルドを診断画面入りで TestFlight の
     社内テスト専用に送れるようにした（審査には出ない。Environment `release` の配備ブランチは `main` と `develop`）。
     実際に TestFlight で入れての確認はまだ（`docs/release-flow.md` の「TestFlight で実機に入れる（社内テスト）」）。
+  - 本物の端末内 AI の答え方のテスト（`make test-ai`。`SaifuLogTests/AIEvaluation/`）を足した。Apple Intelligence をオンにした Mac の
+    シミュレータで、読み取り・カテゴリ・チャットの操作・質問・一言を本物のモデルに頼んで確かめる（CI では動かさない）。まだ一度も
+    動かしていない（表の答えと割合の下限は、動かしてから見直す）。実機（とくに対応機種のうち古いもの）での時間の確認は別にまだ。
 - プロダクトの決定事項と未決事項は `docs/design.md` にある。仕様に迷ったらまずそこを見る。
 - README などに、実装していない機能を「できる」と書かない。予定は「予定」と書く。
   逆に、機能を足したら README・`docs/design.md`・`PRIVACY.md` の「予定」も外す。
@@ -251,7 +254,8 @@ docs: add privacy policy
   `xcodebuild build-for-testing` でビルドする（汎用のシミュレータ向け、署名なし）。`make build` はスキームの build アクション
   （SaifuLog だけ）なので、テストのターゲットが壊れても `make build` だけでは気づけない
 - `make test-app` — アプリ側のテストをシミュレータで動かす（`build-tests` の後に `test-without-building`、
-  `-only-testing:SaifuLogTests`）。SwiftData の保存・読み込みの条件や保存の失敗の扱い、保存先の開き方、
+  `-only-testing:SaifuLogTests`。本物の端末内 AI の答え方のテスト `AIEvaluationTests` は `-skip-testing` で外す）。
+  SwiftData の保存・読み込みの条件や保存の失敗の扱い、保存先の開き方、
   画面のモデル（`HomeModel`）の操作など、コアに置けない部分。
   機種は `scripts/pick-simulator.sh` が、いちばん新しい iOS の iPhone を選ぶ（`TEST_DESTINATION=…` で上書きできる）
 - `make test-app-ios26` — アプリ側のテストを iOS 26 の版（`IOS26_TEST_OS`、いまは iOS 26.2）のシミュレータで動かす（iOS 26 での
@@ -267,6 +271,15 @@ docs: add privacy policy
   範囲）・いちばん大きな文字を押して確かめる。要素は表示の文ではなく名前（`SaifuLog/App/AccessibilityID.swift`。UI テストの
   ターゲットにも同じファイルを入れる）で探す。画面に要素を足したり作り替えたりしたら、名前を付け直して UI テストも直す。
   待つときは決まった時間眠らず、要素の状態を待つ
+- `make test-ai` — 本物の端末内 AI（Foundation Models）の答え方のテスト（`SaifuLogTests/AIEvaluation/` の `AIEvaluationTests`）
+  だけを動かす（`scripts/test-ai.sh`。`build-tests` の後に `-only-testing:SaifuLogTests/AIEvaluationTests`、宛先は `make test-app` と同じ）。
+  ひとこと入力の読み取り・カテゴリの聞き直し・チャットの操作の種類・家計への質問・記録の返事と月のまとめの一言を本物のモデルに
+  頼み、答えの合い方（表ごとの割合。選ぶ答えは 8 割、一言の照合は 6 割）と上限の時間（`AITimeouts`）を見る。揺れてはいけないこと
+  （入力に無い金額を作らない・カテゴリが選択肢の外にならない・記録や質問の文をチャットの操作として行わない・質問の答えの数字が
+  コードの計算と同じ）は 1 件でも外れたら落ちる。シミュレータの端末内 AI は Mac の Apple Intelligence を使うので、Apple シリコンの
+  Mac（macOS 26 以降）で Apple Intelligence をオンにし、モデルを入れ終えてから動かす。使えなければ飛ばさずに失敗する
+  （`REQUIRE_AI_EVALUATION=1`）。CI のランナーでは Apple Intelligence を使えず、モデルの答えは揺れるので、`make ci` と build.yml には
+  入れない。指示文・`@Guide`・AI に渡すもの・`AITimeouts` を変えたときと、リリースの前に通す（件ごとの答えと時間はログの表に出る）
 - `make check-strings` — `make build` が書き出した Debug の .stringsdata と `Localizable.xcstrings` を突き合わせ、
   足りないキー・使われていないキー・en の無いキー・ja と en の書式指定子の不一致があれば止まる（`scripts/check-strings.py`）
 - `make ci` — 必須チェック `build`（build.yml）と同じ 9 種類（`make build`・`make check-strings`・`make test`・`make build-tests`・
@@ -404,6 +417,8 @@ docs: add privacy policy
   返らない（時間切れ）ときは、キーワード辞書によるルールベース解析に切り替える。**AI が無くても記録できるアプリであること。**
   上限は `SaifuLog/AI/AITimeouts` の 1 か所に書き、AI を待つときはコアの `withDeadline` を通す（止まったモデルを待たない。
   取り消しは時間切れにしない）。
+- 本物のモデルの答え方は `make test-ai`（`SaifuLogTests/AIEvaluation/`）で確かめる。指示文・`@Guide`・AI に渡すもの・`AITimeouts`
+  を変えたら、Apple Intelligence をオンにした Mac で通す（CI では動かない）。AI を使う機能を足したら、ここにも表を足す。
 - 記録の直後に必ずアプリの返事で記録した内容と「取り消す」を出し、返事の行からすぐ直せるようにする。記録は長押しでいつでも
   削除できるようにする（確認つき。VoiceOver の操作からも）。
 
