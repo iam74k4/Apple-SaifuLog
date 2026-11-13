@@ -14,7 +14,6 @@ struct BudgetSetupView: View {
 
     private enum Field: Hashable {
         case total
-        case category(EntryCategory)
     }
 
     var body: some View {
@@ -27,9 +26,6 @@ struct BudgetSetupView: View {
                     Text("予算はあとからいつでも変えられます。")
                         .font(.footnote)
                         .foregroundStyle(Theme.inkSecondary)
-                }
-                if model.showsCategoryBudgets {
-                    categorySection
                 }
                 if model.hadTotalBudget {
                     removeButton
@@ -102,42 +98,6 @@ struct BudgetSetupView: View {
             // 収まらず、打った桁が見えなくなるので、大きさに上限を設ける。
             .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         }
-    }
-
-    /// カテゴリ別の予算（プレミアム）。空欄のカテゴリは予算なし。
-    private var categorySection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("カテゴリ別の予算")
-                .font(.headline)
-                .accessibilityAddTraits(.isHeader)
-            // 決めた額がどこに出るか（月のまとめのカテゴリの行）も書く。ホームの帯は全体の予算だけなので、帯に出ると思わせないため。
-            Text("カテゴリごとにも上限を決められます。空欄のカテゴリは予算なしになります。使った額との比べは、月のまとめのカテゴリの行に出ます。")
-                .font(.footnote)
-                .foregroundStyle(Theme.inkSecondary)
-            VStack(spacing: 0) {
-                ForEach(model.categories) { category in
-                    CategoryBudgetRow(
-                        category: category,
-                        text: categoryBinding(category),
-                        focus: $focusedField,
-                        field: .category(category)
-                    )
-                    .onChange(of: model.categoryTexts[category]) { model.normalizeCategoryText(category) }
-                    if category != model.categories.last {
-                        Divider()
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-            .background(Theme.surface, in: .rect(cornerRadius: 16))
-        }
-    }
-
-    private func categoryBinding(_ category: EntryCategory) -> Binding<String> {
-        Binding(
-            get: { model.categoryTexts[category] ?? "" },
-            set: { model.categoryTexts[category] = $0 }
-        )
     }
 
     private var saveButton: some View {
@@ -218,65 +178,6 @@ private struct QuickAmountPicker: View {
     }
 }
 
-/// カテゴリ別の予算の 1 行。大きな文字サイズで 1 行に収まらなければ、名前と入力欄を縦に積む。
-private struct CategoryBudgetRow<Field: Hashable>: View {
-    let category: EntryCategory
-    @Binding var text: String
-    var focus: FocusState<Field?>.Binding
-    let field: Field
-
-    @Environment(\.categoryCatalog) private var catalog
-    @ScaledMetric(relativeTo: .body) private var iconSize = 24
-
-    var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) {
-                name
-                Spacer(minLength: 8)
-                amountField
-                    .frame(maxWidth: 160)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                name
-                amountField
-            }
-            .padding(.vertical, 6)
-        }
-        .frame(minHeight: 44)
-    }
-
-    private var name: some View {
-        HStack(spacing: 8) {
-            Image(systemName: catalog.symbolName(for: category))
-                .font(.system(size: iconSize * 0.5, weight: .semibold))
-                .foregroundStyle(Theme.onCategory)
-                .frame(width: iconSize, height: iconSize)
-                .background(catalog.color(for: category), in: .circle)
-                // 丸はダークでもライトの色で塗る（EntryBubble と同じ理由）。
-                .environment(\.colorScheme, .light)
-                .accessibilityHidden(true)
-            catalog.label(for: category)
-                .accessibilityHidden(true)
-        }
-    }
-
-    private var amountField: some View {
-        HStack(spacing: 2) {
-            Text(verbatim: "¥")
-                .foregroundStyle(Theme.inkSecondary)
-                .accessibilityHidden(true)
-            TextField(text: $text, prompt: Text("予算なし").foregroundStyle(Theme.inkSecondary)) {
-                catalog.label(for: category)
-            }
-            .keyboardType(.numberPad)
-            .multilineTextAlignment(.trailing)
-            .monospacedDigit()
-            .lineLimit(1)
-            .focused(focus, equals: field)
-        }
-    }
-}
-
 /// ホームから出す「予算を決める」のシート。保存したら閉じる。
 struct BudgetSetupSheet: View {
     let model: BudgetSetupModel
@@ -299,13 +200,5 @@ struct BudgetSetupSheet: View {
 #Preview("初めて決める") {
     if let container = try? ModelContainerFactory.makeInMemoryContainer() {
         BudgetSetupSheet(model: BudgetSetupModel(store: BudgetStore(context: container.mainContext)))
-    }
-}
-
-#Preview("カテゴリ別の予算も（プレミアム）") {
-    if let container = try? ModelContainerFactory.makeInMemoryContainer() {
-        let store = BudgetStore(context: container.mainContext)
-        let _ = try? store.setAmounts([.total: 150_000, .category(.food): 40_000])
-        BudgetSetupSheet(model: BudgetSetupModel(store: store, showsCategoryBudgets: true))
     }
 }

@@ -214,12 +214,9 @@ final class SettingsModel {
 
     // MARK: - 予算
 
-    /// 「予算を決める」のシートを出す（ホームの帯のボタンと同じ画面）。カテゴリ別の予算はプレミアムと体験中だけ出す。
+    /// 「予算を決める」のシートを出す（ホームの帯のボタンと同じ画面）。
     func presentBudgetSetup() {
-        budgetSetup = BudgetSetupModel(
-            store: budgetStore, showsCategoryBudgets: purchases.status.unlocksPremium, catalog: categoryList.catalog,
-            announce: announce
-        )
+        budgetSetup = BudgetSetupModel(store: budgetStore, announce: announce)
     }
 
     // MARK: - プレミアム

@@ -169,9 +169,8 @@ struct CustomCategoryStoreTests {
 
     // MARK: - 削除する
 
-    /// 削除すると、そのカテゴリの記録は「その他」になり、カテゴリ別の予算は 0（設定なし）に、覚えたカテゴリからも外れる。
-    /// ほかのカテゴリの記録・予算・覚えには触れない。
-    @Test func deleteMovesEntriesToOtherAndClearsBudgetsAndMemory() throws {
+    /// 削除すると、そのカテゴリの記録は「その他」になり、覚えたカテゴリからも外れる。ほかのカテゴリの記録・覚えには触れない。
+    @Test func deleteMovesEntriesToOtherAndClearsMemory() throws {
         let fixture = try Fixture()
         let clothes = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
         let housing = try fixture.store.create(name: "住居", symbolName: "house", colorIndex: 0)
@@ -182,8 +181,6 @@ struct CustomCategoryStoreTests {
         fixture.context.insert(housingEntry)
         fixture.context.insert(foodEntry)
         try fixture.context.save()
-        let budgets = BudgetStore(context: fixture.context, now: { TestSupport.now })
-        try budgets.setAmounts([.category(clothes): 10_000, .category(housing): 80_000, .category(.food): 30_000])
         let learned = LearnedCategoryStore(context: fixture.context, now: { TestSupport.now })
         try learned.remember(item: "ユニクロ", category: clothes)
         try learned.remember(item: "家賃", category: housing)
@@ -196,10 +193,6 @@ struct CustomCategoryStoreTests {
         #expect(housingEntry.category == housing)
         #expect(foodEntry.category == .food)
         #expect(try fixture.store.entryCount(of: clothes) == 0)
-        let plan = try budgets.plan()
-        #expect(plan.byCategory[clothes] == nil)
-        #expect(plan.byCategory[housing] == 80_000)
-        #expect(plan.byCategory[.food] == 30_000)
         #expect(try learned.memory().rules == ["家賃": housing])
         #expect(try fixture.store.catalog().customs.map(\.category) == [housing])
     }
@@ -216,14 +209,12 @@ struct CustomCategoryStoreTests {
         let fixture = try Fixture(context: container.mainContext)
         let clothes = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
         let entry = TestSupport.entry(amount: 3000, category: clothes)
-        let budget = Budget(scope: .category(clothes), amount: 10_000, updatedAt: TestSupport.now)
         let learned = LearnedCategory(phrase: "ユニクロ", category: clothes, updatedAt: TestSupport.now)
         let recurring = RecurringEntry(
             recurrenceID: "clothes", draft: RecurringDraft(amount: 3000, memo: "衣服", isIncome: false, category: clothes, dayOfMonth: 1),
             startMonth: RecurringMonth(year: 2026, month: 10), createdAt: TestSupport.now
         )
         fixture.context.insert(entry)
-        fixture.context.insert(budget)
         fixture.context.insert(learned)
         fixture.context.insert(recurring)
         try fixture.context.save()
@@ -234,8 +225,6 @@ struct CustomCategoryStoreTests {
 
         // fetch で偶然直る前に、画面が持っている行そのものを確かめる。
         #expect(entry.category == clothes)
-        #expect(budget.amount == 10_000)
-        #expect(budget.updatedAt == TestSupport.now)
         #expect(recurring.category == clothes)
         #expect(recurring.updatedAt == TestSupport.now)
         #expect(!fixture.context.hasChanges)
@@ -250,7 +239,6 @@ struct CustomCategoryStoreTests {
             : container
         let saved = ModelContext(reopened)
         #expect(try saved.fetch(FetchDescriptor<Entry>()).filter { $0.category == clothes }.count == 1)
-        #expect(try BudgetStore(context: saved).plan().byCategory[clothes] == 10_000)
         #expect(try LearnedCategoryStore(context: saved).memory().rules == ["ユニクロ": clothes])
         #expect(try RecurringEntryStore(context: saved).rules().first?.category == clothes)
         #expect(try CustomCategoryStore(context: saved).catalog().customs.map(\.category) == [clothes])

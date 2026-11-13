@@ -184,7 +184,7 @@ struct ScreenshotDemoTests {
         #expect(groups.filter { records[$0[0].id].originalText == ScreenshotDemoLedger.multiItemText }.allSatisfy { $0.count == 2 })
     }
 
-    @Test("数字がスクリーンショットに向く: 今月は食費がいちばん多く、予算の内（カテゴリ別の予算も）", arguments: shootingDays)
+    @Test("数字がスクリーンショットに向く: 今月は食費がいちばん多く、予算の内", arguments: shootingDays)
     func figuresSuitScreenshots(day: Date) throws {
         let calendar = TestSupport.calendar
         let demo = try Self.makeDemo(.report, on: day)
@@ -196,7 +196,6 @@ struct ScreenshotDemoTests {
         let budget = ScreenshotDemoLedger.monthlyBudget
         let plan = try BudgetStore(context: context).plan()
         #expect(plan.total == budget)
-        #expect(plan.byCategory == ScreenshotDemoLedger.categoryBudgets)
 
         // 月のまとめで開く今月も食費がいちばん多い。
         let thisMonth = try #require(ReportPeriod.thisMonth.interval(now: demo.now, calendar: calendar))
@@ -205,22 +204,6 @@ struct ScreenshotDemoTests {
 
         // 帯は「今月あと ¥…」（予算を超えていない）。
         #expect(monthSummary.expense < budget)
-
-        // 月のまとめのカテゴリの行: 今月はカテゴリ別の予算の内で、月まるごとの前の月は食費が予算を超える（前の月へ戻ると、
-        // 超えた出方も確かめられる）。
-        let budgets = try context.fetch(FetchDescriptor<Budget>())
-        let report = try #require(MonthlyReport(
-            records: entries, month: demo.now, now: demo.now, categoryBudgets: BudgetPlan.categoryDecisions(in: budgets),
-            calendar: calendar
-        ))
-        #expect(Set(report.categoryBudgets.keys) == Set(ScreenshotDemoLedger.categoryBudgets.keys))
-        #expect(report.categoryBudgets.values.allSatisfy { !$0.isOver && $0.spent > 0 })
-        let lastMonth = try #require(ReportPeriod.lastMonth.interval(now: demo.now, calendar: calendar))
-        let previous = try #require(MonthlyReport(
-            records: entries, month: lastMonth.start, now: demo.now,
-            categoryBudgets: BudgetPlan.categoryDecisions(in: budgets), calendar: calendar
-        ))
-        #expect(previous.categoryBudgets[.food]?.isOver == true)
     }
 
     /// 2 年分の月末（月の支出がいちばん多くなる日）。
@@ -231,7 +214,7 @@ struct ScreenshotDemoTests {
 
     /// 月の最後の日に撮ったときに、帯と月のまとめの「1日あたり」が「残り」と同じ額になり、「今日までの目安」が予算と同じ額に
     /// なっていた（ストアの画像に向かない）。デモの「いま」を月の半ばに置いたので、月末に撮っても月の半ばの数字になる。
-    @Test("どの月の月末に撮っても、今月は予算の内（カテゴリ別の予算も）で、1日あたりは残りより十分少ない（2 月のような短い月の後も）", arguments: monthEnds)
+    @Test("どの月の月末に撮っても、今月は予算の内で、1日あたりは残りより十分少ない（2 月のような短い月の後も）", arguments: monthEnds)
     func budgetFitsEveryMonth(day: Date) throws {
         let calendar = TestSupport.calendar
         let now = ScreenshotDemo.pinnedNow(on: day, calendar: calendar)
@@ -244,10 +227,6 @@ struct ScreenshotDemoTests {
         let summary = LedgerSummary(records: records, interval: thisMonth, calendar: calendar)
         let spent = summary.expense
         #expect(spent < budget)
-        // 月のまとめのカテゴリの行も、今月は予算の内（ストアの画像に超えた形を写さない）。
-        for (category, amount) in ScreenshotDemoLedger.categoryBudgets {
-            #expect(summary.expense(in: category) < amount, "\(category) \(summary.expense(in: category))")
-        }
         // 帯と月のまとめの「1日あたり」「のこり N 日」。
         let status = try #require(BudgetStatus(budget: budget, spent: spent, now: now, month: thisMonth, calendar: calendar))
         #expect(status.remainingDays >= 14)
@@ -392,7 +371,7 @@ struct ScreenshotDemoTests {
         #expect(demo.calendar.isDate(result.day, inSameDayAs: demo.now))
     }
 
-    @Test("月のまとめの画面: 今月を下の端（カテゴリ別のグラフと金額の行）から開き、カテゴリ別の予算の進みを出し、日本語の画面では照合を通る一言を添える")
+    @Test("月のまとめの画面: 今月を下の端（カテゴリ別のグラフと金額の行）から開き、日本語の画面では照合を通る一言を添える")
     func reportScreenOpensMonthWithRemark() async throws {
         let (demo, home) = try Self.makeHome(.report, uiLanguage: "ja")
         defer { Self.removeDefaults(of: demo) }
@@ -402,11 +381,6 @@ struct ScreenshotDemoTests {
         #expect(report.month == ReportPeriod.thisMonth.interval(now: demo.now, calendar: demo.calendar))
         #expect(report.screenshotScrollsToBottom)
         #expect(report.report?.breakdown.isEmpty == false)
-        // 購入済みのデモなので、カテゴリの行に予算の進みを出す（食費とカフェ。どちらも支出があり、予算の内）。
-        await Self.waitUntil { report.showsCategoryBudgets }
-        #expect(Set(report.categoryBudgets.keys) == Set(ScreenshotDemoLedger.categoryBudgets.keys))
-        #expect(report.budgetedCategoriesWithoutExpense.isEmpty)
-        #expect(report.categoryBudgets.values.allSatisfy { !$0.isOver })
         await report.remark.currentTask?.value
         guard case .written(let sentence) = report.remark.state else {
             Issue.record("一言がありません: \(report.remark.state)")
@@ -514,12 +488,5 @@ struct ScreenshotDemoTests {
 
     /// 保存先はコンテナが生きている間しか使えないので、テストの間は持っておく。
     private static var retained: [ModelContainer] = []
-
-    /// 条件がそろうまで待つ（書き起こしの知らせは別の Task で受け取るため）。2 秒でやめる。
-    static func waitUntil(_ condition: () -> Bool) async {
-        for _ in 0..<200 where !condition() {
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-    }
 }
 #endif

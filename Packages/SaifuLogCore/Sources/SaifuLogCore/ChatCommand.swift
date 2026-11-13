@@ -37,7 +37,7 @@ public protocol ChatCommandInterpreting: Sendable {
 /// 決まりで読む操作（上から順に見る）:
 /// 1. カテゴリを変える文（`CategoryCorrection`）。
 /// 2. 消す文: 数字が無く、消す語（「消して」「削除」「取り消して」「なしで」など）のほかは前の記録を指す語・語尾だけ。
-/// 3. 月の予算を決める文: 「予算」と金額がちょうど 1 つあり、カテゴリの名前が無く（カテゴリ別の予算は ⑧ で決める）、残りが
+/// 3. 月の予算を決める文: 「予算」と金額がちょうど 1 つあり、カテゴリの名前が無く（カテゴリごとの予算は無いので、決めたつもりにさせない）、残りが
 ///    「今月」「毎月」・決める語（「にして」「に設定」など）・語尾だけ。「来月」「先月」は読まない（予算はいまの月から当てるため）。
 /// 4. 金額を直す文: 前の記録を直そうとする文（`InputIntentClassifier` の直す語）で、直した先の金額がちょうど 1 つ読める。
 ///    「AじゃなくてB」は後ろの金額にする。予算の語があれば読まない。
@@ -122,7 +122,7 @@ public enum ChatCommandReader {
         in normalized: String, now: Date, calendar: Calendar, catalog: CategoryCatalog, strict: Bool
     ) -> Int? {
         guard normalized.contains(budgetWord), !otherMonthWords.contains(where: { normalized.contains($0) }) else { return nil }
-        // カテゴリ別の予算は読まない（⑧ で決める）。
+        // カテゴリの名前のある予算の文は読まない（カテゴリごとの予算は無いので、全体の予算をその額にしてしまわないように）。
         let folded = CategoryCatalog.fold(normalized)
         guard !CategoryCorrection.names(in: catalog).contains(where: { folded.contains($0.name) }) else { return nil }
         let scan = EntryScan(normalized, now: now, calendar: calendar)

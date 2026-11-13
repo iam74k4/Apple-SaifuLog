@@ -88,7 +88,7 @@ final class HomeModel {
     var settings: SettingsModel?
     /// 無料体験が終わった後の最初の起動に出す「プレミアム」のシート。出していなければ nil（閉じると画面が nil に戻す）。
     var premiumSheet: PremiumSheetModel?
-    /// プレミアムの購入と状態（アプリで 1 つ）。カテゴリ別の予算（予算の画面の欄と月のまとめの進み）を出すかの判定と、設定・プレミアムのシートに渡す。
+    /// プレミアムの購入と状態（アプリで 1 つ）。無料の回数の判定と、月のまとめの一言・設定・プレミアムのシートに渡す。
     let purchases: PurchaseManager
     /// いまのカテゴリの一覧（組み込みと作ったカテゴリ）。画面へは環境で渡し、記録に作ったカテゴリの名前を当てるのに使う。
     let categories: CategoryCatalogModel
@@ -1232,11 +1232,7 @@ final class HomeModel {
     ///
     /// 予算の保存は同期的に書き込む（送信のように、あとで書き込む処理ではない）ので、`pendingWrites` には数えない。
     func presentBudgetSetup() {
-        // カテゴリ別の予算はプレミアムと体験中だけ出す（開く時点の状態で決める）。
-        budgetSetup = BudgetSetupModel(
-            store: budgetStore, showsCategoryBudgets: purchases.status.unlocksPremium, catalog: categories.catalog,
-            announce: announce
-        )
+        budgetSetup = BudgetSetupModel(store: budgetStore, announce: announce)
     }
 
     // MARK: - 月のまとめ
@@ -1254,8 +1250,6 @@ final class HomeModel {
             calendar: calendar,
             month: month,
             remark: RecapRemarkModel(purchases: purchases, makeWriter: makeRemarkWriter),
-            // カテゴリ別の予算の進み（プレミアムと体験中だけ）。
-            purchases: purchases,
             now: now,
             announce: announce,
             didSave: { [weak self] entry in self?.finishEditing(entry) },
@@ -1313,7 +1307,7 @@ final class HomeModel {
     }
 
     /// プレミアムの状態が変わったとき（体験を始めた・買った・返金された）に、月のまとめの AI の一言を決め直す
-    /// （月のまとめのカテゴリ別の予算の案内から体験を始めたときも、開いている月のまとめに一言が付くように）。
+    /// （開いている月のまとめにも、一言が付くか外れるように）。
     func premiumStatusDidChange() {
         monthlyReport?.remark.refresh()
     }
@@ -1347,7 +1341,7 @@ final class HomeModel {
     struct PendingRecord: Identifiable, Equatable {
         let id = UUID()
         let text: String
-        /// どこから入れた文か（声で入れた文は、吹き出しにマイクの印を添える。記録した後の吹き出しと同じ）。
+        /// どこから入れた文か（吹き出しに添える印を、記録した後の吹き出しと同じにする）。
         let source: EntrySource
         /// 送った瞬間の日時（タイムラインの並びと日付の見出しに使う。記録した日時と同じ値）。
         let sentAt: Date

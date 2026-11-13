@@ -32,22 +32,18 @@ public struct BudgetStatus: Sendable, Hashable {
         self.remainingDays = Self.remainingDays(from: now, in: month, calendar: calendar)
     }
 
-    /// 期間の集計（`LedgerSummary`）から、その対象の予算の進みを出す。期間は `summary.interval` を予算の月とみなす。
-    public init?(budget: Int?, scope: BudgetScope = .total, summary: LedgerSummary, now: Date, calendar: Calendar) {
-        let spent = switch scope {
-        case .total: summary.expense
-        case .category(let category): summary.expense(in: category)
-        }
-        self.init(budget: budget, spent: spent, now: now, month: summary.interval, calendar: calendar)
+    /// 期間の集計（`LedgerSummary`）から、予算の進みを出す。期間は `summary.interval` を予算の月とみなす。
+    public init?(budget: Int?, summary: LedgerSummary, now: Date, calendar: Calendar) {
+        self.init(budget: budget, spent: summary.expense, now: now, month: summary.interval, calendar: calendar)
     }
 
     /// `now` を含む月（`ReportPeriod.thisMonth`）の記録から、予算の進みを出す。予算を決めていなければ nil。
     public init?<Records: Sequence>(
-        plan: BudgetPlan, scope: BudgetScope = .total, records: Records, now: Date, calendar: Calendar
+        plan: BudgetPlan, records: Records, now: Date, calendar: Calendar
     ) where Records.Element: LedgerRecord {
         guard let month = ReportPeriod.thisMonth.interval(now: now, calendar: calendar) else { return nil }
         let summary = LedgerSummary(records: records, interval: month, calendar: calendar)
-        self.init(budget: plan.amount(for: scope), scope: scope, summary: summary, now: now, calendar: calendar)
+        self.init(budget: plan.total, summary: summary, now: now, calendar: calendar)
     }
 
     /// 予算の残り。予算を超えたら負の数。

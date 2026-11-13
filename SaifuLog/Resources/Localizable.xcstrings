@@ -840,6 +840,17 @@
         }
       }
     },
+    "Siri・ショートカット" : {
+      "comment" : "プレミアムのシート（⑨）の「無料のまま使えること」の行",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Siri and Shortcuts"
+          }
+        }
+      }
+    },
     "Touch ID でロック" : {
       "comment" : "設定の「セキュリティ」の節のトグル（Touch ID の端末）",
       "localizations" : {
@@ -1606,7 +1617,7 @@
         }
       }
     },
-    "このカテゴリの記録 %lld 件は「その他」になります。カテゴリ別の予算と覚えたカテゴリからも外します。" : {
+    "このカテゴリの記録 %lld 件は「その他」になります。覚えたカテゴリからも外します。" : {
       "comment" : "作ったカテゴリを削除する前の確認の説明。%lld は、そのカテゴリの記録の件数",
       "localizations" : {
         "en" : {
@@ -1615,13 +1626,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld entry in this category will move to Other. The category is also removed from category budgets and learned categories."
+                  "value" : "%lld entry in this category will move to Other. The category is also removed from learned categories."
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld entries in this category will move to Other. The category is also removed from category budgets and learned categories."
+                  "value" : "%lld entries in this category will move to Other. The category is also removed from learned categories."
                 }
               }
             }
@@ -2357,28 +2368,6 @@
         }
       }
     },
-    "カテゴリごとにも上限を決められます。空欄のカテゴリは予算なしになります。使った額との比べは、月のまとめのカテゴリの行に出ます。" : {
-      "comment" : "予算を決める画面のカテゴリ別の予算の説明（プレミアムの機能）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You can also set a limit for each category. Categories left blank have no budget. The monthly summary shows your spending against each one in its category row."
-          }
-        }
-      }
-    },
-    "カテゴリごとに予算を決める" : {
-      "comment" : "月のまとめのカテゴリ別の支出の下の、無料の人へのカテゴリ別の予算（プレミアム）の案内の見出し",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Set Budgets by Category"
-          }
-        }
-      }
-    },
     "カテゴリの一覧を開きます。カテゴリを作ったり直したりできます" : {
       "comment" : "設定の「カテゴリ」の行の VoiceOver の説明",
       "localizations" : {
@@ -2441,45 +2430,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Choose a different category"
-          }
-        }
-      }
-    },
-    "カテゴリ別の予算" : {
-      "comment" : "予算を決める画面の見出し（プレミアムの機能）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Budgets by category"
-          }
-        }
-      }
-    },
-    "カテゴリ別の予算と覚えたカテゴリからも外します。" : {
-      "comment" : "記録の無い作ったカテゴリを削除する前の確認の説明",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The category is also removed from category budgets and learned categories."
-          }
-        }
-      }
-    },
-    "カテゴリ別の予算（プレミアムの行）" : {
-      "comment" : "プレミアムのシート（⑨）。プレミアムでできることの行の名前",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Budgets by Category"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "カテゴリ別の予算"
           }
         }
       }
@@ -2859,39 +2809,6 @@
         }
       }
     },
-    "プレミアムの機能です。" : {
-      "comment" : "月のまとめのカテゴリ別の予算の案内の説明（体験を使った後）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A Premium feature."
-          }
-        }
-      }
-    },
-    "プレミアムの機能です。14日間 無料で試せます。" : {
-      "comment" : "月のまとめのカテゴリ別の予算の案内の説明（まだ体験していないとき）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A Premium feature. Try it free for 14 days."
-          }
-        }
-      }
-    },
-    "プレミアムの画面を開きます" : {
-      "comment" : "月のまとめのカテゴリ別の予算の案内の VoiceOver のヒント",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Opens the Premium screen."
-          }
-        }
-      }
-    },
     "プレミアムを使えます。" : {
       "comment" : "購入を復元できたときのアラートの本文",
       "localizations" : {
@@ -2965,17 +2882,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Home will no longer show how much you have left this month. You can set a budget again anytime."
-          }
-        }
-      }
-    },
-    "ホームに出せるのは、新しく記録した方から %lld 件までです。" : {
-      "comment" : "ホームのタイムラインの上の端。家計の記録を読み込む件数の上限に届き、「前の記録を表示」の代わりに出す案内。%lld は上限の件数",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Home shows up to the %lld most recently recorded entries."
           }
         }
       }
@@ -3090,13 +2996,13 @@
         }
       }
     },
-    "レシートも家計への質問も、回数を気にせず使えます。カテゴリ別の予算と AI の一言も加わります。" : {
+    "レシートも家計への質問も、回数を気にせず使えます。月のまとめに AI の一言も加わります。" : {
       "comment" : "プレミアムのシート（⑨）の見出しの下の一文（無料のとき。体験が終わった後は別の文）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Scan receipts and ask about your spending as often as you like. Budgets by category and AI notes are included too."
+            "value" : "Scan receipts and ask about your spending as often as you like. AI notes in the monthly summary are included too."
           }
         }
       }
@@ -3273,17 +3179,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Budget %@"
-          }
-        }
-      }
-    },
-    "予算なし" : {
-      "comment" : "予算を決める画面のカテゴリ別の予算の入力欄のプレースホルダ（空欄は予算なし）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No budget"
           }
         }
       }
@@ -4771,17 +4666,6 @@
         }
       }
     },
-    "声の入力と Siri・ショートカット" : {
-      "comment" : "プレミアムのシート（⑨）の「無料のまま使えること」の行",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Voice input, Siri, and Shortcuts"
-          }
-        }
-      }
-    },
     "変えられませんでした" : {
       "comment" : "チャットで頼んだ操作（金額を直す・予算を決める）を保存できなかったときのアラートの見出し",
       "localizations" : {
@@ -5701,17 +5585,6 @@
         }
       }
     },
-    "残り %@" : {
-      "comment" : "月のまとめのカテゴリの行の予算の進み（プレミアム）と、その VoiceOver の読み上げ。予算から使った額を引いた額。%@ は「¥27,700」のような金額",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ left"
-          }
-        }
-      }
-    },
     "毎月%lld日" : {
       "comment" : "くり返しの記録の記録する日（毎月の何日か）。%lld は日",
       "localizations" : {
@@ -5807,17 +5680,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "What Stays Free"
-          }
-        }
-      }
-    },
-    "無料は全体の予算だけ" : {
-      "comment" : "プレミアムのシート（⑨）のカテゴリ別の予算の行の、無料との違い",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Free: overall budget only"
           }
         }
       }
@@ -6249,6 +6111,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Learned Categories"
+          }
+        }
+      }
+    },
+    "覚えたカテゴリからも外します。" : {
+      "comment" : "記録の無い作ったカテゴリを削除する前の確認の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The category is also removed from learned categories."
           }
         }
       }
@@ -7383,17 +7256,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Food"
-          }
-        }
-      }
-    },
-    "食費・交通など、カテゴリごとにも月の予算を決められ、月のまとめで使った額と比べられます。" : {
-      "comment" : "プレミアムのシート（⑨）。カテゴリ別の予算の行の補足",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Set monthly budgets for each category too, such as Food and Transport, and compare them with your spending in the monthly summary."
           }
         }
       }

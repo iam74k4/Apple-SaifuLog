@@ -376,17 +376,6 @@ struct SettingsModelTests {
         #expect(model.totalBudget == 150_000)
     }
 
-    /// カテゴリ別の予算は、無料では出さない（プレミアムと体験中だけ）。
-    @Test func budgetSetupHidesCategoryBudgetsWhenFree() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanUp() }
-        let model = fixture.makeModel()
-
-        model.presentBudgetSetup()
-
-        #expect(model.budgetSetup?.showsCategoryBudgets == false)
-    }
-
     // MARK: - プレミアム
 
     @Test func premiumRowOpensPremiumSheet() async throws {

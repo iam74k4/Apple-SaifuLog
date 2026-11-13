@@ -66,11 +66,11 @@ struct LocalizationTests {
         }
     }
 
-    /// 許可を求める API は、Info.plist に利用目的が無いとアプリを落とす（Face ID は認証が失敗する）。マイク（声の入力）と
-    /// カメラ（レシート）と Face ID（アプリのロック）の利用目的が、開発言語の既定値（project.yml）と英語の訳（InfoPlist.xcstrings）の
-    /// 両方に入っていることを確かめる。
-    @Test("マイクとカメラと Face ID の利用目的が Info.plist にあり、英語にも訳してある", arguments: [
-        "NSMicrophoneUsageDescription", "NSCameraUsageDescription", "NSFaceIDUsageDescription",
+    /// 許可を求める API は、Info.plist に利用目的が無いとアプリを落とす（Face ID は認証が失敗する）。カメラ（レシート）と
+    /// Face ID（アプリのロック）の利用目的が、開発言語の既定値（project.yml）と英語の訳（InfoPlist.xcstrings）の両方に入って
+    /// いることを確かめる。
+    @Test("カメラと Face ID の利用目的が Info.plist にあり、英語にも訳してある", arguments: [
+        "NSCameraUsageDescription", "NSFaceIDUsageDescription",
     ])
     func usageDescriptions(key: String) throws {
         let value = try #require(Bundle.main.object(forInfoDictionaryKey: key) as? String)
@@ -78,25 +78,5 @@ struct LocalizationTests {
         let english = try Self.bundle(for: "en").localizedString(forKey: key, value: nil, table: "InfoPlist")
         #expect(english != key)
         #expect(english.contains("never saved or sent"))
-    }
-
-    /// 月のまとめのカテゴリの行は、アクセシビリティサイズの文字で「¥2,300 オーバー」を金額と語の 2 行に分ける（折り返しに
-    /// 任せると「オー」「バー」のように語の途中で折れるため）。分け方は訳した文から金額を探すので、日本語と英語で確かめる。
-    @Test("予算を超えた額の文は、日本語でも英語でも金額と語の 2 行に分けられ、語順が違えば分けない")
-    func budgetOverTextSplitsAfterAmount() throws {
-        let amount = YenFormatter.string(from: 2_300)
-        let japanese = String(localized: "\(amount) オーバー")
-        let lines = try #require(BudgetOverText.lines(japanese, amount: amount))
-        #expect(lines.amount == amount)
-        #expect(lines.rest == "オーバー")
-
-        let englishFormat = try Self.bundle(for: "en").localizedString(forKey: "%@ オーバー", value: nil, table: nil)
-        let english = try #require(BudgetOverText.lines(String(format: englishFormat, amount), amount: amount))
-        #expect(english.amount == amount)
-        #expect(english.rest == "over")
-
-        // 金額が語の後ろに来る訳や、金額の無い文は分けない（1 行のまま縮める）。
-        #expect(BudgetOverText.lines("Over by \(amount)", amount: amount) == nil)
-        #expect(BudgetOverText.lines("オーバー", amount: amount) == nil)
     }
 }

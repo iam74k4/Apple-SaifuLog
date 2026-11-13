@@ -3,7 +3,7 @@ import StoreKit
 import SwiftUI
 
 /// ⑨ プレミアム。下から出すシート（用が済めば閉じる一時的な画面のため）。入口は設定（⑧）と、無料体験が終わった後の
-/// 最初の起動（一度だけ）と、無料の回数を使い切ったときと、月のまとめ（⑦）の無料の人へのカテゴリ別の予算の案内。
+/// 最初の起動（一度だけ）と、無料の回数を使い切ったとき。
 ///
 /// 上から、プレミアムでできること（機能ごとの効きめと、無料との違い。まだ出していない機能があれば「近日」と書く）、価格
 /// （App Store の表示のまま）と買い切り・ファミリー共有、無料のまま使えること、無料体験の説明（まだ体験していないときだけ。
@@ -111,7 +111,7 @@ struct PremiumSheet: View {
     private var statusText: Text {
         switch model.status {
         case .free:
-            Text("レシートも家計への質問も、回数を気にせず使えます。カテゴリ別の予算と AI の一言も加わります。")
+            Text("レシートも家計への質問も、回数を気にせず使えます。月のまとめに AI の一言も加わります。")
         case .trial(let days, let endsAt):
             Text("無料体験中です。あと \(days) 日（\(endsAt.formatted(.dateTime.month().day().hour().minute())) まで）使えます。")
         case .trialEnded:
@@ -226,7 +226,7 @@ struct PremiumSheet: View {
                 .accessibilityAddTraits(.isHeader)
             VStack(alignment: .leading, spacing: 10) {
                 freeItem(Text("ひとこと入力と AI の読み取り（回数の制限なし）"))
-                freeItem(Text("声の入力と Siri・ショートカット"))
+                freeItem(Text("Siri・ショートカット"))
                 freeItem(Text("くり返しの記録とカテゴリの自動の振り分け"))
                 freeItem(Text("月の予算と月のまとめ"))
                 freeItem(Text("iCloud 同期と CSV 書き出し"))
@@ -434,7 +434,6 @@ struct PremiumSymbolTile: View {
 enum PremiumFeature: CaseIterable, Identifiable {
     case receiptScan
     case question
-    case categoryBudget
     /// 月のまとめの AI の一言。
     case recapAI
 
@@ -443,7 +442,7 @@ enum PremiumFeature: CaseIterable, Identifiable {
     /// まだ出していない機能か（「近日」と書く。まだできないことを、できるように書かないため）。いまはすべて出している。
     var isComingSoon: Bool {
         switch self {
-        case .receiptScan, .question, .categoryBudget, .recapAI: false
+        case .receiptScan, .question, .recapAI: false
         }
     }
 
@@ -452,7 +451,6 @@ enum PremiumFeature: CaseIterable, Identifiable {
         switch self {
         case .receiptScan: "doc.text.viewfinder"
         case .question: "bubble.left.and.text.bubble.right"
-        case .categoryBudget: "chart.pie"
         case .recapAI: "sparkles"
         }
     }
@@ -505,12 +503,6 @@ private struct PremiumBenefitRow: View {
         switch feature {
         case .receiptScan: Text("レシートの読み取りが無制限")
         case .question: Text("家計への質問が無制限")
-        // 予算を決める画面の見出し（英語は Budgets by category）とは別のキーにする。行の名前は、英語でほかの行と同じく
-        // 語頭を大文字にするため。
-        case .categoryBudget: Text(LocalizedStringResource(
-            "カテゴリ別の予算（プレミアムの行）", defaultValue: "カテゴリ別の予算",
-            comment: "プレミアムのシート（⑨）。プレミアムでできることの行の名前"
-        ))
         case .recapAI: Text("月のまとめの AI の一言")
         }
     }
@@ -521,7 +513,6 @@ private struct PremiumBenefitRow: View {
         case .receiptScan: Text("撮るか写真から選ぶと、品目ごとにカテゴリを分けて読み取ります。確かめてから記録し、数えるのは記録したときだけです。")
         // 例はホームの入力の例と同じ文にする（英語でも訳さない。解析は日本語の入力を前提にしているため）。
         case .question: Text("「今月カフェいくら?」のように聞くと、数字はアプリが計算して答えます。")
-        case .categoryBudget: Text("食費・交通など、カテゴリごとにも月の予算を決められ、月のまとめで使った額と比べられます。")
         // AI の使えない端末では、プレミアムでも一言は付かない。買ってから気づくことが無いよう、ここで書いておく。
         case .recapAI: Text("月のまとめに、端末内の AI が一言を添えます（Apple Intelligence に対応した iPhone のみ。数字はアプリが計算します）。")
         }
@@ -531,7 +522,6 @@ private struct PremiumBenefitRow: View {
         switch feature {
         case .receiptScan: Text("無料は月\(QuotaFeature.receiptScan.freeMonthlyLimit)回まで")
         case .question: Text("無料は月\(QuotaFeature.question.freeMonthlyLimit)回まで")
-        case .categoryBudget: Text("無料は全体の予算だけ")
         case .recapAI: Text("無料は決まった文だけ")
         }
     }

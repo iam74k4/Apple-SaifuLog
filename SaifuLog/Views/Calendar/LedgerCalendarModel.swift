@@ -180,7 +180,7 @@ final class LedgerCalendarModel {
             loadFailed = true
         }
         // 予算と決まりを読めなくても、記録の集計は出す（予算の印と予定を出さないだけ）。
-        budget = (try? budgetStore.plan())?.amount(for: .total)
+        budget = (try? budgetStore.plan())?.total
         let rules = ((try? recurring.rules()) ?? []).compactMap(\.rule)
         days = LedgerCalendarMonth(records: monthRecords, month: month, calendar: calendar)
         planned = RecurringSchedule.plannedOccurrences(for: rules, in: month, now: today, timeZone: calendar.timeZone)

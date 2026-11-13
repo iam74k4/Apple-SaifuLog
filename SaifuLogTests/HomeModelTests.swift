@@ -984,8 +984,6 @@ struct HomeModelTests {
         let setup = try #require(fixture.model.budgetSetup)
         #expect(setup.totalText.isEmpty)
         #expect(!setup.hadTotalBudget)
-        // カテゴリ別の予算（プレミアム）は、無料では出さない。
-        #expect(!setup.showsCategoryBudgets)
     }
 
     /// 保存した予算は、次に開いたときの入力欄に入っている（「予算を変更」でも同じ画面を使う）。
@@ -1045,23 +1043,6 @@ struct HomeModelTests {
         }
     }
 
-    /// カテゴリ別の予算は、プレミアムと体験中だけ出す。体験が終わったら出さない。
-    @Test(arguments: [
-        ([PremiumPurchase](), false),
-        ([TestSupport.trial(startedDaysAgo: 3)], true),
-        ([TestSupport.trial(startedDaysAgo: 20)], false),
-        ([PremiumPurchase(product: .premium, purchaseDate: TestSupport.now)], true),
-        ([PremiumPurchase(product: .premium, ownership: .familyShared, purchaseDate: TestSupport.now)], true),
-    ])
-    func categoryBudgetsFollowPremium(records: [PremiumPurchase], expected: Bool) async throws {
-        let fixture = try await PremiumFixture(records)
-        defer { fixture.cleanUp() }
-
-        fixture.model.presentBudgetSetup()
-
-        #expect(fixture.model.budgetSetup?.showsCategoryBudgets == expected)
-    }
-
     /// 設定にも同じ PurchaseManager を渡す（設定から開く予算の画面・プレミアムのシートが同じ状態を見る）。
     @Test func settingsShareSamePurchases() async throws {
         let fixture = try await PremiumFixture([TestSupport.trial(startedDaysAgo: 1)])
@@ -1071,8 +1052,6 @@ struct HomeModelTests {
 
         let settings = try #require(fixture.model.settings)
         #expect(settings.purchases === fixture.purchases)
-        settings.presentBudgetSetup()
-        #expect(settings.budgetSetup?.showsCategoryBudgets == true)
     }
 
     /// 体験が終わった後の最初の起動で一度だけ出し、二度と出さない。

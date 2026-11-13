@@ -3,8 +3,8 @@ import Observation
 import SaifuLogCore
 import SwiftData
 
-/// 「月のまとめ」（⑦）の状態と操作。表示する月と月送り、その月の数字（`MonthlyReport`）、カテゴリ別の予算の進み（プレミアムと
-/// 体験中だけ）、カテゴリごとの記録の一覧、一覧から開く「直す」（⑥）のシート。
+/// 「月のまとめ」（⑦）の状態と操作。表示する月と月送り、その月の数字（`MonthlyReport`）、カテゴリごとの記録の一覧、
+/// 一覧から開く「直す」（⑥）のシート。
 ///
 /// 画面（`MonthlyReportView`）から切り離し、保存先・時計・読み上げを差し替えて SaifuLogTests で確かめられるようにしている。
 /// 数字の計算はコア（`MonthlyReport`）に任せ、ここでは読み込みと月の行き来だけを受け持つ。
@@ -29,8 +29,6 @@ final class MonthlyReportModel {
     private(set) var monthEntries: [Entry] = []
     /// 記録の一覧を出しているカテゴリ（横に進む）。一覧を閉じると画面が nil に戻す。
     var selectedCategory: EntryCategory?
-    /// 「プレミアム」（⑨）のシート（カテゴリ別の予算の案内から開く）。出していなければ nil（閉じると画面が nil に戻す）。
-    var premiumSheet: PremiumSheetModel?
     /// 「直す」のシートで直している記録の状態と操作。シートを閉じると画面が nil に戻す。
     var editing: EditEntryModel?
     /// まとめの先頭に添える AI の一言（プレミアムと体験中で、AI が使える端末だけ）。
@@ -45,9 +43,6 @@ final class MonthlyReportModel {
     let calendar: Calendar
 
     @ObservationIgnored private let store: EntryStore
-    /// プレミアムの状態（カテゴリ別の予算の進みを出すか）。@Observable なので、画面が読むと、状態が変わったとき（体験の終わり・
-    /// 返金・購入）に描き直させる。
-    @ObservationIgnored private let purchases: PurchaseManager?
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
     @ObservationIgnored private let didSave: @MainActor (Entry) -> Void
@@ -58,7 +53,6 @@ final class MonthlyReportModel {
     ///   - month: 開く月に入る日時（質問の回答カードから先月を開くときなど）。nil なら今月。今月より先の月は今月にする
     ///     （月送りで今月より先へ進めないのと同じ）。
     ///   - remark: AI の一言の状態と書かせ方。渡さなければ一言を添えない（無料と同じ）。
-    ///   - purchases: プレミアムの状態。カテゴリ別の予算の進みは、プレミアムと体験中だけ出す。渡さなければ出さない（無料と同じ）。
     ///   - now: 今日の基準。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     ///   - didSave: ここから開いた「直す」で保存できたあとに呼ぶ（ホームが「取り消す」を片づける）。
@@ -68,7 +62,6 @@ final class MonthlyReportModel {
         calendar: Calendar,
         month anchor: Date? = nil,
         remark: RecapRemarkModel? = nil,
-        purchases: PurchaseManager? = nil,
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
         didSave: @escaping @MainActor (Entry) -> Void = { _ in },
@@ -76,7 +69,6 @@ final class MonthlyReportModel {
     ) {
         let today = now()
         self.store = store
-        self.purchases = purchases
         self.calendar = calendar
         self.now = now
         self.announce = announce
@@ -150,9 +142,6 @@ final class MonthlyReportModel {
                 now: today,
                 budget: BudgetPlan.resolve(budgets).total,
                 budgetDecidedAt: BudgetPlan.decidedAt(.total, in: budgets),
-                // カテゴリ別の予算は、無料の人の分もいつも数えておき、出すかどうかは画面が読むときに決める（下の
-                // showsCategoryBudgets）。数えるときに決めると、見ている間に体験が終わったり買ったりしても、読み直すまで変わらないため。
-                categoryBudgets: BudgetPlan.categoryDecisions(in: budgets),
                 calendar: calendar
             )
             let month = month
@@ -175,48 +164,6 @@ final class MonthlyReportModel {
     func refreshToday() {
         today = now()
         reload()
-    }
-
-    // MARK: - カテゴリ別の予算
-
-    /// カテゴリ別の予算の進みを出すか。プレミアムの機能なので、プレミアムと体験中だけ。
-    ///
-    /// 無料に戻った人（体験の終わり・返金・ファミリー共有の取り消し）には出さない。決めてあった額は消さずに残し（予算を決める
-    /// 画面の欄と同じ）、買えばまた出る。買わずに使える機能に見せないため（docs/design.md §6-1）。購入の事実を読み終える前は
-    /// 無料と見分けがつかないので出さず、読み終えたら描き直す（状態は @Observable のため）。
-    var showsCategoryBudgets: Bool {
-        purchases?.status.unlocksPremium ?? false
-    }
-
-    /// カテゴリ別の予算の案内（カテゴリ別の支出の下の 1 枚）を出すか。無料の人だけ（体験の後と返金の後を含む）。
-    ///
-    /// カテゴリごとの支出を見ているところが、カテゴリごとに予算を決めたくなる場面なので、そこでプレミアムで加わることを伝える。
-    /// 購入の事実を読み終える前は出さない（プレミアムの人にも一瞬出てしまうため）。
-    var showsCategoryBudgetUpsell: Bool {
-        guard let purchases, purchases.hasLoadedPurchases else { return false }
-        return purchases.status.canPurchase && !purchases.status.unlocksPremium
-    }
-
-    /// 案内に「14日間 無料で試せます」を添えるか（まだ体験していないときで、体験の商品を売り場に出せるとき。
-    /// `PurchaseManager.offersTrial`）。
-    var canStartTrial: Bool {
-        purchases?.offersTrial ?? false
-    }
-
-    /// カテゴリ別の予算の案内から、プレミアム（⑨）をシートで開く。
-    func presentPremium() {
-        guard let purchases else { return }
-        premiumSheet = PremiumSheetModel(purchases: purchases, announce: announce)
-    }
-
-    /// 表示している月の、カテゴリ別の予算の進み（出さないときは空）。予算を決めてあり、この月に当てはめるカテゴリだけ。
-    var categoryBudgets: [EntryCategory: BudgetStatus] {
-        showsCategoryBudgets ? report?.categoryBudgets ?? [:] : [:]
-    }
-
-    /// 予算の進みを出すカテゴリのうち、この月に支出の無いもの（内訳の行の後ろに ¥0 の行で並べる。出さないときは空）。
-    var budgetedCategoriesWithoutExpense: [EntryCategory] {
-        showsCategoryBudgets ? report?.budgetedCategoriesWithoutExpense ?? [] : []
     }
 
     // MARK: - カテゴリの記録

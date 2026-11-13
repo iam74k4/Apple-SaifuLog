@@ -38,9 +38,9 @@ struct CategoryListView: View {
             Button("削除", role: .destructive) { model.confirmDeletion(deletion) }
         } message: { deletion in
             if deletion.entryCount > 0 {
-                Text("このカテゴリの記録 \(deletion.entryCount) 件は「その他」になります。カテゴリ別の予算と覚えたカテゴリからも外します。")
+                Text("このカテゴリの記録 \(deletion.entryCount) 件は「その他」になります。覚えたカテゴリからも外します。")
             } else {
-                Text("カテゴリ別の予算と覚えたカテゴリからも外します。")
+                Text("覚えたカテゴリからも外します。")
             }
         }
         .alert(

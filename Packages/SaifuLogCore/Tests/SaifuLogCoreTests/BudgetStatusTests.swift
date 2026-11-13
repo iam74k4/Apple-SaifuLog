@@ -7,10 +7,10 @@ struct BudgetStatusTests {
     static let plan = BudgetPlan(total: 150_000)
 
     static func status(
-        plan: BudgetPlan = plan, scope: BudgetScope = .total, records: [TestRecord], now: Date = Fixture.now,
+        plan: BudgetPlan = plan, records: [TestRecord], now: Date = Fixture.now,
         calendar: Calendar = Fixture.calendar
     ) -> BudgetStatus? {
-        BudgetStatus(plan: plan, scope: scope, records: records, now: now, calendar: calendar)
+        BudgetStatus(plan: plan, records: records, now: now, calendar: calendar)
     }
 
     /// Fixture の今日は 2026-09-28（月）。9 月の残りは 28・29・30 日の 3 日。
@@ -147,23 +147,6 @@ struct BudgetStatusTests {
 
         #expect(status.spent == 60_000)
         #expect(status.remaining == 90_000)
-    }
-
-    @Test("カテゴリの予算は、そのカテゴリの支出だけで数える")
-    func categoryScope() throws {
-        let plan = BudgetPlan(total: 150_000, byCategory: [.cafe: 6_000])
-        let records = [
-            TestRecord(amount: 4_500, category: .cafe, spentAt: Fixture.date(2026, 9, 10)),
-            TestRecord(amount: 30_000, category: .food, spentAt: Fixture.date(2026, 9, 10)),
-        ]
-
-        let cafe = try #require(Self.status(plan: plan, scope: .category(.cafe), records: records))
-        #expect(cafe.budget == 6_000)
-        #expect(cafe.spent == 4_500)
-        #expect(cafe.dailyAllowance == 500)
-
-        // 予算を決めていないカテゴリは出さない。
-        #expect(Self.status(plan: plan, scope: .category(.food), records: records) == nil)
     }
 
     /// ホームの今月（ReportPeriod.thisMonth）と同じ区切り。イスラム暦では 2026-09-28 を含む月は 9/12〜10/12。

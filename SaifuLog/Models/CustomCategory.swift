@@ -134,7 +134,7 @@ struct CustomCategoryStore {
         return try context.fetchCount(FetchDescriptor<Entry>(predicate: #Predicate { $0.categoryRawValue == rawValue }))
     }
 
-    /// カテゴリを消す。そのカテゴリの記録とくり返しの記録は「その他」にし、予算と覚えたカテゴリからも外してから、1 回で書き込む
+    /// カテゴリを消す。そのカテゴリの記録とくり返しの記録は「その他」にし、覚えたカテゴリからも外してから、1 回で書き込む
     /// （一部だけ書かれて、消したカテゴリを指す記録が残らないように）。
     ///
     /// 記録を先に書き換えるのは、行を消しただけだと、記録が一覧に無いカテゴリ（名前は「その他」）を指したまま残り、月のまとめで
@@ -144,17 +144,11 @@ struct CustomCategoryStore {
         let rawValue = category.rawValue
         // 読み込みが途中で失敗しても、書きかけの変更を残さないよう、すべて読めてから書き換える。
         let entries = try context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.categoryRawValue == rawValue }))
-        let budgets = try context.fetch(FetchDescriptor<Budget>(predicate: #Predicate { $0.scopeRawValue == rawValue }))
         let memories = try context.fetch(FetchDescriptor<LearnedCategory>(predicate: #Predicate { $0.categoryRawValue == rawValue }))
         let rules = try context.fetch(FetchDescriptor<RecurringEntry>(predicate: #Predicate { $0.categoryRawValue == rawValue }))
         let categories = try context.fetch(FetchDescriptor<CustomCategory>(predicate: #Predicate { $0.categoryID == id }))
         for entry in entries {
             entry.category = .other
-        }
-        // 予算は行を消さずに 0（設定なし）を書く（`BudgetStore` と同じ考え方。ほかの端末の古い額が勝たないように）。
-        for budget in budgets where budget.amount != 0 {
-            budget.amount = 0
-            budget.updatedAt = now()
         }
         for learned in memories {
             context.delete(learned)
@@ -170,7 +164,6 @@ struct CustomCategoryStore {
         try commit {
             // rollback の後は保存先のカテゴリで探す。EntryStore.update と同じく、読み込み済みの行も元の値に戻す。
             _ = try? context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.categoryRawValue == rawValue }))
-            _ = try? context.fetch(FetchDescriptor<Budget>(predicate: #Predicate { $0.scopeRawValue == rawValue }))
             _ = try? context.fetch(FetchDescriptor<LearnedCategory>(predicate: #Predicate { $0.categoryRawValue == rawValue }))
             _ = try? context.fetch(FetchDescriptor<RecurringEntry>(predicate: #Predicate { $0.categoryRawValue == rawValue }))
         }
