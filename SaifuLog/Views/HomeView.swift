@@ -589,7 +589,7 @@ private struct EntryTimeline: View {
                     case .sentText(let send):
                         SentTextBubble(send: send)
                     case .reply(let send):
-                        // 直前の送信の返事にだけ、「取り消す」と今月の状況の一行と聞き返しを出す（同じ間。`ReplyStatusLine`）。
+                        // 直前の送信の返事にだけ、「取り消す」と AI の一言か今月の状況の一行と聞き返しを出す（同じ間。`ReplyStatusLine`）。
                         let isLatest = isLatestSend(send)
                         RecordedReplyCard(
                             send: send, today: today, canUndo: isLatest && canUndoLatest, showsStatus: isLatest,
@@ -840,9 +840,10 @@ private struct TimelineFrameReporter: ViewModifier {
     }
 }
 
-/// 記録が 1 件も無いときの案内。入力の例を見せて、何を書けばよいかを伝える。質問も同じ入力欄からできることを添える。
+/// 記録が 1 件も無いときの案内。入力の例を見せて、何を書けばよいかを伝える。質問と月の予算も同じ入力欄からできることを添える。
 ///
-/// 例は押すと入力欄に入る（送るのは利用者）。初めての記録を、打たずに試せるようにするため。
+/// 例は押すと入力欄に入る（送るのは利用者）。初めての記録を、打たずに試せるようにするため。初回の案内では予算を聞かない
+/// （記録を始める前に決めることを求めない）ので、予算の決め方はここで例として見せる。
 private struct EmptyTimelineView: View {
     /// 例を入力欄に入れる。
     let fill: (String) -> Void
@@ -851,6 +852,8 @@ private struct EmptyTimelineView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("ひとことで記録")
                 .font(.title2.bold())
+                // VoiceOver の見出しの移動で、案内の始まりへ移れるようにする。
+                .accessibilityAddTraits(.isHeader)
             Text("下の入力欄に、こんなふうに送るだけで記録できます。")
                 .foregroundStyle(Theme.inkSecondary)
             examples(Self.recordExamples)
@@ -858,6 +861,10 @@ private struct EmptyTimelineView: View {
                 .foregroundStyle(Theme.inkSecondary)
                 .padding(.top, 4)
             examples(Self.questionExamples)
+            Text("月の予算も、同じ入力欄で決められます。")
+                .foregroundStyle(Theme.inkSecondary)
+                .padding(.top, 4)
+            examples(Self.budgetExamples)
         }
         .foregroundStyle(Theme.ink)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -895,6 +902,8 @@ private struct EmptyTimelineView: View {
     private static let recordExamples = ["ランチ 850", "昨日 焼肉12000 4人で割り勘", "給料 25万"]
     /// 質問の例（ようこその 3 つ目の例と同じ）。
     private static let questionExamples = ["今月カフェいくら?"]
+    /// 月の予算を決める例（チャットの操作 `ChatCommand.setMonthlyBudget` に読める文）。
+    private static let budgetExamples = ["今月の予算を5万にして"]
 }
 
 #Preview {

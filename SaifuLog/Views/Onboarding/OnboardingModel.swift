@@ -2,19 +2,15 @@ import Foundation
 import Observation
 import SwiftData
 
-/// 初回の案内（① ようこそ → ② 予算を決める → ③ ホーム）の状態と操作。
+/// 初回の案内（① ようこそ → ホーム）の状態と操作。
 ///
-/// 画面（`OnboardingView`・`WelcomeView`）から切り離し、設定の置き場所（UserDefaults）・予算の保存先・AI の可否を
-/// 差し替えて SaifuLogTests で確かめられるようにしている。
+/// 画面（`OnboardingView`・`WelcomeView`）から切り離し、設定の置き場所（UserDefaults）・AI の可否を差し替えて
+/// SaifuLogTests で確かめられるようにしている。
 @MainActor
 @Observable
 final class OnboardingModel {
-    /// ② 予算を決める画面を出しているか（① の「はじめる」で進み、戻ると false に戻る）。
-    var showsBudgetSetup = false
     /// 案内を終えた。終えたら呼び出し側（`AppRootView`）がホームに切り替える。
     private(set) var isCompleted = false
-    /// ② の状態と操作。① に戻ってから進み直しても入れた額が残るよう、案内の間は同じものを使う。
-    let budgetSetup: BudgetSetupModel
 
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let currentAIStatus: @MainActor () -> OnDeviceAIStatus
@@ -22,14 +18,10 @@ final class OnboardingModel {
     /// - Parameters:
     ///   - defaults: 案内を終えたことを書く先。テストでは使い捨ての領域を渡す。
     ///   - aiStatus: この端末でいま AI を使えるか。テストで差し替える。
-    ///   - announce: VoiceOver に読み上げさせる（② の保存のとき）。テストで読み上げる文を集める。
     init(
-        budgetStore: BudgetStore,
         defaults: UserDefaults = .standard,
-        aiStatus: @escaping @MainActor () -> OnDeviceAIStatus = { EntryParserFactory.aiStatus },
-        announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
+        aiStatus: @escaping @MainActor () -> OnDeviceAIStatus = { EntryParserFactory.aiStatus }
     ) {
-        self.budgetSetup = BudgetSetupModel(store: budgetStore, announce: announce)
         self.defaults = defaults
         self.currentAIStatus = aiStatus
     }
@@ -43,24 +35,11 @@ final class OnboardingModel {
         currentAIStatus()
     }
 
-    /// ① の「はじめる」。② 予算を決める へ進む。
+    /// ① の「はじめる」。案内を終える。
+    ///
+    /// 終えたことを書いてから、ホームへの切り替えを知らせる。先に書くのは、切り替えの途中でアプリを終了されても、
+    /// 次の起動で案内をやり直させないため。
     func start() {
-        showsBudgetSetup = true
-    }
-
-    /// ② で予算を保存した（`BudgetSetupView` の `onFinish`）。案内を終える。
-    func finishBudgetSetup() {
-        complete()
-    }
-
-    /// ② の「あとで」。予算を決めずに案内を終える。予算はホームの帯からいつでも決められる。
-    func skipBudgetSetup() {
-        complete()
-    }
-
-    /// 案内を終えたことを書いてから、ホームへの切り替えを知らせる。先に書くのは、切り替えの途中でアプリを
-    /// 終了されても、次の起動で案内をやり直させないため。
-    private func complete() {
         guard !isCompleted else { return }
         defaults.set(true, for: AppSettings.hasCompletedOnboarding)
         isCompleted = true

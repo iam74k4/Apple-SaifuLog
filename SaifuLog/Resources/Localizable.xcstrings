@@ -971,17 +971,6 @@
         }
       }
     },
-    "あとで" : {
-      "comment" : "初回の案内の予算を決める画面。予算を決めずにホームへ進むボタン",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not Now"
-          }
-        }
-      }
-    },
     "いちばん使ったカテゴリ" : {
       "comment" : "家計への質問の回答カードの見出し。その期間にいちばん多く使ったカテゴリ",
       "localizations" : {
@@ -2752,17 +2741,6 @@
         }
       }
     },
-    "予算を決めずにホームへ進みます。予算はホームからいつでも決められます。" : {
-      "comment" : "初回の案内の「あとで」の説明（VoiceOver）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Continues to Home without a budget. You can set one from Home anytime."
-          }
-        }
-      }
-    },
     "予算を決められませんでした" : {
       "comment" : "チャットで頼んだ月の予算を保存できなかったときのアラートの見出し",
       "localizations" : {
@@ -2952,17 +2930,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "今月の収入 %@"
-          }
-        }
-      }
-    },
-    "今月の支出 %@" : {
-      "comment" : "ホームの返事のカードの最後の一行（直前の送信で、月の予算を決めていないとき）。%@ は今月の支出の合計（「¥42,380」）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Spent this month: %@"
           }
         }
       }
@@ -4486,6 +4453,17 @@
         }
       }
     },
+    "月の予算も、同じ入力欄で決められます。" : {
+      "comment" : "ホームの記録が無いときの案内。月の予算を決める例（「今月の予算を5万にして」）の上に出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can set your monthly budget in the same field, too."
+          }
+        }
+      }
+    },
     "月の予算を%@にしました" : {
       "comment" : "チャットの文で月の予算を決めた後に VoiceOver で読み上げる内容。%@ は予算の金額",
       "localizations" : {
@@ -4537,17 +4515,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Set a monthly budget to get answers about what’s left and how much you can spend per day."
-          }
-        }
-      }
-    },
-    "月の予算を決める画面に進みます" : {
-      "comment" : "ようこその画面の「はじめる」の説明（VoiceOver）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Continues to setting your monthly budget."
           }
         }
       }

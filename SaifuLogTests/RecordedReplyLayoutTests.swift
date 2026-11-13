@@ -107,8 +107,9 @@ struct RecordedReplyLayoutTests {
         #expect(heights[0] > heights[1])
     }
 
-    /// 直前の送信の返事（「取り消す」を出している間）には、最後に今月の状況の一行を足す。一行は今月の記録と予算を保存先から読む。
-    @Test("直前の送信の返事には、今月の状況の一行を足す（前の送信の返事には足さない）")
+    /// 直前の送信の返事（「取り消す」を出している間）には、予算を決めていれば最後に今月の状況の一行を足す。一行は今月の記録と
+    /// 予算を保存先から読む。予算が無ければ足さない（間も残さない）。
+    @Test("直前の送信の返事には、予算を決めていれば今月の状況の一行を足す（前の送信の返事と、予算の無いときは足さない）")
     func latestReplyAddsStatusLine() throws {
         let context = try TestSupport.makeContext()
         let entry = TestSupport.entry(memo: "ランチ", spentAt: TestSupport.now, createdAt: TestSupport.now)
@@ -116,10 +117,17 @@ struct RecordedReplyLayoutTests {
         try context.save()
         let send = try #require(EntrySend.sends(from: [entry]).first)
 
+        let earlier = Self.size(of: Self.card(send, canUndo: true).modelContainer(context.container), width: 370)
+        let withoutBudget = Self.size(
+            of: Self.card(send, canUndo: true, showsStatus: true).modelContainer(context.container), width: 370
+        )
+        #expect(abs(withoutBudget.height - earlier.height) < 0.5)
+
+        context.insert(Budget(scope: .total, amount: 150_000, updatedAt: TestSupport.now))
+        try context.save()
         let latest = Self.size(
             of: Self.card(send, canUndo: true, showsStatus: true).modelContainer(context.container), width: 370
         )
-        let earlier = Self.size(of: Self.card(send, canUndo: false).modelContainer(context.container), width: 370)
 
         // 一行（標準の文字で 20pt ほど）と区切りの線と間の分だけ高い。
         #expect(latest.height > earlier.height + 20)

@@ -40,10 +40,10 @@ enum ReplyTexts {
     /// 直前の送信の返事の最後に添える、今月の状況の一行。ホームの帯と同じ数字（`MonthSummaryHeader.figures`）から作る。
     ///
     /// - 予算を決めていれば「今月あと ¥…（1日あたり ¥…）」、超えていれば「今月の予算を ¥… 超えています」（額を注意の色に）。
-    /// - 予算を決めていなければ「今月の支出 ¥…」。
+    /// - 予算を決めていなければ出さない（nil）。今月使った額は上の帯にいつも大きく出ているので、返事でくり返さない。
     /// - 収入だけの送信（給料など）は、予算があっても「今月の収入 ¥…」。予算の残りは収入で増えない（`BudgetStatus`）ので、
     ///   給料を送った返事に予算の残りを出しても、送ったものと関係の無い数字になるため。
-    static func status(summary: MonthlySummary, budget: BudgetStatus?, isIncomeOnly: Bool) -> ReplySentence {
+    static func status(summary: MonthlySummary, budget: BudgetStatus?, isIncomeOnly: Bool) -> ReplySentence? {
         if isIncomeOnly {
             let income = YenFormatter.string(from: summary.income)
             return ReplySentence(
@@ -54,16 +54,7 @@ enum ReplyTexts {
                 figures: [income]
             )
         }
-        guard let budget else {
-            let expense = YenFormatter.string(from: summary.expense)
-            return ReplySentence(
-                text: String(
-                    localized: "今月の支出 \(expense)",
-                    comment: "ホームの返事のカードの最後の一行（直前の送信で、月の予算を決めていないとき）。%@ は今月の支出の合計（「¥42,380」）"
-                ),
-                figures: [expense]
-            )
-        }
+        guard let budget else { return nil }
         if budget.isOver {
             let over = YenFormatter.string(from: budget.overspent)
             return ReplySentence(

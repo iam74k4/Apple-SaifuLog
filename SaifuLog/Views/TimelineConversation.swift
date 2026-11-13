@@ -147,7 +147,8 @@ struct PendingRecordView: View {
 /// 見出しに「記録しました」（2 件以上なら件数も）を出し、直前の送信なら右に「取り消す」を出す。「取り消す」は時間では
 /// 引っ込めない（次の文を送る・取り消す・その記録を直す・記録先を切り替える・開き直すまで。`HomeModel.canUndo`）。記録ごとに
 /// 1 行（`RecordedReplyRow`）を並べ、行を押すと ⑥ 直すを開く。割り勘などの説明の文は、その記録の行の下に添える（`RecordedReplyRow`）。
-/// 直前の送信の返事には、最後に今月の状況の一行（`ReplyStatusLine`）を添える（「取り消す」と同じ間だけ）。
+/// 直前の送信の返事には、最後に端末内 AI の一言（`ReplyRemarkLine`）か、無ければ今月の状況の一行（`ReplyStatusLine`）を添える
+/// （「取り消す」と同じ間だけ）。
 ///
 /// 記録ごとの縦の並びにしてあるので、あとで記録ごとの選択肢（カテゴリを選ぶボタンなど）を行の下に足せる。
 struct RecordedReplyCard: View {
@@ -190,14 +191,14 @@ struct RecordedReplyCard: View {
                     }
                 }
             }
-            if showsStatus {
-                ReplyStatusLine(today: today, calendar: calendar, isIncomeOnly: send.entries.allSatisfy(\.isIncome))
-                    // 行どうしの間（12pt）と同じだけ空ける（見出しと行の間の 2pt に足す）。
-                    .padding(.top, 10)
-            }
+            // 一言は今月の状況の一行と同じ数字（予算の残りなど）から書くので、一言があれば一行は出さない（同じことを 2 度言わない）。
+            // 一言は遅れて届くので、一行のあった場所に置き換える。
             if let remark {
                 ReplyRemarkLine(text: remark)
-                    .padding(.top, 8)
+                    // 行どうしの間（12pt）と同じだけ空ける（見出しと行の間の 2pt に足す）。
+                    .padding(.top, 10)
+            } else if showsStatus {
+                ReplyStatusLine(today: today, calendar: calendar, isIncomeOnly: send.entries.allSatisfy(\.isIncome))
             }
         }
         // 見出しは 44pt の高さの真ん中に文字があるので、上の余白を詰めて、下の余白とつり合わせる。
@@ -607,7 +608,7 @@ struct RecordedReplyRow<Record: LedgerEntryDisplaying>: View {
 }
 
 /// 直前の送信の返事の最後の一行。今月の状況を、ホームの帯と同じ数字で言う（「今月あと ¥…（1日あたり ¥…）」「今月の予算を ¥… 超えて
-/// います」「今月の支出 ¥…」、収入だけの送信は「今月の収入 ¥…」。`ReplyTexts.status`）。
+/// います」、収入だけの送信は「今月の収入 ¥…」。予算を決めていなければ出さない。`ReplyTexts.status`）。
 ///
 /// 数字は帯と同じ読み込みと計算（今月の記録と予算の @Query と `MonthSummaryHeader.figures`）で、記録を直す・消す・予算を変える・
 /// iCloud で取り込むと、その場で変わる（送ったときの数字の写しではない）。そのため出すのは直前の送信の返事だけにする（「取り消す」と
@@ -630,7 +631,14 @@ private struct ReplyStatusLine: View {
 
     var body: some View {
         let figures = MonthSummaryHeader.figures(records: records, budgets: budgets, today: today, calendar: calendar)
-        let sentence = ReplyTexts.status(summary: figures.summary, budget: figures.budget, isIncomeOnly: isIncomeOnly)
+        if let sentence = ReplyTexts.status(summary: figures.summary, budget: figures.budget, isIncomeOnly: isIncomeOnly) {
+            line(sentence)
+                // 行どうしの間（12pt）と同じだけ空ける（見出しと行の間の 2pt に足す）。出さないときに間だけが残らないよう、中で空ける。
+                .padding(.top, 10)
+        }
+    }
+
+    private func line(_ sentence: ReplySentence) -> some View {
         LeadingStack(spacing: 10) {
             // 記録の行と分けて、返事の終わりに添えた一行だと分かるようにする（カードの枠と同じ色の細い線）。
             Rectangle()
@@ -658,7 +666,7 @@ private struct ReplyStatusLine: View {
 }
 
 /// 返事の最後に添える、端末内 AI の一言（Apple Intelligence）。数字はコアが計算した文だけから書かせ、照合に通ったものだけを出す
-/// （`HomeModel.replyRemark`）。AI が書いたことが分かるよう、きらめきの印を添える（定型の今月の状況の一行と見分けられるように）。
+/// （`HomeModel.replyRemark`）。AI が書いたことが分かるよう、きらめきの印を添える。
 struct ReplyRemarkLine: View {
     let text: String
 

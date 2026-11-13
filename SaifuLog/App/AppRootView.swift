@@ -2,7 +2,7 @@ import SaifuLogCore
 import SwiftData
 import SwiftUI
 
-/// 保存先を開けたあとの最初の画面。初回だけ案内（① ようこそ → ② 予算を決める）を出し、終えたらホーム（③）にする。
+/// 保存先を開けたあとの最初の画面。初回だけ案内（① ようこそ）を出し、終えたらホームにする。
 ///
 /// 案内はホームに重ねる全画面のカバー（fullScreenCover）ではなく、根元の画面の切り替えにしている。カバーは出す動きを
 /// 消せないので、初回の起動でホームが一瞬見えてから案内が下から上がってくるため。切り替えなら、案内の間はホーム
@@ -77,7 +77,7 @@ struct AppRootView: View {
         }
         #endif
         if OnboardingModel.needsOnboarding(context: container.mainContext) {
-            onboarding = OnboardingModel(budgetStore: BudgetStore(context: container.mainContext))
+            onboarding = OnboardingModel()
         }
         let home = HomeModel(context: container.mainContext, pendingWrites: storeHost.pendingWrites, storeHost: storeHost)
         // iCloud 同期を切り替えて開き直したときは、切り替えた設定の画面を開いた状態から始める（どうなったかをその画面で見せる）。

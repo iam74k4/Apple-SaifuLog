@@ -5,7 +5,7 @@ import SaifuLogCore
 /// 「予算を決める」（②）の状態と操作。
 ///
 /// 画面（`BudgetSetupView`）から切り離し、保存先と読み上げを差し替えて SaifuLogTests で確かめられるようにしている。
-/// 初回の案内（②）・設定（⑧）・ホームのシートで同じものを使う。
+/// 設定（⑧）・ホームのシートで同じものを使う。
 @MainActor
 @Observable
 final class BudgetSetupModel: Identifiable {
@@ -29,7 +29,7 @@ final class BudgetSetupModel: Identifiable {
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
     ) {
         // 読めなければ決めていないものとして始める。保存するときは保存先を読み直して 1 行へ書く
-        // （BudgetStore.setAmounts）ので、行は重ならない。決めてあった額と同じ額を保存したときは、保存先が行を
+        // （BudgetStore.setAmount）ので、行は重ならない。決めてあった額と同じ額を保存したときは、保存先が行を
         // 書き換えないので、予算を決めた日時（月のまとめが前の月に予算の進みを出す基準）も動かない。
         let plan = (try? store.plan()) ?? BudgetPlan()
         self.store = store
@@ -72,11 +72,9 @@ final class BudgetSetupModel: Identifiable {
     @discardableResult
     func save() -> Bool {
         guard canSave else { return false }
-        var changes: [BudgetScope: Int] = [:]
         if totalAmount != initialPlan.total {
-            changes[.total] = totalAmount
+            guard write(totalAmount) else { return false }
         }
-        guard write(changes) else { return false }
         announce(String(localized: "予算を \(YenFormatter.string(from: totalAmount)) にしました"))
         return true
     }
@@ -96,15 +94,16 @@ final class BudgetSetupModel: Identifiable {
     @discardableResult
     func removeTotalBudget() -> Bool {
         showsRemoveConfirmation = false
-        guard write([.total: 0]) else { return false }
+        guard write(0) else { return false }
         totalText = ""
         announce(String(localized: "予算をなくしました"))
         return true
     }
 
-    private func write(_ changes: [BudgetScope: Int]) -> Bool {
+    /// 月の全体の予算を書く（0 はなくす）。
+    private func write(_ amount: Int) -> Bool {
         do {
-            try store.setAmounts(changes)
+            try store.setAmount(amount, for: .total)
             return true
         } catch {
             showsSaveFailure = true

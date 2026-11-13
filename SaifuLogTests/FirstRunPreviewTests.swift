@@ -12,7 +12,7 @@ struct FirstRunPreviewTests {
     @Test(arguments: ["ja_JP", "en_US"], [UIContentSizeCategory.large, .accessibilityExtraExtraExtraLarge])
     func firstRunPreviewFitsPhone(locale: String, size: UIContentSizeCategory) async throws {
         let fixture = try HomeModelTests.Fixture()
-        let onboarding = OnboardingModel(budgetStore: BudgetStore(context: fixture.context), defaults: fixture.defaults, aiStatus: { .available })
+        let onboarding = OnboardingModel(defaults: fixture.defaults, aiStatus: { .available })
         let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let views: [(String, AnyView)] = [
             ("welcome", AnyView(OnboardingView(model: onboarding))),

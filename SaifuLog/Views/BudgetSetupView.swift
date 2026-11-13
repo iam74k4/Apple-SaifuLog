@@ -3,11 +3,11 @@ import SwiftUI
 
 /// ② 予算を決める。月の予算の金額を入れて保存する。
 ///
-/// 初回の案内（②）・設定（⑧）・ホームのシートで使い回せるよう、閉じ方（`onFinish`）とナビゲーションは
-/// 呼び出し側に任せ、ここは中身だけを持つ。状態と操作は `BudgetSetupModel` が持つ。
+/// 設定（⑧）・ホームのシートで使い回せるよう、閉じ方（`onFinish`）とナビゲーションは呼び出し側に任せ、ここは
+/// 中身だけを持つ。状態と操作は `BudgetSetupModel` が持つ。
 struct BudgetSetupView: View {
     @Bindable var model: BudgetSetupModel
-    /// 保存した（または予算をなくした）あとに呼ぶ。呼び出し側が画面を閉じる・次へ進む。
+    /// 保存した（または予算をなくした）あとに呼ぶ。呼び出し側が画面を閉じる。
     let onFinish: () -> Void
 
     @FocusState private var focusedField: Field?

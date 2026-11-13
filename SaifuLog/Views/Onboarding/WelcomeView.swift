@@ -3,9 +3,12 @@ import SwiftUI
 /// ① ようこそ。初回だけ出す。
 ///
 /// 何ができるか（入力の例）、この iPhone で AI が文を読むか（読まなくても記録できること）、記録をどこに置くかを
-/// 伝え、「はじめる」で ② 予算を決める へ進む。状態と操作は `OnboardingModel` が持つ。
+/// 伝え、「はじめる」でホームへ進む。状態と操作は `OnboardingModel` が持ち、進み方は `OnboardingView` が決める。
 struct WelcomeView: View {
-    let model: OnboardingModel
+    /// この端末でいま AI を使えるか（`OnboardingModel.aiStatus`）。
+    let aiStatus: OnDeviceAIStatus
+    /// 「はじめる」。
+    let start: () -> Void
 
     @ScaledMetric(relativeTo: .largeTitle) private var markSize = 64
 
@@ -15,7 +18,6 @@ struct WelcomeView: View {
                 header
                 examples
                 VStack(alignment: .leading, spacing: 20) {
-                    let aiStatus = model.aiStatus
                     WelcomeNote(
                         symbolName: aiStatus.isAvailable ? "sparkles" : "text.book.closed",
                         title: aiStatus.title,
@@ -85,9 +87,7 @@ struct WelcomeView: View {
     }
 
     private var startButton: some View {
-        Button {
-            model.start()
-        } label: {
+        Button(action: start) {
             Text("はじめる")
                 .fontWeight(.semibold)
                 // 主ボタンは主の塗りに onAccent の文字（Theme の説明）。
@@ -96,7 +96,6 @@ struct WelcomeView: View {
         }
         .buttonStyle(.glassProminent)
         .tint(Theme.accentFill)
-        .accessibilityHint("月の予算を決める画面に進みます")
     }
 }
 
@@ -187,13 +186,9 @@ extension OnDeviceAIStatus {
 }
 
 #Preview("AI が使える") {
-    if let container = try? ModelContainerFactory.makeInMemoryContainer() {
-        WelcomeView(model: OnboardingModel(budgetStore: BudgetStore(context: container.mainContext), aiStatus: { .available }))
-    }
+    WelcomeView(aiStatus: .available, start: {})
 }
 
 #Preview("非対応の機種") {
-    if let container = try? ModelContainerFactory.makeInMemoryContainer() {
-        WelcomeView(model: OnboardingModel(budgetStore: BudgetStore(context: container.mainContext), aiStatus: { .deviceNotEligible }))
-    }
+    WelcomeView(aiStatus: .deviceNotEligible, start: {})
 }
