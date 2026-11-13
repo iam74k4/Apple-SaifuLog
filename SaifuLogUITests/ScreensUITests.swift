@@ -72,8 +72,7 @@ final class ScreensUITests: XCTestCase {
         budgetRow.tap()
         let budgetField = app.element(AccessibilityID.Budget.amountField)
         XCTAssertTrue(budgetField.waitUntilHittable())
-        budgetField.tap()
-        budgetField.typeText("60000")
+        app.type("60000", into: AccessibilityID.Budget.amountField)
         let budgetSave = app.element(AccessibilityID.Budget.saveButton)
         XCTAssertTrue(budgetSave.waitUntilEnabled())
         budgetSave.tap()
@@ -89,8 +88,7 @@ final class ScreensUITests: XCTestCase {
         create.tap()
         let name = app.element(AccessibilityID.Categories.nameField)
         XCTAssertTrue(name.waitUntilHittable())
-        name.tap()
-        name.typeText("衣服")
+        app.type("衣服", into: AccessibilityID.Categories.nameField)
         let categorySave = app.element(AccessibilityID.Categories.saveButton)
         XCTAssertTrue(categorySave.waitUntilEnabled())
         categorySave.tap()
@@ -109,12 +107,10 @@ final class ScreensUITests: XCTestCase {
         add.tap()
         let amount = app.element(AccessibilityID.Recurring.amountField)
         XCTAssertTrue(amount.waitUntilHittable())
-        amount.tap()
-        amount.typeText("80000")
+        app.type("80000", into: AccessibilityID.Recurring.amountField)
         let memo = app.element(AccessibilityID.Recurring.memoField)
         XCTAssertTrue(memo.waitUntilHittable())
-        memo.tap()
-        memo.typeText("家賃")
+        app.type("家賃", into: AccessibilityID.Recurring.memoField)
         let recurringSave = app.element(AccessibilityID.Recurring.saveButton)
         XCTAssertTrue(recurringSave.waitUntilEnabled())
         recurringSave.tap()
@@ -152,21 +148,40 @@ final class ScreensUITests: XCTestCase {
         // （共有の画面を出している間は書き出しの行を止めている。`SettingsModel.sharedFile`）。共有の画面の中身はアプリの外の画面の
         // ことがあり（閉じるボタンがアプリの要素に出ないことがあった）、それが出たことはこの行で確かめる。
         XCTAssertTrue(Self.waitUntilCovered(export, timeout: UITestTimeout.launch), "共有の画面が出ません")
+        // 覆ったのが書き出せなかった知らせ（アラート）なら、そこで失敗にする。
+        let alert = app.alerts.firstMatch
+        XCTAssertFalse(alert.exists, "共有の画面ではなく、知らせが出ました: \(alert.exists ? alert.label : "")")
 
         // 閉じる。閉じるボタンがアプリの要素にあれば押し（名前は共有の画面を出すシステムの言語で変わるので、日本語と英語の両方を
-        // 探す）、無ければ下へ引いて閉じる。閉じきるまで 3 回まで試す。
-        for _ in 0..<3 where !export.isHittableNow {
-            if let close = Self.waitForShareSheetCloseButton(in: app, timeout: 3) {
+        // 探す）、無ければ、共有の画面の外（上の暗いところ）を押すか、下へ引いて閉じる。閉じきるまで、やり方を替えて試す。
+        // 共有の画面の中身はアプリの外の画面で、閉じるボタンはアプリの要素に出ず、真ん中から引いても閉じなかったことがある。
+        let window = app.windows.firstMatch
+        let attempts: [(String, () -> Void)] = [
+            ("上の暗いところを押す", {
+                window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1)).tap()
+            }),
+            ("上の方から下へ引く", {
+                window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+                    .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)), withVelocity: .fast, thenHoldForDuration: 0)
+            }),
+            ("真ん中から下へ引く", {
+                window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
+                    .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)), withVelocity: .fast, thenHoldForDuration: 0)
+            }),
+        ]
+        for (name, attempt) in attempts where !export.isHittableNow {
+            if let close = Self.waitForShareSheetCloseButton(in: app, timeout: 2) {
                 close.tap()
             } else {
-                let window = app.windows.firstMatch
-                window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-                    .press(forDuration: 0.1, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
+                print("共有の画面の閉じるボタンが見つからないので、\(name)")
+                attempt()
             }
             _ = export.waitUntilHittable(timeout: 5)
         }
         // 閉じると設定に戻り、書き出しの行をまた押せる（書き出したファイルは消してある）。
-        XCTAssertTrue(export.waitUntilHittable(timeout: UITestTimeout.launch), "共有の画面が閉じません")
+        XCTAssertTrue(
+            export.waitUntilHittable(timeout: UITestTimeout.ui), "共有の画面が閉じません。いまの画面:\n\(app.debugDescription)"
+        )
         XCTAssertTrue(export.waitUntilEnabled())
     }
 

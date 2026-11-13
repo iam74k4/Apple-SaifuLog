@@ -97,16 +97,15 @@ extension XCUIApplication {
     /// 送信のボタンが押せるようになるまで、3 回まで打ち直す（打ち直すときは入力欄を空にしてから打つ）。
     func send(_ text: String, file: StaticString = #filePath, line: UInt = #line) {
         let field = inputField
-        XCTAssertTrue(field.waitUntilHittable(timeout: UITestTimeout.launch), "入力欄が出ません", file: file, line: line)
         var entered = false
         for attempt in 1...3 {
-            field.tap()
-            dismissKeyboardTipIfNeeded()
             if attempt == 1 {
+                focusField(AccessibilityID.Home.inputField, file: file, line: line)
+                dismissKeyboardTipIfNeeded()
                 field.typeText(text)
             } else {
                 print("入力欄に文が入らなかったので、打ち直します（\(attempt) 回目）: \(text)")
-                field.replaceText(with: text)
+                replaceText(in: AccessibilityID.Home.inputField, with: text, file: file, line: line)
             }
             if sendButton.waitUntilEnabled(timeout: 5), field.waitForValue(containing: text, timeout: 2) {
                 entered = true
@@ -119,15 +118,55 @@ extension XCUIApplication {
         sendButton.tap()
     }
 
-    /// 新しいシミュレータで初めてキーボードを出したときの案内（なぞって入力など）を閉じる。出ていなければ何もしない。
-    /// 案内がキーボードを覆っていると、打った文字が入らないことがあるため。
-    func dismissKeyboardTipIfNeeded() {
-        for label in ["Continue", "続ける"] {
-            let button = keyboards.buttons[label]
-            if button.exists, button.isHittable {
-                button.tap()
-                return
+    /// 名前（identifier）の入力欄を押して、キーボードのフォーカスを入れる。その入力欄を返す。
+    ///
+    /// 押してもフォーカスが入らないことがある（CI で、初めてキーボードを出すときにアプリが 30 秒ほど落ち着かず、押した入力欄に
+    /// フォーカスが入らないまま打って失敗した）。フォーカスが入るまで 3 回まで押し直す。`atEnd` なら入力欄の右の端を押す（押した
+    /// 位置にカーソルが入るので、文の終わりから消せるように）。
+    @discardableResult
+    func focusField(
+        _ identifier: String, atEnd: Bool = false, file: StaticString = #filePath, line: UInt = #line
+    ) -> XCUIElement {
+        let field = element(identifier)
+        let focused = descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ AND hasKeyboardFocus == true", identifier))
+            .firstMatch
+        XCTAssertTrue(field.waitUntilHittable(timeout: UITestTimeout.launch), "入力欄が出ません: \(identifier)", file: file, line: line)
+        for attempt in 1...3 {
+            if atEnd {
+                field.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+            } else {
+                field.tap()
             }
+            if focused.waitForExistence(timeout: 10) {
+                return field
+            }
+            print("入力欄にフォーカスが入らなかったので、押し直します（\(attempt) 回目）: \(identifier)")
+        }
+        XCTFail("入力欄にフォーカスが入りません: \(identifier)。いまの画面:\n\(debugDescription)", file: file, line: line)
+        return field
+    }
+
+    /// 名前の入力欄を押して、文を打つ。
+    func type(_ text: String, into identifier: String, file: StaticString = #filePath, line: UInt = #line) {
+        focusField(identifier, file: file, line: line).typeText(text)
+    }
+
+    /// 名前の入力欄の文を消してから打つ。右の端を押して、文の終わりから消す。
+    func replaceText(in identifier: String, with text: String, file: StaticString = #filePath, line: UInt = #line) {
+        let field = focusField(identifier, atEnd: true, file: file, line: line)
+        let current = (field.value as? String) ?? ""
+        // 空の入力欄の値は案内の文（placeholder）になるので、消す数は多めでよい（空の欄で消しても何も起きない）。
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 2))
+        field.typeText(text)
+    }
+
+    /// 新しいシミュレータで初めてキーボードを出したときの案内（なぞって入力など）を閉じる。出ていなければ何もしない。
+    /// 案内がキーボードを覆っていると、打った文字が入らないことがあるため。探すのは 1 回にする（CI では 1 回探すのに数秒かかる）。
+    func dismissKeyboardTipIfNeeded() {
+        let button = keyboards.buttons.matching(NSPredicate(format: "label IN %@", ["Continue", "続ける"])).firstMatch
+        if button.exists, button.isHittable {
+            button.tap()
         }
     }
 
@@ -285,14 +324,5 @@ extension XCUIElement {
     /// 文（label）か値（value）に `text` を含むまで待つ。設定の行のように、右に出す値を名前と分けて読む要素に使う。
     func waitForText(containing text: String, timeout: TimeInterval = UITestTimeout.ui) -> Bool {
         wait(until: NSPredicate(format: "label CONTAINS %@ OR (value != nil AND value CONTAINS %@)", text, text), timeout: timeout)
-    }
-
-    /// 入力欄の文を消してから打つ。押した位置にカーソルが入るので、右の端を押して文の終わりから消す。
-    func replaceText(with text: String) {
-        coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
-        let current = (value as? String) ?? ""
-        // 空の入力欄の値は案内の文（placeholder）になるので、消す数は多めでよい（空の欄で消しても何も起きない）。
-        typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 2))
-        typeText(text)
     }
 }
