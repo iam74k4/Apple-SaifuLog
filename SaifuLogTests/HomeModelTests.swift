@@ -30,6 +30,8 @@ struct HomeModelTests {
         private(set) var answererCalls = 0
         /// 月のまとめの AI の一言の書き手。既定は無し（AI が使えない端末と同じ。テストで本物のモデルを呼ばないため）。
         var remarkWriter: (any RecapRemarkWriting)?
+        /// 記録の返事の AI の一言の書き手。既定は無し（AI が使えない端末と同じ）。
+        var recordRemarkWriter: (any RecapRemarkWriting)?
         /// 設定の置き場所（無料で質問した回数など）。テストごとの使い捨ての領域。
         let suiteName = "HomeModelTests.Fixture.\(UUID().uuidString)"
         let defaults: UserDefaults
@@ -66,6 +68,7 @@ struct HomeModelTests {
                     return answerer
                 },
                 makeRemarkWriter: { [unowned self] in remarkWriter },
+                makeRecordRemarkWriter: { [unowned self] in recordRemarkWriter },
                 receiptReader: receipt.reader,
                 canUseDocumentCamera: canUseDocumentCamera,
                 now: { [unowned self] in now },

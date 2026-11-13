@@ -33,3 +33,18 @@ enum RecapRemarkWriterFactory {
         return nil
     }
 }
+
+/// 記録の返事に添える一言を書けるものを選ぶ（月のまとめの一言と違い、無料で、AI が使える端末ならいつも書く）。
+enum RecordRemarkWriterFactory {
+    /// AI が使えない端末（非対応機種・オフ・モデルの準備中）では nil（返事には定型の今月の状況の一行だけを出す）。
+    ///
+    /// 記録のたびに呼ぶ。AI の使える・使えないは、設定の変更やモデルのダウンロードで途中から変わるため（`EntryParserFactory` と同じ判定）。
+    static func makeWriter() -> (any RecapRemarkWriting)? {
+        #if canImport(FoundationModels)
+        if FoundationModelsEntryParser.isAvailable {
+            return FoundationModelsRecordRemarkWriter()
+        }
+        #endif
+        return nil
+    }
+}

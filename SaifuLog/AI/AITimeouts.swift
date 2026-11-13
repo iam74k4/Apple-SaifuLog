@@ -22,4 +22,7 @@ enum AITimeouts {
     /// 決まりで読めなかったチャットの文の、操作の種類の選び（`ChatCommandInterpreter`）。選択肢から 1 つ選ぶだけの小さな生成で、
     /// 待つ間は次の文を送れないので、カテゴリの聞き直しと同じく短くする。
     static let chatCommand: Duration = .seconds(3)
+    /// 記録の返事に添える一言（`RecordRemarkWriterFactory`）。返事は先に出し、一言は後から足すので入力は止めないが、記録した直後の
+    /// 一言なので、遅れて出ても意味が薄い。短くする。
+    static let recordRemark: Duration = .seconds(3)
 }

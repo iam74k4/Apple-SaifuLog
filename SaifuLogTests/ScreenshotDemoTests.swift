@@ -412,6 +412,23 @@ struct ScreenshotDemoTests {
         #expect(RecapRemark.checked(ScreenshotDemoRemarkWriter.remark(from: monthly), facts: monthly) != nil)
     }
 
+    @Test("ホームの画面: 日本語では記録を 1 つ送り、返事に AI の一言を添える。英語では送らない")
+    func homeScreenShowsReplyRemark() async throws {
+        let (demo, home) = try Self.makeHome(.home, uiLanguage: "ja")
+        defer { Self.removeDefaults(of: demo) }
+        await demo.stage(on: home, calendar: demo.calendar)
+
+        let remark = try #require(home.replyRemark)
+        #expect(remark.text.hasPrefix("今月のカフェは"))
+        #expect(home.justRecorded.map(\.memo) == ["カフェラテ"])
+
+        let (english, englishHome) = try Self.makeHome(.home, uiLanguage: "en")
+        defer { Self.removeDefaults(of: english) }
+        await english.stage(on: englishHome, calendar: english.calendar)
+        #expect(englishHome.replyRemark == nil)
+        #expect(englishHome.justRecorded.isEmpty)
+    }
+
     @Test("カレンダーの画面: カレンダーのページを出し、今月の使った額を出す。ほかの画面には入れない")
     func calendarScreenShowsSpending() async throws {
         let (demo, home) = try Self.makeHome(.calendar, uiLanguage: "ja")

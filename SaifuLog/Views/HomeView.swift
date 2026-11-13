@@ -262,6 +262,7 @@ struct HomeView: View {
                 // 控えた ID を渡す（ほかの端末で消された記録の値に、描くときに触れないため）。
                 undoableEntryIDs: Set(model.justRecordedIDs),
                 askingCategory: model.categoryQuestionIDs,
+                replyRemark: model.replyRemark,
                 showMore: { model.showMoreTimeline() },
                 undo: { model.undoLastRecord() },
                 edit: { model.presentEdit($0, calendar: calendar) },
@@ -418,6 +419,8 @@ private struct EntryTimeline: View {
     let undoableEntryIDs: Set<PersistentIdentifier>
     /// カテゴリを聞き返している記録。その記録の行の下にカテゴリのボタンを出す。
     let askingCategory: Set<PersistentIdentifier>
+    /// 直前の送信の返事に添える、端末内 AI の一言（`HomeModel.replyRemark`）。
+    let replyRemark: HomeModel.ReplyRemark?
     let showMore: () -> Void
     let undo: () -> Void
     let edit: (Entry) -> Void
@@ -446,6 +449,7 @@ private struct EntryTimeline: View {
         pendingRecord: HomeModel.PendingRecord?,
         undoableEntryIDs: Set<PersistentIdentifier>,
         askingCategory: Set<PersistentIdentifier>,
+        replyRemark: HomeModel.ReplyRemark?,
         showMore: @escaping () -> Void,
         undo: @escaping () -> Void,
         edit: @escaping (Entry) -> Void,
@@ -466,6 +470,7 @@ private struct EntryTimeline: View {
         self.pendingRecord = pendingRecord
         self.undoableEntryIDs = undoableEntryIDs
         self.askingCategory = askingCategory
+        self.replyRemark = replyRemark
         self.showMore = showMore
         self.undo = undo
         self.edit = edit
@@ -574,6 +579,7 @@ private struct EntryTimeline: View {
                         RecordedReplyCard(
                             send: send, today: today, canUndo: isLatest, showsStatus: isLatest,
                             askingCategory: isLatest ? askingCategory : [],
+                            remark: isLatest ? remark(for: send) : nil,
                             undo: undo, edit: edit, requestDelete: requestDelete, chooseCategory: chooseCategory,
                             createCategory: createCategory, makeRecurring: makeRecurring
                         )
@@ -614,6 +620,14 @@ private struct EntryTimeline: View {
     /// この送信の返事に「取り消す」を出すか（直前の送信で記録したもので、まだ取り消せるものを含む）。
     private func canUndo(_ send: EntrySend) -> Bool {
         !undoableEntryIDs.isEmpty && send.entries.contains { undoableEntryIDs.contains($0.persistentModelID) }
+    }
+
+    /// その送信の返事に添える一言（一言を書いた記録がこの送信のものなら）。
+    private func remark(for send: EntrySend) -> String? {
+        guard let replyRemark, send.entries.contains(where: { replyRemark.entryIDs.contains($0.persistentModelID) }) else {
+            return nil
+        }
+        return replyRemark.text
     }
 }
 

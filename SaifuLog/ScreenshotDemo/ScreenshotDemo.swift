@@ -252,6 +252,7 @@ final class ScreenshotDemo {
             makeCommandInterpreter: { nil },
             makeAnswerer: { ScreenshotDemoAnswerer(writesRemark: writesRemarks) },
             makeRemarkWriter: { writesRemarks ? ScreenshotDemoRemarkWriter() : nil },
+            makeRecordRemarkWriter: { writesRemarks ? ScreenshotDemoRecordRemarkWriter() : nil },
             receiptReader: ReceiptReader(recognize: { _ in receiptLines }, makeRefiner: { nil }),
             canUseDocumentCamera: false,
             now: clock,
@@ -266,8 +267,12 @@ final class ScreenshotDemo {
         Self.logger.notice("\(Self.marker, privacy: .public): \(self.screen.rawValue, privacy: .public)")
         switch screen {
         case .home:
-            // タイムラインと帯はそのまま。
-            break
+            // 記録を 1 つ送り、返事に端末内 AI の一言が添わるところを写す（一言は日本語の画面だけ。英語の画面ではタイムラインと
+            // 帯をそのまま写す）。
+            guard showsAIRemarks else { break }
+            home.draft = Self.homeRecordText
+            await home.send(calendar: calendar)?.value
+            await home.replyRemarkTask?.value
         case .ask:
             for question in Self.questions {
                 home.draft = question
@@ -291,6 +296,9 @@ final class ScreenshotDemo {
             home.page = .calendar
         }
     }
+
+    /// ホームの画面で送る記録（返事に AI の一言を添えて写す）。
+    nonisolated static let homeRecordText = "カフェラテ 480"
 
     /// 質問の画面で送る質問（ようこそとタイムラインの例と同じ書き方）。デモの「いま」は月の半ばなので、今月を聞く。
     nonisolated static let questions = ["今月カフェいくら?", "今月あと何日でいくら使える?"]

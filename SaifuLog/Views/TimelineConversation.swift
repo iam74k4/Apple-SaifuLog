@@ -161,6 +161,8 @@ struct RecordedReplyCard: View {
     var showsStatus = false
     /// カテゴリを聞き返している記録（`HomeModel.categoryQuestionIDs`）。その記録の行の下にカテゴリのボタンを出す。
     var askingCategory: Set<PersistentIdentifier> = []
+    /// 返事に添える端末内 AI の一言（直前の送信だけ。`HomeModel.replyRemark`）。無ければ出さない。
+    var remark: String?
     let undo: () -> Void
     let edit: (Entry) -> Void
     /// 削除を求める（確認は呼び出し側で出す）。
@@ -192,6 +194,10 @@ struct RecordedReplyCard: View {
                 ReplyStatusLine(today: today, calendar: calendar, isIncomeOnly: send.entries.allSatisfy(\.isIncome))
                     // 行どうしの間（12pt）と同じだけ空ける（見出しと行の間の 2pt に足す）。
                     .padding(.top, 10)
+            }
+            if let remark {
+                ReplyRemarkLine(text: remark)
+                    .padding(.top, 8)
             }
         }
         // 見出しは 44pt の高さの真ん中に文字があるので、上の余白を詰めて、下の余白とつり合わせる。
@@ -648,6 +654,26 @@ private struct ReplyStatusLine: View {
                 }
                 .accessibilityLabel(Text(verbatim: sentence.text))
         }
+    }
+}
+
+/// 返事の最後に添える、端末内 AI の一言（Apple Intelligence）。数字はコアが計算した文だけから書かせ、照合に通ったものだけを出す
+/// （`HomeModel.replyRemark`）。AI が書いたことが分かるよう、きらめきの印を添える（定型の今月の状況の一行と見分けられるように）。
+struct ReplyRemarkLine: View {
+    let text: String
+
+    var body: some View {
+        Label {
+            Text(verbatim: text)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: "sparkles")
+                .accessibilityHidden(true)
+        }
+        .font(.subheadline)
+        .foregroundStyle(Theme.inkSecondary)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("AI の一言: \(text)"))
     }
 }
 

@@ -122,6 +122,7 @@ final class HomeModel {
     @ObservationIgnored private let makeCommandInterpreter: () -> ChatCommandInterpreter?
     @ObservationIgnored private let makeAnswerer: () -> any QuestionAnswering
     @ObservationIgnored private let makeRemarkWriter: () -> (any RecapRemarkWriting)?
+    @ObservationIgnored private let makeRecordRemarkWriter: () -> (any RecapRemarkWriting)?
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
     @ObservationIgnored private let receiptReader: ReceiptReader
@@ -155,6 +156,7 @@ final class HomeModel {
     ///     テストで差し替える。
     ///   - makeAnswerer: 質問のたびに答え方（AI かキーワード辞書）を選ぶ。テストで差し替える。
     ///   - makeRemarkWriter: 月のまとめの AI の一言を書くもの。AI が使えなければ nil。テストで差し替える。
+    ///   - makeRecordRemarkWriter: 記録の返事に添える AI の一言を書くもの。AI が使えなければ nil。テストで差し替える。
     ///   - receiptReader: レシートの画像の読み取り（文字認識と AI）。テストで決めた文字や偽物の AI に差し替える。
     ///   - canUseDocumentCamera: 書類カメラを使えるか。テストで決める。
     ///   - now: 記録の日時と「今日」の基準。テストで固定の日時にする。
@@ -175,6 +177,7 @@ final class HomeModel {
         makeCommandInterpreter: @escaping () -> ChatCommandInterpreter? = { ChatCommandInterpreter.forDevice() },
         makeAnswerer: @escaping () -> any QuestionAnswering = { QuestionAnswererFactory.makeAnswerer() },
         makeRemarkWriter: @escaping () -> (any RecapRemarkWriting)? = { RecapRemarkWriterFactory.makeWriter() },
+        makeRecordRemarkWriter: @escaping () -> (any RecapRemarkWriting)? = { RecordRemarkWriterFactory.makeWriter() },
         receiptReader: ReceiptReader = ReceiptReader(),
         canUseDocumentCamera: Bool = DocumentCameraView.isSupported,
         now: @escaping () -> Date = { .now },
@@ -198,6 +201,7 @@ final class HomeModel {
         self.makeCommandInterpreter = makeCommandInterpreter
         self.makeAnswerer = makeAnswerer
         self.makeRemarkWriter = makeRemarkWriter
+        self.makeRecordRemarkWriter = makeRecordRemarkWriter
         self.receiptReader = receiptReader
         self.canUseDocumentCamera = canUseDocumentCamera
         self.now = now
@@ -237,6 +241,68 @@ final class HomeModel {
         justRecordedIDs = justRecorded.map(\.persistentModelID)
         justRecordedItems = justRecorded.map {
             RecordedItem(id: AnyHashable($0.persistentModelID), summaryText: $0.summaryText(in: categories.catalog))
+        }
+        // 一言は直前の送信の返事にだけ添える。次の送信・取り消し・直すで直前の記録が替わったら外す。
+        if let replyRemark, !replyRemark.entryIDs.isSubset(of: Set(justRecordedIDs)) {
+            self.replyRemark = nil
+        }
+    }
+
+    // MARK: - 記録の返事の一言
+
+    /// 直前の送信の返事に添える、端末内 AI の一言（Apple Intelligence。数字はコアの `RecordFacts` が計算した文だけを渡し、
+    /// `RecapRemark.checked` の照合に通ったものだけ）。保存しない（開き直すと消える）。
+    struct ReplyRemark: Equatable {
+        /// 一言を書いた送信の記録。
+        let entryIDs: Set<PersistentIdentifier>
+        let text: String
+    }
+
+    /// いま出している一言。無ければ nil（AI が使えない端末・照合に通らない・まだ書いている間）。
+    private(set) var replyRemark: ReplyRemark?
+    /// 一言を書かせている処理（テストで待つ）。
+    @ObservationIgnored private(set) var replyRemarkTask: Task<Void, Never>?
+
+    /// 記録した直後に、返事の一言を端末内 AI に書かせる。返事は先に出し、一言は後から足す（待つ間も次の文を打てる。書き込みは
+    /// しないので `pendingWrites` には数えない）。上限（`AITimeouts.recordRemark`）までに返らない・失敗した・照合に通らない・その間に
+    /// 直前の記録が替わったときは出さない（返事の今月の状況の一行は、いつも定型の文で出ている）。
+    private func requestReplyRemark(for recorded: [Entry], sentAt: Date, calendar: Calendar) {
+        replyRemarkTask?.cancel()
+        replyRemark = nil
+        let expenses = recorded.filter { !$0.isIncome }
+        guard !expenses.isEmpty, let writer = makeRecordRemarkWriter() else { return }
+        let items = expenses.map {
+            RecordFacts.Item(
+                item: CategoryMemory.item(ofMemo: $0.memo, amount: $0.amount, isIncome: false), amount: $0.amount, category: $0.category
+            )
+        }
+        let monthRecords = (try? store.context.fetch(Entry.monthDescriptor(containing: sentAt, calendar: calendar))) ?? []
+        let budget = (try? budgetStore.plan())?.total
+        guard let facts = RecordFacts.text(
+            recorded: items, monthRecords: monthRecords, budget: budget, now: sentAt, calendar: calendar, catalog: categories.catalog
+        ) else { return }
+        let ids = Set(recorded.map(\.persistentModelID))
+        let timeout = AITimeouts.recordRemark
+        let report = AIFallbackLog.shared.reporter(for: .recordRemark)
+        replyRemarkTask = Task {
+            let sentence: String
+            do {
+                sentence = try await withDeadline(timeout) { try await writer.remark(from: facts) }
+            } catch is CancellationError {
+                return
+            } catch is DeadlineExceeded {
+                report(.timedOut(timeout))
+                return
+            } catch {
+                report(.failed(error))
+                return
+            }
+            guard !Task.isCancelled, ids.isSubset(of: Set(justRecordedIDs)) else { return }
+            guard let checked = RecapRemark.checked(sentence, facts: facts) else {
+                report(.noResult)
+                return
+            }
+            replyRemark = ReplyRemark(entryIDs: ids, text: checked)
         }
     }
 
@@ -484,6 +550,7 @@ final class HomeModel {
             announceRecorded(
                 recorded, today: sentAt, calendar: calendar, asksCategory: recorded.contains(where: \.needsCategoryReview)
             )
+            requestReplyRemark(for: recorded, sentAt: sentAt, calendar: calendar)
         }
     }
 
@@ -947,6 +1014,9 @@ final class HomeModel {
         refreshCategoryQuestions()
         // 入力欄の VoiceOver の「直す: …」の文を、選んだカテゴリで作り直す。
         snapshotJustRecorded()
+        // 一言はカテゴリを選ぶ前の数字で書いたので外す。
+        replyRemarkTask?.cancel()
+        replyRemark = nil
         let name = categories.catalog.localizedName(for: category)
         announce(
             remembered
@@ -1022,6 +1092,9 @@ final class HomeModel {
         categoryQuestionIDs.remove(id)
         refreshCategoryQuestions()
         snapshotJustRecorded()
+        // 一言はカテゴリを変える前の数字で書いたので外す。
+        replyRemarkTask?.cancel()
+        replyRemark = nil
         let name = categories.catalog.localizedName(for: category)
         appendQuestion(text, askedAt: sentAt, state: .recategorized(item: item, category: name, remembered: remembered))
         announce(

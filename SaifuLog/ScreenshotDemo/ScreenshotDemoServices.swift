@@ -60,6 +60,25 @@ struct ScreenshotDemoRemarkWriter: RecapRemarkWriting {
     }
 }
 
+/// 記録の返事の一言の代わり（端末で変わらないよう、数字の文から決まった一言を作る。数字は文のものだけを使い、照合に通る）。
+struct ScreenshotDemoRecordRemarkWriter: RecapRemarkWriting {
+    func remark(from facts: String) async throws -> String {
+        Self.remark(from: facts)
+    }
+
+    static func remark(from facts: String) -> String {
+        // 「今月のカフェ: ¥3,520（記録 8件）」から、カテゴリの名前と件数を取る。
+        guard let line = facts.split(separator: "\n").first(where: { $0.hasPrefix("今月の") && $0.contains("（記録 ") }),
+              let colon = line.firstIndex(of: ":"),
+              let open = line.range(of: "（記録 "), let close = line.range(of: "件）") else {
+            return "いいペースで記録できています。"
+        }
+        let name = line[line.index(line.startIndex, offsetBy: 3)..<colon]
+        let count = line[open.upperBound..<close.lowerBound]
+        return "今月の\(name)は\(count)件目です。いいペースで記録できています。"
+    }
+}
+
 /// レシートの読み取りの画面で使う、文字認識の結果の代わり。架空の店（実在の店名・住所・電話番号は書かない）の内税のレシート。
 enum ScreenshotDemoReceipt {
     /// 店名。架空の名前にする（実在の店と取り違えられないように）。
