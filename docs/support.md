@@ -27,12 +27,12 @@
 モデルのダウンロードが済んでいるときに使えます。使えない iPhone でも、キーワード辞書で読み取るので、「ランチ 850」のような
 書き方なら記録も質問もできます。
 
-**入力欄にマイクのボタンがありません。**
-声の入力は、iPhone の中で日本語を文字にできる iPhone でだけ使えます。使えない iPhone では、マイクのボタンを出していません
-（キーボードの音声入力は使えます）。初めて使うときは、日本語の音声モデルのダウンロードを確かめる画面が出ることがあります。
+**声で記録できますか？**
+キーボードの音声入力（キーボードのマイクのキー）で話した文を入力欄に入れて、送信してください。前の版にあったアプリの
+マイクのボタンはなくしました。
 
-**マイクやカメラを許可しなかったので、使えません。**
-iPhone の「設定」→「サイフログ」で、マイクやカメラの許可を変えられます。写真から選ぶときは、写真のライブラリの許可は要りません。
+**カメラを許可しなかったので、レシートを撮れません。**
+iPhone の「設定」→「サイフログ」で、カメラの許可を変えられます。写真から選ぶときは、写真のライブラリの許可は要りません。
 
 **機種を変えたら、プレミアムが使えなくなりました。**
 設定の画面か、プレミアムの画面の「購入の復元」を押してください。購入したときと同じ Apple アカウントでサインインしている必要があります。
@@ -76,12 +76,12 @@ On-device AI (such as reading your text) works on iPhone models that support App
 Settings and its model downloaded. On other iPhone models, a keyword dictionary reads your entries, so lines like “ランチ 850” still work
 for both entries and questions. Entries are read as Japanese text.
 
-**There's no microphone button in the entry field.**
-Voice input is available only on iPhone models that can transcribe Japanese on the device. On other models the microphone button isn't
-shown (the keyboard's dictation still works). The first time, you may be asked to download the Japanese speech model.
+**Can I record by voice?**
+Use the keyboard's dictation (the microphone key on the keyboard) to put what you say in the entry field, then send it. The app's own
+microphone button from earlier versions has been removed.
 
-**I didn't allow the microphone or camera.**
-You can change these permissions in the iPhone Settings app under SaifuLog. Choosing a photo doesn't require photo library access.
+**I didn't allow the camera, so I can't photograph receipts.**
+You can change camera access in the iPhone Settings app under SaifuLog. Choosing a photo doesn't require photo library access.
 
 **Premium stopped working after I changed iPhones.**
 Tap Restore Purchases in Settings or on the Premium screen, signed in to the same Apple Account you purchased with.

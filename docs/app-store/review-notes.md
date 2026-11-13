@@ -14,7 +14,7 @@ App Store Connect の「App Review に関する情報」の「メモ」と、課
 ## アプリの審査メモ
 
 App Store Connect → アプリ → バージョン → 「App Review に関する情報」→ メモ。「サインインが必要」はオフにする。
-メモの上限は 4,000 文字（英語の文はいま 3,994 文字）。書き足すときは、ほかの行を詰めて収める。
+メモの上限は 4,000 文字（英語の文はいま 3,214 文字）。書き足すときは、ほかの行を詰めて収める。
 
 ### 英語（入れる文）
 
@@ -25,16 +25,13 @@ HOW TO TRY IT
 - Type one line in the field at the bottom of the home screen and send it, for example "ランチ 850" (lunch 850 yen) or "昨日 焼肉12000 4人で割り勘" (yesterday, dinner 12,000 yen split four ways). The app records it and replies in the timeline with what it recorded; the latest reply has an Undo button. Tap a recorded item in a reply to edit it; touch and hold to delete it. Right after recording, sending "さっきのを900に直して" (change that to 900 yen), "それ日用品" (that is daily goods), or "さっきの消して" (delete that) edits or deletes the latest entry instead of recording a new one, and "今月の予算を5万にして" (set this month's budget to 50,000 yen) sets the monthly budget.
 - Ask a question in the same field, for example "今月カフェいくら?" (how much on cafes this month?). The answer is calculated by the app from the records.
 - Receipts: tap the camera button on the left of the field, then "Take Photo" or "Choose from Photos". Any photo or screenshot of a receipt works.
-- Voice: tap the microphone button on the right of the field and speak Japanese. The transcription is placed in the field; nothing is sent until the user taps Send.
 - The gear at the top right opens Settings (SaifuLog Premium, Restore Purchases, monthly budget, categories, learned categories, recurring entries, week start, Sync with iCloud, Face ID lock, CSV export). Tapping the numbers at the top of the home screen opens the Monthly Summary.
-- Siri and Shortcuts: the app provides App Shortcuts such as "Record in SaifuLog" and "Ask SaifuLog"; each opens the app.
-- "Last Week in Review" appears on the home timeline only the first time the app is opened in a new week, when there are records from before that week, so it may not appear during a short review.
+- Siri and Shortcuts: the app provides two App Shortcuts, "Record in SaifuLog" and "Ask SaifuLog"; each opens the app.
 
 APPLE INTELLIGENCE
-AI features use Apple's on-device Foundation Models and work only on devices that support Apple Intelligence, with it turned on and its model downloaded. On other devices (including many review devices), the app reads entries and questions with a built-in keyword dictionary, so all of the examples above work without AI. Only these extras need AI: the short note added to answers, the note in Last Week in Review and the Monthly Summary (Premium), and tidying receipt item names and categories.
+AI features use Apple's on-device Foundation Models and work only on devices that support Apple Intelligence, with it turned on and its model downloaded. On other devices (including many review devices), the app reads entries and questions with a built-in keyword dictionary, so all of the examples above work without AI. Only these extras need AI: sorting items the dictionary does not know, reading chat fixes written in other ways than the examples, the short note added to answers, the note in the Monthly Summary (Premium), and tidying receipt item names and categories.
 
 PERMISSIONS
-- Microphone: requested only when the user first taps the microphone button. Speech is transcribed on the device with SpeechAnalyzer; audio is never recorded to a file or sent anywhere, and speech recognition permission is not requested. The Japanese speech model may need to be downloaded from Apple the first time (the app asks first). On devices without Japanese transcription, the microphone button is hidden.
 - Camera: requested only when the user chooses "Take Photo" for a receipt. Images are read on the device with Vision and are never saved or sent. Choosing a photo uses the system photo picker, so no photo library permission is requested.
 - Face ID: used only when the user turns on the app lock in Settings (off by default). The system performs the authentication; the app receives only the result.
 
@@ -54,16 +51,13 @@ Premium is a one-time non-consumable purchase (not a subscription) and supports 
 - ホーム画面の下の入力欄に一行を入れて送ります。例: 「ランチ 850」「昨日 焼肉12000 4人で割り勘」。記録すると、アプリがタイムラインの返事で記録した内容を見せ、いちばん新しい返事に「取り消す」が出ます。返事の記録を押すと直せ、長押しで削除できます。記録した直後に「さっきのを900に直して」「それ日用品」「さっきの消して」と送ると、新しい記録にせずに直前の記録を直す・消すことができ、「今月の予算を5万にして」と送ると月の予算を決められます。
 - 同じ入力欄で質問できます。例: 「今月カフェいくら?」。答えの数字はアプリが記録から計算します。
 - レシート: 入力欄の左のカメラのボタン →「撮る」か「写真から選ぶ」。レシートの写真やスクリーンショットなら、どれでも試せます。
-- 声: 入力欄の右のマイクのボタンを押して日本語で話します。書き起こしは入力欄に入るだけで、送信を押すまで何も送りません。
 - 右上の歯車で設定（サイフログ プレミアム・購入の復元・月の予算・カテゴリ・覚えたカテゴリ・くり返しの記録・週の始まり・iCloud で同期・Face ID でロック・CSV 書き出し）。ホーム画面の上の数字を押すと月のまとめが開きます。
-- Siri・ショートカット: 「サイフログで記録」「サイフログに質問」などの App Shortcuts があり、どれもアプリを開きます。
-- 「先週のふりかえり」は、週が替わって最初に開いたときに、その週より前の記録があるときだけタイムラインに出るので、短い審査の間には出ないことがあります。
+- Siri・ショートカット: 「サイフログで記録」「サイフログに質問」の 2 つの App Shortcuts があり、どちらもアプリを開きます。
 
 Apple Intelligence
-AI の機能は Apple の端末内の Foundation Models を使い、Apple Intelligence に対応した端末で、Apple Intelligence がオンでモデルのダウンロードが済んでいるときだけ動きます。それ以外の端末（審査の端末の多く）では、内蔵のキーワード辞書で記録と質問を読むので、上の例はどれも AI なしで動きます。AI が要るのは、質問の答えに添える一言、先週のふりかえりと月のまとめの一言（プレミアム）、レシートの品名とカテゴリの整えだけです。
+AI の機能は Apple の端末内の Foundation Models を使い、Apple Intelligence に対応した端末で、Apple Intelligence がオンでモデルのダウンロードが済んでいるときだけ動きます。それ以外の端末（審査の端末の多く）では、内蔵のキーワード辞書で記録と質問を読むので、上の例はどれも AI なしで動きます。AI が要るのは、辞書に無い品目のカテゴリの振り分け、例と違う書き方のチャットでの直しの読み取り、質問の答えに添える一言、月のまとめの一言（プレミアム）、レシートの品名とカテゴリの整えだけです。
 
 許可
-- マイク: マイクのボタンを初めて押したときだけ求めます。声は端末の中の SpeechAnalyzer で文字にし、録音をファイルに残さず、どこへも送りません。音声認識の許可は求めません。初めて使うときに、日本語の音声モデルを Apple からダウンロードすることがあります（先に確かめます）。日本語の書き起こしに対応しない端末では、マイクのボタンを出しません。
 - カメラ: レシートで「撮る」を選んだときだけ求めます。画像は端末の中の Vision で読み、保存も送信もしません。写真から選ぶときは iOS の写真の選択の画面を使うので、写真のライブラリの許可は求めません。
 - Face ID: 設定でアプリのロックをオンにしたときだけ使います（既定はオフ）。認証は iOS が行い、アプリは結果だけを受け取ります。
 
@@ -77,7 +71,7 @@ AI の機能は Apple の端末内の Foundation Models を使い、Apple Intell
 ## 課金アイテムの審査メモ
 
 App Store Connect → 収益化 → App 内課金 → 各アイテム → 「審査に関する情報」。審査用のスクリーンショットは、撮影用のデモの
-`screenshots/<言語>/07-premium.png`（プレミアム）と `08-trial.png`（14 日間の体験）を使う（作り方は [`README.md`](README.md)）。
+`screenshots/<言語>/05-premium.png`（プレミアム）と `06-trial.png`（14 日間の体験。どちらも撮り直してから使う。[`metadata.ja.md`](metadata.ja.md) の「スクリーンショット」）を使う（作り方は [`README.md`](README.md)）。
 
 | 製品 ID | 種類 | 価格 | ファミリー共有 | 表示名（ja / en） |
 |---|---|---|---|---|
@@ -94,7 +88,7 @@ App Store Connect の課金アイテムの説明は **55 文字まで**なので
 
 | 製品 ID | 説明（ja） | 説明（en） |
 |---|---|---|
-| `com.iam74k4.SaifuLog.premium` | レシート読み取りと質問が無制限。AIのふりかえりつきの買い切り | Unlimited receipts and questions, one-time purchase. |
+| `com.iam74k4.SaifuLog.premium` | レシート読み取りと質問が無制限。月のまとめにAIの一言。買い切り | Unlimited receipts and questions, one-time purchase. |
 | `com.iam74k4.SaifuLog.trial14` | プレミアムの機能を14日間無料で試せます。自動で課金されません | Try Premium free for 14 days. No charge when it ends. |
 
 ### プレミアム（`com.iam74k4.SaifuLog.premium`）
@@ -103,7 +97,7 @@ App Store Connect の課金アイテムの説明は **55 文字まで**なので
 
 ```text
 One-time non-consumable purchase, not a subscription. Family Sharing is supported.
-What it unlocks: unlimited receipt scans (free: 5 per month, counted only when a scan is recorded) and unlimited questions about spending (free: 10 per month, asked in the home entry field, e.g. "今月カフェいくら?"); a short on-device AI note in Last Week in Review and the Monthly Summary (only on devices that support Apple Intelligence; the numbers are always calculated by the app); and budgets by category, set in Settings > Monthly Budget, with each category's spending against its budget (spent / budget, and the amount left or over) shown in the Monthly Summary.
+What it unlocks: unlimited receipt scans (free: 5 per month, counted only when a scan is recorded) and unlimited questions about spending (free: 10 per month, asked in the home entry field, e.g. "今月カフェいくら?"); and a short on-device AI note in the Monthly Summary (only on devices that support Apple Intelligence; the numbers are always calculated by the app).
 Where to buy: Settings > SaifuLog Premium. Restore Purchases is on the same screen and in Settings.
 ```
 
@@ -111,7 +105,7 @@ Where to buy: Settings > SaifuLog Premium. Restore Purchases is on the same scre
 
 ```text
 買い切りの非消耗型で、サブスクではありません。ファミリー共有に対応します。
-できるようになること: レシートの読み取りの回数の制限がなくなる（無料は月 5 回で、記録したときだけ数える）、家計への質問の回数の制限がなくなる（無料は月 10 回。ホームの入力欄で「今月カフェいくら?」のように聞く）、先週のふりかえりと月のまとめに端末内の AI の一言が付く（Apple Intelligence に対応した端末のみ。数字はいつもアプリが計算する）、設定 → 月の予算でカテゴリ別の予算を決められ、月のまとめのカテゴリの行に、使った額と予算、残りか超えた額が出る。
+できるようになること: レシートの読み取りの回数の制限がなくなる（無料は月 5 回で、記録したときだけ数える）、家計への質問の回数の制限がなくなる（無料は月 10 回。ホームの入力欄で「今月カフェいくら?」のように聞く）、月のまとめに端末内の AI の一言が付く（Apple Intelligence に対応した端末のみ。数字はいつもアプリが計算する）。
 購入: 設定 → サイフログ プレミアム。同じ画面と設定に「購入の復元」がある。
 ```
 
