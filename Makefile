@@ -6,12 +6,13 @@
 #     make generate             project.yml から SaifuLog.xcodeproj を生成する
 #     make build                生成 → シミュレータ向けに署名なしでビルド（CI と同じ経路）
 #     make test                 SaifuLogCore のテスト（swift test）
-#     make build-tests          アプリのテスト（SaifuLogTests）をビルドする（動かさない。CI と同じ経路）
+#     make build-tests          アプリのテスト（SaifuLogTests）と UI テスト（SaifuLogUITests）をビルドする（動かさない。CI と同じ経路）
 #     make test-app             アプリのテストをシミュレータで動かす（TEST_DESTINATION で宛先を変えられる）
 #     make test-app-ios26       アプリのテストを iOS 26 の版（IOS26_TEST_OS）のシミュレータで動かす
+#     make test-ui              画面を操作する UI テストをシミュレータで動かす（TEST_DESTINATION で宛先を変えられる）
 #     make check-strings        String Catalog とコードの文字列の整合を確かめる（make build の後に）
-#     make ci                   CI（build.yml）と同じ 8 つ（build / check-strings / test / build-tests / test-app /
-#                               test-app-ios26 / check-version / 署名なしの archive）
+#     make ci                   CI（build.yml）と同じ 9 つ（build / check-strings / test / build-tests / test-app /
+#                               test-ui / test-app-ios26 / check-version / 署名なしの archive）
 #     make open                 生成して Xcode で開く
 #     make clean                生成物とビルドの残りを消す
 #
@@ -55,7 +56,7 @@ IOS26_TEST_OS ?= 26.2
 # 例: make test-app-ios26 IOS26_TEST_DESTINATION='platform=iOS Simulator,OS=26.2,name=iPhone 17 Pro'
 IOS26_TEST_DESTINATION ?= $(shell ./scripts/pick-simulator.sh $(IOS26_TEST_OS) 2>/dev/null)
 
-.PHONY: all generate build build-tests test test-app test-app-ios26 print-ios26-os check-strings ci open clean check-xcodegen
+.PHONY: all generate build build-tests test test-app test-app-ios26 test-ui print-ios26-os check-strings ci open clean check-xcodegen
 
 all: build
 
@@ -87,8 +88,8 @@ build: generate
 test:
 	swift test --package-path $(CORE_PACKAGE)
 
-# アプリのテスト（SaifuLogTests）と、スキームのテストに入っている全ターゲットをビルドする（動かさない）。
-# make build はスキームの build アクション（SaifuLog だけ）なので、テストのターゲットがコンパイルできなく
+# アプリのテスト（SaifuLogTests）と UI テスト（SaifuLogUITests）、スキームのテストに入っている全ターゲットをビルドする
+# （動かさない）。make build はスキームの build アクション（SaifuLog だけ）なので、テストのターゲットがコンパイルできなく
 # なっても通ってしまう。宛先と引数は make build と同じ（汎用のシミュレータ・署名なし・SIM_ARCHS だけ）。
 build-tests: generate
 	xcodebuild build-for-testing \
@@ -115,6 +116,23 @@ test-app: build-tests
 		-destination '$(TEST_DESTINATION)' \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SaifuLogTests \
+		$(XCODEBUILD_FLAGS)
+
+# 画面を操作する UI テスト（SaifuLogUITests。XCUITest）をシミュレータで動かす。make test-app と同じく build-tests の
+# できたものを test-without-building で動かす（UI テストは SaifuLogUITests だけ）。アプリは起動引数 -SaifuLogUITest で開き、
+# メモリの上の保存先・キーワード辞書・決まった「いま」で動く（DEBUG のビルドだけの UITestMode）。宛先はいちばん新しい iOS の
+# iPhone（TEST_DESTINATION）。iOS 26 では動かさない（画面の流れが通るモデルは make test-app-ios26 のアプリのテストが iOS 26 でも
+# 確かめていて、UI テストは 1 回に数分かかるため）。
+test-ui: build-tests
+	@test -n "$(TEST_DESTINATION)" || { echo "error: UI テストを動かすシミュレータがありません。TEST_DESTINATION で宛先を渡してください。"; exit 1; }
+	@udid=$$(printf '%s\n' '$(TEST_DESTINATION)' | sed -n 's/.*id=\([0-9A-Fa-f-]*\).*/\1/p'); \
+		if [ -n "$$udid" ]; then xcrun simctl bootstatus "$$udid" -b >/dev/null; fi
+	xcodebuild test-without-building \
+		-project $(PROJECT) \
+		-scheme $(SCHEME) \
+		-destination '$(TEST_DESTINATION)' \
+		-derivedDataPath $(DERIVED_DATA) \
+		-only-testing:SaifuLogUITests \
 		$(XCODEBUILD_FLAGS)
 
 # アプリのテストを IOS26_TEST_OS の版のシミュレータで動かす。その版のシミュレータが無ければ、入れ方を示して止まる
@@ -144,7 +162,8 @@ check-strings:
 		--stringsdata-dir $(DERIVED_DATA)/Build/Intermediates.noindex/SaifuLog.build/Debug-iphonesimulator/SaifuLog.build/Objects-normal
 
 # 必須チェック build（.github/workflows/build.yml）と同じ確認を手元で通す。make build が
-# 通っても、CI はテスト（コア・アプリ。アプリは iOS 26 でも）・版の検査・提出用のアーカイブまで見るので、それだけでは足りない。
+# 通っても、CI はテスト（コア・アプリ。アプリは iOS 26 でも。画面を操作する UI テストも）・版の検査・提出用のアーカイブまで
+# 見るので、それだけでは足りない。
 # 引数は build.yml と同じにする（片方を変えたらもう片方も）。BUILD_NUMBER が xcconfig の
 # 既定値（1）と重ならないのは、ビルド番号の上書きの検査を素通りさせないため。
 # CI は失敗しても残りのステップを続けるが、こちらは最初の失敗で止まる。
@@ -154,6 +173,7 @@ ci:
 	$(MAKE) test
 	$(MAKE) build-tests
 	$(MAKE) test-app
+	$(MAKE) test-ui
 	$(MAKE) test-app-ios26
 	$(MAKE) check-version
 	$(MAKE) archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999

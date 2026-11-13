@@ -127,6 +127,24 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).Tests
         GENERATE_INFOPLIST_FILE: YES
 
+  # 画面を操作する UI テスト（XCUITest）。アプリを起動引数 -SaifuLogUITest で開き（DEBUG のビルドだけの UITestMode。
+  # メモリの上の保存先・キーワード辞書・決まった「いま」）、主な画面と流れ（初回の案内・記録と取り消し・カテゴリの聞き返し・
+  # チャットの操作・質問・直す・削除・カレンダー・月のまとめ・設定・レシート・アクセシビリティの検査・大きな文字）を押して確かめる。
+  # make build-tests でビルドし（スキームのテストに入っているので）、make test-ui で動かす。CI（build.yml）も同じ。
+  # 要素の名前（accessibilityIdentifier）はアプリと同じファイル（SaifuLog/App/AccessibilityID.swift）を入れて合わせる。
+  SaifuLogUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: SaifuLogUITests
+      - path: SaifuLog/App/AccessibilityID.swift
+    dependencies:
+      - target: SaifuLog
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).UITests
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
   SaifuLog:
     build:
@@ -143,5 +161,6 @@ schemes:
       targets:
         - package: SaifuLogCore/SaifuLogCoreTests
         - SaifuLogTests
+        - SaifuLogUITests
     archive:
       config: Release
