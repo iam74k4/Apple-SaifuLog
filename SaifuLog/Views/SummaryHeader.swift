@@ -2,22 +2,18 @@ import SaifuLogCore
 import SwiftData
 import SwiftUI
 
-/// ホームの上に置く今月の帯。
+/// ホームの上に置く今月の帯。「今月いくら使ったか」を大きく出し、予算を決めていれば「あと ¥…」と細いバーだけを添える。
 ///
-/// 予算を決めていれば「今月あと ¥…」を大きく、「1日あたり ¥… ・のこり N 日」を小さく出し、使った割合を
-/// 主の塗りのバーで示す。予算を超えたら「¥… オーバー」を注意の色とアイコンと文字で出す（色だけに頼らない）。
-/// 予算を決めていなければ、今月の支出の合計と「予算を決める」のボタンを出す。
+/// 1 日あたり・のこりの日数・今日までの目安・収入は出さない（帯は会話の上に常に出ているので、数字を増やすほど会話の場所が減り、
+/// いちばん知りたい「使った額」が埋もれるため。細かい数字は月のまとめにあり、会話で聞いても答える）。予算を超えたら「¥… オーバー」を
+/// 注意の色とアイコンと文字で出す（色だけに頼らない）。
 ///
-/// 見出しと数字を押すと「月のまとめ」（⑦）へ進む（`openReport` を渡したとき）。見出しに「›」を添えて、押せば
-/// 詳しく見られることを示す。帯のほかにまとめの入口のボタンを置かないのは、ホームのナビゲーションバーを出さずに
-/// タイムラインを広く使っているのと、今月の合計を見て「何に使ったか」を知りたくなる場所がここだから。
-/// 右上の歯車は「設定」（⑧）の入口（`openSettings` を渡したとき）。ナビゲーションバーを出していないので、ここに置く。
+/// 見出しと数字を押すと「月のまとめ」（⑦）へ進む（`openReport` を渡したとき）。見出しに「›」を添えて、押せば詳しく見られることを
+/// 示す。右上の歯車は「設定」（⑧）の入口（`openSettings` を渡したとき）。予算は設定と会話（「今月の予算を5万にして」）で決める。
 struct SummaryHeader: View {
     let summary: MonthlySummary
     /// 今月の予算の進み。予算を決めていなければ nil。
     let budget: BudgetStatus?
-    /// 予算を決める（変える）画面を出す。nil なら予算のボタンを出さない（プレビューなど）。
-    let editBudget: (() -> Void)?
     /// 月のまとめへ進む。nil なら見出しと数字は押せない（プレビューなど）。
     var openReport: (() -> Void)?
     /// 設定へ進む。nil なら歯車のボタンを出さない（プレビューなど）。
@@ -26,21 +22,11 @@ struct SummaryHeader: View {
     /// （ボタンとページで同じ入口が重なるため）。VoiceOver ではページを送るスワイプが見つけにくいので、数字の要素の操作に置く。
     /// nil なら操作を出さない（プレビューなど）。
     var openCalendar: (() -> Void)?
-    /// 今日までの日割りの目安（月のまとめと同じ `MonthlyReport.budgetPace`・`spentBeyondPace`）。予算を決めていないときは nil。
-    var pace: Pace?
-    /// 低い帯にするか（入力欄にキーボードを出している間）。見出しの行に残り（予算が無ければ合計）を並べ、大きな数字・1 日あたり・
-    /// バー・目安の一言を出さない。キーボードが画面の下の半分ほどを占める間も帯が同じ高さのままだと、タイムラインが 230pt ほどしか
-    /// 残らず、送った記録の返事の「取り消す」やカテゴリの聞き返しが帯の下に隠れたため（iPhone 17 Pro のシミュレータ）。
-    /// 送った後の残りの額は、返事のカードの今月の状況の一行にも出る。
+    /// 低い帯にするか（入力欄にキーボードを出している間）。見出しの行に使った額だけを並べ、大きな数字とバーを出さない。
+    /// キーボードが画面の下の半分ほどを占める間も帯が同じ高さのままだと、送った記録の返事の「取り消す」やカテゴリの聞き返しが
+    /// 帯の下に隠れたため（iPhone 17 Pro のシミュレータ）。
     var isCompact = false
 
-    /// 今日までの日割りの目安と、今日までに使った額がそれより多い額（少なければ負）。
-    struct Pace: Equatable {
-        let amount: Int
-        let beyond: Int
-    }
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     #if DEBUG || INTERNAL_DIAGNOSTICS
     /// 診断画面を出す（社内テスト用のビルドと DEBUG だけ。ホームが環境で渡す）。
     @Environment(\.openDiagnostics) private var openDiagnostics
@@ -64,21 +50,16 @@ struct SummaryHeader: View {
         .accessibilityElement(children: .contain)
         .animation(.default, value: summary)
         .animation(.default, value: budget)
-        .animation(.default, value: pace)
         .animation(.default, value: isCompact)
     }
 
-    /// 見出し（予算の有無と超えたかで変わる）。
+    /// 見出し。
     private var title: Text {
-        switch budget {
-        case nil: Text("今月の支出")
-        case let budget? where budget.isOver: Text("今月の予算")
-        case _?: Text("今月あと")
-        }
+        Text("今月使った額")
     }
 
-    /// 数字の要素。VoiceOver では数字をまとめて 1 つの要素として読ませる（見出し・残り・1 日あたり・残りの日数・
-    /// 予算と使った額・収入の順）。ボタンより先に読ませる。まとめへ進めるときは、その要素を押すとまとめを開く。
+    /// 数字の要素。VoiceOver では数字をまとめて 1 つの要素として読ませる（見出し・使った額・予算の残り）。ボタンより先に読ませる。
+    /// まとめへ進めるときは、その要素を押すとまとめを開く。
     @ViewBuilder
     private func figuresElement(_ figures: some View) -> some View {
         if let openReport {
@@ -114,30 +95,18 @@ struct SummaryHeader: View {
         }
     }
 
-    /// 見出しと、右のボタン（予算・設定）の行。1 行に収まらなければ、文字の大きさによらずボタンを見出しの下の行に移す。
-    ///
-    /// アクセシビリティサイズに限らないのは、歯車を足してボタンが 2 つ（診断のボタンが入るビルドでは 3 つ）になり、英語の
-    /// 大きな文字（xxxLarge）では、アクセシビリティサイズでなくても「予算を変更」が「Change…」と切れたため。
-    @ViewBuilder
+    /// 見出しと、右のボタン（設定。社内テスト用のビルドでは診断も）の行。
     private var titleRow: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 0) {
-                titleButton
-                Spacer(minLength: 8)
-                // ボタンは縮めない。HStack は幅を子に等分に近い形で配るので、並べた幅が収まる場合でも、ボタンの側が
-                // 等分より広いと予算のボタンの文字が省かれるため（収まらない場合は下の積む形になる）。
-                trailingButtons
-                    .fixedSize(horizontal: true, vertical: false)
-            }
-            VStack(alignment: .leading, spacing: 0) {
-                titleButton
-                trailingButtons
-            }
+        HStack(spacing: 0) {
+            titleButton
+            Spacer(minLength: 8)
+            trailingButtons
+                .fixedSize(horizontal: true, vertical: false)
         }
     }
 
     /// 低い帯の行（`isCompact`）。数字の行と右のボタンを 1 行に並べ、収まらなければ（アクセシビリティサイズの文字・英語の大きな
-    /// 文字）ボタンを出さない。積む形にすると帯がまた高くなるため（予算と設定は、キーボードを閉じれば出る）。
+    /// 文字）ボタンを出さない。積む形にすると帯がまた高くなるため（設定は、キーボードを閉じれば出る）。
     private var compactRow: some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 0) {
@@ -150,15 +119,16 @@ struct SummaryHeader: View {
         }
     }
 
-    /// 低い帯の数字の行。見出し・残り（超えたら超えた額。予算が無ければ今月の支出）・「›」を 1 行に並べる。
+    /// 低い帯の数字の行。見出し・使った額・「›」を 1 行に並べる。
     private var compactFigures: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             title
                 .font(.subheadline)
                 .foregroundStyle(Theme.inkSecondary)
-            compactAmount
+            Text(verbatim: YenFormatter.string(from: summary.expense))
                 .font(.title3.bold())
                 .monospacedDigit()
+                .foregroundStyle(budget?.isOver == true ? Theme.danger : Theme.ink)
                 .contentTransition(.numericText())
             if openReport != nil {
                 Image(systemName: "chevron.right")
@@ -170,22 +140,6 @@ struct SummaryHeader: View {
         .minimumScaleFactor(0.7)
         // 押せる範囲を 44pt の高さ以上にする（見出しの行のボタンと同じ）。
         .frame(minHeight: 44)
-    }
-
-    /// 低い帯の額。超えたことは、注意の色だけでなく、アイコンと「オーバー」の語でも伝える（大きな数字と同じ）。
-    @ViewBuilder
-    private var compactAmount: some View {
-        if let budget, budget.isOver {
-            Label {
-                Text("\(YenFormatter.string(from: budget.overspent)) オーバー")
-            } icon: {
-                Image(systemName: "exclamationmark.triangle.fill")
-            }
-            .foregroundStyle(Theme.danger)
-        } else {
-            Text(YenFormatter.string(from: budget?.remaining ?? summary.expense))
-                .foregroundStyle(Theme.ink)
-        }
     }
 
     /// 見出し。まとめへ進めるときは、見出しを押しても開く（「›」は押せることの印）。
@@ -207,23 +161,18 @@ struct SummaryHeader: View {
         }
     }
 
-    /// 見出しの行の右のボタン。予算のボタンと設定の歯車で、社内テスト用のビルドでは診断のボタンが前に付く。
-    ///
-    /// 予算のボタンは設定の中へ移さずに残す。予算は月の途中でも見直すもので、ホームから 1 回押すだけで開けるほうが
-    /// よいため（設定の中からも開ける）。歯車は右の端に置く（設定の入口の置き場所として見慣れた位置のため）。
-    /// どれもガラスのボタンにする（ほかの画面のナビゲーションバーのボタンと同じ見た目。ホームはナビゲーションバーを隠しているので、
-    /// 帯の中に同じ形で置く）。ガラスの余白を足して、押せる範囲を 44pt にする。
+    /// 見出しの行の右のボタン。設定の歯車で、社内テスト用のビルドでは診断のボタンが前に付く。ガラスのボタンにする（ほかの画面の
+    /// ナビゲーションバーのボタンと同じ見た目。ホームはナビゲーションバーを隠しているので、帯の中に同じ形で置く）。
     private var trailingButtons: some View {
         GlassEffectContainer(spacing: 8) {
             HStack(spacing: 8) {
                 diagnosticsButton
-                budgetButton
                 settingsButton
             }
         }
     }
 
-    /// 設定を開く歯車のボタン。設定は必要なときだけ開く画面なので、記号だけのガラスの丸にして、文字のある予算のボタンより目立たせない。
+    /// 設定を開く歯車のボタン。記号だけのガラスの丸にする。
     @ViewBuilder
     private var settingsButton: some View {
         if let openSettings {
@@ -239,7 +188,7 @@ struct SummaryHeader: View {
         }
     }
 
-    /// 診断画面を開く小さなボタン（社内テスト用のビルドと DEBUG だけ）。予算のボタンより目立たせない。
+    /// 診断画面を開く小さなボタン（社内テスト用のビルドと DEBUG だけ）。歯車より目立たせない。
     @ViewBuilder
     private var diagnosticsButton: some View {
         #if DEBUG || INTERNAL_DIAGNOSTICS
@@ -273,187 +222,54 @@ struct SummaryHeader: View {
         .accessibilityHidden(true)
     }
 
-    @ViewBuilder
-    private var budgetButton: some View {
-        if let editBudget {
-            budgetButton(editBudget)
-        }
-    }
-
-    private func budgetButton(_ editBudget: @escaping () -> Void) -> some View {
-        Button(action: editBudget) {
-            Text(budget == nil ? "予算を決める" : "予算を変更")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.accentText)
-                // 見出しの下の行に移しても収まらないとき（英語のアクセシビリティサイズで、歯車と並べたとき）だけ
-                // 2 行に折り返す。1 行に収まるときは、横に並べる形でも積む形でも 1 行のまま。
-                .lineLimit(2)
-                .frame(minHeight: 30)
-        }
-        .buttonStyle(.glass)
-        .buttonBorderShape(.capsule)
-    }
-
-    @ViewBuilder
+    /// 使った額（大きく）と、予算があれば細いバーと残り。
     private var figures: some View {
         VStack(alignment: .leading, spacing: 4) {
+            Text(verbatim: YenFormatter.string(from: summary.expense))
+                .font(.largeTitle.bold())
+                .monospacedDigit()
+                .foregroundStyle(Theme.ink)
+                // 金額は「¥」と数字の間や桁の途中で改行させない。収まらなければ縮めて 1 行に収める。
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .contentTransition(.numericText())
             if let budget {
-                budgetFigures(budget)
-            } else {
-                amount(YenFormatter.string(from: summary.expense))
-            }
-            if summary.income > 0 {
-                incomeRow
+                BudgetProgressBar(fraction: budget.spentFraction, isOver: budget.isOver)
+                    .padding(.vertical, 4)
+                budgetText(budget)
                     .font(.footnote)
-                    .foregroundStyle(Theme.inkSecondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .contentTransition(.numericText())
             }
         }
     }
 
+    /// 予算の残り（「あと ¥…」）。超えたら、注意の色だけでなく、アイコンと「オーバー」の語でも伝える。
     @ViewBuilder
-    private func budgetFigures(_ budget: BudgetStatus) -> some View {
+    private func budgetText(_ budget: BudgetStatus) -> some View {
         if budget.isOver {
-            // 超えたことは、注意の色だけでなく、アイコンと「オーバー」の語でも伝える。
             Label {
                 Text("\(YenFormatter.string(from: budget.overspent)) オーバー")
             } icon: {
                 Image(systemName: "exclamationmark.triangle.fill")
             }
-            .font(.largeTitle.bold())
-            .monospacedDigit()
             .foregroundStyle(Theme.danger)
-            .lineLimit(1)
-            .minimumScaleFactor(0.5)
-            .contentTransition(.numericText())
         } else {
-            amount(YenFormatter.string(from: budget.remaining))
-        }
-        detailRow(budget)
-            .font(.footnote)
-            .foregroundStyle(Theme.inkSecondary)
-        // バーに今日までの目安の印を立てる（月のまとめの予算の欄と同じ）。印より右まで塗られていれば、目安より多く使っている。
-        BudgetProgressBar(
-            fraction: budget.spentFraction,
-            isOver: budget.isOver,
-            paceFraction: pace.map { min(max(Double($0.amount) / Double(budget.budget), 0), 1) }
-        )
-        .padding(.vertical, 4)
-        // 超えていないときは、目安と比べた一言も添える（超えたら上の「オーバー」で足りる）。
-        if let pace, !budget.isOver {
-            paceText(pace.beyond)
-                .font(.footnote)
+            Text("あと \(YenFormatter.string(from: budget.remaining))")
                 .foregroundStyle(Theme.inkSecondary)
-                .lineLimit(2)
-                .contentTransition(.numericText())
         }
     }
 
-    /// 今日までの目安と比べた一言（月のまとめの予算の欄と同じ文）。多い・少ないは矢印だけでなく語でも伝える。
-    @ViewBuilder
-    private func paceText(_ beyond: Int) -> some View {
-        let amount = YenFormatter.string(from: abs(beyond))
-        switch beyond {
-        case 1...:
-            Label { Text("今日までの目安より \(amount) 多い") } icon: { Image(systemName: "arrow.up.right").accessibilityHidden(true) }
-        case ..<0:
-            Label { Text("今日までの目安より \(amount) 少ない") } icon: { Image(systemName: "arrow.down.right").accessibilityHidden(true) }
-        default:
-            Label { Text("今日までの目安どおり") } icon: { Image(systemName: "equal").accessibilityHidden(true) }
-        }
-    }
-
-    /// 読み上げる目安の一言。
-    private func spokenPace(_ beyond: Int) -> String {
-        let amount = YenFormatter.string(from: abs(beyond))
-        return switch beyond {
-        case 1...: String(localized: "今日までの目安より \(amount) 多い")
-        case ..<0: String(localized: "今日までの目安より \(amount) 少ない")
-        default: String(localized: "今日までの目安どおり")
-        }
-    }
-
-    /// 「1日あたり ¥… ・のこり N 日」（超えたら「予算 ¥… ・のこり N 日」）。アクセシビリティサイズの文字で
-    /// 1 行に収まらなければ縦に積み、そのときだけ区切りの点を外す（行の頭に点が残らないように）。
-    @ViewBuilder
-    private func detailRow(_ budget: BudgetStatus) -> some View {
-        let lead = budget.isOver
-            ? figure(Text("予算 \(YenFormatter.string(from: budget.budget))"))
-            : figure(Text("1日あたり \(YenFormatter.string(from: budget.dailyAllowance))"))
-        let days = figure(Text("のこり \(budget.remainingDays) 日"))
-        let inline = HStack(alignment: .firstTextBaseline, spacing: 4) {
-            lead
-            // 区切りの点も訳す。日本語の中黒（全角）のままだと、英語の半角の文の間で幅が広く浮いて見えるため
-            // （英語では中点「·」にする）。
-            Text("・")
-            days
-        }
-        if dynamicTypeSize.isAccessibilitySize {
-            ViewThatFits(in: .horizontal) {
-                inline
-                VStack(alignment: .leading, spacing: 2) {
-                    lead
-                    days
-                }
-            }
-        } else {
-            inline
-        }
-    }
-
-    /// 大きく出す金額。
-    private func amount(_ text: String) -> some View {
-        Text(verbatim: text)
-            .font(.largeTitle.bold())
-            .monospacedDigit()
-            .foregroundStyle(Theme.ink)
-            // 金額は「¥」と数字の間や桁の途中で改行させない。収まらなければ縮めて 1 行に収める。
-            .lineLimit(1)
-            .minimumScaleFactor(0.5)
-            .contentTransition(.numericText())
-    }
-
-    /// 小さく出す数字の 1 項目。桁の途中で改行させない。
-    private func figure(_ text: Text) -> some View {
-        text
-            .monospacedDigit()
-            .lineLimit(1)
-            .minimumScaleFactor(0.5)
-    }
-
-    /// 今月の収入の行。アクセシビリティサイズの文字では、横に並べると金額が桁の途中で折り返されることが
-    /// あるので、1 行に収まらなければ見出しと金額を縦に積み、金額に全幅を使わせる。
-    private var incomeRow: some View {
-        AdaptiveRow(stacks: dynamicTypeSize.isAccessibilitySize, alignment: .firstTextBaseline, spacing: 4) {
-            Text("今月の収入")
-            Text(verbatim: YenFormatter.string(from: summary.income))
-                .monospacedDigit()
-                .foregroundStyle(Theme.income)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-        }
-    }
-
-    /// VoiceOver で読ませる数字（見出しの後に続く）。画面に出ている項目に「予算」と「使った額」を足し、言語に合った
-    /// 区切りで並べる。予算と使った額は画面には出さない（予算は超えたときだけ出す）が、読ませないバーの代わりに、
-    /// 予算のうちどれだけ使ったかを伝えるために読む。
+    /// VoiceOver で読ませる数字（見出しの後に続く）。使った額と、予算があれば残り（超えたら超えた額）と予算。
     private var spokenFigures: String {
-        var items: [String] = []
+        var items = [YenFormatter.string(from: summary.expense)]
         if let budget {
-            if budget.isOver {
-                items.append(String(localized: "\(YenFormatter.string(from: budget.overspent)) オーバー"))
-            } else {
-                items.append(YenFormatter.string(from: budget.remaining))
-                items.append(String(localized: "1日あたり \(YenFormatter.string(from: budget.dailyAllowance))"))
-            }
-            items.append(String(localized: "のこり \(budget.remainingDays) 日"))
+            items.append(budget.isOver
+                ? String(localized: "\(YenFormatter.string(from: budget.overspent)) オーバー")
+                : String(localized: "あと \(YenFormatter.string(from: budget.remaining))"))
             items.append(String(localized: "予算 \(YenFormatter.string(from: budget.budget))"))
-            items.append(String(localized: "使った額 \(YenFormatter.string(from: budget.spent))"))
-            if let pace, !budget.isOver { items.append(spokenPace(pace.beyond)) }
-        } else {
-            items.append(YenFormatter.string(from: summary.expense))
-        }
-        if summary.income > 0 {
-            items.append(String(localized: "今月の収入 \(YenFormatter.string(from: summary.income))"))
         }
         return items.formatted(.list(type: .and))
     }
@@ -513,28 +329,6 @@ struct BudgetProgressBar: View {
     }
 }
 
-/// 横に並べる行。`stacks` のとき（アクセシビリティサイズの文字）は、1 行に収まらなければ縦に積む。
-///
-/// 一律に縦に積むと、1 行に収まるものまで行が増えて帯が高くなり、タイムラインの場所が減るため、
-/// 収まるかどうかで選ぶ。
-private struct AdaptiveRow<Content: View>: View {
-    let stacks: Bool
-    var alignment: VerticalAlignment = .center
-    var spacing: CGFloat?
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        if stacks {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: alignment, spacing: spacing) { content }
-                VStack(alignment: .leading, spacing: 2) { content }
-            }
-        } else {
-            HStack(alignment: alignment, spacing: spacing) { content }
-        }
-    }
-}
-
 /// 今日を含む月の記録と予算を読み、SummaryHeader に合計と予算の進みを出す。
 ///
 /// 読み込みの条件は月ごとに変わるので、今日を受け取るビューに @Query を置く
@@ -542,7 +336,6 @@ private struct AdaptiveRow<Content: View>: View {
 struct MonthSummaryHeader: View {
     private let today: Date
     private let calendar: Calendar
-    private let editBudget: () -> Void
     private let openReport: () -> Void
     private let openSettings: () -> Void
     private let openCalendar: (() -> Void)?
@@ -554,7 +347,6 @@ struct MonthSummaryHeader: View {
     init(
         today: Date,
         calendar: Calendar,
-        editBudget: @escaping () -> Void,
         openReport: @escaping () -> Void,
         openSettings: @escaping () -> Void,
         openCalendar: (() -> Void)? = nil,
@@ -562,7 +354,6 @@ struct MonthSummaryHeader: View {
     ) {
         self.today = today
         self.calendar = calendar
-        self.editBudget = editBudget
         self.openReport = openReport
         self.openSettings = openSettings
         self.openCalendar = openCalendar
@@ -575,11 +366,9 @@ struct MonthSummaryHeader: View {
         SummaryHeader(
             summary: figures.summary,
             budget: figures.budget,
-            editBudget: editBudget,
             openReport: openReport,
             openSettings: openSettings,
             openCalendar: openCalendar,
-            pace: figures.pace,
             isCompact: isCompact
         )
     }
@@ -588,29 +377,21 @@ struct MonthSummaryHeader: View {
     ///
     /// 月の集計（`LedgerSummary`）は 1 回だけ行い、合計と予算の進みの両方に使う（同じ記録から別々に数えて、
     /// 合計と予算の「使った額」が食い違わないように）。
-    ///
-    /// 今日までの目安は、月のまとめと同じ計算（`MonthlyReport`）で出す（帯とまとめの目安を食い違わせないため）。
     static func figures(
         records: [Entry], budgets: [Budget], today: Date, calendar: Calendar
-    ) -> (summary: MonthlySummary, budget: BudgetStatus?, pace: SummaryHeader.Pace?) {
+    ) -> (summary: MonthlySummary, budget: BudgetStatus?) {
         guard let month = ReportPeriod.thisMonth.interval(now: today, calendar: calendar) else {
-            return (MonthlySummary(), nil, nil)
+            return (MonthlySummary(), nil)
         }
         let ledger = LedgerSummary(records: records, interval: month, calendar: calendar)
         let total = BudgetPlan.resolve(budgets).total
         let budget = BudgetStatus(budget: total, summary: ledger, now: today, calendar: calendar)
-        var pace: SummaryHeader.Pace?
-        if budget != nil,
-           let report = MonthlyReport(records: records, month: today, now: today, budget: total, calendar: calendar),
-           let amount = report.budgetPace, let beyond = report.spentBeyondPace {
-            pace = SummaryHeader.Pace(amount: amount, beyond: beyond)
-        }
-        return (MonthlySummary(ledger), budget, pace)
+        return (MonthlySummary(ledger), budget)
     }
 }
 
 #Preview("予算なし") {
-    SummaryHeader(summary: MonthlySummary(expense: 42_380, income: 250_000), budget: nil, editBudget: {})
+    SummaryHeader(summary: MonthlySummary(expense: 42_380, income: 250_000), budget: nil)
 }
 
 #Preview("予算あり") {
@@ -619,8 +400,7 @@ struct MonthSummaryHeader: View {
         budget: BudgetStatus(
             budget: 150_000, spent: 57_000, now: .now,
             month: Calendar.current.dateInterval(of: .month, for: .now)!, calendar: .current
-        ),
-        editBudget: {}
+        )
     )
 }
 
@@ -630,7 +410,6 @@ struct MonthSummaryHeader: View {
         budget: BudgetStatus(
             budget: 150_000, spent: 162_000, now: .now,
             month: Calendar.current.dateInterval(of: .month, for: .now)!, calendar: .current
-        ),
-        editBudget: {}
+        )
     )
 }

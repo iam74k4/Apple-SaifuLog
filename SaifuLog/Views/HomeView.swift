@@ -244,9 +244,7 @@ struct HomeView: View {
                 header
                     // 合計は画面の上に常に出ている帯なので、文字の大きさに上限を設ける。最大の文字サイズの
                     // ままだと、下の入力欄と合わせて画面の半分以上を占め、タイムラインがほとんど見えなくなるため。
-                    // 上限は入力欄（`InputBar`）と同じ AX1。AX2 では「1日あたり ¥… ・のこり N 日」が 2 行に分かれ、
-                    // AX5 で帯（上の安全領域を含む）が画面の 3 分の 1 を超えた。AX1 なら 1 行に収まり、帯が 50pt ほど
-                    // 低くなる（iPhone 17 Pro のシミュレータ）。
+                    // 上限は入力欄（`InputBar`）と同じ AX1（前は AX5 で帯（上の安全領域を含む）が画面の 3 分の 1 を超えた）。
                     .dynamicTypeSize(...DynamicTypeSize.accessibility1)
             }
             .safeAreaBar(edge: .bottom, spacing: 0) {
@@ -284,7 +282,6 @@ struct HomeView: View {
         MonthSummaryHeader(
             today: model.today,
             calendar: calendar,
-            editBudget: { model.presentBudgetSetup() },
             openReport: { model.presentMonthlyReport(calendar: calendar) },
             openSettings: { model.presentSettings() },
             openCalendar: { withAnimation { model.page = .calendar } },

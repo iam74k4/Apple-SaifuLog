@@ -59,7 +59,7 @@ struct BudgetSetupView: View {
             Text("月の予算を決める")
                 .font(.title.bold())
                 .accessibilityAddTraits(.isHeader)
-            Text("1か月に使うお金の上限を決めると、ホームに今月あといくら使えるかと、1日あたりに使える額が出ます。")
+            Text("1か月に使うお金の上限を決めると、ホームに今月あといくら使えるかが出ます。")
                 .foregroundStyle(Theme.inkSecondary)
         }
     }
