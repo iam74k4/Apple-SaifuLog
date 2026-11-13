@@ -42,9 +42,6 @@ final class HomeModel {
     }
     /// 入力欄の文をどこから入れたか。声で入れた文（打ち直したものも含む）を送ったら、記録の入力元を「声」にする。
     private(set) var draftSource: EntrySource = .text
-    /// よく使うひとことの候補（品目ごとにまとめたもの。入力欄の文に合わせて絞ったものは `quickPhraseSuggestions`）。
-    /// 記録を足す・直す・消す・取り込むたびに `refreshQuickPhrases()` で作り直す。
-    private(set) var quickPhrases: [QuickPhrase] = []
     /// 送った文を読み取っている間（送信ボタンを押せなくし、読み取り中の印を出す）。
     private(set) var isParsing = false
     /// 記録として送り、読み取っている文。読み取りが終わるまで、タイムラインのいちばん下に送った文の吹き出しと「読み取っています…」
@@ -1426,33 +1423,6 @@ final class HomeModel {
     /// タイムラインにさらに前の記録を読み込む（上限の `timelineMaxLimit` を超えては読み込まない）。
     func showMoreTimeline() {
         timelineLimit = min(timelineLimit + Self.timelinePageSize, Self.timelineMaxLimit)
-    }
-
-    // MARK: - よく使うひとこと
-
-    /// よく使うひとことの候補に読む期間（日）。いまの暮らしで使う品目と額を出すため、古い記録は読まない。
-    static let quickPhraseWindowDays = 90
-
-    /// よく使うひとことの候補を作り直す（ホームが出たとき・保存先に書き込んだとき・iCloud で取り込んだとき・前面に戻ったとき）。
-    /// 読めなければ前の候補のまま（候補は入力の手助けで、無くても記録できるため）。
-    func refreshQuickPhrases() {
-        // 期間はおおよそでよいので、暦ではなく秒数で区切る。
-        let start = now().addingTimeInterval(-Double(Self.quickPhraseWindowDays) * 86_400)
-        guard let records = try? store.context.fetch(Entry.quickPhraseDescriptor(since: start)) else { return }
-        quickPhrases = QuickPhrases.phrases(from: records)
-    }
-
-    /// 入力欄の上に出す、よく使うひとこと（入力欄の文に合わせて絞る。`QuickPhrases.suggestions`）。カレンダーの「この日に記録」で入れた
-    /// 日付は除いて絞る（日付は数字なので、そのままでは候補が出なくなる。日付を入れた後も、よく使うひとことから選べるように）。
-    var quickPhraseSuggestions: [QuickPhrase] {
-        QuickPhrases.suggestions(quickPhrases, draft: draftAfterCalendarDate.rest)
-    }
-
-    /// よく使うひとことを選んだ。その文（「ランチ 850」）を入力欄に入れる（送るのは利用者。額を直してから送れるように）。
-    /// カレンダーで入れた日付は残す（「10/2 ランチ 850」。その日の記録として送れるように）。
-    func pickQuickPhrase(_ phrase: QuickPhrase) {
-        draft = draftAfterCalendarDate.date + phrase.draft
-        draftSource = .text
     }
 
     // MARK: - 型

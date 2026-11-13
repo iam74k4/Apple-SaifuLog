@@ -61,29 +61,6 @@ struct HomeModelCalendarTests {
         #expect(fixture.model.draft == "9/24 コーヒー 400")
     }
 
-    /// 日付を入れた後も、よく使うひとことの候補を出し（日付を除いて絞る）、選ぶと日付の後ろに入れる。送ったら日付は覚えておかない。
-    @Test func quickPhrasesKeepCalendarDate() async throws {
-        let fixture = try Fixture()
-        await fixture.send("ランチ 850")
-        await fixture.send("ランチ 850")
-        fixture.model.refreshQuickPhrases()
-
-        fixture.model.prepareDraft(for: TestSupport.date(2026, 9, 25), calendar: TestSupport.calendar)
-        #expect(fixture.model.quickPhraseSuggestions.map(\.item) == ["ランチ"])
-        fixture.model.draft += "ラ"
-        #expect(fixture.model.quickPhraseSuggestions.map(\.item) == ["ランチ"])
-
-        fixture.model.pickQuickPhrase(try #require(fixture.model.quickPhraseSuggestions.first))
-        #expect(fixture.model.draft == "9/25 ランチ 850")
-
-        await fixture.model.send(calendar: TestSupport.calendar)?.value
-        let entry = try #require(try fixture.entries().last)
-        #expect(TestSupport.calendar.isDate(entry.spentAt, inSameDayAs: TestSupport.date(2026, 9, 25)))
-        // 送った後に自分で打った日付は、カレンダーで入れた日付ではない（数字を含む文なので、これまでどおり候補を出さない）。
-        fixture.model.draft = "9/25 ラ"
-        #expect(fixture.model.quickPhraseSuggestions.isEmpty)
-    }
-
     /// Siri・ショートカットの頼みを受け取ったら、会話のページに戻す（返事も入力欄・カメラ・声も会話のページに出すため）。
     @Test func quickActionShowsConversation() throws {
         let fixture = try Fixture()

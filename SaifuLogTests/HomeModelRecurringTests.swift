@@ -121,19 +121,6 @@ struct HomeModelRecurringTests {
         #expect(!fixture.model.canUndo)
     }
 
-    /// くり返しの記録は、よく使うひとことの候補に出さない（アプリが毎月記録するので、打つ候補ではない）。
-    @Test func quickPhrasesSkipRecurringEntries() throws {
-        let fixture = try Fixture()
-        try addRent(fixture)
-        fixture.now = TestSupport.date(2026, 11, 26)
-        fixture.model.recordDueRecurringEntries(calendar: TestSupport.calendar)
-        #expect(try fixture.entries().count == 3)
-
-        fixture.model.refreshQuickPhrases()
-
-        #expect(fixture.model.quickPhrases.isEmpty)
-    }
-
     /// 設定から足したくり返しの記録も、記録する日を過ぎた分をすぐ記録する（ホームに戻ると返事のカードが出ている）。
     @Test func addingFromSettingsRecordsImmediately() throws {
         let fixture = try Fixture()

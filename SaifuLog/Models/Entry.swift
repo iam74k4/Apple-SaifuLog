@@ -146,26 +146,6 @@ extension Entry {
         return descriptor
     }
 
-    /// よく使うひとことの候補（`QuickPhrases`）を作るのに読む記録。`start` より後に記録したもの（レシート・くり返しの記録・前の版の Apple Pay の
-    /// 支払いから記録したものは除く）を、記録した日時の新しいものから `limit` 件。
-    ///
-    /// レシートの品目は店の略した名前や半角のカナが多く、ひとこと入力で打つ文の候補にならないので除く。くり返しの記録は
-    /// アプリが毎月記録し、Apple Pay の支払いは払うだけで記録されるので、打つ候補に出さない。件数で区切るのは、記録を足すたびに読み直すため（記録が増えても読む量が
-    /// 変わらないように）。
-    static func quickPhraseDescriptor(since start: Date, limit: Int = 500) -> FetchDescriptor<Entry> {
-        let receipt = EntrySource.receipt.rawValue
-        let recurring = EntrySource.recurring.rawValue
-        let wallet = EntrySource.wallet.rawValue
-        var descriptor = FetchDescriptor<Entry>(
-            predicate: #Predicate {
-                $0.createdAt >= start && $0.sourceRawValue != receipt && $0.sourceRawValue != recurring && $0.sourceRawValue != wallet
-            },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        descriptor.fetchLimit = limit
-        return descriptor
-    }
-
     /// 過去の記録のいつものカテゴリ（`CategoryHistory`）を作るのに読む記録。支出のうち、カテゴリを聞き返していないものを、
     /// 記録した日時の新しいものから `limit` 件。
     ///
@@ -193,8 +173,6 @@ extension Entry {
 /// 集計（SaifuLogCore の LedgerSummary・MonthlySummary）と CSV の書き出し（LedgerCSVWriter）にそのまま渡せるようにする。
 extension Entry: LedgerCSVRecord {}
 
-/// よく使うひとことの候補（SaifuLogCore の QuickPhrases）にそのまま渡せるようにする。
-extension Entry: QuickPhraseRecord {}
 
 /// どこから記録したか。rawValue は保存に使うので変えないこと。
 enum EntrySource: String, Codable, CaseIterable, Sendable {

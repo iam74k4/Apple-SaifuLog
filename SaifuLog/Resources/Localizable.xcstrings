@@ -2269,17 +2269,6 @@
         }
       }
     },
-    "よく使うひとこと" : {
-      "comment" : "ホームの入力欄の上の、よく記録する品目の候補の並びの VoiceOver の名前",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Frequent entries"
-          }
-        }
-      }
-    },
     "よく使うカテゴリ" : {
       "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の見出し",
       "localizations" : {

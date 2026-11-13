@@ -168,7 +168,6 @@ struct HomeView: View {
                     // 記録する日を過ぎたくり返しの記録を記録する（ふりかえりより先に。ふりかえりのカードをいちばん下に出すため）。
                     recordDueRecurringEntries()
                     showWeeklyRecapIfDue()
-                    model.refreshQuickPhrases()
                     // 起動の途中（案内の間・保存先を開く前）に受けた Siri・ショートカットの頼みを行う。
                     deliverQuickActions()
                 }
@@ -199,12 +198,11 @@ struct HomeView: View {
                     if page != .conversation { model.voice.stop(.user) }
                     if model.consumePageChange() { VoiceOver.screenChanged() }
                 }
-                // 保存先に書き込まれたら、ふりかえりのカード（と内訳）の数字と、よく使うひとことの候補を読み直す（記録を足した・
+                // 保存先に書き込まれたら、ふりかえりのカード（と内訳）の数字を読み直す（記録を足した・
                 // 直した・消したとき）。
                 .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { _ in
                     model.categories.reload()
                     model.weeklyRecap?.reload()
-                    model.refreshQuickPhrases()
                     model.calendarPage.reload()
                     model.refreshCategoryQuestions()
                 }
@@ -216,7 +214,6 @@ struct HomeView: View {
                     model.removeDuplicateRecurringEntries()
                     model.categories.reload()
                     model.weeklyRecap?.reload()
-                    model.refreshQuickPhrases()
                     model.calendarPage.reload()
                     model.refreshCategoryQuestions()
                 }
@@ -244,8 +241,7 @@ struct HomeView: View {
                         model.refreshToday()
                         recordDueRecurringEntries()
                         deliverQuickActions()
-                        model.refreshQuickPhrases()
-                        // 状態が変わらなくても、前面に戻ったときには確かめる（ほかの画面を閉じた後で出せるように）。
+                            // 状態が変わらなくても、前面に戻ったときには確かめる（ほかの画面を閉じた後で出せるように）。
                         model.presentPremiumIfTrialEnded()
                         showWeeklyRecapIfDue()
                         Task { await model.voice.refreshAvailability() }
@@ -301,7 +297,7 @@ struct HomeView: View {
             // 帯と入力欄は safeAreaBar に置き、記録がその下を流れるようにする（iOS 26 のスクロール端の効果が、帯と入力欄の
             // 下で記録をぼかす）。帯は前は画面の背景の色で塗り、下端に細い線を引いていた（塗った帯の下では効果が隠れたため）。
             // 帯は数字の行が多く背が高いので、やわらかい効果（既定の .soft）では帯の下の方で記録が透け、目安や収入の行が
-            // 読みにくくなった。上ははっきりした効果（.hard）にする。下（入力欄とよく使うひとこと）は既定のまま。
+            // 読みにくくなった。上ははっきりした効果（.hard）にする。下（入力欄）は既定のまま。
             .scrollEdgeEffectStyle(.hard, for: .top)
             .safeAreaBar(edge: .top, spacing: 0) {
                 header
@@ -369,15 +365,6 @@ struct HomeView: View {
                         try? await Task.sleep(for: .seconds(5))
                         if !Task.isCancelled, model.voice.notice == notice { model.voice.notice = nil }
                     }
-            }
-            // よく使うひとこと。声の入力の間は出さない（入力欄の代わりに書き起こしを出している間は、入力欄に文を入れられないため）。
-            if model.voice.isActive == false {
-                QuickPhraseBar(
-                    phrases: model.quickPhraseSuggestions,
-                    pick: { model.pickQuickPhrase($0) }
-                )
-                // 候補は画面の端から端まで送れるようにする（下の入力欄の左右の余白の外まで）。
-                .padding(.horizontal, -16)
             }
             InputBar(
                 text: $model.draft,
