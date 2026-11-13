@@ -79,6 +79,64 @@ struct HomeModelReplyRemarkTests {
         #expect(fixture.model.replyRemark == nil)
     }
 
+    /// 照合に通った一言は、記録の読み上げを遮らないよう、控えめに読み上げる（記録の読み上げとは別に）。
+    @Test func announcesRemarkAside() async throws {
+        let fixture = try Fixture()
+        fixture.recordRemarkWriter = StubRemarkWriter { _ in "いいペースです。" }
+
+        await fixture.send("カフェラテ 480")
+        await fixture.model.replyRemarkTask?.value
+
+        #expect(fixture.asideAnnouncements == ["いいペースです。"])
+        #expect(!fixture.announcements.contains("いいペースです。"))
+    }
+
+    /// 一言は書いたときの今月の数字で書いているので、予算を決める・記録を消す・記録にならない文を送ると外す。
+    @Test func remarkGoesAwayWhenNumbersChange() async throws {
+        let fixture = try Fixture()
+        fixture.recordRemarkWriter = StubRemarkWriter { _ in "いいペースです。" }
+
+        await fixture.send("カフェラテ 480")
+        await fixture.model.replyRemarkTask?.value
+        #expect(fixture.model.replyRemark != nil)
+        await fixture.send("今月の予算を5万にして")
+        #expect(fixture.model.replyRemark == nil)
+
+        await fixture.send("カフェラテ 480")
+        await fixture.model.replyRemarkTask?.value
+        #expect(fixture.model.replyRemark != nil)
+        let first = try #require(try fixture.entries().first)
+        fixture.model.requestDelete(first)
+        let deletion = try #require(fixture.model.pendingDeletion)
+        fixture.model.delete(deletion)
+        #expect(fixture.model.replyRemark == nil)
+
+        await fixture.send("カフェラテ 480")
+        await fixture.model.replyRemarkTask?.value
+        #expect(fixture.model.replyRemark != nil)
+        await fixture.send("残り 5000")
+        #expect(fixture.model.replyRemark == nil)
+    }
+
+    /// 予算の画面で予算を変えて戻ったら外す（変えずに戻ったときは残す）。
+    @Test func remarkGoesAwayWhenBudgetSheetChangesBudget() async throws {
+        let fixture = try Fixture()
+        fixture.recordRemarkWriter = StubRemarkWriter { _ in "いいペースです。" }
+        await fixture.send("カフェラテ 480")
+        await fixture.model.replyRemarkTask?.value
+
+        fixture.model.presentBudgetSetup()
+        fixture.model.budgetSetup = nil
+        #expect(fixture.model.replyRemark != nil)
+
+        fixture.model.presentBudgetSetup()
+        let setup = try #require(fixture.model.budgetSetup)
+        setup.totalText = "50,000"
+        #expect(setup.save())
+        fixture.model.budgetSetup = nil
+        #expect(fixture.model.replyRemark == nil)
+    }
+
     /// 一言に渡された数字の文を残す（別の Task から呼ばれるので錠で守る）。
     private final class FactsBox: @unchecked Sendable {
         private let lock = NSLock()

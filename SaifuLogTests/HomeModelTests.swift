@@ -39,6 +39,8 @@ struct HomeModelTests {
         /// レシートの読み取りの代わり（OCR が読んだ文字と、品名を整える AI）。既定は文字なし・AI なし。
         let receipt = ReceiptStub()
         private(set) var announcements: [String] = []
+        /// いまの読み上げを遮らずに読み上げさせた文（記録の返事の一言）。
+        private(set) var asideAnnouncements: [String] = []
         private(set) var model: HomeModel!
 
         /// - Parameters:
@@ -72,7 +74,8 @@ struct HomeModelTests {
                 receiptReader: receipt.reader,
                 canUseDocumentCamera: canUseDocumentCamera,
                 now: { [unowned self] in now },
-                announce: { [unowned self] in announcements.append($0) }
+                announce: { [unowned self] in announcements.append($0) },
+                announceAside: { [unowned self] in asideAnnouncements.append($0) }
             )
         }
 
@@ -472,7 +475,9 @@ struct HomeModelTests {
         #expect(fixture.showedNoAmount)
         #expect(fixture.model.draft == "コーヒー")
         #expect(try fixture.entries().map(\.amount) == [850])
-        #expect(!fixture.model.canUndo)
+        // 何も記録しなかったので、前の記録の「取り消す」を戻す（以前は引っ込めたままで、前の記録を取り消せなくなっていた）。
+        #expect(fixture.model.canUndo)
+        #expect(fixture.model.justRecorded.map(\.amount) == [850])
     }
 
     /// 複数件を送った後の「取り消す」は、全件を消し、元の文を 1 回だけ戻し、読み上げに全件を並べる。

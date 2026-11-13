@@ -89,13 +89,13 @@
         }
       }
     },
-    "%@ を消すときは、確認で「削除」を押してください。" : {
-      "comment" : "チャットの文を AI が「消す」と読み、確認を出したときの返事のカードの本文。%@ は記録の要約",
+    "%@ を消します。この操作は取り消せません。" : {
+      "comment" : "端末内 AI が選んだ消す操作の確認の本文。%@ は消す記録の要約",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "To remove %@, tap Delete in the confirmation."
+            "value" : "%@ will be deleted. This can’t be undone."
           }
         }
       }
@@ -1026,6 +1026,17 @@
         }
       }
     },
+    "「%@」を %@ にします。" : {
+      "comment" : "端末内 AI が選んだ金額を直す操作の確認の本文。1 つ目の %@ は記録の要約（品目と金額）、2 つ目は直した後の金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%1$@” will be changed to %2$@."
+          }
+        }
+      }
+    },
     "「%@」を%@にしました" : {
       "comment" : "設定の「覚えたカテゴリ」で、覚えた言葉のカテゴリを変えた後に VoiceOver で読み上げる内容。1 つ目の %@ は言葉、2 つ目はカテゴリの名前",
       "localizations" : {
@@ -1033,6 +1044,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Set “%@” to %@"
+          }
+        }
+      }
+    },
+    "「%@」を%@にします。" : {
+      "comment" : "端末内 AI が選んだカテゴリを変える操作の確認の本文。1 つ目の %@ は記録の要約（品目と金額）、2 つ目は変えた先のカテゴリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%1$@” will be moved to %2$@."
           }
         }
       }
@@ -2311,6 +2333,17 @@
         }
       }
     },
+    "カテゴリを変えますか？" : {
+      "comment" : "端末内 AI が選んだチャットの操作（直前の記録のカテゴリを変える）の確認のアラートと返事のカードの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change Category?"
+          }
+        }
+      }
+    },
     "カテゴリを変えられませんでした" : {
       "comment" : "ホームの返事でカテゴリを選んだが、保存できなかったときのアラートの題名",
       "localizations" : {
@@ -2434,7 +2467,7 @@
       }
     },
     "キャンセル" : {
-      "comment" : "予算を決める画面・直すシートを保存せずに閉じるボタン",
+      "comment" : "予算を決める画面・直すシートを保存せずに閉じるボタンと、端末内 AI が選んだチャットの操作の確認のアラートのやめるボタン",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2539,6 +2572,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Security"
+          }
+        }
+      }
+    },
+    "タイムラインの記録を押して直してください。長押しで削除もできます。" : {
+      "comment" : "チャットで直す・消す操作を頼まれたが、相手にできる直前の記録が無かったときの返事のカードの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap an entry in the timeline to edit it. Touch and hold to delete it."
           }
         }
       }
@@ -3181,6 +3225,17 @@
         }
       }
     },
+    "予算を決められませんでした" : {
+      "comment" : "チャットで頼んだ月の予算を保存できなかったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Set Budget"
+          }
+        }
+      }
+    },
     "予算を決める" : {
       "comment" : "ホームの上の帯のボタン。予算を決めていないときに出し、押すと予算を決める画面を開く。カレンダーのページの見通しの欄のボタンにも使う",
       "localizations" : {
@@ -3353,6 +3408,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Set to %@ from this month. The top bar shows how much is left this month and per day."
+          }
+        }
+      }
+    },
+    "今月から %@ にします。" : {
+      "comment" : "端末内 AI が選んだ予算を決める操作の確認の本文。%@ は予算の金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The budget will be %@ from this month."
           }
         }
       }
@@ -3537,6 +3603,17 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "何も変えていません" : {
+      "comment" : "端末内 AI が選んだチャットの操作を確認でキャンセルした後の返事のカードの見出しと、VoiceOver の読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing Changed"
           }
         }
       }
@@ -3950,7 +4027,7 @@
       }
     },
     "削除" : {
-      "comment" : "記録の長押しメニュー・VoiceOver の操作・削除の確認のボタン（ホームと直すシート）",
+      "comment" : "記録の長押しメニュー・VoiceOver の操作・削除の確認のボタン（ホームと直すシート）と、端末内 AI が選んだ消す操作の確認のボタン",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4055,6 +4132,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ less than last month"
+          }
+        }
+      }
+    },
+    "割り勘の記録の金額は直していません" : {
+      "comment" : "割り勘の記録の金額をチャットで直そうとしたときの返事のカードの見出しと、VoiceOver の読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Split Amount Not Changed"
+          }
+        }
+      }
+    },
+    "割り勘の記録は 1 人分の額を記録しているので、チャットでは直しません。記録を押して直してください。" : {
+      "comment" : "割り勘の記録の金額をチャットで直そうとしたときの返事のカードの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Split entries record your share, so they can’t be changed from chat. Tap the entry to edit it."
           }
         }
       }
@@ -4433,13 +4532,13 @@
         }
       }
     },
-    "変えられませんでした" : {
-      "comment" : "チャットで頼んだ操作（金額を直す・予算を決める）を保存できなかったときのアラートの見出し",
+    "変える" : {
+      "comment" : "端末内 AI が選んだカテゴリを変える・金額を直す操作の確認のアラートの、行うボタン",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Couldn’t Make the Change"
+            "value" : "Change"
           }
         }
       }
@@ -5126,6 +5225,17 @@
         }
       }
     },
+    "月の予算を決めますか？" : {
+      "comment" : "端末内 AI が選んだチャットの操作（月の全体の予算を決める）の確認のアラートと返事のカードの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set Monthly Budget?"
+          }
+        }
+      }
+    },
     "月の予算を決める" : {
       "comment" : "予算を決める画面の見出し",
       "localizations" : {
@@ -5418,6 +5528,17 @@
         }
       }
     },
+    "決める" : {
+      "comment" : "端末内 AI が選んだ予算を決める操作の確認のアラートの、行うボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set"
+          }
+        }
+      }
+    },
     "海松" : {
       "comment" : "カテゴリを作る・直すシートの色の名前（VoiceOver が読む）",
       "localizations" : {
@@ -5425,17 +5546,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Seaweed Green"
-          }
-        }
-      }
-    },
-    "消すか確かめます" : {
-      "comment" : "チャットの文を AI が「消す」と読み、確認を出したときの返事のカードの見出し",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Confirm Removal"
           }
         }
       }
@@ -5646,6 +5756,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Keep Editing"
+          }
+        }
+      }
+    },
+    "直せる直前の記録がありません" : {
+      "comment" : "チャットで直す・消す操作を頼まれたが、相手にできる直前の記録が無かったときの返事のカードの見出しと、VoiceOver の読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Recent Entry to Edit"
           }
         }
       }
@@ -6284,6 +6405,17 @@
         }
       }
     },
+    "記録を消しますか？" : {
+      "comment" : "端末内 AI が選んだチャットの操作（直前の送信の記録を消す）の確認のアラートと返事のカードの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Entry?"
+          }
+        }
+      }
+    },
     "記録を直す" : {
       "comment" : "直すシートの見出し",
       "localizations" : {
@@ -6741,6 +6873,17 @@
         }
       }
     },
+    "送った文を入力欄に戻しました。書き直して送れます。" : {
+      "comment" : "端末内 AI が選んだチャットの操作を確認でキャンセルした後の返事のカードの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your message is back in the input field so you can rewrite it."
+          }
+        }
+      }
+    },
     "送信" : {
       "comment" : "送信ボタンの VoiceOver ラベル",
       "localizations" : {
@@ -6913,6 +7056,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Amount Updated"
+          }
+        }
+      }
+    },
+    "金額を直しますか？" : {
+      "comment" : "端末内 AI が選んだチャットの操作（直前の記録の金額を直す）の確認のアラートと返事のカードの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change Amount?"
+          }
+        }
+      }
+    },
+    "金額を直せませんでした" : {
+      "comment" : "チャットで頼んだ金額の直しを保存できなかったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Change Amount"
           }
         }
       }

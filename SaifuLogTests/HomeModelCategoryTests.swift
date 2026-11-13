@@ -336,14 +336,16 @@ struct HomeModelCategoryTests {
         #expect(try fixture.entries().map(\.category) == [.entertainment])
     }
 
-    /// 直前の記録が無ければ、直す文として読まない（ふつうの送信として、金額が無いと知らせる）。
+    /// 直前の記録が無ければ、何も直さず、直せる記録が無いと案内する（以前は金額の無い記録の文として「金額が見つかりません
+    /// でした」を出し、何がいけないのか分からなかった）。
     @Test func recategorizingNeedsRecentEntry() async throws {
         let fixture = try Fixture()
 
         await fixture.send("日用品")
 
         #expect(try fixture.entries().isEmpty)
-        #expect(fixture.lastQuestionState == .noAmount)
+        #expect(fixture.lastQuestionState == .noTarget)
+        #expect(fixture.model.draft == "日用品")
     }
 
     /// 1 回の送信で複数件を記録したら、聞き返している記録が 1 件のときだけ、その記録を直す。

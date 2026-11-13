@@ -39,10 +39,17 @@ struct QuestionExchange: Identifiable, Equatable {
         case amountChanged(item: String, from: Int, to: Int)
         /// 直前の記録を、チャットの文（「さっきの消して」）で消した。`summary` は消した記録の要約。
         case removed(summary: String)
-        /// 直前の記録を消すか、確認を出した（端末内 AI が「消す」と読んだとき）。
-        case removalAsked(summary: String)
+        /// 端末内 AI が選んだ操作を行う前に、確認を出した（行えば結果の状態に、やめれば `commandCancelled` に替わる）。
+        case commandAsked(CommandQuestion)
+        /// 端末内 AI が選んだ操作を、確認で「キャンセル」にした。何も変えていない。
+        case commandCancelled
         /// 月の全体の予算を、チャットの文（「今月の予算を5万にして」）で決めた。
         case budgetSet(amount: Int)
+        /// チャットの文で直す・消す操作を頼まれたが、相手にできる直前の記録が無かった（質問の後・取り消した後・くり返しの記録の後）。
+        case noTarget
+        /// 割り勘の記録の金額を、チャットの文で直そうとした。1 人分の額を記録しているので、書いた金額が 1 人分か合計か決められず、
+        /// 直していない（⑥ で直してもらう）。
+        case splitNotChanged
         /// 記録として送った文に、金額が見つからなかった（「ランチ」）。記録しない。前はアラートで知らせていたが、閉じるまで
         /// キーボードが下がって流れが止まり、送った文もタイムラインに残らなかったので、ほかの案内と同じくタイムラインに出す。
         case noAmount
@@ -55,9 +62,31 @@ struct QuestionExchange: Identifiable, Equatable {
         /// ので、VoiceOver でも「質問」と名乗らない（下の案内と食い違うため）。
         var isQuestion: Bool {
             switch self {
-            case .unclear, .correction, .noAmount, .recategorized, .amountChanged, .removed, .removalAsked, .budgetSet: false
+            case .unclear, .correction, .noAmount, .recategorized, .amountChanged, .removed, .commandAsked, .commandCancelled,
+                 .budgetSet, .noTarget, .splitNotChanged:
+                false
             case .answering, .answered, .unreadable, .limitReached, .loadFailed: true
             }
         }
+    }
+}
+
+/// 端末内 AI が選んだチャットの操作の確認（何をするか）。確認のアラートと、タイムラインの返事のカードに同じ内容を出す。
+///
+/// 端末内のモデルは小さく、文の読み違いがある。AI が選んだ操作は、決まりで読んだ操作と違い、すぐには行わずに確かめる
+/// （黙って記録や予算を書き換えないため）。
+enum CommandQuestion: Equatable {
+    /// 直前の記録（`summary`。「ランチ ¥850」）のカテゴリを `category`（名前）にする。
+    case recategorize(summary: String, category: String)
+    /// 直前の記録の金額を `amount` にする。
+    case changeAmount(summary: String, amount: Int)
+    /// 直前の送信の記録（`summary`。複数ならまとめた要約）を消す。
+    case remove(summary: String)
+    /// 月の全体の予算を `amount` にする。
+    case setMonthlyBudget(amount: Int)
+
+    /// 消す確認か（確認のボタンを、取り消せない操作の見た目にする）。
+    var isDestructive: Bool {
+        if case .remove = self { true } else { false }
     }
 }

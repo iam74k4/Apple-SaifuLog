@@ -98,8 +98,20 @@ private struct QuestionReplyCard: View {
             )
         case .removed(let summary):
             NoticeContent(title: "取り消しました", message: "\(summary) を消しました。")
-        case .removalAsked(let summary):
-            NoticeContent(title: "消すか確かめます", message: "\(summary) を消すときは、確認で「削除」を押してください。")
+        case .commandAsked(let question):
+            NoticeContent(title: question.title, message: question.detail)
+        case .commandCancelled:
+            NoticeContent(title: "何も変えていません", message: "送った文を入力欄に戻しました。書き直して送れます。")
+        case .noTarget:
+            NoticeContent(
+                title: "直せる直前の記録がありません",
+                message: "タイムラインの記録を押して直してください。長押しで削除もできます。"
+            )
+        case .splitNotChanged:
+            NoticeContent(
+                title: "割り勘の記録の金額は直していません",
+                message: "割り勘の記録は 1 人分の額を記録しているので、チャットでは直しません。記録を押して直してください。"
+            )
         case .budgetSet(let amount):
             NoticeContent(
                 title: "月の予算を決めました",
@@ -519,6 +531,38 @@ struct BreakdownLine: View {
 }
 
 /// 答えられなかったときの案内（見出し・文・質問の例）。
+/// 端末内 AI が選んだ操作の確認の文（ホームの確認のアラートと、タイムラインの返事のカードで同じものを使う）。
+extension CommandQuestion {
+    /// 確認の見出し（何の操作か）。
+    var title: LocalizedStringResource {
+        switch self {
+        case .recategorize: "カテゴリを変えますか？"
+        case .changeAmount: "金額を直しますか？"
+        case .remove: "記録を消しますか？"
+        case .setMonthlyBudget: "月の予算を決めますか？"
+        }
+    }
+
+    /// 確認の本文（どの記録を、どうするか）。
+    var detail: LocalizedStringResource {
+        switch self {
+        case .recategorize(let summary, let category): "「\(summary)」を\(category)にします。"
+        case .changeAmount(let summary, let amount): "「\(summary)」を \(YenFormatter.string(from: amount)) にします。"
+        case .remove(let summary): "\(summary) を消します。この操作は取り消せません。"
+        case .setMonthlyBudget(let amount): "今月から \(YenFormatter.string(from: amount)) にします。"
+        }
+    }
+
+    /// 行うボタンの文字。
+    var confirmLabel: LocalizedStringResource {
+        switch self {
+        case .recategorize, .changeAmount: "変える"
+        case .remove: "削除"
+        case .setMonthlyBudget: "決める"
+        }
+    }
+}
+
 private struct NoticeContent: View {
     let title: LocalizedStringResource
     let message: LocalizedStringResource

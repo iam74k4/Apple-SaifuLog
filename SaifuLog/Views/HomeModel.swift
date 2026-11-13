@@ -33,7 +33,14 @@ final class HomeModel {
     /// 入力欄の文。
     var draft = ""
     /// 送った文を読み取っている間（送信ボタンを押せなくし、読み取り中の印を出す）。
-    private(set) var isParsing = false
+    private(set) var isParsing = false {
+        didSet {
+            // 読み取りの間に待たせたくり返しの記録を、読み取りが終わったら記録する（`recordDueRecurringEntries`）。
+            guard oldValue, !isParsing, holdsRecurringEntries else { return }
+            holdsRecurringEntries = false
+            recordDueRecurringEntries(calendar: recurringCalendar)
+        }
+    }
     /// 記録として送り、読み取っている文。読み取りが終わるまで、タイムラインのいちばん下に送った文の吹き出しと「読み取っています…」
     /// を出す（質問の「計算しています…」と同じ）。読み取りは AI だと 1 秒以上かかることがあり、その間に何も出ないと、送った文が
     /// 入力欄から消えただけに見え、送れたのか分からないため。記録したら記録した送信に替わり、読めなければ消えて文が入力欄に戻る。
@@ -41,8 +48,18 @@ final class HomeModel {
     /// 直前の送信で記録したもの。その送信の返事に「取り消す」を出すため（時間では引っ込めない。次の文を送る・取り消す・
     /// その記録を直す・記録先を切り替えるまで残し、消した記録は外す）。
     private(set) var justRecorded: [Entry] = [] {
-        didSet { snapshotJustRecorded() }
+        didSet {
+            // 別の送信の記録に替わったら（記録した・引っ込めた）、引っ込めた「取り消す」を戻す。消えた記録を外しただけなら、そのまま。
+            if justRecorded.isEmpty || justRecorded.contains(where: { entry in !oldValue.contains { $0 === entry } }) {
+                undoWithdrawn = false
+            }
+            snapshotJustRecorded()
+        }
     }
+    /// 直前の送信の「取り消す」を引っ込めたか（チャットで金額を直したとき）。直前の記録そのものは、今月の状況の一行・聞き返し・
+    /// チャットで直す相手として残す（`justRecorded` を空にすると、金額を直した直後に「それ日用品」で直せず、聞き返しのボタンも
+    /// 消えるため）。取り消すと直す前の文が入力欄に戻り、直した内容と食い違うので、「取り消す」だけを引っ込める。
+    private(set) var undoWithdrawn = false
     /// `justRecorded` の ID（同じ並び）。記録した時点で控えておく。ほかの端末（iCloud）で消された記録は、SwiftData が値を空にし、
     /// 値を読むとアプリが落ちうるので、画面を描くときや、消えたかを確かめるときは記録ではなくこちらを使う。
     private(set) var justRecordedIDs: [PersistentIdentifier] = []
@@ -58,8 +75,15 @@ final class HomeModel {
     private(set) var categoryQuestionIDs: Set<PersistentIdentifier> = []
     var storeFailure: StoreFailure?
     var pendingDeletion: PendingDeletion?
+    /// 端末内 AI が選んだチャットの操作で、行う前の確認を待っているもの（確認のアラートを出す）。
+    var pendingCommand: PendingCommand?
     /// 「予算を決める」のシートの状態と操作。シートを出していなければ nil（シートを閉じると画面が nil に戻す）。
-    var budgetSetup: BudgetSetupModel?
+    var budgetSetup: BudgetSetupModel? {
+        didSet {
+            // 予算を変えたかもしれない。返事の一言は予算の残りを書いていることがあるので、変わっていれば外す。
+            if budgetSetup == nil, oldValue != nil { discardReplyRemarkIfBudgetChanged() }
+        }
+    }
     /// 「直す」のシートで直している記録の状態と操作。シートを出していなければ nil（シートを閉じると画面が nil に戻す）。
     var editing: EditEntryModel?
     /// 返事の聞き返しから開いた「カテゴリを作る」のシート。出していなければ nil（閉じると画面が nil に戻す）。
@@ -73,7 +97,12 @@ final class HomeModel {
     /// 「月のまとめ」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
     var monthlyReport: MonthlyReportModel?
     /// 「設定」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
-    var settings: SettingsModel?
+    var settings: SettingsModel? {
+        didSet {
+            // 設定の「予算」で予算を変えたかもしれない（上の `budgetSetup` と同じ）。
+            if settings == nil, oldValue != nil { discardReplyRemarkIfBudgetChanged() }
+        }
+    }
     /// 無料体験が終わった後の最初の起動に出す「プレミアム」のシート。出していなければ nil（閉じると画面が nil に戻す）。
     var premiumSheet: PremiumSheetModel?
     /// プレミアムの購入と状態（アプリで 1 つ）。無料の回数の判定と、月のまとめの一言・設定・プレミアムのシートに渡す。
@@ -113,6 +142,8 @@ final class HomeModel {
     @ObservationIgnored private let recurring: RecurringEntryStore
     /// くり返しの記録を記録するときの暦（時間帯と読み上げの日付）。画面から最後に渡された暦（設定の画面から足したときにも使う）。
     @ObservationIgnored private var recurringCalendar: Calendar = .autoupdatingCurrent
+    /// 読み取りの間に、記録する日を過ぎたくり返しの記録を待たせたか。
+    @ObservationIgnored private var holdsRecurringEntries = false
     @ObservationIgnored private let pendingWrites: PendingStoreWrites
     /// 保存先を開いたもの。設定の「iCloud で同期」の切り替え先として設定に渡す。無ければ設定に iCloud の節を出さない（テスト用）。
     @ObservationIgnored private let storeHost: StoreHost?
@@ -125,6 +156,7 @@ final class HomeModel {
     @ObservationIgnored private let makeRecordRemarkWriter: () -> (any RecapRemarkWriting)?
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
+    @ObservationIgnored private let announceAside: @MainActor (String) -> Void
     @ObservationIgnored private let receiptReader: ReceiptReader
     /// 書類カメラで撮った画像と、上限を超えて読み取らなかったページの数。カメラの画面が閉じきってから読み取りのシートを出すため、
     /// 閉じるまで持っておく。
@@ -161,6 +193,7 @@ final class HomeModel {
     ///   - canUseDocumentCamera: 書類カメラを使えるか。テストで決める。
     ///   - now: 記録の日時と「今日」の基準。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
+    ///   - announceAside: VoiceOver に、いまの読み上げを遮らずに読み上げさせる（記録の返事の一言）。テストで読み上げる文を集める。
     init(
         store: EntryStore,
         budgetStore: BudgetStore? = nil,
@@ -181,7 +214,8 @@ final class HomeModel {
         receiptReader: ReceiptReader = ReceiptReader(),
         canUseDocumentCamera: Bool = DocumentCameraView.isSupported,
         now: @escaping () -> Date = { .now },
-        announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
+        announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
+        announceAside: @escaping @MainActor (String) -> Void = { VoiceOver.announceAside($0) }
     ) {
         let budgetStore = budgetStore ?? BudgetStore(context: store.context)
         let recurring = recurring ?? RecurringEntryStore(context: store.context, now: now)
@@ -206,6 +240,7 @@ final class HomeModel {
         self.canUseDocumentCamera = canUseDocumentCamera
         self.now = now
         self.announce = announce
+        self.announceAside = announceAside
         self.today = now()
         refreshCategoryQuestions()
     }
@@ -220,14 +255,14 @@ final class HomeModel {
     /// ホームの上にほかの画面・シート・確認を出しているか。出している間は、体験の終わりの案内を重ねない。
     var isPresentingOtherScreen: Bool {
         budgetSetup != nil || editing != nil || categoryEditor != nil || recurringEditor != nil || monthlyReport != nil
-            || settings != nil
+            || settings != nil || pendingCommand != nil
             || premiumSheet != nil
             || receiptResult != nil || receiptCapture != nil || showsReceiptSourceChoice
     }
 
     /// 直前の記録を取り消せるか（返事の「取り消す」と入力欄の VoiceOver の操作を出すか）。
     var canUndo: Bool {
-        !justRecorded.isEmpty
+        !justRecorded.isEmpty && !undoWithdrawn
     }
 
     /// 入力欄の VoiceOver の「直す: …」の対象（直前に記録したもの）。
@@ -256,6 +291,8 @@ final class HomeModel {
         /// 一言を書いた送信の記録。
         let entryIDs: Set<PersistentIdentifier>
         let text: String
+        /// 一言を書いたときの月の予算（決めていなければ nil）。予算を変えたら、一言の予算の残りが食い違うので外す。
+        var budget: Int?
     }
 
     /// いま出している一言。無ければ nil（AI が使えない端末・照合に通らない・まだ書いている間）。
@@ -277,7 +314,7 @@ final class HomeModel {
             )
         }
         let monthRecords = (try? store.context.fetch(Entry.monthDescriptor(containing: sentAt, calendar: calendar))) ?? []
-        let budget = (try? budgetStore.plan())?.total
+        let budget = currentBudget()
         guard let facts = RecordFacts.text(
             recorded: items, monthRecords: monthRecords, budget: budget, now: sentAt, calendar: calendar, catalog: categories.catalog
         ) else { return }
@@ -302,8 +339,28 @@ final class HomeModel {
                 report(.noResult)
                 return
             }
-            replyRemark = ReplyRemark(entryIDs: ids, text: checked)
+            replyRemark = ReplyRemark(entryIDs: ids, text: checked, budget: budget)
+            // 一言は記録の読み上げ（「記録しました: …」）の後に届く。その読み上げや次の入力を遮らないよう、控えめに読み上げる。
+            announceAside(checked)
         }
+    }
+
+    /// 返事の一言を外す（書いている途中なら、書かせるのもやめる）。一言は書いたときの今月の数字で書いているので、送信・記録を
+    /// 消す・直す・予算を決める・ほかの端末の変更が届くと食い違いうる。
+    func discardReplyRemark() {
+        replyRemarkTask?.cancel()
+        replyRemark = nil
+    }
+
+    /// 予算が一言を書いたときと変わっていれば、一言を外す（予算の画面と設定から戻ったとき）。
+    private func discardReplyRemarkIfBudgetChanged() {
+        guard let replyRemark, replyRemark.budget != currentBudget() else { return }
+        discardReplyRemark()
+    }
+
+    /// いまの月の全体の予算（決めていない・読めなければ nil）。
+    private func currentBudget() -> Int? {
+        (try? budgetStore.plan())?.total
     }
 
     // MARK: - 送信
@@ -335,11 +392,18 @@ final class HomeModel {
         // 保存のときに時計を読み直すと、読み取りを待つ間に日付が変わったとき（23:59:59 に送って 0:00:01 に保存）、
         // 「9/26」と書いた記録が 1 日ずれて保存されるため。質問も、この日時で期間を区切る。
         let sentAt = now()
+        // 一言は直前の送信の返事に添えたもの。次の文を送ったら、記録にならない文でも外す（会話の流れの中で、前の返事の数字の
+        // 一言が後から読まれて食い違わないように）。
+        discardReplyRemark()
+        // チャットの操作の相手（直前の送信）を、送った時点で控える。AI を待つ間に直前の送信が替わっても（取り消した・
+        // くり返しの記録を記録した）、送った文が指していた記録だけを相手にするため。
+        let targets = commandTargets()
         // チャットで頼む操作（「それ日用品」「さっきのを900に直して」「さっきの消して」「今月の予算を5万にして」）なら、記録にも
-        // 質問にもせずに行う。直す相手が無いなど行えなければ、ふつうの送信として読む。
+        // 質問にもせずに行う。直す相手が無ければ、そう案内する（ふつうの送信として読むと、「さっきの消して」が「金額が見つかり
+        // ませんでした」になり、何がいけないのか分からないため）。
         if !forcesQuestion,
-           let command = ChatCommandReader.command(in: text, now: sentAt, calendar: calendar, catalog: categories.catalog),
-           perform(command, text: text, source: source, sentAt: sentAt, confirmsRemoval: false) {
+           let command = ChatCommandReader.command(in: text, now: sentAt, calendar: calendar, catalog: categories.catalog) {
+            perform(command, text: text, sentAt: sentAt, targets: targets, confirms: false)
             return Task {}
         }
         let intent = forcesQuestion
@@ -347,17 +411,19 @@ final class HomeModel {
             : InputIntentClassifier.classify(text, now: sentAt, calendar: calendar, catalog: categories.catalog)
         switch intent {
         case .record:
-            // 金額の無い文がチャットの操作だったときに直す相手にするため、引っ込める前の記録を控える。
-            let previous = justRecorded
+            // 金額の無い文だったときに直前の送信へ戻し、チャットの操作だったときの相手にするため、引っ込める前の送信を控える。
+            let previous = latestSend()
             retractLastReply()
-            return record(text, source: source, sentAt: sentAt, calendar: calendar, previous: previous)
+            return record(text, source: source, sentAt: sentAt, calendar: calendar, previous: previous, targets: targets)
         case .question:
             retractLastReply()
             return ask(text, source: source, sentAt: sentAt, calendar: calendar)
         case .unclear, .correction:
             // 決まりで読めなかった文。AI が使える端末では、どの操作を頼んでいるかを AI に選ばせ、値を文から読めれば行う。
             if let interpreter = makeCommandInterpreter() {
-                return interpretCommand(text, intent: intent, source: source, sentAt: sentAt, calendar: calendar, interpreter: interpreter)
+                return interpretCommand(
+                    text, intent: intent, source: source, sentAt: sentAt, calendar: calendar, interpreter: interpreter, targets: targets
+                )
             }
             showUndecided(intent, text: text, source: source, sentAt: sentAt)
             return Task {}
@@ -379,13 +445,13 @@ final class HomeModel {
         announce(correction ? String(localized: "記録は直していません") : String(localized: "記録か質問か分かりませんでした"))
     }
 
-    /// 決まりで読めなかった文の操作の種類を端末内 AI に選ばせ（`ChatCommandInterpreter`）、値を文から読めれば行う。読めなければ
+    /// 決まりで読めなかった文の操作の種類を端末内 AI に選ばせ（`ChatCommandInterpreter`）、値を文から読めれば確認を出す。読めなければ
     /// これまでどおり案内を出す。AI を待つ間は、記録の読み取りと同じく送った文と「読み取っています…」を出し、次の文を送れなくする。
     ///
-    /// AI の選んだ「消す」は、確認を出してから消す（決まりで読んだ「消す」は「取り消す」と同じくすぐ消す）。AI の読み違いで
-    /// 記録を黙って消さないため。
+    /// AI の選んだ操作は、確認を出してから行う（決まりで読んだ操作はすぐ行う）。AI の読み違いで、記録や予算を黙って書き換えないため。
     private func interpretCommand(
-        _ text: String, intent: InputIntent, source: EntrySource, sentAt: Date, calendar: Calendar, interpreter: ChatCommandInterpreter
+        _ text: String, intent: InputIntent, source: EntrySource, sentAt: Date, calendar: Calendar, interpreter: ChatCommandInterpreter,
+        targets: CommandTargets
     ) -> Task<Void, Never> {
         isParsing = true
         pendingRecord = PendingRecord(text: text, source: source, sentAt: sentAt)
@@ -402,7 +468,8 @@ final class HomeModel {
                 restoreDraft(text)
                 return
             case .command(let command):
-                if perform(command, text: text, source: source, sentAt: sentAt, confirmsRemoval: true) { return }
+                perform(command, text: text, sentAt: sentAt, targets: targets, confirms: true)
+                return
             case .nothing:
                 break
             }
@@ -447,6 +514,25 @@ final class HomeModel {
         justRecorded = []
     }
 
+    /// 直前の送信の控え（引っ込める前のもの）。記録として送った文に金額が無かったとき、直前の送信に戻すため。
+    private struct LatestSend {
+        let entries: [Entry]
+        let ids: [PersistentIdentifier]
+        let undoWithdrawn: Bool
+    }
+
+    private func latestSend() -> LatestSend {
+        LatestSend(entries: justRecorded, ids: justRecordedIDs, undoWithdrawn: undoWithdrawn)
+    }
+
+    /// 記録として送った文で何も記録しなかったとき、引っ込めた直前の送信を戻す（「取り消す」と聞き返しを、送る前のとおりに出す）。
+    /// ほかの端末で消された記録は外す。その間にほかの送信が直前の送信になっていれば（くり返しの記録など）、そちらのままにする。
+    private func restoreLatestSend(_ previous: LatestSend) {
+        guard justRecorded.isEmpty else { return }
+        justRecorded = zip(previous.entries, previous.ids).filter { store.exists($0.1) }.map(\.0)
+        undoWithdrawn = previous.undoWithdrawn && !justRecorded.isEmpty
+    }
+
     /// 送った文を記録として読み取る。取り消されたら nil を返す。
     ///
     /// 取り消しは読めなかったのではないので、呼び出し側は「金額が見つかりませんでした」を出さない。AI の失敗と時間切れは解析器
@@ -466,10 +552,10 @@ final class HomeModel {
     ///
     /// - Parameters:
     ///   - source: 送った文をどこから入れたか（記録の入力元にする）。
-    ///   - previous: 送る前の直前の記録（「取り消す」を引っ込める前のもの）。金額の無い文を端末内 AI がチャットの操作と読んだとき、
-    ///     直す相手にする。
+    ///   - previous: 送る前の直前の送信（「取り消す」を引っ込める前のもの）。何も記録しなかったときに戻す。
+    ///   - targets: 送った時点のチャットの操作の相手。金額の無い文を端末内 AI がチャットの操作と読んだとき、直す相手にする。
     private func record(
-        _ text: String, source: EntrySource, sentAt: Date, calendar: Calendar, previous: [Entry] = []
+        _ text: String, source: EntrySource, sentAt: Date, calendar: Calendar, previous: LatestSend, targets: CommandTargets
     ) -> Task<Void, Never> {
         isParsing = true
         pendingRecord = PendingRecord(text: text, source: source, sentAt: sentAt)
@@ -486,21 +572,22 @@ final class HomeModel {
             }
             guard let parsed = await parse(text, with: parser) else {
                 // 取り消された。読めなかったのではないので知らせず、送った文だけを入力欄に戻す（送り直せるように）。
+                restoreLatestSend(previous)
                 restoreDraft(text)
                 return
             }
             guard !parsed.isEmpty else {
+                // 何も記録していないので、直前の送信は送る前のまま（「取り消す」と聞き返しを戻す）。
+                restoreLatestSend(previous)
                 // 金額の無い文は、チャットで頼む操作かもしれない（「あれはやっぱりなかったことにしたい」）。AI が使える端末では、
-                // 決まりで読めなかった文と同じく AI に種類を選ばせ、値を文から読めれば行う。
+                // 決まりで読めなかった文と同じく AI に種類を選ばせ、値を文から読めれば確認を出す。
                 switch await interpretedCommand(text, sentAt: sentAt, calendar: calendar) {
                 case .cancelled:
                     restoreDraft(text)
                     return
                 case .command(let command):
-                    // 直す相手を、送る前の直前の記録に戻す（ほかの端末で消されたものは除く）。行えなければ、引っ込めたままにする。
-                    justRecorded = previous.filter { store.exists($0.persistentModelID) }
-                    if perform(command, text: text, source: source, sentAt: sentAt, confirmsRemoval: true) { return }
-                    justRecorded = []
+                    perform(command, text: text, sentAt: sentAt, targets: targets, confirms: true)
+                    return
                 case .nothing:
                     break
                 }
@@ -525,6 +612,7 @@ final class HomeModel {
                     entries = try await refiner.refine(resolutions, catalog: catalog)
                 } catch {
                     // 取り消された（読み取りの取り消しと同じ）。記録せず、送った文だけを入力欄に戻す。
+                    restoreLatestSend(previous)
                     restoreDraft(text)
                     return
                 }
@@ -540,6 +628,7 @@ final class HomeModel {
                 try store.insert(recorded)
             } catch {
                 // 保存できなかった。記録したことにはせず、送った文を戻して送り直せるようにする。
+                restoreLatestSend(previous)
                 restoreDraft(text)
                 storeFailure = .record
                 return
@@ -850,12 +939,14 @@ final class HomeModel {
     /// ひとこと入力として記録してしまうため）。その回に数えた無料の 1 回は戻す（取り消した記録は数えない決め事。docs/design.md §6）。
     /// くり返しの記録も入力欄に何も戻さない。取り消した月の分はもう記録しない（記録した月は覚えたまま。`RecurringEntryStore`）。
     func undoLastRecord() {
+        // チャットで金額を直した後は「取り消す」を引っ込めている（直した内容と、入力欄に戻す直す前の文が食い違うため）。
+        guard canUndo else { return }
         undoPersonalRecords(restoringDraft: true)
     }
 
     /// 直前に記録したもの（自分の記録）を消す。消せたら、消した記録の要約（「ランチ ¥850」）を返す。
     ///
-    /// - Parameter restoringDraft: 元の文を入力欄に戻すか（チャットの「さっきの消して」では戻さない。消したいと書いたので）。
+    /// - Parameter restoringDraft: 元の文を入力欄に戻すか。
     @discardableResult
     private func undoPersonalRecords(restoringDraft: Bool) -> [String]? {
         // ほかの端末で消されたものは先に外す（消えた記録の値を読まないように）。
@@ -954,6 +1045,8 @@ final class HomeModel {
         if justRecordedIDs.contains(id) {
             justRecorded = []
         }
+        // 直したのが前の記録でも今月の数字が変わりうるので、返事の一言は外す。
+        discardReplyRemark()
         // 直すでカテゴリを選んだ（直すで変えたカテゴリは、そこで覚える）ので、返事で聞き返すのをやめる。
         categoryQuestionIDs.remove(id)
         refreshCategoryQuestions()
@@ -968,6 +1061,8 @@ final class HomeModel {
     /// 作り直し、まだ外していない消えた記録の値を読むことになるため）。
     private func forgetJustRecorded(_ ids: Set<PersistentIdentifier>) {
         guard !ids.isEmpty else { return }
+        // 記録が消えると今月の数字が変わるので、返事の一言は外す。
+        discardReplyRemark()
         let kept = zip(justRecorded, justRecordedIDs).filter { !ids.contains($0.1) }.map(\.0)
         if kept.count != justRecorded.count { justRecorded = kept }
         categoryQuestionIDs.subtract(ids)
@@ -1015,8 +1110,7 @@ final class HomeModel {
         // 入力欄の VoiceOver の「直す: …」の文を、選んだカテゴリで作り直す。
         snapshotJustRecorded()
         // 一言はカテゴリを選ぶ前の数字で書いたので外す。
-        replyRemarkTask?.cancel()
-        replyRemark = nil
+        discardReplyRemark()
         let name = categories.catalog.localizedName(for: category)
         announce(
             remembered
@@ -1025,58 +1119,155 @@ final class HomeModel {
         )
     }
 
-    // MARK: - チャットでカテゴリを直す
+    // MARK: - チャットで頼む操作
 
-    /// チャットの操作を行う。行えたら true。直す相手が無いなど行えなければ false（呼び出し側は、ふつうの送信として扱う）。
+    /// チャットの操作を行う。直す相手が無ければ、そう案内する（`noTarget`）。
     ///
-    /// - Parameter confirmsRemoval: 「消す」を確認してから行うか（端末内 AI が選んだとき）。
-    private func perform(
-        _ command: ChatCommand, text: String, source: EntrySource, sentAt: Date, confirmsRemoval: Bool
-    ) -> Bool {
-        switch command {
-        case .recategorize(let category):
-            guard let target = commandTarget() else { return false }
-            recategorize(target, to: category, text: text, source: source, sentAt: sentAt)
-        case .changeAmount(let amount):
-            guard let target = commandTarget() else { return false }
-            changeAmount(target, to: amount, text: text, source: source, sentAt: sentAt)
-        case .removeLast:
-            if confirmsRemoval {
-                guard let target = commandTarget() else { return false }
-                let summary = target.summaryText(in: categories.catalog)
-                appendQuestion(text, askedAt: sentAt, state: .removalAsked(summary: summary))
-                requestDelete(target)
-            } else {
-                forgetRecordsDeletedElsewhere()
-                guard canUndo else { return false }
-                // 消した記録の値は、保存した後には読めないので、返事の要約は先に作る。
-                let summary = justRecorded.map { $0.summaryText(in: categories.catalog) }.formatted(.list(type: .and))
-                // 消せなければ、「取り消す」の失敗と同じく知らせる（`undoPersonalRecords`）。
-                guard undoPersonalRecords(restoringDraft: false) != nil else { return true }
-                appendQuestion(text, askedAt: sentAt, state: .removed(summary: summary))
-            }
-        case .setMonthlyBudget(let amount):
-            setMonthlyBudget(amount, text: text, source: source, sentAt: sentAt)
+    /// - Parameters:
+    ///   - targets: 操作の相手（文を送った時点の直前の送信。`commandTargets`）。
+    ///   - confirms: 行う前に確認を出すか（端末内 AI が選んだ操作）。決まりで読んだ操作はすぐ行う。
+    private func perform(_ command: ChatCommand, text: String, sentAt: Date, targets: CommandTargets, confirms: Bool) {
+        func reply(_ state: QuestionExchange.State) {
+            appendQuestion(text, askedAt: sentAt, state: state)
         }
-        return true
+        guard confirms else {
+            execute(command, text: text, targets: targets, reply: reply)
+            return
+        }
+        guard let question = commandQuestion(for: command, text: text, targets: targets, reply: reply) else { return }
+        let exchangeID = appendQuestion(text, askedAt: sentAt, state: .commandAsked(question))
+        pendingCommand = PendingCommand(command: command, question: question, text: text, targets: targets, exchangeID: exchangeID)
     }
 
-    /// チャットの操作で直す記録。直前の送信の支出が 1 件ならそれ、複数なら聞き返している記録が 1 件のときだけそれ。決められなければ
-    /// nil（どの記録か分からないまま書き換えない。文はふつうの送信として読む）。
-    private func commandTarget() -> Entry? {
+    /// 端末内 AI が選んだ操作の確認の内容。直す相手が無い・割り勘の金額を直そうとしたなど、確認するまでもなく行えなければ、
+    /// その案内を `reply` に出して nil を返す。
+    private func commandQuestion(
+        for command: ChatCommand, text: String, targets: CommandTargets, reply: (QuestionExchange.State) -> Void
+    ) -> CommandQuestion? {
+        let catalog = categories.catalog
+        switch command {
+        case .recategorize(let category):
+            guard let target = editTarget(in: targets) else {
+                showNoTarget(text: text, reply: reply)
+                return nil
+            }
+            return .recategorize(summary: target.entry.summaryText(in: catalog), category: catalog.localizedName(for: category))
+        case .changeAmount(let amount):
+            guard let target = editTarget(in: targets) else {
+                showNoTarget(text: text, reply: reply)
+                return nil
+            }
+            guard !isSplit(target.entry) else {
+                showSplitNotChanged(text: text, reply: reply)
+                return nil
+            }
+            return .changeAmount(summary: target.entry.summaryText(in: catalog), amount: amount)
+        case .removeLast:
+            let records = liveRecords(in: targets)
+            guard !records.isEmpty else {
+                showNoTarget(text: text, reply: reply)
+                return nil
+            }
+            return .remove(summary: records.map { $0.entry.summaryText(in: catalog) }.formatted(.list(type: .and)))
+        case .setMonthlyBudget(let amount):
+            return .setMonthlyBudget(amount: amount)
+        }
+    }
+
+    /// 確認で「変える」「削除」「決める」を押した。確認を出した返事のカードを、行った結果に書き換える。
+    ///
+    /// 確認の間に相手の記録が消えていれば（ほかの端末で消された・取り消した）、行わずに案内する。
+    func confirmCommand(_ pending: PendingCommand) {
+        guard isAsking(pending) else { return }
+        if pendingCommand?.id == pending.id { pendingCommand = nil }
+        execute(pending.command, text: pending.text, targets: pending.targets) { state in
+            self.setQuestionState(state, for: pending.exchangeID)
+        }
+    }
+
+    /// 確認で「キャンセル」を押した。何も変えず、送った文を入力欄に戻す（AI の読み違いなら、書き直して送れるように）。
+    func cancelCommand(_ pending: PendingCommand) {
+        guard isAsking(pending) else { return }
+        if pendingCommand?.id == pending.id { pendingCommand = nil }
+        setQuestionState(.commandCancelled, for: pending.exchangeID)
+        restoreDraft(pending.text)
+        announce(String(localized: "何も変えていません"))
+    }
+
+    /// まだ確認を待っているか（同じ確認を 2 度行わないため。ボタンと閉じる動きのどちらが先でも、1 度だけ行う）。
+    private func isAsking(_ pending: PendingCommand) -> Bool {
+        questions.first { $0.id == pending.exchangeID }?.state == .commandAsked(pending.question)
+    }
+
+    /// 操作を行い、結果の返事を `reply` に出す。
+    private func execute(
+        _ command: ChatCommand, text: String, targets: CommandTargets, reply: (QuestionExchange.State) -> Void
+    ) {
+        switch command {
+        case .recategorize(let category):
+            guard let target = editTarget(in: targets) else { return showNoTarget(text: text, reply: reply) }
+            recategorize(target.entry, to: category, text: text, reply: reply)
+        case .changeAmount(let amount):
+            guard let target = editTarget(in: targets) else { return showNoTarget(text: text, reply: reply) }
+            changeAmount(target.entry, to: amount, text: text, reply: reply)
+        case .removeLast:
+            let records = liveRecords(in: targets)
+            guard !records.isEmpty else { return showNoTarget(text: text, reply: reply) }
+            remove(records, text: text, reply: reply)
+        case .setMonthlyBudget(let amount):
+            setMonthlyBudget(amount, text: text, reply: reply)
+        }
+    }
+
+    /// チャットの操作の相手（送った時点の直前の送信）を控える。くり返しの記録は相手にしない（打った文の記録ではなく、
+    /// 「さっきの」が指すものと違うことがあるため。返事のカードの「取り消す」と長押しで直せる）。
+    private func commandTargets() -> CommandTargets {
         forgetRecordsDeletedElsewhere()
-        let expenses = zip(justRecorded, justRecordedIDs).filter { !$0.0.isIncome }
-        if expenses.count == 1 { return expenses[0].0 }
-        let asking = expenses.filter { categoryQuestionIDs.contains($0.1) }
-        return asking.count == 1 ? asking[0].0 : nil
+        return CommandTargets(records: zip(justRecorded, justRecordedIDs)
+            .filter { $0.0.source != .recurring }
+            .map { CommandTargets.Record(entry: $0.0, id: $0.1, isIncome: $0.0.isIncome) })
+    }
+
+    /// 控えた相手のうち、まだ保存先にあるもの（ほかの端末で消された記録の値には触れない）。
+    private func liveRecords(in targets: CommandTargets) -> [CommandTargets.Record] {
+        targets.records.filter { store.exists($0.id) }
+    }
+
+    /// カテゴリと金額を直す相手。直前の送信の支出が 1 件ならそれ、複数なら聞き返している記録が 1 件のときだけそれ。決められなければ
+    /// nil（どの記録か分からないまま書き換えない）。収入は直さない（カテゴリを持たず、金額を直す文の「さっきの」は支出を指すことが
+    /// 多いため）。
+    private func editTarget(in targets: CommandTargets) -> CommandTargets.Record? {
+        let expenses = liveRecords(in: targets).filter { !$0.isIncome }
+        if expenses.count == 1 { return expenses[0] }
+        let asking = expenses.filter { categoryQuestionIDs.contains($0.id) }
+        return asking.count == 1 ? asking[0] : nil
+    }
+
+    /// 割り勘の記録か（1 人分の額を記録し、メモに割り勘の説明を書いたもの。`EntryMemoNote`）。
+    private func isSplit(_ entry: Entry) -> Bool {
+        EntryMemoNote(memo: entry.memo, amount: entry.amount, isIncome: entry.isIncome) != nil
+    }
+
+    /// 直す相手が無いことを案内し、送った文を入力欄に戻す。
+    private func showNoTarget(text: String, reply: (QuestionExchange.State) -> Void) {
+        reply(.noTarget)
+        restoreDraft(text)
+        announce(String(localized: "直せる直前の記録がありません"))
+    }
+
+    /// 割り勘の記録の金額はチャットでは直さないことを案内し、送った文を入力欄に戻す。
+    private func showSplitNotChanged(text: String, reply: (QuestionExchange.State) -> Void) {
+        reply(.splitNotChanged)
+        restoreDraft(text)
+        announce(String(localized: "割り勘の記録の金額は直していません"))
     }
 
     /// 直前の記録のカテゴリをチャットの文で直し、品目とカテゴリの組を覚える（返事の聞き返しで選んだときと同じ。修正の記憶）。
-    /// 送った文と返事（「日用品にしました」）をタイムラインに出す。「取り消す」は残す（直したのはカテゴリだけなので、取り消せば
+    /// 返事（「日用品にしました」）をタイムラインに出す。「取り消す」は残す（直したのはカテゴリだけなので、取り消せば
     /// 記録ごと消え、送った文が入力欄に戻る。返事で選んだときと同じ）。
     ///
     /// 書き込めなければ、送った文を入力欄に戻して知らせる（もう一度送れるように）。
-    private func recategorize(_ entry: Entry, to category: EntryCategory, text: String, source: EntrySource, sentAt: Date) {
+    private func recategorize(_ entry: Entry, to category: EntryCategory, text: String, reply: (QuestionExchange.State) -> Void) {
         let id = entry.persistentModelID
         var edits = EntryEdits(entry)
         edits.category = category
@@ -1093,10 +1284,9 @@ final class HomeModel {
         refreshCategoryQuestions()
         snapshotJustRecorded()
         // 一言はカテゴリを変える前の数字で書いたので外す。
-        replyRemarkTask?.cancel()
-        replyRemark = nil
+        discardReplyRemark()
         let name = categories.catalog.localizedName(for: category)
-        appendQuestion(text, askedAt: sentAt, state: .recategorized(item: item, category: name, remembered: remembered))
+        reply(.recategorized(item: item, category: name, remembered: remembered))
         announce(
             remembered
                 ? String(localized: "\(name)にしました。次から「\(item)」は\(name)にします")
@@ -1104,12 +1294,14 @@ final class HomeModel {
         )
     }
 
-    /// 直前の記録の金額をチャットの文で直す（「さっきのを900に直して」）。割り勘などの説明（前の金額で書いたもの）は品目だけにする。
-    /// 送った文と返事（「金額を直しました」）をタイムラインに出す。
+    /// 直前の記録の金額をチャットの文で直す（「さっきのを900に直して」）。返事（「金額を直しました」）をタイムラインに出す。
     ///
-    /// 「取り消す」は引っ込める（取り消すと、直す前の文が入力欄に戻り、直した内容と食い違うため。⑥ で直したときと同じ）。カテゴリの
-    /// 聞き返しは残す（金額を直しても、カテゴリはまだ決まっていないため）。書き込めなければ、送った文を入力欄に戻して知らせる。
-    private func changeAmount(_ entry: Entry, to amount: Int, text: String, source: EntrySource, sentAt: Date) {
+    /// 割り勘の記録は直さない（1 人分の額を記録しているので、書いた金額が 1 人分か合計か決められないため。⑥ で直してもらう）。
+    /// 「取り消す」だけを引っ込める（取り消すと、直す前の文が入力欄に戻り、直した内容と食い違うため。⑥ で直したときと同じ）。
+    /// 直前の記録は、聞き返し・チャットで直す相手として残す（金額を直しても、カテゴリはまだ決まっていないため）。書き込めなければ、
+    /// 送った文を入力欄に戻して知らせる。
+    private func changeAmount(_ entry: Entry, to amount: Int, text: String, reply: (QuestionExchange.State) -> Void) {
+        guard !isSplit(entry) else { return showSplitNotChanged(text: text, reply: reply) }
         let previous = entry.amount
         let item = CategoryMemory.item(ofMemo: entry.memo, amount: entry.amount, isIncome: entry.isIncome)
         var edits = EntryEdits(entry)
@@ -1119,25 +1311,57 @@ final class HomeModel {
             try store.update(entry, with: edits, resolvesCategory: false)
         } catch {
             restoreDraft(text)
-            storeFailure = .chatCommand
+            storeFailure = .amountChange
             return
         }
-        justRecorded = []
-        appendQuestion(text, askedAt: sentAt, state: .amountChanged(item: item, from: previous, to: amount))
+        if justRecordedIDs.contains(entry.persistentModelID) {
+            undoWithdrawn = true
+            snapshotJustRecorded()
+        }
+        // 一言は直す前の金額で書いたので外す。
+        discardReplyRemark()
+        reply(.amountChanged(item: item, from: previous, to: amount))
         announce(String(localized: "金額を\(YenFormatter.string(from: amount))に直しました"))
     }
 
-    /// 月の全体の予算をチャットの文で決める（「今月の予算を5万にして」。② 予算を決めると同じ保存）。送った文と返事を出す。
+    /// 直前の送信の記録をチャットの文で消す（「さっきの消して」。返事の「取り消す」と同じく、その送信の記録をすべて消す）。
+    /// 送った文は入力欄に戻さない（消したいと書いたので）。消せなければ、「取り消す」の失敗と同じく知らせ、送った文を戻す。
+    private func remove(_ records: [CommandTargets.Record], text: String, reply: (QuestionExchange.State) -> Void) {
+        // 消した記録の値は、保存した後には読めない。返事と読み上げの文は先に作る。
+        let catalog = categories.catalog
+        let summary = records.map { $0.entry.summaryText(in: catalog) }.formatted(.list(type: .and))
+        let items = records.map { "\($0.entry.kindText(in: catalog)) \(YenFormatter.string(from: $0.entry.amount))" }
+        let ids = records.map(\.id)
+        do {
+            try store.delete(records.map(\.entry))
+        } catch {
+            restoreDraft(text)
+            storeFailure = .undo
+            return
+        }
+        forgetJustRecorded(Set(ids))
+        // レシートから記録した回なら、数えた無料の 1 回を戻す（「取り消す」と同じ）。
+        if let charge = receiptQuotaCharge, Set(charge.ids) == Set(ids) {
+            quotaStore.refundUse(of: .receiptScan, month: charge.month)
+            receiptQuotaCharge = nil
+        }
+        reply(.removed(summary: summary))
+        announce(String(localized: "取り消しました: \(items.formatted(.list(type: .and)))"))
+    }
+
+    /// 月の全体の予算をチャットの文で決める（「今月の予算を5万にして」。② 予算を決めると同じ保存）。返事を出す。
     /// 書き込めなければ、送った文を入力欄に戻して知らせる。
-    private func setMonthlyBudget(_ amount: Int, text: String, source: EntrySource, sentAt: Date) {
+    private func setMonthlyBudget(_ amount: Int, text: String, reply: (QuestionExchange.State) -> Void) {
         do {
             try budgetStore.setAmount(amount, for: .total)
         } catch {
             restoreDraft(text)
-            storeFailure = .chatCommand
+            storeFailure = .budgetChange
             return
         }
-        appendQuestion(text, askedAt: sentAt, state: .budgetSet(amount: amount))
+        // 一言は前の予算の残りで書いていることがあるので外す。
+        discardReplyRemark()
+        reply(.budgetSet(amount: amount))
         announce(String(localized: "月の予算を\(YenFormatter.string(from: amount))にしました"))
     }
 
@@ -1206,8 +1430,15 @@ final class HomeModel {
     ///
     /// 記録したものは直前の送信と同じく「取り消す」の対象にする（取り消すと、その月の分はもう記録しない）。書き込めなければ
     /// 何もしない（記録した月を覚えていないので、次に開いたときにもう一度記録する）。
+    ///
+    /// 送った文を読み取っている間（AI の判断を待つ間も）は記録せず、読み取りが終わってから記録する（`isParsing`）。記録すると
+    /// 直前の送信がくり返しの記録に替わり、読み取りの後で、送った文の記録の「取り消す」やチャットの操作の相手と食い違うため。
     func recordDueRecurringEntries(calendar: Calendar) {
         recurringCalendar = calendar
+        guard !isParsing else {
+            holdsRecurringEntries = true
+            return
+        }
         removeDuplicateRecurringEntries()
         let recordedAt = now()
         guard let recorded = try? recurring.recordDue(now: recordedAt, timeZone: calendar.timeZone), !recorded.isEmpty else {
@@ -1356,6 +1587,33 @@ final class HomeModel {
 
     // MARK: - 型
 
+    /// チャットの操作の相手（文を送った時点の直前の送信の記録。くり返しの記録は除く）。
+    ///
+    /// 記録と一緒に、控えた時点の ID と収入かも持つ（ほかの端末で消された記録の値に触れずに、消えたかと直す相手を決めるため）。
+    struct CommandTargets {
+        struct Record {
+            let entry: Entry
+            let id: PersistentIdentifier
+            let isIncome: Bool
+        }
+
+        let records: [Record]
+    }
+
+    /// 端末内 AI が選んだチャットの操作で、確認を待っているもの。
+    struct PendingCommand: Identifiable {
+        let id = UUID()
+        let command: ChatCommand
+        /// 確認の内容（確認のアラートと返事のカードに出す）。
+        let question: CommandQuestion
+        /// 送った文（やめたときに入力欄へ戻す）。
+        let text: String
+        /// 操作の相手（文を送った時点の直前の送信）。
+        let targets: CommandTargets
+        /// 確認を出した返事のカード（行った結果か、やめたことに書き換える）。
+        let exchangeID: UUID
+    }
+
     /// 削除の確認を待っている記録。確認の文は先に作っておく（消した後の記録の値は読めないため）。
     struct PendingDeletion {
         let entry: Entry
@@ -1389,8 +1647,10 @@ final class HomeModel {
         case delete
         /// 返事で選んだカテゴリを書き込めなかった。
         case categoryChoice
-        /// チャットで頼んだ操作（金額を直す・予算を決める）を書き込めなかった。
-        case chatCommand
+        /// チャットで頼んだ金額の直しを書き込めなかった。
+        case amountChange
+        /// チャットで頼んだ月の予算を書き込めなかった。
+        case budgetChange
     }
 }
 

@@ -121,6 +121,43 @@ struct HomeModelRecurringTests {
         #expect(!fixture.model.canUndo)
     }
 
+    /// くり返しの記録は、チャットで直す・消す相手にしない（「さっきの」が指すのは打った文の記録のため。返事の「取り消す」と
+    /// 長押しで直せる）。
+    @Test func chatCommandsSkipRecurringEntries() async throws {
+        let fixture = try Fixture()
+        try addRent(fixture)
+        fixture.now = TestSupport.date(2026, 9, 26)
+        fixture.model.recordDueRecurringEntries(calendar: TestSupport.calendar)
+
+        await fixture.send("それ日用品")
+        #expect(try fixture.entries().map(\.category) == [.other])
+        #expect(fixture.lastQuestionState == .noTarget)
+
+        await fixture.send("さっきの消して")
+        #expect(try fixture.entries().count == 1)
+        #expect(fixture.lastQuestionState == .noTarget)
+    }
+
+    /// 送った文を読み取っている間は、くり返しの記録を記録せず、読み取りが終わってから記録する（読み取りの間に直前の送信が
+    /// 替わると、送った文の記録の「取り消す」やチャットの操作の相手と食い違うため）。
+    @Test func holdsRecurringEntriesWhileParsing() async throws {
+        let fixture = try Fixture()
+        try addRent(fixture)
+        fixture.now = TestSupport.date(2026, 9, 26)
+        let rules = fixture.parser
+        fixture.parser = StubParser { text in
+            await MainActor.run {
+                fixture.model.recordDueRecurringEntries(calendar: TestSupport.calendar)
+                #expect((try? fixture.entries())?.isEmpty == true)
+            }
+            return try await rules.parse(text)
+        }
+
+        await fixture.send("ランチ 850")
+
+        #expect(Set(try fixture.entries().map(\.memo)) == ["ランチ", "家賃"])
+    }
+
     /// 設定から足したくり返しの記録も、記録する日を過ぎた分をすぐ記録する（ホームに戻ると返事のカードが出ている）。
     @Test func addingFromSettingsRecordsImmediately() throws {
         let fixture = try Fixture()

@@ -66,6 +66,22 @@ struct HomeView: View {
                 } message: { failure in
                     failure.message
                 }
+                // 端末内 AI が選んだチャットの操作は、行う前に確かめる（`HomeModel.pendingCommand`）。ボタンは出した時点の頼みを
+                // 渡す（閉じる動きの間にモデルの値が nil に戻っても、押したほうを行うため）。
+                .alert(
+                    model.pendingCommand.map { Text($0.question.title) } ?? Text(verbatim: ""),
+                    isPresented: showsCommandConfirmation,
+                    presenting: model.pendingCommand
+                ) { pending in
+                    Button(role: pending.question.isDestructive ? .destructive : nil) {
+                        model.confirmCommand(pending)
+                    } label: {
+                        Text(pending.question.confirmLabel)
+                    }
+                    Button("キャンセル", role: .cancel) { model.cancelCommand(pending) }
+                } message: { pending in
+                    Text(pending.question.detail)
+                }
                 // item で出す（閉じる間も中身を保つ。isPresented にして中身を budgetSetup から作ると、閉じる動きの
                 // 途中で budgetSetup が nil になり、空のシートが下りていくため）。閉じると budgetSetup は nil に戻る。
                 .sheet(item: $model.budgetSetup) { budgetSetup in
@@ -165,6 +181,8 @@ struct HomeView: View {
                 .onReceive(StoreChanges.remote) { _ in
                     // ほかの端末で消された記録を、取り消す・聞き返しの対象から外す（消えた記録を指し続けないように）。
                     model.forgetRecordsDeletedElsewhere()
+                    // ほかの端末の記録や予算が届くと、返事の一言が書いた今月の数字と食い違いうるので外す。
+                    model.discardReplyRemark()
                     model.removeDuplicateRecurringEntries()
                     model.categories.reload()
                     model.calendarPage.reload()
@@ -192,6 +210,9 @@ struct HomeView: View {
                     switch phase {
                     case .active:
                         model.refreshToday()
+                        // 端末内 AI のモデルを前もって読み込む（裏にいる間に外されていると、最初の送信の読み取りが上限の時間に届き、
+                        // キーワード辞書に戻りやすいため）。
+                        AIPrewarm.prewarmIfAvailable()
                         recordDueRecurringEntries()
                         deliverQuickActions()
                             // 状態が変わらなくても、前面に戻ったときには確かめる（ほかの画面を閉じた後で出せるように）。
@@ -260,7 +281,8 @@ struct HomeView: View {
                 questions: model.questions,
                 pendingRecord: model.pendingRecord,
                 // 控えた ID を渡す（ほかの端末で消された記録の値に、描くときに触れないため）。
-                undoableEntryIDs: Set(model.justRecordedIDs),
+                latestEntryIDs: Set(model.justRecordedIDs),
+                canUndoLatest: model.canUndo,
                 askingCategory: model.categoryQuestionIDs,
                 replyRemark: model.replyRemark,
                 showMore: { model.showMoreTimeline() },
@@ -303,11 +325,16 @@ struct HomeView: View {
                 // 返事の見出しの「取り消す」と行の「直す」に加えて、入力欄の VoiceOver の操作にも出す（送信の後にフォーカスが
                 // 入力欄に戻るので、返事のカードまで移らずに取り消し・直しができるように）。
                 undo: undoAction,
-                recorded: model.canUndo ? model.recordedItems : [],
+                // 「直す: …」は、チャットで金額を直して「取り消す」を引っ込めた後も出す（直前の記録はまだ直せるため）。
+                recorded: model.recordedItems,
                 edit: { model.presentEdit($0, calendar: calendar) },
                 focusRequest: model.inputFocusRequest,
                 isOnScreen: model.page == .conversation,
-                focusChanged: { isTyping = $0 }
+                focusChanged: { focused in
+                    isTyping = focused
+                    // 打ち始めたら、端末内 AI のモデルを前もって読み込む（送ったときに読み込みを待たないように）。
+                    if focused { AIPrewarm.prewarmIfAvailable() }
+                }
             )
         }
         .padding(.horizontal)
@@ -375,6 +402,10 @@ struct HomeView: View {
     private var showsDeletionConfirmation: Binding<Bool> {
         Binding(get: { model.pendingDeletion != nil }, set: { if !$0 { model.pendingDeletion = nil } })
     }
+
+    private var showsCommandConfirmation: Binding<Bool> {
+        Binding(get: { model.pendingCommand != nil }, set: { if !$0 { model.pendingCommand = nil } })
+    }
 }
 
 /// 保存先への書き込みの失敗を利用者に知らせる文。
@@ -385,14 +416,15 @@ extension HomeModel.StoreFailure {
         case .undo: Text("取り消せませんでした")
         case .delete: Text("削除できませんでした")
         case .categoryChoice: Text("カテゴリを変えられませんでした")
-        case .chatCommand: Text("変えられませんでした")
+        case .amountChange: Text("金額を直せませんでした")
+        case .budgetChange: Text("予算を決められませんでした")
         }
     }
 
     var message: Text {
         switch self {
         case .record: Text("保存に失敗しました。もう一度送ってください。")
-        case .undo, .delete, .categoryChoice, .chatCommand: Text("保存に失敗しました。もう一度お試しください。")
+        case .undo, .delete, .categoryChoice, .amountChange, .budgetChange: Text("保存に失敗しました。もう一度お試しください。")
         }
     }
 }
@@ -415,8 +447,10 @@ private struct EntryTimeline: View {
     let questions: [QuestionExchange]
     /// 記録として送り、読み取っている文（読み取りが終わるまで、いちばん下に送った文と「読み取っています…」を出す）。
     let pendingRecord: HomeModel.PendingRecord?
-    /// 直前の送信で記録したもの（まだ取り消せるもの）。これを含む送信の返事にだけ「取り消す」を出す。取り消せなければ空。
-    let undoableEntryIDs: Set<PersistentIdentifier>
+    /// 直前の送信で記録したもの。これを含む送信の返事にだけ、今月の状況の一行・聞き返し・一言（と、取り消せるなら「取り消す」）を出す。
+    let latestEntryIDs: Set<PersistentIdentifier>
+    /// 直前の送信の返事に「取り消す」を出すか（チャットで金額を直した後は出さない。`HomeModel.canUndo`）。
+    let canUndoLatest: Bool
     /// カテゴリを聞き返している記録。その記録の行の下にカテゴリのボタンを出す。
     let askingCategory: Set<PersistentIdentifier>
     /// 直前の送信の返事に添える、端末内 AI の一言（`HomeModel.replyRemark`）。
@@ -447,7 +481,8 @@ private struct EntryTimeline: View {
         today: Date,
         questions: [QuestionExchange],
         pendingRecord: HomeModel.PendingRecord?,
-        undoableEntryIDs: Set<PersistentIdentifier>,
+        latestEntryIDs: Set<PersistentIdentifier>,
+        canUndoLatest: Bool,
         askingCategory: Set<PersistentIdentifier>,
         replyRemark: HomeModel.ReplyRemark?,
         showMore: @escaping () -> Void,
@@ -468,7 +503,8 @@ private struct EntryTimeline: View {
         self.today = today
         self.questions = questions
         self.pendingRecord = pendingRecord
-        self.undoableEntryIDs = undoableEntryIDs
+        self.latestEntryIDs = latestEntryIDs
+        self.canUndoLatest = canUndoLatest
         self.askingCategory = askingCategory
         self.replyRemark = replyRemark
         self.showMore = showMore
@@ -575,9 +611,9 @@ private struct EntryTimeline: View {
                         SentTextBubble(send: send)
                     case .reply(let send):
                         // 直前の送信の返事にだけ、「取り消す」と今月の状況の一行と聞き返しを出す（同じ間。`ReplyStatusLine`）。
-                        let isLatest = canUndo(send)
+                        let isLatest = isLatestSend(send)
                         RecordedReplyCard(
-                            send: send, today: today, canUndo: isLatest, showsStatus: isLatest,
+                            send: send, today: today, canUndo: isLatest && canUndoLatest, showsStatus: isLatest,
                             askingCategory: isLatest ? askingCategory : [],
                             remark: isLatest ? remark(for: send) : nil,
                             undo: undo, edit: edit, requestDelete: requestDelete, chooseCategory: chooseCategory,
@@ -617,9 +653,9 @@ private struct EntryTimeline: View {
         }
     }
 
-    /// この送信の返事に「取り消す」を出すか（直前の送信で記録したもので、まだ取り消せるものを含む）。
-    private func canUndo(_ send: EntrySend) -> Bool {
-        !undoableEntryIDs.isEmpty && send.entries.contains { undoableEntryIDs.contains($0.persistentModelID) }
+    /// 直前の送信か（直前の送信で記録したものを含む）。
+    private func isLatestSend(_ send: EntrySend) -> Bool {
+        !latestEntryIDs.isEmpty && send.entries.contains { latestEntryIDs.contains($0.persistentModelID) }
     }
 
     /// その送信の返事に添える一言（一言を書いた記録がこの送信のものなら）。
