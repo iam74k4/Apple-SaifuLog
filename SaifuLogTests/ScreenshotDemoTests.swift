@@ -569,7 +569,7 @@ struct ScreenshotDemoTests {
         retained.append(container)
         let home = demo.makeHomeModel(
             context: container.mainContext, pendingWrites: PendingStoreWrites(), purchases: demo.makePurchases(),
-            storeHost: nil, household: nil
+            storeHost: nil
         )
         return (demo, home)
     }

@@ -61,11 +61,6 @@ final class SettingsModel {
     /// オンにしようとしたら iCloud を使えなかった（案内のアラートを出す）。
     var iCloudAccountAlert: ICloudAccountStatus?
 
-    // MARK: 家族と共有
-
-    /// 「家族と共有」の節の状態と操作。家計の共有が有効で、家計の保存先を開けたときだけある（無ければ節を出さない）。
-    let household: HouseholdSettingsModel?
-
     /// 「覚えたカテゴリ」（修正の記憶の一覧）の状態と操作。行には覚えた言葉の数を出す。
     let learnedCategories: LearnedCategoriesModel
 
@@ -74,9 +69,6 @@ final class SettingsModel {
 
     /// 「くり返しの記録」（毎月同じ記録の一覧。足す・直す・やめる）の状態と操作。
     let recurringList: RecurringListModel
-
-    /// 「家族と共有」の節を出すか。
-    var showsHousehold: Bool { household != nil }
 
     /// 週の始まり。変えるとすぐ設定に書く（画面の根元が `@AppStorage` で読み、画面の暦に当てはめる）。
     var weekStart: WeekStart {
@@ -106,7 +98,6 @@ final class SettingsModel {
     ///   - purchases: プレミアムの購入と状態。アプリはホームから同じもの（`SaifuLogApp` の 1 つ）を渡す。渡さなければ
     ///     購入の無い状態（テストとプレビュー用）。
     ///   - storeHost: 保存先を開いたもの。「iCloud で同期」の切り替えを頼む。渡さなければ iCloud の節を出さない。
-    ///   - householdHost: 家計の共有を受け持つもの。有効で家計の保存先を開けているときだけ「家族と共有」の節を出す。
     ///   - accountStatus: iCloud のアカウントの状態の問い合わせ。テストでは CloudKit に問い合わせない値に差し替える
     ///     （iCloud の entitlement の無いテストのプロセスで `CKContainer` を作ると落ちるため）。
     ///   - defaults: 設定の置き場所。アプリは `UserDefaults.standard`（`AppSettings` の決まり）、テストは使い捨ての領域。
@@ -124,7 +115,6 @@ final class SettingsModel {
         categories: CategoryCatalogModel? = nil,
         purchases: PurchaseManager? = nil,
         storeHost: StoreHost? = nil,
-        householdHost: HouseholdHost? = nil,
         accountStatus: @escaping @MainActor () async -> ICloudAccountStatus = { await ICloudAccountStatus.current() },
         defaults: UserDefaults = .standard,
         exporter: LedgerExporter? = nil,
@@ -138,7 +128,6 @@ final class SettingsModel {
         self.budgetStore = budgetStore ?? BudgetStore(context: context)
         self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
         self.storeHost = storeHost
-        self.household = householdHost.flatMap { $0.isAvailable ? HouseholdSettingsModel(host: $0) : nil }
         self.learnedCategories = LearnedCategoriesModel(store: LearnedCategoryStore(context: context, now: now), announce: announce)
         let categoryStore = CustomCategoryStore(context: context, now: now)
         self.categoryList = CategoryListModel(

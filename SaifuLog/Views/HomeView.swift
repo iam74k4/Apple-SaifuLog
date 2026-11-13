@@ -16,12 +16,8 @@ import UIKit
 ///
 /// 入力欄の右のマイクのボタンから、話した内容を端末の中で書き起こして入力欄に入れる（送信は利用者が押したときだけ）。
 ///
-/// 家族と家計を共有しているとき（家計の共有が有効なビルドだけ）は、帯の「自分／家族」で記録先を切り替える。「家族」のときは、
-/// タイムラインに家計の記録（記録した人の名前つき）を、帯に家族の今月の合計を出し、カメラとマイクのボタンは出さない
-/// （レシートと声は v1 では「自分」だけ）。
-///
 /// 会話を左へスワイプすると、カレンダーのページ（日ごとの支出・選んだ日の記録・今日あといくら使えるか。`LedgerCalendarView`）が
-/// 出る（「自分」のときだけ）。帯にカレンダーのボタンは置かない（スワイプで出るページと入口が重なるため）。
+/// 出る。帯にカレンダーのボタンは置かない（スワイプで出るページと入口が重なるため）。
 ///
 /// 状態と操作（送信・質問・レシート・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ・
 /// 先週のふりかえり・ページの切り替え）は `HomeModel` が持つ。ここは表示と、
@@ -66,11 +62,6 @@ struct HomeView: View {
         NavigationStack {
             pages
                 .toolbar(.hidden, for: .navigationBar)
-                .alert("金額が見つかりませんでした", isPresented: $model.showsNoAmountAlert) {
-                    Button("OK", role: .cancel) {}
-                } message: {
-                    Text("「ランチ 850」のように、金額の数字を入れてください。")
-                }
                 .alert(
                     model.storeFailure?.title ?? Text(verbatim: ""),
                     isPresented: showsStoreFailure,
@@ -211,10 +202,6 @@ struct HomeView: View {
                     if page != .conversation { model.voice.stop(.user) }
                     if model.consumePageChange() { VoiceOver.screenChanged() }
                 }
-                // 「家族」に切り替えたらカレンダーのページは無くなる（「自分」の記録だけを出すため）ので、会話に戻す。
-                .onChange(of: model.showsCalendarPage) { _, shows in
-                    if !shows { model.page = .conversation }
-                }
                 // 保存先に書き込まれたら、ふりかえりのカード（と内訳）の数字と、よく使うひとことの候補を読み直す（記録を足した・
                 // 直した・消したとき）。
                 .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { _ in
@@ -238,7 +225,7 @@ struct HomeView: View {
                 }
                 #if DEBUG || INTERNAL_DIAGNOSTICS
                 .sheet(isPresented: $showsDiagnostics) {
-                    DiagnosticsView(model: DiagnosticsModel(context: modelContext, household: model.household))
+                    DiagnosticsView(model: DiagnosticsModel(context: modelContext))
                 }
                 // 帯の右上に診断のボタンを出させる（渡さなければ出ない）。撮影用のデモでは渡さない（App Store の
                 // スクリーンショットに、App Store 版には無い開発用のボタンを写さないため）。
@@ -253,49 +240,6 @@ struct HomeView: View {
                     Button("削除", role: .destructive) { model.delete(pending) }
                 } message: { pending in
                     Text("\(pending.summary)の記録を削除します。この操作は取り消せません。")
-                }
-                // 家計の記録の削除。家族の端末からも消えることを添える。
-                .confirmationDialog(
-                    "この記録を削除しますか？",
-                    isPresented: showsHouseholdDeletionConfirmation,
-                    titleVisibility: .visible,
-                    presenting: model.pendingHouseholdDeletion
-                ) { pending in
-                    Button("削除", role: .destructive) { model.deleteHouseholdEntry(pending) }
-                } message: { pending in
-                    Text("\(pending.summary)の家計の記録を削除します。家族の端末からも消えます。この操作は取り消せません。")
-                }
-                // 「家族」のときに質問や読めない文、記録を直そうとする文を送った（家計には記録しない）。送った文は入力欄に戻っている。
-                .alert(
-                    householdInputAlertTitle,
-                    isPresented: showsHouseholdInputAlert,
-                    presenting: model.householdInputAlert
-                ) { _ in
-                    Button("OK", role: .cancel) {}
-                } message: { alert in
-                    switch alert {
-                    case .question:
-                        Text("家族の家計への質問は、まだできません。帯の「自分」に切り替えると、自分の記録について聞けます。")
-                    case .unclear:
-                        Text("「ランチ 850」のように、品目と金額を入れてください。")
-                    case .correction:
-                        Text("記録を直すときは、タイムラインのその記録を押してください。")
-                    }
-                }
-                // 家計の共有の知らせ（招待を受け入れた・家計が消えたなど）。ほかの画面を出している間は、閉じてから出す
-                // （設定の画面を出している間は、設定の画面が出す）。
-                .alert(
-                    model.household?.notice?.title ?? Text(verbatim: ""),
-                    isPresented: showsHouseholdNotice,
-                    presenting: model.household?.notice
-                ) { _ in
-                    Button("OK", role: .cancel) {}
-                } message: { notice in
-                    notice.message
-                }
-                // 家計から抜けた・消えたら「自分」に戻す。
-                .onChange(of: model.showsLedgerSwitch) {
-                    model.householdAvailabilityDidChange()
                 }
                 .onChange(of: scenePhase) { _, phase in
                     switch phase {
@@ -330,7 +274,7 @@ struct HomeView: View {
         }
     }
 
-    /// 会話（1 枚目）とカレンダー（2 枚目。「自分」のときだけ）。左右のスワイプで行き来し、カレンダーからは「会話」のボタンでも戻れる。
+    /// 会話（1 枚目）とカレンダー（2 枚目）。左右のスワイプで行き来し、カレンダーからは「会話」のボタンでも戻れる。
     /// VoiceOver では、帯の数字の要素の操作「カレンダー」でも開ける（ページを送るスワイプが見つけにくいため）。
     ///
     /// ナビゲーションの根元に置き、横に進む画面（月のまとめ・設定）とシートは、どちらのページからも同じものを出す。
@@ -338,19 +282,17 @@ struct HomeView: View {
         TabView(selection: $model.page) {
             timeline
                 .tag(HomeModel.Page.conversation)
-            if model.showsCalendarPage {
-                LedgerCalendarView(
-                    model: model.calendarPage,
-                    showConversation: { withAnimation { model.page = .conversation } },
-                    recordOnDay: { day in withAnimation { model.prepareDraft(for: day, calendar: calendar) } },
-                    edit: { model.presentEdit($0, calendar: calendar) },
-                    requestDelete: { model.requestDelete($0) },
-                    makeRecurring: { model.presentRecurringCreation(from: $0, calendar: calendar) },
-                    openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
-                    editBudget: { model.presentBudgetSetup() }
-                )
-                .tag(HomeModel.Page.calendar)
-            }
+            LedgerCalendarView(
+                model: model.calendarPage,
+                showConversation: { withAnimation { model.page = .conversation } },
+                recordOnDay: { day in withAnimation { model.prepareDraft(for: day, calendar: calendar) } },
+                edit: { model.presentEdit($0, calendar: calendar) },
+                requestDelete: { model.requestDelete($0) },
+                makeRecurring: { model.presentRecurringCreation(from: $0, calendar: calendar) },
+                openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
+                editBudget: { model.presentBudgetSetup() }
+            )
+            .tag(HomeModel.Page.calendar)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .background(Theme.background)
@@ -378,31 +320,7 @@ struct HomeView: View {
             }
     }
 
-    /// 「家族」のときの家計の保存先といまの家計（家計に入っていて、「家族」を選んでいるときだけ）。
-    private var activeHousehold: (container: ModelContainer, zoneName: String)? {
-        guard model.isHouseholdActive, let host = model.household, let container = host.container,
-              let zoneName = host.currentHousehold?.zoneName
-        else { return nil }
-        return (container, zoneName)
-    }
-
-    @ViewBuilder
     private var timelineContent: some View {
-        if let household = activeHousehold {
-            // 家計の記録は家計の保存先から読む（自分の記録の保存先とは別）。
-            HouseholdTimeline(
-                zoneName: household.zoneName,
-                limit: model.timelineLimit,
-                canShowMore: model.canShowMoreTimeline,
-                today: model.today,
-                undoableEntryIDs: Set(model.justRecordedHousehold.map(\.id)),
-                showMore: { model.showMoreTimeline() },
-                undo: { model.undoLastRecord() },
-                edit: { model.presentHouseholdEdit($0, calendar: calendar) },
-                requestDelete: { model.requestHouseholdDelete($0) }
-            )
-            .modelContainer(household.container)
-        } else {
             EntryTimeline(
                 limit: model.timelineLimit,
                 canShowMore: model.canShowMoreTimeline,
@@ -429,34 +347,19 @@ struct HomeView: View {
                 // 閉じたときは、上の行がカードのあった所へ下りてくる動きを付ける（出したときは付けない。`TimelineScrollView`）。
                 dismissWeeklyRecap: { withAnimation { model.dismissWeeklyRecap() } }
             )
-        }
     }
 
-    /// 上の帯。「家族」のときは家族の今月の合計（予算は v1 では「自分」だけなので出さない。まとめへも進まない）。
-    @ViewBuilder
+    /// 上の帯（今月の合計と予算）。
     private var header: some View {
-        if let household = activeHousehold {
-            HouseholdSummaryHeader(
-                zoneName: household.zoneName,
-                today: model.today,
-                calendar: calendar,
-                ledgerScope: $model.ledgerScope,
-                openSettings: { model.presentSettings() },
-                isCompact: isTyping
-            )
-            .modelContainer(household.container)
-        } else {
-            MonthSummaryHeader(
-                today: model.today,
-                calendar: calendar,
-                editBudget: { model.presentBudgetSetup() },
-                openReport: { model.presentMonthlyReport(calendar: calendar) },
-                openSettings: { model.presentSettings() },
-                openCalendar: { withAnimation { model.page = .calendar } },
-                ledgerScope: model.showsLedgerSwitch ? $model.ledgerScope : nil,
-                isCompact: isTyping
-            )
-        }
+        MonthSummaryHeader(
+            today: model.today,
+            calendar: calendar,
+            editBudget: { model.presentBudgetSetup() },
+            openReport: { model.presentMonthlyReport(calendar: calendar) },
+            openSettings: { model.presentSettings() },
+            openCalendar: { withAnimation { model.page = .calendar } },
+            isCompact: isTyping
+        )
     }
 
     private var bottomBar: some View {
@@ -470,9 +373,8 @@ struct HomeView: View {
                         if !Task.isCancelled, model.voice.notice == notice { model.voice.notice = nil }
                     }
             }
-            // よく使うひとこと。レシートと声と同じく「自分」だけ（家計の記録は候補の元にしていない）。声の入力の間は出さない
-            // （入力欄の代わりに書き起こしを出している間は、入力欄に文を入れられないため）。
-            if !model.isHouseholdActive, model.voice.isActive == false {
+            // よく使うひとこと。声の入力の間は出さない（入力欄の代わりに書き起こしを出している間は、入力欄に文を入れられないため）。
+            if model.voice.isActive == false {
                 QuickPhraseBar(
                     phrases: model.quickPhraseSuggestions,
                     pick: { model.pickQuickPhrase($0) },
@@ -486,8 +388,7 @@ struct HomeView: View {
                 text: $model.draft,
                 isSending: model.isParsing,
                 send: { model.send(calendar: calendar) },
-                // レシートと声の入力は v1 では「自分」だけ（「家族」のときはボタンを出さない）。
-                scanReceipt: model.isHouseholdActive ? nil : { model.requestReceiptScan(calendar: calendar) },
+                scanReceipt: { model.requestReceiptScan(calendar: calendar) },
                 showsReceiptChoice: $model.showsReceiptSourceChoice,
                 canUseDocumentCamera: model.canUseDocumentCamera,
                 chooseReceiptSource: { model.startReceiptCapture($0) },
@@ -496,8 +397,7 @@ struct HomeView: View {
                 undo: undoAction,
                 recorded: model.canUndo ? model.recordedItems : [],
                 edit: { model.presentEdit($0, calendar: calendar) },
-                voice: model.isHouseholdActive ? nil : model.voice,
-                targetsHousehold: model.isHouseholdActive,
+                voice: model.voice,
                 focusRequest: model.inputFocusRequest,
                 isOnScreen: model.page == .conversation,
                 focusChanged: { isTyping = $0 }
@@ -584,30 +484,6 @@ struct HomeView: View {
 
     private var showsDeletionConfirmation: Binding<Bool> {
         Binding(get: { model.pendingDeletion != nil }, set: { if !$0 { model.pendingDeletion = nil } })
-    }
-
-    private var showsHouseholdDeletionConfirmation: Binding<Bool> {
-        Binding(get: { model.pendingHouseholdDeletion != nil }, set: { if !$0 { model.pendingHouseholdDeletion = nil } })
-    }
-
-    private var showsHouseholdInputAlert: Binding<Bool> {
-        Binding(get: { model.householdInputAlert != nil }, set: { if !$0 { model.householdInputAlert = nil } })
-    }
-
-    private var householdInputAlertTitle: Text {
-        switch model.householdInputAlert {
-        case .question: Text("家族の家計では質問できません")
-        case .correction: Text("記録は直していません")
-        case .unclear, nil: Text("記録として読めませんでした")
-        }
-    }
-
-    /// 家計の共有の知らせを、ホームで出してよいか（ほかの画面を出している間は出せないので、閉じてから出す）。
-    private var showsHouseholdNotice: Binding<Bool> {
-        Binding(
-            get: { model.household?.notice != nil && !model.isPresentingOtherScreen },
-            set: { if !$0 { model.household?.notice = nil } }
-        )
     }
 }
 
@@ -813,7 +689,7 @@ private struct EntryTimeline: View {
                 }
                 // 読み込んだ件数が上限に届いていれば、まだ前の記録があるかもしれない。
                 if recentEntries.count >= limit {
-                    TimelineOlderRecords(canShowMore: canShowMore, isHousehold: false, showMore: showMore)
+                    TimelineOlderRecords(canShowMore: canShowMore, showMore: showMore)
                 }
                 ForEach(items) { item in
                     switch item {
@@ -884,117 +760,6 @@ private struct EntryTimeline: View {
     }
 }
 
-/// 家族の家計のタイムライン（「家族」のとき）。家計の記録を、記録した日時の新しいものから `limit` 件読み、古い順に並べる。
-/// 吹き出しには記録した人の名前を添える。押すと直し（ほかの人の記録も）、長押しで削除できる。
-///
-/// 家計の記録は送った文を持たないので、自分の記録のタイムラインのような会話の形（送った文と返事のカード）にはしていない
-/// （記録ごとの吹き出しのまま。会話の形にするかは docs/design.md §15 のあとの作業）。記録の直後の「取り消す」だけは、下の
-/// バナーをやめたので、直前に記録した吹き出し（複数件ならいちばん新しいもの）のすぐ下に出す（`HouseholdUndoRow`）。
-///
-/// 家計の保存先（household.store）を読むので、呼び出し側が家計の保存先を環境に渡す（`.modelContainer`）。
-private struct HouseholdTimeline: View {
-    let limit: Int
-    /// 「前の記録を表示」でさらに読み込めるか（読み込む件数が上限に届いていなければ）。
-    let canShowMore: Bool
-    let today: Date
-    /// 直前に家計へ記録したもの（まだ取り消せるもの）の id。その吹き出しの下に「取り消す」を出す。取り消せなければ空。
-    let undoableEntryIDs: Set<UUID>
-    let showMore: () -> Void
-    let undo: () -> Void
-    let edit: (HouseholdEntry) -> Void
-    let requestDelete: (HouseholdEntry) -> Void
-
-    @Query private var recentEntries: [HouseholdEntry]
-
-    init(
-        zoneName: String,
-        limit: Int,
-        canShowMore: Bool,
-        today: Date,
-        undoableEntryIDs: Set<UUID>,
-        showMore: @escaping () -> Void,
-        undo: @escaping () -> Void,
-        edit: @escaping (HouseholdEntry) -> Void,
-        requestDelete: @escaping (HouseholdEntry) -> Void
-    ) {
-        self.limit = limit
-        self.canShowMore = canShowMore
-        self.today = today
-        self.undoableEntryIDs = undoableEntryIDs
-        self.showMore = showMore
-        self.undo = undo
-        self.edit = edit
-        self.requestDelete = requestDelete
-        _recentEntries = Query(HouseholdEntry.timelineDescriptor(zoneName: zoneName, limit: limit))
-    }
-
-    /// 「記録しました 取り消す」の行を下に置く吹き出し（直前に記録したもののうち、いちばん新しいもの）。
-    ///
-    /// いちばん下の吹き出しの下に置かないのは、「取り消す」は次の文を送るまで出したままなので、その間に家族の記録が同期で
-    /// 届くと、ほかの人の記録の下に「記録しました 取り消す」が並び、その記録を取り消すように見えるため（押すと消えるのは自分の記録）。
-    private var undoRowAnchor: UUID? {
-        guard !undoableEntryIDs.isEmpty else { return nil }
-        return recentEntries.first { undoableEntryIDs.contains($0.id) }?.id
-    }
-
-    var body: some View {
-        let undoRowAnchor = undoRowAnchor
-        ScrollViewReader { proxy in
-            TimelineScrollView {
-                if recentEntries.isEmpty {
-                    HouseholdEmptyTimelineView()
-                }
-                if recentEntries.count >= limit {
-                    TimelineOlderRecords(canShowMore: canShowMore, isHousehold: true, showMore: showMore)
-                }
-                ForEach(recentEntries.reversed()) { entry in
-                    EntryBubble(
-                        entry: entry, today: today, edit: { edit(entry) }, requestDelete: { requestDelete(entry) },
-                        recorderName: entry.recorderName
-                    )
-                    .reportsTimelineFrame(.row(entry.id))
-                    if entry.id == undoRowAnchor {
-                        HouseholdUndoRow(undo: undo)
-                            .reportsTimelineFrame(.householdUndo)
-                    }
-                }
-            }
-            // いちばん新しい家計の記録が替わったら、下端まで送る（行ではなく中身の下端で、動きを付けない。`scrollToTimelineBottom`）。
-            .onChange(of: recentEntries.first?.id) { _, id in
-                guard id != nil else { return }
-                proxy.scrollToTimelineBottom()
-            }
-        }
-    }
-}
-
-/// 家計のタイムラインの、記録の直後の「記録しました」と「取り消す」（直前に記録した吹き出しの下に右寄せで出す）。
-/// 時間では引っ込めない（次の文を送る・取り消す・その記録を直す・記録先を切り替えるまで。自分の記録の返事と同じ）。
-private struct HouseholdUndoRow: View {
-    let undo: () -> Void
-
-    var body: some View {
-        // 1 行に収まらなければ（アクセシビリティサイズの文字）、「取り消す」を下の行に右寄せで置く。HStack のままだと、AX5 で
-        // 「記録しました」が語の途中で折り返され、「取り消す」が「取り…」に切れた。
-        AdaptiveRowLayout(stacksWhenNeeded: true, spacing: 12, stackAlignment: .trailing) {
-            Text("記録しました")
-                .foregroundStyle(Theme.inkSecondary)
-            Button(action: undo) {
-                // 文字の色は本文と同じ墨（ダークは白）なので、取り消しの記号を添えて、押せるボタンだと分かるようにする。
-                Label("取り消す", systemImage: "arrow.uturn.backward")
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Theme.accentText)
-                    .lineLimit(1)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(.rect)
-            }
-            .accessibilityHint("記録を消して、送った文を入力欄に戻します")
-        }
-        .font(.subheadline)
-        .frame(maxWidth: .infinity, alignment: .trailing)
-    }
-}
-
 /// タイムラインの上の端（読み込んだ件数が上限に届いていて、まだ前の記録があるかもしれないとき）。
 ///
 /// 読み込む件数を増やせるうちは「前の記録を表示」を出す。上限（`HomeModel.timelineMaxLimit`）に届いたら、代わりにそれより前の
@@ -1002,9 +767,6 @@ private struct HouseholdUndoRow: View {
 /// 引っかかるようになるため（`TimelineScrollView`）。
 private struct TimelineOlderRecords: View {
     let canShowMore: Bool
-    /// 家計の記録のタイムラインか。家計の記録は月のまとめにも CSV の書き出しにも出ない（v1 は「自分」だけ）ので、ほかで見られるとは
-    /// 案内しない。
-    let isHousehold: Bool
     let showMore: () -> Void
 
     var body: some View {
@@ -1016,13 +778,7 @@ private struct TimelineOlderRecords: View {
             .font(.subheadline)
             .frame(minHeight: 44)
         } else {
-            Group {
-                if isHousehold {
-                    Text("ホームに出せるのは、新しく記録した方から \(HomeModel.timelineMaxLimit) 件までです。")
-                } else {
-                    Text("ホームに出せるのは、新しく記録した方から \(HomeModel.timelineMaxLimit) 件までです。それより前の記録は、月のまとめのカテゴリの一覧と、設定の「記録を書き出す」で見られます。")
-                }
-            }
+            Text("ホームに出せるのは、新しく記録した方から \(HomeModel.timelineMaxLimit) 件までです。それより前の記録は、月のまとめのカテゴリの一覧と、設定の「記録を書き出す」で見られます。")
             .font(.footnote)
             .foregroundStyle(Theme.inkSecondary)
             .multilineTextAlignment(.center)
@@ -1032,7 +788,7 @@ private struct TimelineOlderRecords: View {
     }
 }
 
-/// タイムラインのスクロール（自分の記録と家計の記録で共通）。下端から開き、いちばん新しいものを入力欄のすぐ上に出す。
+/// タイムラインのスクロール。下端から開き、いちばん新しいものを入力欄のすぐ上に出す。
 ///
 /// 行は LazyVStack ではなく、すべての行を測る並べ方（`TimelineStack`。VStack と同じ位置に置く）に並べる。LazyVStack は、まだ
 /// 描いていない行の高さを、そのとき描いている行から見積もる。
@@ -1047,7 +803,7 @@ private struct TimelineOlderRecords: View {
 /// 読み込んだ行は、記録の追加・削除や同期の取り込み、前面に戻ったときにもすべて描き直すので、「前の記録を表示」で読み足せる件数にも
 /// 上限（`HomeModel.timelineMaxLimit`）を設ける。
 ///
-/// 開いた後にいちばん新しいものを足したとき（送信の返事・質問・ふりかえりのカード・家計の記録）は、中身の本当の下端に置いた目印
+/// 開いた後にいちばん新しいものを足したとき（送信の返事・質問・ふりかえりのカード）は、中身の本当の下端に置いた目印
 /// （`TimelineBottomMarker`）まで、動きを付けずに送る（`ScrollViewProxy.scrollToTimelineBottom`）。
 /// - 行の id で下端に合わせると、行の下の端が見える範囲の下の端にそろい、その下の余白（`padding()` の 16pt）が見える範囲の外に
 ///   隠れた（中身が画面より高いときだけ。開いたときと、当時あった「取り消す」のバナーが引っ込んだ後は余白が見えるので、送った
@@ -1131,7 +887,7 @@ private struct TimelineStack: Layout {
 
 /// タイムラインの中身の下端の目印の id（`TimelineScrollView`）。いちばん新しいものまで送るときの行き先。
 ///
-/// いちばん新しいもの（送信の返事・質問・ふりかえりのカード・家計の記録）はいつもいちばん下に並ぶので、下端まで送れば見える。
+/// いちばん新しいもの（送信の返事・質問・ふりかえりのカード）はいつもいちばん下に並ぶので、下端まで送れば見える。
 private enum TimelineBottomMarker: Hashable {
     case id
 }
@@ -1153,10 +909,8 @@ private extension ScrollViewProxy {
 enum TimelineFrameKey: Hashable {
     /// 行の見える範囲（帯と入力欄の間）。
     case viewport
-    /// 行。送信の返事のカードは送信の `id`（送信のいちばん古い記録の `persistentModelID`）、家計の記録・質問・ふりかえりは `id`。
+    /// 行。送信の返事のカードは送信の `id`（送信のいちばん古い記録の `persistentModelID`）、質問・ふりかえりは `id`。
     case row(AnyHashable)
-    /// 家計のタイムラインの、記録の直後の「記録しました 取り消す」の行（`HouseholdUndoRow`）。
-    case householdUndo
 }
 
 /// タイムラインの行と見える範囲が描かれた位置（ウィンドウの座標）を受け取るもの。
@@ -1197,21 +951,6 @@ private struct TimelineFrameReporter: ViewModifier {
         } else {
             content
         }
-    }
-}
-
-/// 家族の家計にまだ記録が無いときの案内。
-private struct HouseholdEmptyTimelineView: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("家族の家計")
-                .font(.title2.bold())
-            Text("下の入力欄に送ると、家族と共有している家計に記録します。家族が記録したものも、ここに並びます。自分の記録は帯の「自分」に切り替えると見られます。")
-                .foregroundStyle(Theme.inkSecondary)
-        }
-        .foregroundStyle(Theme.ink)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 24)
     }
 }
 

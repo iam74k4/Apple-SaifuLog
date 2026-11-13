@@ -26,8 +26,6 @@ struct InputBar: View {
     var edit: (RecordedItem) -> Void = { _ in }
     /// 声の入力。渡さなければマイクのボタンを出さない。
     var voice: VoiceInputModel?
-    /// 家族の家計に記録しているか（ホームの帯の「家族」）。入力欄の名前と例で、家計に記録することを示す。
-    var targetsHousehold = false
     /// 入力欄にキーボードを出す頼みの数（Siri・ショートカットの「入力欄を開く」・カレンダーの「この日に記録」）。増えるたびに
     /// フォーカスを入れる。
     var focusRequest = 0
@@ -106,7 +104,7 @@ struct InputBar: View {
                 // Return で送るとキーボードが閉じる。続けて記録できるよう、入力欄にとどまる。
                 isFocused = true
             }
-            // 記録も質問も同じ入力欄に打つ（記録か質問かはアプリが見分ける）。家族の家計のときは記録だけ。
+            // 記録も質問も同じ入力欄に打つ（記録か質問かはアプリが見分ける）。
             .accessibilityLabel(fieldLabel)
             // 送信の後、VoiceOver のフォーカスは入力欄に戻る。タイムラインの返事のカードまで移らずに直す・取り消すができるように
             // する（読み上げで読み違いに気づいたら、その場で直せるように）。複数件なら 1 件ずつ出す。
@@ -191,11 +189,7 @@ struct InputBar: View {
     /// 字は本文より一回り小さく（subheadline）する。入力欄はカメラとマイクのボタンに挟まれて狭く、本文の大きさでは標準の文字でも
     /// 「記録も質問も、ひとことで」が「…」で切れたため（iPhone 17 Pro のシミュレータ）。打った文は本文の大きさのまま。
     private var prompt: Text {
-        let text = if targetsHousehold {
-            // 「自分／家族」を取り違えて記録しないよう、家計に記録することを例の文でも示す。アクセシビリティサイズでも
-            // 「家族」の印だけは残す（例だけにすると、「自分」のときと見分けがつかないため）。
-            dynamicTypeSize.isAccessibilitySize ? Text("家族: ランチ 850") : Text("家族に記録（ランチ 850）")
-        } else if dynamicTypeSize.isAccessibilitySize {
+        let text = if dynamicTypeSize.isAccessibilitySize {
             Text(verbatim: "ランチ 850")
         } else {
             Text("記録も質問も、ひとことで")
@@ -205,7 +199,7 @@ struct InputBar: View {
 
     /// 入力欄の名前（VoiceOver が読む）。
     private var fieldLabel: Text {
-        targetsHousehold ? Text("家族の家計に記録") : Text("記録や質問")
+        Text("記録や質問")
     }
 }
 

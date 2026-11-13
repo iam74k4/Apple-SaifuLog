@@ -60,7 +60,7 @@ enum ICloudAccountStatus: Equatable, Sendable {
     /// - Parameter canUseCloudKit: このプロセスが CloudKit を使えるか。テストで false を渡して、問い合わせないことを確かめる。
     static func current(
         containerIdentifier: String = ModelContainerFactory.iCloudContainerIdentifier,
-        canUseCloudKit: Bool = HouseholdSharing.canUseCloudKit
+        canUseCloudKit: Bool = CloudKitEntitlement.isAvailable
     ) async -> ICloudAccountStatus {
         guard canUseCloudKit else { return .missingEntitlement }
         do {
@@ -156,5 +156,18 @@ extension ICloudAccountStatus {
         case .missingEntitlement:
             String(localized: "このビルドのアプリでは iCloud を使えないため、この iPhone の中だけに保存しています（署名していない開発用のビルドのため）。")
         }
+    }
+}
+
+/// このプロセスが CloudKit を使えるか（iCloud の entitlement つきで署名したビルドか）。
+///
+/// 署名の無いビルド（`make build`・`make test-app` の CODE_SIGNING_ALLOWED=NO。アプリのテストもこのアプリの中で動く）は
+/// iCloud の entitlement を持たず、CKContainer を作るとプロセスが止まる（SIGTRAP。iOS 26.4 のシミュレータで確かめた）。
+/// entitlement そのものは iOS の公開の API で読めないので、署名の印（`_CodeSignature/CodeResources`）の有無で見分ける。
+/// このアプリの署名したビルドは、どれも iCloud の entitlement を持つ（`project.yml` の entitlements）。
+enum CloudKitEntitlement {
+    static var isAvailable: Bool {
+        let signature = Bundle.main.bundleURL.appending(path: "_CodeSignature/CodeResources")
+        return FileManager.default.fileExists(atPath: signature.path(percentEncoded: false))
     }
 }

@@ -151,21 +151,3 @@ struct HomeModelCustomCategoryTests {
     }
 
 }
-
-/// 家族の家計には作ったカテゴリを持ち込まない（家族の端末には無いカテゴリなので「その他」にする）。
-@MainActor
-struct HomeModelCustomCategoryHouseholdTests {
-    @Test func householdEntriesUseOtherForCustomCategory() async throws {
-        let fixture = try HomeModelHouseholdTests.Fixture()
-        try fixture.household.insertHousehold(role: .owner)
-        _ = try CustomCategoryStore(context: fixture.context, now: { TestSupport.now })
-            .create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
-        fixture.model.categories.reload()
-        fixture.model.ledgerScope = .household
-
-        await fixture.send("衣服 3000")
-
-        #expect(try fixture.household.entries().map(\.category) == [.other])
-    }
-
-}

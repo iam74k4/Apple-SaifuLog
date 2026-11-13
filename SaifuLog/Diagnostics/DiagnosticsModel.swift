@@ -33,7 +33,6 @@ final class DiagnosticsModel {
     @ObservationIgnored private let settings: LaunchSettingsStore
     @ObservationIgnored private let copy: @MainActor (String) -> Void
     @ObservationIgnored private let announce: @MainActor (String) -> Void
-    @ObservationIgnored private let household: HouseholdHost?
     @ObservationIgnored private let aiFallbackLog: AIFallbackLog
     @ObservationIgnored private let generate: @Sendable () async throws -> Void
     @ObservationIgnored private let generationTimeout: Duration
@@ -48,7 +47,6 @@ final class DiagnosticsModel {
     ///   - settings: 設定の「iCloud で同期」を読む置き場所（`LaunchSettingsStore`）。
     ///   - copy: まとめてコピーする先（クリップボード）。テストで文を集める。
     ///   - announce: VoiceOver に読み上げさせる。
-    ///   - household: 家計の共有。渡すと（有効なときだけ）家計の行を出す。
     ///   - aiFallbackLog: 起動してから端末内 AI の結果を使わなかった回数と最後の失敗の記録。テストで別の記録を渡す。
     ///   - generate: 生成の試しで、端末内 AI に 1 回生成させる。テストでは本物のモデルを呼ばない代わりに差し替える。
     ///   - generationTimeout: 生成の試しを待つ上限。
@@ -61,12 +59,10 @@ final class DiagnosticsModel {
         settings: LaunchSettingsStore = LaunchSettingsStore(),
         copy: @escaping @MainActor (String) -> Void = { UIPasteboard.general.string = $0 },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
-        household: HouseholdHost? = nil,
         aiFallbackLog: AIFallbackLog = .shared,
         generate: @escaping @Sendable () async throws -> Void = { try await DiagnosticsProbe.generateOnce() },
         generationTimeout: Duration = DiagnosticsProbe.generationTimeout
     ) {
-        self.household = household
         self.aiFallbackLog = aiFallbackLog
         self.generate = generate
         self.generationTimeout = generationTimeout
@@ -138,22 +134,8 @@ final class DiagnosticsModel {
                 // まだ書いていなければオフ（UserDefaults から移すのは、保存先を開くときとロックの設定を読むとき）。
                 isSyncSettingOn: settings.load(migrating: false)?.iCloudSyncEnabled ?? false
             ),
-            household: householdStatus(),
             aiFallbacks: aiFallbackLog.snapshot,
             generationProbe: generationProbe
-        )
-    }
-
-    /// 家計の共有の状態。家計の共有が無効なら nil（行を出さない）。
-    private func householdStatus() -> DiagnosticsReport.HouseholdStatus? {
-        guard let household, household.isEnabled else { return nil }
-        let current = household.currentHousehold
-        return DiagnosticsReport.HouseholdStatus(
-            isStoreOpen: household.store != nil,
-            role: current?.role.rawValue ?? "none",
-            entries: household.store.flatMap { try? $0.context.fetchCount(FetchDescriptor<HouseholdEntry>()) },
-            hasMemberName: !(current?.memberName.isEmpty ?? true),
-            storeFiles: DiagnosticsProbe.storeFiles(storeURL: ModelContainerFactory.householdStoreURL)
         )
     }
 

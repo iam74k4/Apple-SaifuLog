@@ -31,10 +31,6 @@ struct SettingsView: View {
             if let appLock {
                 lockSection(appLock)
             }
-            // 家族と共有（家計の共有が有効なビルドで、家計の保存先を開けたときだけ）。
-            if let household = model.household {
-                HouseholdSettingsSection(model: household)
-            }
             exportSection
             aboutSection
         }
@@ -52,8 +48,6 @@ struct SettingsView: View {
         .sheet(item: $model.premiumSheet) { premium in
             PremiumSheet(model: premium)
         }
-        // 「家族と共有」の節のシートと確認（節に付けると行ごとに付いてしまうので、リストに付ける）。
-        .modifier(HouseholdSettingsPresentationsIfAvailable(model: model.household))
         .alert(
             alertTitle,
             isPresented: showsExportAlert,
@@ -127,28 +121,6 @@ struct SettingsView: View {
             model.recurringList.reload()
             model.learnedCategories.reload()
         }
-        // 家計の共有の知らせ（共有をやめた・抜けた・消えたなど）。設定の画面を出している間は、ホームの下からはアラートを
-        // 出せないので、ここで出す（節のシートや確認を出している間は、閉じてから出す）。
-        .alert(
-            model.household?.host.notice?.title ?? Text(verbatim: ""),
-            isPresented: showsHouseholdNotice,
-            presenting: model.household?.host.notice
-        ) { _ in
-            Button("OK", role: .cancel) {}
-        } message: { notice in
-            notice.message
-        }
-    }
-
-    private var showsHouseholdNotice: Binding<Bool> {
-        Binding(
-            get: {
-                guard let household = model.household else { return false }
-                return household.host.notice != nil && household.canPresentNotice && model.budgetSetup == nil
-                    && model.premiumSheet == nil
-            },
-            set: { if !$0 { model.household?.host.notice = nil } }
-        )
     }
 
     // MARK: - プレミアム

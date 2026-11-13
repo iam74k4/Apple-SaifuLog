@@ -13,8 +13,7 @@ import SwiftData
 /// 引数が無ければ何もしない（ふだんの Xcode の Run には効かない）。デモの間は:
 /// - 保存先はメモリの上だけにし、架空の記録と予算を入れる（利用者の記録のファイル default.store を開かない）。
 /// - 設定（UserDefaults）は専用の領域（`defaultsSuiteName`）を毎回空にして使う（利用者の設定に触れない）。
-/// - 初回の案内を出さず、診断画面のボタン（帯の聴診器）など開発用の表示を出さない。家族との共有（機能フラグで隠している機能）も
-///   出さない。
+/// - 初回の案内を出さず、診断画面のボタン（帯の聴診器）など開発用の表示を出さない。
 /// - 端末や AI によって変わるもの（AI の一言・レシートの文字認識・声の書き起こし・App Store の価格）は、決まった中身にする
 ///   （どれも実際のアプリが出しうる中身にする）。
 /// - 「いま」は撮影の月の 15 日の 20:30 に置き、日付はそこから相対で作る（`pinnedNow(on:calendar:)`）。月のどの日に撮っても
@@ -249,8 +248,7 @@ final class ScreenshotDemo {
 
     /// ホームのモデル。設定・時計・解析・質問の答え方・AI の一言・レシートの読み取り・声の入力を、デモのものに差し替える。
     func makeHomeModel(
-        context: ModelContext, pendingWrites: PendingStoreWrites, purchases: PurchaseManager, storeHost: StoreHost?,
-        household: HouseholdHost?
+        context: ModelContext, pendingWrites: PendingStoreWrites, purchases: PurchaseManager, storeHost: StoreHost?
     ) -> HomeModel {
         let clock = makeClock()
         let writesRemarks = showsAIRemarks
@@ -260,7 +258,6 @@ final class ScreenshotDemo {
             pendingWrites: pendingWrites,
             purchases: purchases,
             storeHost: storeHost,
-            household: household,
             defaults: defaults,
             // 端末内 AI を使わず、キーワード辞書で読む（端末によって読み方が変わらないように）。カテゴリの聞き直しも AI なので使わない。
             makeParser: { now, calendar in RuleBasedParser(calendar: calendar, now: { now }) },

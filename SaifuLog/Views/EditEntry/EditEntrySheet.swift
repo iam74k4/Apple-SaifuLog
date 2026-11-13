@@ -54,12 +54,7 @@ struct EditEntrySheet: View {
                         if model.delete() { dismiss() }
                     }
                 } message: {
-                    if model.isShared {
-                        // 家計の記録は、長押しの削除（ホーム）と同じく、家族の端末からも消えることを添える。
-                        Text("\(model.deletionSummary)の家計の記録を削除します。家族の端末からも消えます。この操作は取り消せません。")
-                    } else {
-                        Text("\(model.deletionSummary)の記録を削除します。この操作は取り消せません。")
-                    }
+                    Text("\(model.deletionSummary)の記録を削除します。この操作は取り消せません。")
                 }
                 .confirmationDialog(
                     "直した内容を破棄しますか？",
@@ -245,9 +240,7 @@ struct EditEntrySheet: View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel("カテゴリ")
             LazyVGrid(columns: categoryColumns, spacing: 8) {
-                // 家族と共有している家計の記録は、組み込みのカテゴリだけ（作ったカテゴリは自分の一覧にしかなく、家族の端末では
-                // 「その他」になるため）。
-                ForEach(model.isShared ? EntryCategory.builtIns : catalog.all) { category in
+                ForEach(catalog.all) { category in
                     ChoiceChip(isSelected: model.category == category) {
                         model.category = category
                     } label: {

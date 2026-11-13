@@ -33,7 +33,7 @@ final class AIFallbackLog: Sendable {
     /// アプリで 1 つ。解析器や答え方は使うたびに作り直すので、記録はここに集める。
     static let shared = AIFallbackLog()
 
-    /// ほかのログ（家計の共有の household）と同じサブシステムにし、カテゴリで分ける。
+    /// ほかのログと同じサブシステムにし、カテゴリで分ける。
     static let logger = Logger(subsystem: "com.iam74k4.SaifuLog", category: "ai")
 
     /// 起動してからの記録。

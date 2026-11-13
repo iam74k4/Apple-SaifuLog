@@ -17,8 +17,6 @@ struct AppRootView: View {
     let storeHost: StoreHost
     /// プレミアムの購入と状態（アプリで 1 つ）。ホームのモデルに渡す。
     let purchases: PurchaseManager
-    /// 家計の共有（アプリで 1 つ）。ここで始め（自分の記録の保存先を開けた後）、ホームのモデルに渡す。
-    let household: HouseholdHost
 
     /// 初回の案内。出さないと決めたら nil のまま。終えても持ち続ける（終えたかどうかでホームへの切り替えを描くため）。
     @State private var onboarding: OnboardingModel?
@@ -70,16 +68,12 @@ struct AppRootView: View {
     ///
     /// init ではなくここで決めるのは、View の init は描き直しのたびに呼ばれ、そのたびに保存先を読むことになるため。
     private func decide() {
-        // 家計の保存先も保護クラスが Complete なので、自分の記録の保存先を開けた（ロックが解けている）ここで開く。
-        // 2 回目からは何もしない（iCloud 同期の切り替えで自分の記録の保存先を開き直しても、家計の保存先は開き直さない）。
-        household.start()
         guard home == nil else { return }
         #if DEBUG
         if let demo = ScreenshotDemo.current {
             // 撮影用のデモ（DEBUG のビルドだけ）: 初回の案内を出さず、デモの設定・時計・AI の代わりでホームを作る。
             let home = demo.makeHomeModel(
-                context: container.mainContext, pendingWrites: storeHost.pendingWrites, purchases: purchases, storeHost: storeHost,
-                household: household
+                context: container.mainContext, pendingWrites: storeHost.pendingWrites, purchases: purchases, storeHost: storeHost
             )
             let calendar = weekStart.applied(to: systemCalendar)
             Task {
@@ -93,8 +87,7 @@ struct AppRootView: View {
             onboarding = OnboardingModel(budgetStore: BudgetStore(context: container.mainContext))
         }
         let home = HomeModel(
-            context: container.mainContext, pendingWrites: storeHost.pendingWrites, purchases: purchases, storeHost: storeHost,
-            household: household
+            context: container.mainContext, pendingWrites: storeHost.pendingWrites, purchases: purchases, storeHost: storeHost
         )
         // iCloud 同期を切り替えて開き直したときは、切り替えた設定の画面を開いた状態から始める（どうなったかをその画面で見せる）。
         home.restoreSettingsAfterStoreSwitch()

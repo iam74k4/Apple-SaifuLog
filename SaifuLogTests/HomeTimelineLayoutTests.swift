@@ -82,20 +82,6 @@ struct HomeTimelineLayoutTests {
         try Self.expectAtTheBottom(frames, key: .row(recap.id), size: size)
     }
 
-    @Test("「家族」のときは、いちばん新しい家計の記録が下の端に見える", arguments: sizes)
-    func newestHouseholdEntryIsAtTheBottom(size: UIContentSizeCategory) async throws {
-        let fixture = try TimelineFixture(household: true)
-        try fixture.insertDemoLedger()
-        fixture.markWeeklyRecapShown()
-        let newest = try #require(try fixture.insertHouseholdLedger())
-        fixture.model.ledgerScope = .household
-        #expect(fixture.model.isHouseholdActive)
-
-        let frames = try await fixture.host(size: size, name: "household")
-
-        try Self.expectAtTheBottom(frames, key: .row(newest), size: size)
-    }
-
     /// 開いた後に送ったものを確かめる文字の大きさ（標準・AX1・AX5）。
     nonisolated static let sendSizes: [UIContentSizeCategory] = [
         .large, .accessibilityMedium, .accessibilityExtraExtraExtraLarge,
@@ -172,37 +158,6 @@ struct HomeTimelineLayoutTests {
         try Self.expectAtTheBottom(frames, key: .row(recap.id), size: size)
     }
 
-    /// 家計に記録した直後の「記録しました 取り消す」の行は、自分が記録した吹き出しのすぐ下に出る。「取り消す」は次の文を送るまで
-    /// 出したままなので、その間に家族の記録が同期で届くことがある。いちばん下の吹き出しの下に出すと、ほかの人の記録の下に並び、
-    /// その記録を取り消すように見える（押すと消えるのは自分の記録）。
-    @Test("家計に記録した後に家族の記録が届いても、「取り消す」の行は自分が記録した吹き出しのすぐ下に出る", arguments: sendSizes)
-    func householdUndoRowStaysUnderOwnRecord(size: UIContentSizeCategory) async throws {
-        let fixture = try TimelineFixture(household: true)
-        fixture.markWeeklyRecapShown()
-        _ = try fixture.insertHouseholdLedger()
-        fixture.model.ledgerScope = .household
-        fixture.model.draft = "コンビニ 650"
-        await fixture.model.send(calendar: TestSupport.calendar)?.value
-        let own = try #require(fixture.model.justRecordedHousehold.first)
-        #expect(fixture.model.canUndo)
-        // 家族の記録が 1 分後に届く（同期で取り込んだ代わりに、家計の保存先へ入れる）。
-        let later = try #require(try fixture.insertHouseholdEntry(
-            memo: "コーヒー", amount: 400, recorderName: "たろう", createdAt: fixture.now.addingTimeInterval(60)
-        ))
-
-        let frames = try await fixture.host(size: size, name: "household-undo")
-
-        let ownRow = try #require(frames[.row(own.id)].flatMap { $0.isNull ? nil : $0 }, "自分の記録が描かれていません（\(size.rawValue)）")
-        let laterRow = try #require(frames[.row(later)].flatMap { $0.isNull ? nil : $0 }, "家族の記録が描かれていません（\(size.rawValue)）")
-        let undoRow = try #require(
-            frames[.householdUndo].flatMap { $0.isNull ? nil : $0 }, "「取り消す」の行が描かれていません（\(size.rawValue)）"
-        )
-        #expect(ownRow.maxY <= undoRow.minY, "「取り消す」の行が自分の記録の下にありません（\(size.rawValue)）")
-        #expect(undoRow.maxY <= laterRow.minY, "「取り消す」の行が家族の記録の下にあります（\(size.rawValue)）")
-        // いちばん下は、後から届いた家族の記録（下の余白を残して下の端に見える）。
-        try Self.expectAtTheBottom(frames, key: .row(later), size: size)
-    }
-
     /// 前提: 中身が画面より高い（見える範囲より上に行がある）。行の id まで送ったときに下の余白が隠れたのは、この形のときだけ。
     private static func expectTallerThanViewport(
         _ frames: [TimelineFrameKey: CGRect], size: UIContentSizeCategory
@@ -229,25 +184,22 @@ struct HomeTimelineLayoutTests {
     }
 }
 
-/// ホームのモデルと、その保存先・家計の受け持ちと、ホームを置くウィンドウ。
+/// ホームのモデルと、その保存先と、ホームを置くウィンドウ。
 @MainActor
 private final class TimelineFixture {
     let context: ModelContext
     let suiteName = "HomeTimelineLayoutTests.\(UUID().uuidString)"
     let defaults: UserDefaults
-    let household: HouseholdFixture?
     /// ホームの「いま」。撮影用のデモの家計の「いま」（2026 年 9 月 15 日 20:30）にそろえる。
     let now = ScreenshotDemo.pinnedNow(on: TestSupport.now, calendar: TestSupport.calendar)
     private(set) var model: HomeModel!
 
-    init(household: Bool = false) throws {
+    init() throws {
         context = try TestSupport.makeContext()
         defaults = try #require(UserDefaults(suiteName: suiteName))
-        self.household = household ? try HouseholdFixture() : nil
         let now = now
         model = HomeModel(
             store: EntryStore(context: context),
-            household: self.household?.host,
             defaults: defaults,
             makeParser: { now, calendar in RuleBasedParser(calendar: calendar, now: { now }) },
             makeCategoryRefiner: { nil },
@@ -279,38 +231,6 @@ private final class TimelineFixture {
     func latestSend() throws -> EntrySend? {
         let entries = try context.fetch(Entry.timelineDescriptor(limit: HomeModel.timelinePageSize))
         return EntrySend.sends(from: Array(entries.reversed())).last
-    }
-
-    /// 家計を端末に置き、撮影用のデモの記録と同じ品目の家計の記録（家族 2 人が交互に記録したもの）を入れる。いちばん新しく
-    /// 記録したものの id を返す。
-    func insertHouseholdLedger() throws -> UUID? {
-        guard let household else { return nil }
-        try household.insertHousehold(role: .owner)
-        let records = ScreenshotDemoLedger.records(now: now, calendar: TestSupport.calendar)
-        for (index, record) in records.enumerated() {
-            household.context.insert(TestSupport.householdEntry(
-                amount: record.amount, memo: record.memo, category: record.category,
-                recorderName: index.isMultiple(of: 2) ? "はなこ" : "たろう",
-                spentAt: record.spentAt, createdAt: record.createdAt, modifiedAt: record.createdAt
-            ))
-        }
-        try household.context.save()
-        let newest = try household.context.fetch(
-            HouseholdEntry.timelineDescriptor(zoneName: TestSupport.householdZoneName, limit: 1)
-        ).first
-        return newest?.id
-    }
-
-    /// 家族の記録を 1 件、家計の保存先に入れる（同期で取り込んだ代わり）。入れた記録の id を返す。
-    func insertHouseholdEntry(memo: String, amount: Int, recorderName: String, createdAt: Date) throws -> UUID? {
-        guard let household else { return nil }
-        let entry = TestSupport.householdEntry(
-            amount: amount, memo: memo, category: .cafe, recorderName: recorderName,
-            spentAt: createdAt, createdAt: createdAt, modifiedAt: createdAt
-        )
-        household.context.insert(entry)
-        try household.context.save()
-        return entry.id
     }
 
     /// 入力欄から記録を送り（送信のボタンと同じ `HomeModel.send`）、保存し終えるまで待つ。送った記録の返事のカードの行を返す。

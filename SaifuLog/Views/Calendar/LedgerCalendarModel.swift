@@ -7,7 +7,7 @@ import SwiftData
 ///
 /// 見せる月の記録だけを読み（全期間を読まない。記録が増えても重くならないように）、日ごとの集計（`LedgerCalendarMonth`）と、
 /// 今月なら見通し（`SpendingOutlook`。今日あと・固定費を引いた今月あと・月末の見込み）を出す。数字はコアで数え、ここでは
-/// 数え直さない。記録は「自分」の記録だけ（家族の家計は v1 では出さない）。
+/// 数え直さない。
 @MainActor
 @Observable
 final class LedgerCalendarModel {

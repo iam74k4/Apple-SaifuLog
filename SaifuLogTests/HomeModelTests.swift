@@ -101,9 +101,9 @@ struct HomeModelTests {
             model.questions.last?.state
         }
 
-        /// 「金額が見つかりませんでした」を知らせたか（自分の記録はタイムラインの案内、「家族」のときはアラート）。
+        /// 「金額が見つかりませんでした」を知らせたか（タイムラインの案内）。
         var showedNoAmount: Bool {
-            model.showsNoAmountAlert || model.questions.contains { $0.state == .noAmount }
+            model.questions.contains { $0.state == .noAmount }
         }
 
         /// 保存先にある記録（記録した順）。
@@ -231,7 +231,6 @@ struct HomeModelTests {
         // アラートではなく、送った文と案内をタイムラインに出す（キーボードを下げずに、そのまま金額を足して送れるように）。
         #expect(fixture.lastQuestionState == .noAmount)
         #expect(fixture.model.questions.last?.text == "ランチ")
-        #expect(!fixture.model.showsNoAmountAlert)
         #expect(!fixture.model.canUndo)
         #expect(fixture.announcements == [String(localized: "金額が見つかりませんでした")])
         #expect(!fixture.model.isParsing)

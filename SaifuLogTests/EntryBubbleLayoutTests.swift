@@ -51,31 +51,7 @@ struct EntryBubbleLayoutTests {
         #expect(amount.minX > memo.maxX)
     }
 
-    /// 自分の記録と家計の記録（記録した人の名前つき）の両方の吹き出しで確かめる。
-    @Test("吹き出しの長い品目は金額の幅によらず同じ幅で折り返す（金額が品目の行に並ばない）", arguments: [nil, "はなこ"])
-    func bubbleWrapsTheMemoIndependentlyOfTheAmount(recorderName: String?) {
-        // 金額を品目の横に並べていれば、金額が長いほど品目の幅が狭まって行が増え、吹き出しが高くなる。
-        let narrowAmount = Self.size(of: Self.bubble(amount: 3_000, recorderName: recorderName), width: 361)
-        let wideAmount = Self.size(of: Self.bubble(amount: 3_000_000_000, recorderName: recorderName), width: 361)
-        #expect(narrowAmount.height == wideAmount.height)
-    }
-
     // MARK: - 部品
-
-    private struct Record: LedgerEntryDisplaying {
-        var amount: Int
-        var isIncome = false
-        var category = EntryCategory.food
-        var spentAt = TestSupport.date(2026, 9, 12, hour: 19)
-        var memo: String
-    }
-
-    private static func bubble(amount: Int, recorderName: String?) -> some View {
-        EntryBubble(
-            entry: Record(amount: amount, memo: longMemo), today: TestSupport.now, edit: {}, requestDelete: {},
-            recorderName: recorderName
-        )
-    }
 
     /// 品目を赤、金額を青で描いた行（金額は吹き出しと同じ文字の形）。
     private static func coloredRow(memo: String, amount: String) -> some View {
