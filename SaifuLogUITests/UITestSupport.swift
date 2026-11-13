@@ -131,6 +131,18 @@ extension XCUIApplication {
         XCTFail("押せる「\(label)」のボタンがありません", file: file, line: line)
     }
 
+    /// 帯の右上の歯車から設定（⑧）を開く。開かなければ、いま出ている画面の要素の一覧を添えて失敗する（CI のログには
+    /// 失敗の時点の画面が残らないので、何が出ていたか（ほかの画面が開いた・歯車が押せなかった）を追えるようにする）。
+    func openSettings(file: StaticString = #filePath, line: UInt = #line) {
+        let button = element(AccessibilityID.Home.settingsButton)
+        XCTAssertTrue(button.waitUntilHittable(timeout: UITestTimeout.launch), "設定のボタンが押せません", file: file, line: line)
+        button.tap()
+        guard navigationBars["設定"].waitForExistence(timeout: UITestTimeout.ui) else {
+            XCTFail("設定が開きません。いまの画面:\n\(debugDescription)", file: file, line: line)
+            return
+        }
+    }
+
     /// ナビゲーションで一つ前の画面へ戻る。
     func goBack(file: StaticString = #filePath, line: UInt = #line) {
         let bar = navigationBars.firstMatch

@@ -40,11 +40,8 @@ final class AccessibilityUITests: XCTestCase {
         XCTAssertTrue(reportBar.waitForNonExistence(timeout: UITestTimeout.ui))
 
         // 設定。
-        let settingsButton = app.element(AccessibilityID.Home.settingsButton)
-        XCTAssertTrue(settingsButton.waitUntilHittable())
-        settingsButton.tap()
+        app.openSettings()
         let settingsBar = app.navigationBars["設定"]
-        XCTAssertTrue(settingsBar.waitForExistence(timeout: UITestTimeout.ui))
         try app.auditAccessibility()
         app.goBack()
         XCTAssertTrue(settingsBar.waitForNonExistence(timeout: UITestTimeout.ui))
@@ -67,10 +64,7 @@ final class LargeTextUITests: XCTestCase {
 
         // 帯の設定と月のまとめ（キーボードを出す前。キーボードを出している間の帯は低い形になり、大きな文字では設定のボタンを
         // 出さないため。`SummaryHeader.isCompact`）。
-        let settingsButton = app.element(AccessibilityID.Home.settingsButton)
-        XCTAssertTrue(settingsButton.waitUntilHittable(timeout: UITestTimeout.launch))
-        settingsButton.tap()
-        XCTAssertTrue(app.navigationBars["設定"].waitForExistence(timeout: UITestTimeout.ui))
+        app.openSettings()
         XCTAssertTrue(app.element(AccessibilityID.Settings.budget).waitUntilHittable())
         app.goBack()
 

@@ -63,10 +63,7 @@ final class ScreensUITests: XCTestCase {
     func testSettingsRowsBudgetCategoryAndRecurring() {
         let app = launchApp()
 
-        let settingsButton = app.element(AccessibilityID.Home.settingsButton)
-        XCTAssertTrue(settingsButton.waitUntilHittable(timeout: UITestTimeout.launch))
-        settingsButton.tap()
-        XCTAssertTrue(app.navigationBars["設定"].waitForExistence(timeout: UITestTimeout.ui))
+        app.openSettings()
 
         // 月の予算（② のシート）。
         let budgetRow = app.element(AccessibilityID.Settings.budget)
@@ -144,10 +141,7 @@ final class ScreensUITests: XCTestCase {
     func testSettingsExportsCSVThroughShareSheet() {
         let app = launchApp(AppLaunch(seed: .demo))
 
-        let settingsButton = app.element(AccessibilityID.Home.settingsButton)
-        XCTAssertTrue(settingsButton.waitUntilHittable(timeout: UITestTimeout.launch))
-        settingsButton.tap()
-        XCTAssertTrue(app.navigationBars["設定"].waitForExistence(timeout: UITestTimeout.ui))
+        app.openSettings()
 
         let export = app.element(AccessibilityID.Settings.export)
         XCTAssertTrue(app.scrollToHittable(export))

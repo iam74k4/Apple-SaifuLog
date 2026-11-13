@@ -130,6 +130,13 @@ jobs:
         if: ${{ !cancelled() }}
         run: make test-ui
 
+      # 上のテストで起動したシミュレータ（いちばん新しい iOS）を止める。UI テストの後に動かしたままだと、次の iOS 26 の
+      # シミュレータの起動に 10 分以上かかり、xcodebuild がそのシミュレータを見つけられずに止まったことがある（ランナーの
+      # メモリが足りなくなるため）。止めるだけなので、失敗してもテストは続ける。
+      - name: シミュレータを止める
+        if: ${{ !cancelled() }}
+        run: xcrun simctl shutdown all || true
+
       # iOS 27 では通っても iOS 26 の SwiftData で失敗する処理があるため、アプリのテストを iOS 26 のシミュレータ
       # （Makefile の IOS26_TEST_OS）でも動かす。上の make test-app はいちばん新しい版を選ぶ。
       # ランナーのイメージにその版のランタイムが無ければ入れ、iPhone のシミュレータが無ければ作る（scripts/prepare-simulator.sh）。
