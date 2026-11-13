@@ -148,20 +148,42 @@ final class ScreensUITests: XCTestCase {
         export.tap()
         app.tapHittableButton(labeled: "今月")
 
-        // 共有の画面（システムのもの）が出たら閉じる。閉じるボタンの名前は、共有の画面を出すシステムの言語で変わるので、
-        // 日本語と英語の両方を探す。見つからなければ、書き出しの行が押せなくなった（共有の画面を出している。`SettingsModel.sharedFile`）
-        // ことを確かめてから、下へ引いて閉じる。
-        if let close = Self.waitForShareSheetCloseButton(in: app, timeout: UITestTimeout.launch) {
-            close.tap()
-        } else {
-            XCTAssertTrue(export.waitUntilDisabled(timeout: 3), "共有の画面が出ません")
-            let window = app.windows.firstMatch
-            window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
-                .press(forDuration: 0.1, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
+        // 共有の画面（システムのもの）が出ると、下の設定の画面はアプリの要素として読めなくなるか、書き出しの行が押せなくなる
+        // （共有の画面を出している間は書き出しの行を止めている。`SettingsModel.sharedFile`）。共有の画面の中身はアプリの外の画面の
+        // ことがあり（閉じるボタンがアプリの要素に出ないことがあった）、それが出たことはこの行で確かめる。
+        XCTAssertTrue(Self.waitUntilCovered(export, timeout: UITestTimeout.launch), "共有の画面が出ません")
+
+        // 閉じる。閉じるボタンがアプリの要素にあれば押し（名前は共有の画面を出すシステムの言語で変わるので、日本語と英語の両方を
+        // 探す）、無ければ下へ引いて閉じる。閉じきるまで 3 回まで試す。
+        for _ in 0..<3 where !export.isHittableNow {
+            if let close = Self.waitForShareSheetCloseButton(in: app, timeout: 3) {
+                close.tap()
+            } else {
+                let window = app.windows.firstMatch
+                window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                    .press(forDuration: 0.1, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
+            }
+            _ = export.waitUntilHittable(timeout: 5)
         }
         // 閉じると設定に戻り、書き出しの行をまた押せる（書き出したファイルは消してある）。
         XCTAssertTrue(export.waitUntilHittable(timeout: UITestTimeout.launch), "共有の画面が閉じません")
         XCTAssertTrue(export.waitUntilEnabled())
+    }
+
+    /// 書き出しの行が、共有の画面に覆われる（要素として読めなくなるか、押せなくなる）まで待つ。覆われれば true。
+    ///
+    /// 行の写し（snapshot）で見る（あるかを見てから押せるかを読むと、その間に共有の画面が出て行が消えたときに、消えた要素を
+    /// 読んだ失敗になるため）。
+    @MainActor
+    private static func waitUntilCovered(_ element: XCUIElement, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            guard let snapshot = try? element.snapshot(), snapshot.isEnabled else {
+                return true
+            }
+            _ = element.waitForNonExistence(timeout: 0.5)
+        } while Date() < deadline
+        return false
     }
 
     /// 共有の画面の閉じるボタンが出るまで待つ。出なければ nil。

@@ -42,12 +42,14 @@ struct AppLaunch {
     }
 }
 
-/// 待つ時間の上限（秒）。CI のランナーはシミュレータが遅いので、手元より長めにする。
+/// 待つ時間の上限（秒）。CI のランナーはシミュレータが遅く（アプリが落ち着くのを待つだけで数秒かかることがある）、10 秒では
+/// 画面の切り替えが間に合わないことがあったので、手元よりかなり長めにする。待つのは条件が満たされるまでなので、通るときの
+/// 時間は延びない。
 enum UITestTimeout {
     /// 起動して最初の画面が出るまで。
-    static let launch: TimeInterval = 30
+    static let launch: TimeInterval = 60
     /// 送った文の返事・画面の切り替えなど。
-    static let ui: TimeInterval = 10
+    static let ui: TimeInterval = 20
 }
 
 /// アプリを開く。テストごとに開き直す（保存先はメモリの上なので、前のテストの記録は残らない）。
@@ -90,13 +92,30 @@ extension XCUIApplication {
     }
 
     /// 入力欄に打って送る。
+    ///
+    /// 打った文が入力欄に入らないことがある（CI の遅いシミュレータで、キーボードが出きる前に打つと文字が落ちる）。文が入って
+    /// 送信のボタンが押せるようになるまで、3 回まで打ち直す（打ち直すときは入力欄を空にしてから打つ）。
     func send(_ text: String, file: StaticString = #filePath, line: UInt = #line) {
         let field = inputField
         XCTAssertTrue(field.waitUntilHittable(timeout: UITestTimeout.launch), "入力欄が出ません", file: file, line: line)
-        field.tap()
-        dismissKeyboardTipIfNeeded()
-        field.typeText(text)
-        XCTAssertTrue(sendButton.waitUntilEnabled(), "送信のボタンが押せません: \(text)", file: file, line: line)
+        var entered = false
+        for attempt in 1...3 {
+            field.tap()
+            dismissKeyboardTipIfNeeded()
+            if attempt == 1 {
+                field.typeText(text)
+            } else {
+                print("入力欄に文が入らなかったので、打ち直します（\(attempt) 回目）: \(text)")
+                field.replaceText(with: text)
+            }
+            if sendButton.waitUntilEnabled(timeout: 5), field.waitForValue(containing: text, timeout: 2) {
+                entered = true
+                break
+            }
+        }
+        XCTAssertTrue(
+            entered, "送信のボタンが押せません: \(text)（入力欄の値: \(String(describing: field.value))）", file: file, line: line
+        )
         sendButton.tap()
     }
 
@@ -133,11 +152,19 @@ extension XCUIApplication {
 
     /// 帯の右上の歯車から設定（⑧）を開く。開かなければ、いま出ている画面の要素の一覧を添えて失敗する（CI のログには
     /// 失敗の時点の画面が残らないので、何が出ていたか（ほかの画面が開いた・歯車が押せなかった）を追えるようにする）。
+    ///
+    /// CI の遅いシミュレータでは、押した直後の画面が落ち着かず、押しても開かないことがあった（同じテストが次の実行では通った）。
+    /// 歯車がまだ押せる（ホームのまま）なら 1 回だけ押し直す（ログに残す）。
     func openSettings(file: StaticString = #filePath, line: UInt = #line) {
         let button = element(AccessibilityID.Home.settingsButton)
+        let bar = navigationBars["設定"]
         XCTAssertTrue(button.waitUntilHittable(timeout: UITestTimeout.launch), "設定のボタンが押せません", file: file, line: line)
         button.tap()
-        guard navigationBars["設定"].waitForExistence(timeout: UITestTimeout.ui) else {
+        if !bar.waitForExistence(timeout: UITestTimeout.ui), button.isHittableNow {
+            print("設定が開かなかったので、歯車を押し直します。いまの画面:\n\(debugDescription)")
+            button.tap()
+        }
+        guard bar.waitForExistence(timeout: UITestTimeout.ui) else {
             XCTFail("設定が開きません。いまの画面:\n\(debugDescription)", file: file, line: line)
             return
         }

@@ -250,17 +250,22 @@ private final class TimelineFixture {
 private final class FrameRecorder {
     var frames: [TimelineFrameKey: CGRect] = [:]
 
-    /// 見える範囲（と `key` の行）が描かれ、位置が 0.3 秒のあいだ変わらなくなるまで待つ（最大 5 秒）。下端に合わせる動きや、
+    /// 待つ上限（秒）。前は 5 秒で、CI の iOS 26 のシミュレータ（作り直したばかりで初めて起動したもの）がほかの処理で遅いときに、
+    /// 大きな文字の件で並べ終える前に届いて落ちた（同じ件が手元と最新の iOS では通る）。落ち着かない不具合は位置が動き続けるもの
+    /// なので、上限を延ばしても見逃さない（通るときは落ち着いたところで返るので、時間は延びない）。
+    nonisolated static let settleLimit: TimeInterval = 15
+
+    /// 見える範囲（と `key` の行）が描かれ、位置が 0.3 秒のあいだ変わらなくなるまで待つ（最大 `settleLimit` 秒）。下端に合わせる動きや、
     /// 帯の高さが決まるまでの並べ直しが済んでから確かめるため。開いた後の操作で足した行は `key` に渡す（足した行が描かれる前の、
     /// 操作の前のまま動かない位置で返らないように）。
     ///
-    /// 5 秒たっても落ち着かなければ `TimelineDidNotSettle` を投げて、そこで失敗にする。この不具合は見積もりが揺れて位置が動き続ける
+    /// 上限までに落ち着かなければ `TimelineDidNotSettle` を投げて、そこで失敗にする。この不具合は見積もりが揺れて位置が動き続ける
     /// ものなので、落ち着かないまま確かめると、動いている途中にたまたま条件を満たした位置で通ったり、下の端に無いと別の理由で
     /// 落ちたりして、位置が落ち着かなかったこと自体が分からなくなるため。
     func waitUntilSettled(_ label: String, drawing key: TimelineFrameKey = .viewport) async throws {
         var last = frames
         var stableSince = Date.now
-        let deadline = Date.now.addingTimeInterval(5)
+        let deadline = Date.now.addingTimeInterval(Self.settleLimit)
         while Date.now < deadline {
             try await Task.sleep(for: .milliseconds(100))
             if frames != last {
@@ -285,6 +290,6 @@ private struct TimelineDidNotSettle: Error, CustomStringConvertible {
 
     var description: String {
         let viewport = viewport.map { "\($0)" } ?? "描かれていない"
-        return "タイムラインの行と見える範囲の位置が 5 秒たっても落ち着きませんでした（\(label)。見える範囲 \(viewport)）"
+        return "タイムラインの行と見える範囲の位置が \(Int(FrameRecorder.settleLimit)) 秒たっても落ち着きませんでした（\(label)。見える範囲 \(viewport)）"
     }
 }
