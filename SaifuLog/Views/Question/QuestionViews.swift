@@ -159,10 +159,12 @@ private struct AnswerContent: View {
                 .buttonStyle(.plain)
                 .accessibilityElement(children: .combine)
                 .accessibilityHint("月のまとめを開きます")
+                .accessibilityIdentifier(AccessibilityID.Reply.answerSummary)
             } else {
                 summary
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier(AccessibilityID.Reply.answerSummary)
             }
             if answer.value == .noBudget {
                 Button(action: setBudget) {
@@ -537,6 +539,7 @@ private struct NoticeContent: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.headline)
+                .accessibilityIdentifier(AccessibilityID.Reply.noticeTitle)
             Text(message)
                 .font(.subheadline)
                 .foregroundStyle(Theme.inkSecondary)

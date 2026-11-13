@@ -148,6 +148,7 @@ struct EditEntrySheet: View {
                 .focused($focusedField, equals: .amount)
                 .onChange(of: model.amountText) { model.normalizeAmountText() }
                 .accessibilityHint(model.amountIssue?.message ?? Text(verbatim: ""))
+                .accessibilityIdentifier(AccessibilityID.EditEntry.amountField)
             }
             .font(.title.bold())
             .monospacedDigit()
@@ -182,6 +183,7 @@ struct EditEntrySheet: View {
                 Text("品目")
             }
             .focused($focusedField, equals: .memo)
+            .accessibilityIdentifier(AccessibilityID.EditEntry.memoField)
             .submitLabel(.done)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -283,6 +285,7 @@ struct EditEntrySheet: View {
                 .contentShape(.rect)
         }
         .foregroundStyle(Theme.danger)
+        .accessibilityIdentifier(AccessibilityID.EditEntry.deleteButton)
         .padding(.top, 8)
     }
 
@@ -300,6 +303,7 @@ struct EditEntrySheet: View {
         .buttonStyle(.glassProminent)
         .tint(Theme.accentFill)
         .disabled(!model.canSave)
+        .accessibilityIdentifier(AccessibilityID.EditEntry.saveButton)
     }
 
     private var showsFailure: Binding<Bool> {

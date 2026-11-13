@@ -131,6 +131,7 @@ private struct CalendarPageHeader: View {
         .buttonBorderShape(.circle)
         .accessibilityLabel("会話")
         .accessibilityHint("記録と質問の会話に戻ります")
+        .accessibilityIdentifier(AccessibilityID.CalendarPage.conversationButton)
     }
 
     private var monthSwitcher: some View {
@@ -210,6 +211,7 @@ private struct CalendarMonthSpendCard: View {
             }
             // 見出し・額・収入を 1 つの要素として読ませる。
             .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(AccessibilityID.CalendarPage.monthSpend)
             if let openReport {
                 HStack {
                     Spacer(minLength: 0)
@@ -239,6 +241,7 @@ private struct ReportLink: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(AccessibilityID.CalendarPage.reportLink)
     }
 }
 
@@ -340,6 +343,7 @@ private struct CalendarDayCell: View {
         .accessibilityValue(Text(verbatim: CalendarDaySpeech.value(day: day, isToday: isToday)))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityHint("この日の記録を出します")
+        .accessibilityIdentifier(AccessibilityID.CalendarPage.day(calendar.component(.day, from: day.start)))
     }
 
     private var number: some View {
@@ -460,6 +464,7 @@ private struct CalendarDayListRow: View {
         .accessibilityValue(Text(verbatim: CalendarDaySpeech.value(day: day, isToday: isToday)))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityHint("この日の記録を出します")
+        .accessibilityIdentifier(AccessibilityID.CalendarPage.day(calendar.component(.day, from: day.start)))
     }
 
     private var dateFormat: Date.FormatStyle {

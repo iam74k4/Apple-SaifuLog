@@ -149,6 +149,7 @@ struct SettingsView: View {
                 .contentShape(.rect)
             }
             .accessibilityHint("予算を決める画面を開きます")
+            .accessibilityIdentifier(AccessibilityID.Settings.budget)
             .listRowBackground(Theme.surface)
         } header: {
             sectionHeader("予算")
@@ -191,6 +192,7 @@ struct SettingsView: View {
                 .frame(minHeight: 44)
             }
             .accessibilityHint("カテゴリの一覧を開きます。カテゴリを作ったり直したりできます")
+            .accessibilityIdentifier(AccessibilityID.Settings.categories)
             .listRowBackground(Theme.surface)
         } header: {
             Text(.categoriesTitle)
@@ -228,6 +230,7 @@ struct SettingsView: View {
                 .frame(minHeight: 44)
             }
             .accessibilityHint("毎月同じ記録の一覧を開きます")
+            .accessibilityIdentifier(AccessibilityID.Settings.recurring)
             .listRowBackground(Theme.surface)
         } header: {
             sectionHeader("毎月の記録")
@@ -259,6 +262,7 @@ struct SettingsView: View {
             .disabled(model.isCheckingICloudAccount)
             .frame(minHeight: 44)
             .accessibilityHint("記録と予算を、あなたの iCloud で同じ Apple アカウントの端末とそろえます")
+            .accessibilityIdentifier(AccessibilityID.Settings.iCloudSync)
             .listRowBackground(Theme.surface)
             // オンなのに iCloud を使えない（サインアウトしたなど）。保存はできるが同期は止まっているので、それを伝える。
             if model.isICloudSyncEnabled, let paused = model.iCloudAccountStatus?.pausedText {
@@ -330,6 +334,7 @@ struct SettingsView: View {
             .disabled(cannotEnable)
             .frame(minHeight: 44)
             .accessibilityHint("アプリを開くときに、ロックの解除を求めます")
+            .accessibilityIdentifier(AccessibilityID.Settings.appLock)
             .listRowBackground(Theme.surface)
         } header: {
             sectionHeader("セキュリティ")
@@ -421,6 +426,7 @@ struct SettingsView: View {
             }
             .disabled(model.isExporting || model.sharedFile != nil)
             .accessibilityHint("書き出す期間を選びます。書き出したら、共有の画面で渡すアプリや保存先を選びます")
+            .accessibilityIdentifier(AccessibilityID.Settings.export)
             .listRowBackground(Theme.surface)
         } header: {
             sectionHeader("記録を書き出す")
@@ -462,8 +468,14 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         Section {
-            externalLink("ヘルプ・お問い合わせ", symbolName: "questionmark", fill: SettingsRowIcon.blue, destination: SettingsModel.supportURL)
-            externalLink("プライバシーポリシー", symbolName: "hand.raised", fill: SettingsRowIcon.blue, destination: SettingsModel.privacyPolicyURL)
+            externalLink(
+                "ヘルプ・お問い合わせ", symbolName: "questionmark", fill: SettingsRowIcon.blue, destination: SettingsModel.supportURL,
+                identifier: AccessibilityID.Settings.help
+            )
+            externalLink(
+                "プライバシーポリシー", symbolName: "hand.raised", fill: SettingsRowIcon.blue, destination: SettingsModel.privacyPolicyURL,
+                identifier: AccessibilityID.Settings.privacyPolicy
+            )
             LabeledContent {
                 Text(verbatim: model.versionText)
                     .foregroundStyle(Theme.inkSecondary)
@@ -488,7 +500,7 @@ struct SettingsView: View {
 
     /// Safari で開くリンクの行。アプリの外へ出ることを、矢印の記号と VoiceOver の説明で示す。
     private func externalLink(
-        _ title: LocalizedStringKey, symbolName: String, fill: Color, destination: URL
+        _ title: LocalizedStringKey, symbolName: String, fill: Color, destination: URL, identifier: String
     ) -> some View {
         Link(destination: destination) {
             HStack(spacing: 12) {
@@ -507,6 +519,7 @@ struct SettingsView: View {
             .contentShape(.rect)
         }
         .accessibilityHint("Safari で開きます")
+        .accessibilityIdentifier(identifier)
         .listRowBackground(Theme.surface)
     }
 

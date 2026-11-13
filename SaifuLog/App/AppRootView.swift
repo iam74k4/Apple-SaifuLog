@@ -53,6 +53,14 @@ struct AppRootView: View {
             guard let home else { return }
             await demo.stage(on: home, calendar: calendar)
         }
+        // UI テスト（DEBUG のビルドだけ）: ホームが出た後に、起動引数で頼まれた画面（レシートの読み取り結果）を開く。
+        // 撮影用のデモと同じく、ホームが画面に出きるのを待ってから開く。案内を出している間はホームが無いので開かない。
+        .task {
+            guard let uiTest = UITestMode.current else { return }
+            try? await Task.sleep(for: .milliseconds(800))
+            guard let home, onboarding?.isCompleted ?? true else { return }
+            await uiTest.stage(on: home, calendar: calendar)
+        }
         #endif
     }
 
@@ -65,6 +73,14 @@ struct AppRootView: View {
         if let demo = ScreenshotDemo.current {
             // 撮影用のデモ（DEBUG のビルドだけ）: 初回の案内を出さず、デモの設定・時計・AI の代わりでホームを作る。
             home = demo.makeHomeModel(
+                context: container.mainContext, pendingWrites: storeHost.pendingWrites, storeHost: storeHost
+            )
+            return
+        }
+        if let uiTest = UITestMode.current {
+            // UI テスト（DEBUG のビルドだけ）: 案内は起動引数で頼まれたときだけ出し、UI テストの設定・時計・キーワード辞書でホームを作る。
+            onboarding = uiTest.makeOnboardingModel()
+            home = uiTest.makeHomeModel(
                 context: container.mainContext, pendingWrites: storeHost.pendingWrites, storeHost: storeHost
             )
             return

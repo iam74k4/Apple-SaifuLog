@@ -43,6 +43,7 @@ struct RecurringListView: View {
                         .contentShape(.rect)
                 }
                 .accessibilityHint("金額と毎月の日を決めて、くり返しの記録を足します")
+                .accessibilityIdentifier(AccessibilityID.Recurring.addButton)
                 .listRowBackground(Theme.surface)
             } footer: {
                 Text("記録する日を過ぎて、最初にアプリを開いたときに記録し、ホームの返事でお知らせします。取り消すと、その月の分はもう記録しません。")

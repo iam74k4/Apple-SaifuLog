@@ -96,6 +96,7 @@ struct WelcomeView: View {
         }
         .buttonStyle(.glassProminent)
         .tint(Theme.accentFill)
+        .accessibilityIdentifier(AccessibilityID.Onboarding.startButton)
     }
 }
 

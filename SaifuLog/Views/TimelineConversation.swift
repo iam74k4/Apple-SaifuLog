@@ -303,6 +303,7 @@ struct CategoryQuestionView: View {
         }
         .buttonStyle(.plain)
         .accessibilityHint(category == .other ? Text("この記録をその他のままにします") : Text("この記録のカテゴリにします"))
+        .accessibilityIdentifier(AccessibilityID.Reply.categoryChoice(category.id))
     }
 
     /// 「＋ カテゴリを作る」。ほかのボタンと形をそろえ、文字は強調の色にする（押すと画面が開くことを見分けられるように）。
@@ -329,6 +330,7 @@ struct CategoryQuestionView: View {
         }
         .buttonStyle(.plain)
         .accessibilityHint("新しいカテゴリを作って、この記録のカテゴリにします")
+        .accessibilityIdentifier(AccessibilityID.Reply.createCategory)
     }
 }
 
@@ -422,6 +424,7 @@ private struct RecordedReplyHeader: View {
                 .contentShape(.rect)
         }
         .accessibilityHint(undoHint)
+        .accessibilityIdentifier(AccessibilityID.Reply.undoButton)
     }
 
     private var undoHint: Text {
@@ -497,6 +500,7 @@ struct RecordedReplyRow<Record: LedgerEntryDisplaying>: View {
             }
         }
         .accessibilityAction(named: "削除", requestDelete)
+        .accessibilityIdentifier(AccessibilityID.Reply.row)
     }
 
     /// 見出しにする品目と、行の下に添える説明の文（解析が説明を書き足していない記録・メモや金額を直した記録は nil）。

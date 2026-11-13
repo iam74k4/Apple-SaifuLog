@@ -82,6 +82,7 @@ struct InputBar: View {
             }
             // 記録も質問も同じ入力欄に打つ（記録か質問かはアプリが見分ける）。
             .accessibilityLabel(fieldLabel)
+            .accessibilityIdentifier(AccessibilityID.Home.inputField)
             // 送信の後、VoiceOver のフォーカスは入力欄に戻る。タイムラインの返事のカードまで移らずに直す・取り消すができるように
             // する（読み上げで読み違いに気づいたら、その場で直せるように）。複数件なら 1 件ずつ出す。
             .accessibilityActions {
@@ -125,6 +126,7 @@ struct InputBar: View {
         .disabled(!canSend)
         // 押せないのが読み取りの途中だからだと分かるよう、送っている間は名前を変える。
         .accessibilityLabel(isSending ? "送信中" : "送信")
+        .accessibilityIdentifier(AccessibilityID.Home.sendButton)
     }
 
     /// レシートを読み取るボタン。主の塗りは送信にだけ使うので（主の操作を 1 つに見せる）、ガラスの地に墨の記号にする。
@@ -140,6 +142,7 @@ struct InputBar: View {
         .buttonStyle(.glass)
         .buttonBorderShape(.circle)
         .accessibilityLabel("レシートを読み取る")
+        .accessibilityIdentifier(AccessibilityID.Home.receiptButton)
         // iOS 26 では、付けたボタンを指す吹き出しの形で出る。
         .confirmationDialog("レシートを読み取る", isPresented: showsReceiptChoice, titleVisibility: .visible) {
             if canUseDocumentCamera {

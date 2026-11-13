@@ -105,6 +105,7 @@ struct CategoryListView: View {
             }
             .disabled(!model.canCreate)
             .accessibilityHint("名前・色・記号を決めて、新しいカテゴリを作ります")
+            .accessibilityIdentifier(AccessibilityID.Categories.createButton)
             .listRowBackground(Theme.surface)
         } header: {
             Text("作ったカテゴリ")

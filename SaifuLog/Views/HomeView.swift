@@ -43,10 +43,11 @@ struct HomeView: View {
     }
 
     #if DEBUG || INTERNAL_DIAGNOSTICS
-    /// 帯に診断のボタンを出すか。撮影用のデモ（DEBUG のビルドだけ）では出さない。
+    /// 帯に診断のボタンを出すか。撮影用のデモと UI テスト（どちらも DEBUG のビルドだけ）では出さない（App Store へ出すビルドと
+    /// 同じ画面を写し、確かめるため）。
     private var showsDiagnosticsButton: Bool {
         #if DEBUG
-        ScreenshotDemo.current == nil
+        ScreenshotDemo.current == nil && UITestMode.current == nil
         #else
         true
         #endif
@@ -854,6 +855,7 @@ private struct EmptyTimelineView: View {
                 .font(.title2.bold())
                 // VoiceOver の見出しの移動で、案内の始まりへ移れるようにする。
                 .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier(AccessibilityID.Home.emptyTimeline)
             Text("下の入力欄に、こんなふうに送るだけで記録できます。")
                 .foregroundStyle(Theme.inkSecondary)
             examples(Self.recordExamples)

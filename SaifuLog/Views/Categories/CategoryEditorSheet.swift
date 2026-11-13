@@ -41,6 +41,7 @@ struct CategoryEditorSheet: View {
                         if model.save() { dismiss() }
                     }
                     .disabled(!model.canSave)
+                    .accessibilityIdentifier(AccessibilityID.Categories.saveButton)
                 }
             }
             .alert("保存できませんでした", isPresented: $model.showsSaveFailure) {
@@ -90,6 +91,7 @@ struct CategoryEditorSheet: View {
                 Text("名前")
             }
             .foregroundStyle(Theme.ink)
+            .accessibilityIdentifier(AccessibilityID.Categories.nameField)
             .submitLabel(.done)
             .padding(.horizontal, 16)
             .frame(minHeight: 48)

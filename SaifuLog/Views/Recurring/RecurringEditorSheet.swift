@@ -110,6 +110,7 @@ struct RecurringEditorSheet: View {
                 .focused($focusedField, equals: .amount)
                 .onChange(of: model.amountText) { model.normalizeAmountText() }
                 .accessibilityHint(model.amountIssue?.message ?? Text(verbatim: ""))
+                .accessibilityIdentifier(AccessibilityID.Recurring.amountField)
             }
             .font(.title.bold())
             .monospacedDigit()
@@ -140,6 +141,7 @@ struct RecurringEditorSheet: View {
                 Text("品目")
             }
             .focused($focusedField, equals: .memo)
+            .accessibilityIdentifier(AccessibilityID.Recurring.memoField)
             .submitLabel(.done)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -288,6 +290,7 @@ struct RecurringEditorSheet: View {
         .buttonStyle(.glassProminent)
         .tint(Theme.accentFill)
         .disabled(!model.canSave)
+        .accessibilityIdentifier(AccessibilityID.Recurring.saveButton)
     }
 
     private var showsFailure: Binding<Bool> {

@@ -77,6 +77,7 @@ struct SummaryHeader: View {
             .accessibilityHint("月のまとめを開きます")
             .accessibilityActions { calendarAction }
             .accessibilitySortPriority(1)
+            .accessibilityIdentifier(AccessibilityID.Home.monthFigures)
         } else {
             figures
                 .accessibilityElement(children: .ignore)
@@ -84,6 +85,7 @@ struct SummaryHeader: View {
                 .accessibilityValue(Text(verbatim: spokenFigures))
                 .accessibilityActions { calendarAction }
                 .accessibilitySortPriority(1)
+                .accessibilityIdentifier(AccessibilityID.Home.monthFigures)
         }
     }
 
@@ -193,6 +195,7 @@ struct SummaryHeader: View {
             .buttonStyle(.glass)
             .buttonBorderShape(.circle)
             .accessibilityLabel("設定")
+            .accessibilityIdentifier(AccessibilityID.Home.settingsButton)
         }
     }
 

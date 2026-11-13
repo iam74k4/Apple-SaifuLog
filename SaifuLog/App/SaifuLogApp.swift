@@ -20,6 +20,12 @@ struct SaifuLogApp: App {
             _appLock = State(initialValue: AppLock(settings: demo.launchSettings))
             return
         }
+        if let uiTest = UITestMode.current {
+            // UI テスト（DEBUG のビルドだけ）。保存先はメモリの上で、ロックと iCloud 同期はオフ（`UITestMode`）。
+            _storeHost = State(initialValue: uiTest.makeStoreHost())
+            _appLock = State(initialValue: AppLock(settings: uiTest.launchSettings))
+            return
+        }
         #endif
         // ロックと iCloud 同期の設定は UserDefaults ではなく専用のファイルから読む（`LaunchSettingsStore`）。ここ（App を作る
         // 時点）はロック中に裏で起こされたときにも通り、そのとき UserDefaults を読むと空の内容を覚えてしまうため、ここでは
@@ -40,8 +46,8 @@ struct SaifuLogApp: App {
             // ロック中と前面を離れている間は、ロックの画面をすべての画面より上に出す。
             .appLock(appLock)
             #if DEBUG
-            // 撮影用のデモでは、画面の設定（@AppStorage）もデモの領域から読む（利用者の設定に触れない）。
-            .defaultAppStorage(ScreenshotDemo.current?.defaults ?? .standard)
+            // 撮影用のデモと UI テストでは、画面の設定（@AppStorage）もそれぞれの領域から読む（利用者の設定に触れない）。
+            .defaultAppStorage(ScreenshotDemo.current?.defaults ?? UITestMode.current?.defaults ?? .standard)
             #endif
         }
     }

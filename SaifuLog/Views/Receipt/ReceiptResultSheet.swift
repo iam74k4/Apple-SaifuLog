@@ -416,6 +416,7 @@ private struct ReceiptReadyView: View {
             .buttonStyle(.glassProminent)
             .tint(Theme.accentFill)
             .disabled(!model.canRecord)
+            .accessibilityIdentifier(AccessibilityID.Receipt.recordButton)
         }
     }
 }

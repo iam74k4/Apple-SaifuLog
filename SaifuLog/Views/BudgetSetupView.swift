@@ -82,6 +82,7 @@ struct BudgetSetupView: View {
                 .keyboardType(.numberPad)
                 .focused($focusedField, equals: .total)
                 .onChange(of: model.totalText) { model.normalizeTotalText() }
+                .accessibilityIdentifier(AccessibilityID.Budget.amountField)
             }
             .font(.largeTitle.bold())
             .monospacedDigit()
@@ -114,6 +115,7 @@ struct BudgetSetupView: View {
         .buttonStyle(.glassProminent)
         .tint(Theme.accentFill)
         .disabled(!model.canSave)
+        .accessibilityIdentifier(AccessibilityID.Budget.saveButton)
     }
 
     /// 全体の予算をなくす。決めた予算があるときだけ出す。押すと確認を出し、確かめてからなくす
