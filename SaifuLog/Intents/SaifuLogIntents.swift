@@ -42,32 +42,6 @@ struct AskQuestionIntent: AppIntent {
     }
 }
 
-/// アプリを開いて、入力欄に文字を打てるようにする（キーボードを出す）。
-struct ComposeEntryIntent: AppIntent {
-    static let title: LocalizedStringResource = "入力欄を開く"
-    static let description = IntentDescription("アプリを開いて、すぐに打てるよう入力欄にキーボードを出します。")
-    static let openAppWhenRun = true
-
-    @MainActor
-    func perform() async throws -> some IntentResult {
-        QuickActionInbox.shared.post(.compose)
-        return .result()
-    }
-}
-
-/// アプリを開いて、レシートを読み取る（カメラのボタンを押したときと同じ）。
-struct ScanReceiptIntent: AppIntent {
-    static let title: LocalizedStringResource = "レシートを読み取る"
-    static let description = IntentDescription("アプリを開いて、レシートを撮るか写真から選ぶ画面を出します。")
-    static let openAppWhenRun = true
-
-    @MainActor
-    func perform() async throws -> some IntentResult {
-        QuickActionInbox.shared.post(.receipt)
-        return .result()
-    }
-}
-
 /// Siri と Spotlight とアクションボタンに出す操作と、呼び出しの言い方。言い方にはアプリの名前を入れる（App Shortcuts の決まり）。
 /// 英語の言い方は `AppShortcuts.xcstrings` に置く。
 struct SaifuLogShortcuts: AppShortcutsProvider {
@@ -83,18 +57,6 @@ struct SaifuLogShortcuts: AppShortcutsProvider {
             phrases: ["\(.applicationName)に質問", "\(.applicationName)で家計を聞く"],
             shortTitle: "家計に質問",
             systemImageName: "questionmark.bubble"
-        )
-        AppShortcut(
-            intent: ScanReceiptIntent(),
-            phrases: ["\(.applicationName)でレシートを読み取る", "\(.applicationName)でレシート"],
-            shortTitle: "レシートを読み取る",
-            systemImageName: "receipt"
-        )
-        AppShortcut(
-            intent: ComposeEntryIntent(),
-            phrases: ["\(.applicationName)の入力欄を開く", "\(.applicationName)で入力"],
-            shortTitle: "入力欄を開く",
-            systemImageName: "keyboard"
         )
     }
 }

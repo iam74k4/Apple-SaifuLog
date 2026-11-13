@@ -28,10 +28,10 @@ struct QuickActionTests {
         #expect(QuickActionInbox.shared.pending == .ask("今月いくら?"))
 
         // 続けて頼まれたら、新しいほうを持つ。
-        _ = try await ScanReceiptIntent().perform()
-        #expect(QuickActionInbox.shared.take() == .receipt)
-        _ = try await ComposeEntryIntent().perform()
-        #expect(QuickActionInbox.shared.take() == .compose)
+        var another = RecordEntryIntent()
+        another.text = "コーヒー 400"
+        _ = try await another.perform()
+        #expect(QuickActionInbox.shared.take() == .record("コーヒー 400"))
         #expect(RecordEntryIntent.openAppWhenRun)
     }
 
@@ -91,11 +91,11 @@ struct QuickActionTests {
         #expect(try fixture.entries().map(\.amount).sorted() == [400, 850])
     }
 
-    /// 入力欄を開く頼みと、文の空の記録の頼みは、入力欄にキーボードを出す。ほかの画面を出している間は待つ。
-    @Test func composeWaitsForOtherScreens() async throws {
+    /// 文の空の記録の頼みは、入力欄にキーボードを出す。ほかの画面を出している間は待つ。
+    @Test func emptyRecordWaitsForOtherScreens() async throws {
         let fixture = try Fixture()
         fixture.model.presentSettings()
-        fixture.model.receive(.compose)
+        fixture.model.receive(.record("  "))
 
         #expect(fixture.model.performPendingQuickAction(calendar: TestSupport.calendar) == nil)
         #expect(fixture.model.inputFocusRequest == 0)
@@ -103,21 +103,7 @@ struct QuickActionTests {
         fixture.model.settings = nil
         await fixture.model.performPendingQuickAction(calendar: TestSupport.calendar)?.value
         #expect(fixture.model.inputFocusRequest == 1)
-
-        fixture.model.receive(.record("  "))
-        await fixture.model.performPendingQuickAction(calendar: TestSupport.calendar)?.value
-        #expect(fixture.model.inputFocusRequest == 2)
         #expect(try fixture.entries().isEmpty)
-    }
-
-    /// 「レシートを読み取る」は、カメラのボタンを押したときと同じく「撮る」「写真から選ぶ」を出す。
-    @Test func receiptShowsSourceChoice() async throws {
-        let fixture = try Fixture()
-        fixture.model.receive(.receipt)
-
-        await fixture.model.performPendingQuickAction(calendar: TestSupport.calendar)?.value
-
-        #expect(fixture.model.showsReceiptSourceChoice)
     }
 }
 

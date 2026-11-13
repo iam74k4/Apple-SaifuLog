@@ -15,8 +15,6 @@ struct AppIntentMetadataTests {
         [
             RecordEntryIntent.title, RecordEntryIntent.description.descriptionText,
             AskQuestionIntent.title, AskQuestionIntent.description.descriptionText,
-            ComposeEntryIntent.title, ComposeEntryIntent.description.descriptionText,
-            ScanReceiptIntent.title, ScanReceiptIntent.description.descriptionText,
         ]
     }
 
@@ -35,7 +33,7 @@ struct AppIntentMetadataTests {
 
     /// 英語の訳を引けていること（引けずに日本語のままだと、上のテストが英語を確かめないまま通るため）。
     @Test func englishDescriptionIsTranslated() {
-        let english = Self.localized(ScanReceiptIntent.description.descriptionText, "en")
-        #expect(english != Self.localized(ScanReceiptIntent.description.descriptionText, "ja"))
+        let english = Self.localized(RecordEntryIntent.description.descriptionText, "en")
+        #expect(english != Self.localized(RecordEntryIntent.description.descriptionText, "ja"))
     }
 }

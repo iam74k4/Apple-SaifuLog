@@ -7,10 +7,6 @@ enum QuickAction: Equatable, Sendable {
     case record(String)
     /// 家計に質問する（質問として答える）。
     case ask(String)
-    /// 入力欄に文字を打てるようにする（キーボードを出す）。
-    case compose
-    /// レシートを読み取る（カメラのボタンを押したときと同じ）。
-    case receipt
 }
 
 /// Siri・ショートカットからの頼みを、ホームが受け取るまで持っておく受け箱（アプリで 1 つ）。

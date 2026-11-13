@@ -61,12 +61,12 @@ struct HomeModelCalendarTests {
         #expect(fixture.model.draft == "9/24 コーヒー 400")
     }
 
-    /// Siri・ショートカットの頼みを受け取ったら、会話のページに戻す（返事も入力欄・カメラ・声も会話のページに出すため）。
+    /// Siri・ショートカットの頼みを受け取ったら、会話のページに戻す（返事を会話のページに出すため）。
     @Test func quickActionShowsConversation() throws {
         let fixture = try Fixture()
         fixture.model.page = .calendar
 
-        fixture.model.receive(.compose)
+        fixture.model.receive(.record(""))
 
         #expect(fixture.model.page == .conversation)
     }

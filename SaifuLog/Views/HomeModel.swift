@@ -1137,7 +1137,7 @@ final class HomeModel {
     // MARK: - Siri・ショートカット
 
     /// Siri・ショートカットからの頼みを受け取る（`QuickActionInbox` から）。前に待っていた頼みがあれば、新しいほうにする。
-    /// カレンダーのページを出していたら、会話のページに戻す（返事も入力欄・カメラも、会話のページに出すため）。
+    /// カレンダーのページを出していたら、会話のページに戻す（返事を会話のページに出すため）。
     func receive(_ action: QuickAction) {
         pendingQuickAction = action
         page = .conversation
@@ -1146,8 +1146,8 @@ final class HomeModel {
     /// 待っている頼みを、行えるなら行う。行ったら、その処理を待つ Task を返す（テストで使う）。行えなければ nil（待ち続ける）。
     /// ホームが出たとき・頼みを受け取ったとき・読み取りが終わったとき・ほかの画面を閉じたとき・ロックを解いたときに呼ぶ。
     ///
-    /// 記録と質問は読み取りの間だけ待つ（ほかの画面を出していても行い、答えや返事はタイムラインに出す）。入力欄・レシートは、
-    /// ほかの画面を出している間も待つ（画面の下で入力欄やカメラを開かないため）。記録と質問の文が空なら、入力欄を開く。
+    /// 読み取りの間だけ待つ（ほかの画面を出していても行い、答えや返事はタイムラインに出す）。文が空なら入力欄を開く（ほかの画面を
+    /// 出している間は待つ。画面の下で入力欄を開かないため）。
     @discardableResult
     func performPendingQuickAction(calendar: Calendar) -> Task<Void, Never>? {
         guard let action = pendingQuickAction, !isParsing else { return nil }
@@ -1163,15 +1163,6 @@ final class HomeModel {
             pendingQuickAction = nil
             let isQuestion = if case .ask = action { true } else { false }
             return submit(trimmed, source: .text, forcesQuestion: isQuestion, calendar: calendar)
-        case .compose:
-            guard !isPresentingOtherScreen else { return nil }
-            pendingQuickAction = nil
-            inputFocusRequest += 1
-            return Task {}
-        case .receipt:
-            guard !isPresentingOtherScreen else { return nil }
-            pendingQuickAction = nil
-            return requestReceiptScan(calendar: calendar)
         }
     }
 
