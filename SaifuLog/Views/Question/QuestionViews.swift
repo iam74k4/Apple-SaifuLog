@@ -89,6 +89,13 @@ private struct QuestionReplyCard: View {
                 title: "記録は直していません",
                 message: "前の記録を直す文のようだったので、新しい記録にもしませんでした。記録を直すときは、返事の記録を押してください。記録した直後なら、「取り消す」で取り消して送り直すこともできます。"
             )
+        case .recategorized(let item, let category, let remembered):
+            NoticeContent(
+                title: "\(category)にしました",
+                message: remembered
+                    ? "次から「\(item)」は\(category)に振り分けます。"
+                    : "このカテゴリで記録を直しました。"
+            )
         case .limitReached:
             VStack(alignment: .leading, spacing: 8) {
                 NoticeContent(

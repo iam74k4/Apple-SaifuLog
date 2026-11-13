@@ -29,15 +29,34 @@ struct CategoryRefinementTests {
 
     struct Failure: Error {}
 
-    /// 決めた答えを返す AI の代わり。品目ごとに答え・遅れ・失敗を決める。
+    final class ChoicesLog: @unchecked Sendable {
+        private let lock = NSLock()
+        private var all: [[String]] = []
+        var choices: [[String]] { lock.withLock { all } }
+        func record(_ choices: [String]) { lock.withLock { all.append(choices) } }
+    }
+
+    static let clothes = CustomCategoryInfo(id: "clothes", name: "衣服", symbolName: "tshirt", colorIndex: 0)
+    static let customCatalog = CategoryCatalog(customs: [clothes])
+
+    /// 振り分けてから（`CategoryResolver`）聞き直す。
+    private static func resolved(
+        _ entries: [ParsedEntry], memory: CategoryMemory = CategoryMemory(), catalog: CategoryCatalog = .builtIn
+    ) -> [CategoryResolver.Resolution] {
+        CategoryResolver.resolve(entries, memory: memory, catalog: catalog)
+    }
+
+    /// 決めた答えを返す AI の代わり。品目ごとに答え・遅れ・失敗を決める。渡された選択肢を残す。
     struct StubClassifier: ItemCategoryClassifying {
         var answers: [String: String] = [:]
         var delays: [String: Duration] = [:]
         var failing: Set<String> = []
         let log: Log
+        var choicesLog: ChoicesLog?
 
-        func categoryName(for item: String) async throws -> String {
+        func categoryName(for item: String, choices: [String]) async throws -> String {
             log.ask(item)
+            choicesLog?.record(choices)
             if let delay = delays[item] { try await Task.sleep(for: delay) }
             if failing.contains(item) { throw Failure() }
             return answers[item] ?? "その他"
@@ -65,7 +84,7 @@ struct CategoryRefinementTests {
             Self.expense("ジンギスカン（4人で割り勘・総額 ¥12,000・立替 ¥9,000）", 3_000),
         ]
 
-        let requests = CategoryRefinement.requests(for: entries, memory: memory)
+        let requests = CategoryRefinement.requests(for: Self.resolved(entries, memory: memory))
 
         #expect(requests == [
             .init(index: 0, item: "ジンギスカン"),
@@ -77,20 +96,64 @@ struct CategoryRefinementTests {
     func skipsCustomCategoryNames() {
         let catalog = CategoryCatalog(customs: [CustomCategoryInfo(id: "clothes", name: "衣服", symbolName: "tshirt", colorIndex: 0)])
 
-        let requests = CategoryRefinement.requests(for: [Self.expense("衣服 セール")], memory: CategoryMemory(), catalog: catalog)
+        let requests = CategoryRefinement.requests(for: Self.resolved([Self.expense("衣服 セール")], catalog: catalog), catalog: catalog)
+
+        #expect(requests.isEmpty)
+    }
+
+    @Test("作ったカテゴリがあれば、読み取ったカテゴリで決まった記録も、作ったカテゴリの答えだけを使う聞き直しにする")
+    func requestsCustomOnlyForParsedEntries() {
+        let memory = CategoryMemory.resolve([CategoryMemoryTests.Row("靴", .daily)])
+        let entries = [
+            Self.expense("Tシャツ", 2_000, .daily),
+            Self.expense("ジンギスカン"),
+            Self.expense("靴", 5_000),
+            Self.expense("洋服", 4_000),
+            ParsedEntry(amount: 3_000, category: .other, isIncome: true, memo: "臨時収入"),
+        ]
+
+        let requests = CategoryRefinement.requests(for: Self.resolved(entries, memory: memory, catalog: Self.customCatalog), catalog: Self.customCatalog)
+
+        #expect(requests == [
+            .init(index: 0, item: "Tシャツ", acceptsBuiltIn: false),
+            .init(index: 1, item: "ジンギスカン"),
+            // 辞書の「その他」の語で「その他」にした品目は聞き返さないが、作ったカテゴリに当たるかは聞く。
+            .init(index: 3, item: "洋服", acceptsBuiltIn: false),
+        ])
+    }
+
+    @Test("作ったカテゴリが無ければ、読み取ったカテゴリで決まった記録は聞き直さない")
+    func noCustomOnlyRequestsWithoutCustoms() {
+        let requests = CategoryRefinement.requests(for: Self.resolved([Self.expense("Tシャツ", 2_000, .daily)]))
 
         #expect(requests.isEmpty)
     }
 
     // MARK: - 答えの当て方
 
-    @Test("組み込みのカテゴリの表示名で、その他でない答えだけを当てる")
+    @Test("一覧のカテゴリの名前で、その他でない答えだけを当てる")
     func appliesOnlyUsefulAnswers() {
-        let entries = [Self.expense("a"), Self.expense("b"), Self.expense("c"), Self.expense("d")]
+        let resolutions = Self.resolved([Self.expense("a"), Self.expense("b"), Self.expense("c"), Self.expense("d")])
+        let requests = CategoryRefinement.requests(for: resolutions)
 
-        let applied = CategoryRefinement.applying([0: "食費", 1: "その他", 2: "家賃", 9: "交通"], to: entries)
+        let applied = CategoryRefinement.applying([0: "食費", 1: "その他", 2: "家賃", 9: "交通"], to: resolutions, requests: requests)
 
         #expect(applied.map(\.category) == [.food, .other, .other, .other])
+    }
+
+    @Test("作ったカテゴリの答えだけを使う聞き直しには、組み込みのカテゴリの答えを当てない")
+    func customOnlyRequestIgnoresBuiltInAnswers() {
+        let resolutions = Self.resolved([Self.expense("Tシャツ", 2_000, .daily), Self.expense("靴下", 500, .daily)], catalog: Self.customCatalog)
+        let requests = CategoryRefinement.requests(for: resolutions, catalog: Self.customCatalog)
+
+        let applied = CategoryRefinement.applying([0: "衣服", 1: "食費"], to: resolutions, requests: requests, catalog: Self.customCatalog)
+
+        #expect(applied.map(\.category) == [Self.clothes.category, .daily])
+    }
+
+    @Test("選択肢は組み込みの表示名と作ったカテゴリの名前（その他が最後）")
+    func choicesIncludeCustomCategories() {
+        #expect(CategoryRefinement.choices(in: Self.customCatalog) == ["食費", "日用品", "交通", "カフェ", "娯楽", "光熱・通信", "医療", "衣服", "その他"])
     }
 
     // MARK: - 聞き方
@@ -102,7 +165,7 @@ struct CategoryRefinementTests {
         let entries = [Self.expense("ジンギスカン"), Self.expense("なぞの品"), Self.expense("ランチ", 850, .food)]
 
         let refined = try await CategoryRefinement.refine(
-            entries, memory: CategoryMemory(), classifier: classifier, timeout: .seconds(5), onFallback: log.report
+            Self.resolved(entries), classifier: classifier, timeout: .seconds(5), onFallback: log.report
         )
 
         #expect(refined.map(\.category) == [.food, .other, .food])
@@ -111,13 +174,29 @@ struct CategoryRefinementTests {
         #expect(log.reasons.isEmpty)
     }
 
+    @Test("その他のままの記録を先に聞き、作ったカテゴリを選択肢に渡す")
+    func asksUnresolvedFirstWithCustomChoices() async throws {
+        let log = Log()
+        let choices = ChoicesLog()
+        let classifier = StubClassifier(answers: ["Tシャツ": "衣服", "ジンギスカン": "食費"], log: log, choicesLog: choices)
+
+        let refined = try await CategoryRefinement.refine(
+            Self.resolved([Self.expense("Tシャツ", 2_000, .daily), Self.expense("ジンギスカン")], catalog: Self.customCatalog),
+            catalog: Self.customCatalog, classifier: classifier, timeout: .seconds(5)
+        )
+
+        #expect(refined.map(\.category) == [Self.clothes.category, .food])
+        #expect(log.items == ["ジンギスカン", "Tシャツ"])
+        #expect(choices.choices.allSatisfy { $0.contains("衣服") && $0.last == "その他" })
+    }
+
     @Test("聞き直す記録が無ければ、AI を呼ばない")
     func doesNotCallClassifierWithoutRequests() async throws {
         let log = Log()
         let entries = [Self.expense("ランチ", 850, .food), ParsedEntry(amount: 250_000, category: .other, isIncome: true, memo: "給料")]
 
         let refined = try await CategoryRefinement.refine(
-            entries, memory: CategoryMemory(), classifier: StubClassifier(log: log), timeout: .seconds(5)
+            Self.resolved(entries), classifier: StubClassifier(log: log), timeout: .seconds(5)
         )
 
         #expect(refined == entries)
@@ -130,7 +209,7 @@ struct CategoryRefinementTests {
         let classifier = StubClassifier(answers: ["b": "交通"], failing: ["a"], log: log)
 
         let refined = try await CategoryRefinement.refine(
-            [Self.expense("a"), Self.expense("b")], memory: CategoryMemory(), classifier: classifier, timeout: .seconds(5),
+            Self.resolved([Self.expense("a"), Self.expense("b")]), classifier: classifier, timeout: .seconds(5),
             onFallback: log.report
         )
 
@@ -148,7 +227,7 @@ struct CategoryRefinementTests {
         let start = clock.now
 
         let refined = try await CategoryRefinement.refine(
-            [Self.expense("a"), Self.expense("b"), Self.expense("c")], memory: CategoryMemory(), classifier: classifier,
+            Self.resolved([Self.expense("a"), Self.expense("b"), Self.expense("c")]), classifier: classifier,
             timeout: .seconds(3), onFallback: log.report
         )
 
@@ -166,7 +245,7 @@ struct CategoryRefinementTests {
         let classifier = StubClassifier(delays: ["a": .seconds(30)], log: log)
         let task = Task {
             try await CategoryRefinement.refine(
-                [Self.expense("a")], memory: CategoryMemory(), classifier: classifier, timeout: .seconds(20), onFallback: log.report
+                Self.resolved([Self.expense("a")]), classifier: classifier, timeout: .seconds(20), onFallback: log.report
             )
         }
         try? await Task.sleep(for: .milliseconds(100))

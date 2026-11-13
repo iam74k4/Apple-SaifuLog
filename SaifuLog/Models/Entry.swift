@@ -166,6 +166,20 @@ extension Entry {
         return descriptor
     }
 
+    /// 過去の記録のいつものカテゴリ（`CategoryHistory`）を作るのに読む記録。支出のうち、カテゴリを聞き返していないものを、
+    /// 記録した日時の新しいものから `limit` 件。
+    ///
+    /// 聞き返している記録は、答えを待っている「その他」なので数えない。件数で区切るのは、送るたびに読むため（記録が増えても
+    /// 読む量が変わらないように。新しい記録ほど、いまの書き方と振り分けに近い）。
+    static func categoryHistoryDescriptor(limit: Int = 1000) -> FetchDescriptor<Entry> {
+        var descriptor = FetchDescriptor<Entry>(
+            predicate: #Predicate { $0.isIncome == false && $0.needsCategoryReview == false },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = limit
+        return descriptor
+    }
+
     /// タイムラインに出す、記録した日時の新しいものから `limit` 件。
     ///
     /// 件数で区切るので新しい順に読む（画面では古い順に並べ直す）。

@@ -1806,6 +1806,17 @@
         }
       }
     },
+    "このカテゴリで記録を直しました。" : {
+      "comment" : "チャットでカテゴリを直した後の返事のカードの本文（品目の無い記録で、覚えないとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated the entry with this category."
+          }
+        }
+      }
+    },
     "このカテゴリの記録 %lld 件は「その他」になります。カテゴリ別の予算と覚えたカテゴリからも外します。" : {
       "comment" : "作ったカテゴリを削除する前の確認の説明。%lld は、そのカテゴリの記録の件数",
       "localizations" : {
@@ -7257,6 +7268,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Use this after switching iPhones, for example, to load the Premium purchase made with this Apple Account."
+          }
+        }
+      }
+    },
+    "次から「%@」は%@に振り分けます。" : {
+      "comment" : "チャットでカテゴリを直した後の返事のカードの本文。1 つ目の %@ は品目、2 つ目はカテゴリの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%1$@” will go to %2$@ from now on."
           }
         }
       }

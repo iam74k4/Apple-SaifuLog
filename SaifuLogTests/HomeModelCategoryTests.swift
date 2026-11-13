@@ -44,7 +44,7 @@ struct HomeModelCategoryTests {
 
         var askedItems: [String] { lock.withLock { asked } }
 
-        func categoryName(for item: String) async throws -> String {
+        func categoryName(for item: String, choices: [String]) async throws -> String {
             lock.withLock { asked.append(item) }
             if fails { throw TestError() }
             return answers[item] ?? "その他"
@@ -257,6 +257,115 @@ struct HomeModelCategoryTests {
         editing.category = .food
         #expect(editing.save())
 
+        #expect(try learned(fixture).memory().rules.isEmpty)
+    }
+
+    // MARK: - 過去の記録と店の名前の辞書
+
+    /// 同じ品目を同じカテゴリで 2 回以上記録していれば、次の記録もそのカテゴリにする（聞き返さない）。
+    @Test func usesUsualCategoryFromHistory() async throws {
+        let fixture = try Fixture()
+        for _ in 0..<2 {
+            try fixture.insert(Entry(
+                amount: 300, isIncome: false, category: .food, memo: "ぽんかん", spentAt: TestSupport.now,
+                createdAt: TestSupport.now, source: .text, originalText: "ぽんかん 300"
+            ))
+        }
+
+        await fixture.send("ぽんかん 300")
+
+        let latest = try #require(try fixture.entries().last)
+        #expect(latest.category == .food)
+        #expect(fixture.model.categoryQuestionIDs.isEmpty)
+    }
+
+    /// 聞き返している記録（答えを待っている「その他」）は、過去の記録に数えない。
+    @Test func unansweredQuestionsAreNotHistory() async throws {
+        let fixture = try Fixture()
+
+        await fixture.send("ぽんかん 300")
+        await fixture.send("ぽんかん 300")
+        await fixture.send("ぽんかん 300")
+
+        #expect(try fixture.entries().allSatisfy { $0.category == .other && $0.needsCategoryReview })
+    }
+
+    /// 辞書で決まらなかったチェーンの名前は、店の名前の辞書（レシートと同じ）で振り分ける。
+    @Test func usesStoreDictionaryForChainNames() async throws {
+        let fixture = try Fixture()
+
+        await fixture.send("マツキヨ 980")
+
+        let entry = try #require(try fixture.entries().first)
+        #expect(entry.category == .daily)
+        #expect(fixture.model.categoryQuestionIDs.isEmpty)
+    }
+
+    // MARK: - チャットで直す
+
+    /// 直前の記録のカテゴリを「それ娯楽」のような文で直し、品目とカテゴリの組を覚える。新しい記録にはしない。
+    @Test func recategorizesLastEntryFromChat() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ジム 8000")
+        let entry = try #require(try fixture.entries().first)
+
+        await fixture.send("それ娯楽")
+
+        #expect(try fixture.entries().count == 1)
+        #expect(entry.category == .entertainment)
+        #expect(!entry.needsCategoryReview)
+        #expect(fixture.model.categoryQuestionIDs.isEmpty)
+        #expect(try learned(fixture).memory().rules == ["ジム": .entertainment])
+        #expect(fixture.lastQuestionState == .recategorized(item: "ジム", category: "娯楽", remembered: true))
+        #expect(fixture.announcements.last?.contains("次から「ジム」は娯楽にします") == true)
+        // 「取り消す」は残す（返事で選んだときと同じ）。
+        #expect(fixture.model.canUndo)
+        #expect(fixture.model.draft.isEmpty)
+
+        await fixture.send("ジム 8000")
+        #expect(try fixture.entries().last?.category == .entertainment)
+    }
+
+    /// 聞き返していない記録も、チャットで直せる（読み取ったカテゴリが違っていたとき）。
+    @Test func recategorizesKnownCategoryFromChat() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+
+        await fixture.send("さっきのは娯楽にして")
+
+        #expect(try fixture.entries().map(\.category) == [.entertainment])
+    }
+
+    /// 直前の記録が無ければ、直す文として読まない（ふつうの送信として、金額が無いと知らせる）。
+    @Test func recategorizingNeedsRecentEntry() async throws {
+        let fixture = try Fixture()
+
+        await fixture.send("日用品")
+
+        #expect(try fixture.entries().isEmpty)
+        #expect(fixture.lastQuestionState == .noAmount)
+    }
+
+    /// 1 回の送信で複数件を記録したら、聞き返している記録が 1 件のときだけ、その記録を直す。
+    @Test func recategorizesAskingEntryOfMultipleEntries() async throws {
+        let fixture = try Fixture()
+        await fixture.send("スーパー2480、ジム8000")
+
+        await fixture.send("それ娯楽")
+
+        #expect(try fixture.entries().map(\.category) == [.food, .entertainment])
+    }
+
+    /// 取り消した後は、直す文として読まない。
+    @Test func recategorizingIgnoresUndoneEntry() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ジム 8000")
+        fixture.model.undoLastRecord()
+        fixture.model.draft = ""
+
+        await fixture.send("それ娯楽")
+
+        #expect(try fixture.entries().isEmpty)
         #expect(try learned(fixture).memory().rules.isEmpty)
     }
 }

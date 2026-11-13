@@ -111,4 +111,59 @@ struct HomeModelCustomCategoryHouseholdTests {
 
         #expect(try fixture.household.entries().map(\.category) == [.other])
     }
+
+    /// AI が使える端末では、名前を書かなくても、作ったカテゴリに当たる品目をそのカテゴリにする。作ったカテゴリを選択肢に渡す。
+    @Test func aiChoosesCustomCategory() async throws {
+        let fixture = try Fixture()
+        let clothes = try create("衣服", in: fixture)
+        let classifier = ChoiceRecorder(answer: "衣服")
+        fixture.categoryRefiner = CategoryRefiner(classifier: classifier, onFallback: nil)
+
+        await fixture.send("Tシャツ 2000")
+
+        let entry = try #require(try fixture.entries().first)
+        #expect(entry.category == clothes)
+        #expect(fixture.model.categoryQuestionIDs.isEmpty)
+        #expect(classifier.choices.first?.contains("衣服") == true)
+    }
+
+    /// 作ったカテゴリを選択肢に入れても、読み取ったカテゴリを組み込みのカテゴリの答えで変えない。
+    @Test func aiBuiltInAnswerDoesNotOverrideParsedCategory() async throws {
+        let fixture = try Fixture()
+        _ = try create("衣服", in: fixture)
+        fixture.categoryRefiner = CategoryRefiner(classifier: ChoiceRecorder(answer: "娯楽"), onFallback: nil)
+
+        await fixture.send("ランチ 850")
+
+        #expect(try fixture.entries().first?.category == .food)
+    }
+
+    /// チャットの文で、作ったカテゴリに直せる。
+    @Test func recategorizesToCustomCategoryFromChat() async throws {
+        let fixture = try Fixture()
+        let clothes = try create("衣服", in: fixture)
+        await fixture.send("ユニクロ 3990")
+
+        await fixture.send("それ衣服")
+
+        #expect(try fixture.entries().map(\.category) == [clothes])
+    }
+
+    /// 決めた答えを返し、渡された選択肢を残す AI の代わり。
+    private final class ChoiceRecorder: ItemCategoryClassifying, @unchecked Sendable {
+        let answer: String
+        private let lock = NSLock()
+        private var recorded: [[String]] = []
+
+        init(answer: String) {
+            self.answer = answer
+        }
+
+        var choices: [[String]] { lock.withLock { recorded } }
+
+        func categoryName(for item: String, choices: [String]) async throws -> String {
+            lock.withLock { recorded.append(choices) }
+            return answer
+        }
+    }
 }

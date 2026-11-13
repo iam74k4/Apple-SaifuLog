@@ -398,6 +398,12 @@ final class HomeModel {
         if isHouseholdActive {
             return sendToHousehold(text, source: source, sentAt: sentAt, calendar: calendar)
         }
+        // 直前の記録のカテゴリを直す文（「それ日用品」「さっきのは交際費にして」）なら、記録にも質問にもせずに直す。
+        if !forcesQuestion, let category = CategoryCorrection.category(in: text, catalog: categories.catalog),
+           let target = recategorizeTarget() {
+            recategorize(target, to: category, text: text, source: source, sentAt: sentAt)
+            return Task {}
+        }
         let intent = forcesQuestion
             ? .question
             : InputIntentClassifier.classify(text, now: sentAt, calendar: calendar, catalog: categories.catalog)
@@ -483,16 +489,18 @@ final class HomeModel {
                 announce(String(localized: "金額が見つかりませんでした"))
                 return
             }
-            // 作ったカテゴリの名前と覚えたカテゴリを、AI と辞書のどちらで読んだ記録にも当てる（修正の記憶）。覚えを読めなくても
-            // 記録は止めない。
+            // 作ったカテゴリの名前・覚えたカテゴリ・過去の記録のいつものカテゴリ・店の名前の辞書を、AI と辞書のどちらで読んだ
+            // 記録にも当てる（`CategoryResolver`）。覚えや過去の記録を読めなくても、記録は止めない。
             let catalog = categories.catalog
             let memory = (try? learnedCategories.memory()) ?? CategoryMemory()
-            var entries = memory.applying(to: parsed, catalog: catalog)
+            let resolutions = CategoryResolver.resolve(parsed, memory: memory, history: categoryHistory(), catalog: catalog)
+            var entries = resolutions.map(\.entry)
             // それでも「その他」のまま、返事で聞き返すことになる品目は、先に AI に聞き直す（AI が使える端末だけ。辞書に無い品目でも、
-            // AI がカテゴリを選べれば聞き返さずに済む。選べなければ、これまでどおり返事で聞き返す）。
+            // AI がカテゴリを選べれば聞き返さずに済む。選べなければ、これまでどおり返事で聞き返す）。作ったカテゴリがあれば、
+            // 作ったカテゴリに当たるかも聞く（`CategoryRefinement`）。
             if let refiner = makeCategoryRefiner() {
                 do {
-                    entries = try await refiner.refine(entries, memory: memory, catalog: catalog)
+                    entries = try await refiner.refine(resolutions, catalog: catalog)
                 } catch {
                     // 取り消された（読み取りの取り消しと同じ）。記録せず、送った文だけを入力欄に戻す。
                     restoreDraft(text, source: source)
@@ -502,10 +510,9 @@ final class HomeModel {
             let recorded = Entry.records(
                 from: entries, originalText: text, source: source, now: sentAt, calendar: calendar
             )
-            for entry in recorded {
-                entry.needsCategoryReview = memory.asksCategory(
-                    memo: entry.memo, amount: entry.amount, category: entry.category, isIncome: entry.isIncome, catalog: catalog
-                )
+            for (entry, resolution) in zip(recorded, resolutions) {
+                // AI に聞き直して決まった記録は聞き返さない。
+                entry.needsCategoryReview = resolution.asksCategory && entry.category == .other
             }
             do {
                 try store.insert(recorded)
@@ -522,6 +529,17 @@ final class HomeModel {
                 recorded, today: sentAt, calendar: calendar, asksCategory: recorded.contains(where: \.needsCategoryReview)
             )
         }
+    }
+
+    /// 過去の記録のいつものカテゴリ（`CategoryHistory`）。読めなければ空（記録は止めない）。
+    private func categoryHistory() -> CategoryHistory {
+        guard let entries = try? store.context.fetch(Entry.categoryHistoryDescriptor()) else { return CategoryHistory() }
+        return CategoryHistory(records: entries.map { entry in
+            CategoryHistory.Record(
+                item: CategoryMemory.item(ofMemo: entry.memo, amount: entry.amount, isIncome: entry.isIncome),
+                category: entry.category
+            )
+        })
     }
 
     // MARK: - 家族（家計）への記録
@@ -1136,6 +1154,48 @@ final class HomeModel {
         // 入力欄の VoiceOver の「直す: …」の文を、選んだカテゴリで作り直す。
         snapshotJustRecorded()
         let name = categories.catalog.localizedName(for: category)
+        announce(
+            remembered
+                ? String(localized: "\(name)にしました。次から「\(item)」は\(name)にします")
+                : String(localized: "\(name)にしました")
+        )
+    }
+
+    // MARK: - チャットでカテゴリを直す
+
+    /// チャットの文（`CategoryCorrection`）で直す記録。直前の送信の支出が 1 件ならそれ、複数なら聞き返している記録が 1 件のときだけ
+    /// それ。決められなければ nil（どの記録か分からないまま書き換えない。文はふつうの送信として読む）。
+    private func recategorizeTarget() -> Entry? {
+        forgetRecordsDeletedElsewhere()
+        let expenses = zip(justRecorded, justRecordedIDs).filter { !$0.0.isIncome }
+        if expenses.count == 1 { return expenses[0].0 }
+        let asking = expenses.filter { categoryQuestionIDs.contains($0.1) }
+        return asking.count == 1 ? asking[0].0 : nil
+    }
+
+    /// 直前の記録のカテゴリをチャットの文で直し、品目とカテゴリの組を覚える（返事の聞き返しで選んだときと同じ。修正の記憶）。
+    /// 送った文と返事（「日用品にしました」）をタイムラインに出す。「取り消す」は残す（直したのはカテゴリだけなので、取り消せば
+    /// 記録ごと消え、送った文が入力欄に戻る。返事で選んだときと同じ）。
+    ///
+    /// 書き込めなければ、送った文を入力欄に戻して知らせる（もう一度送れるように）。
+    private func recategorize(_ entry: Entry, to category: EntryCategory, text: String, source: EntrySource, sentAt: Date) {
+        let id = entry.persistentModelID
+        var edits = EntryEdits(entry)
+        edits.category = category
+        do {
+            try store.update(entry, with: edits)
+        } catch {
+            restoreDraft(text, source: source)
+            storeFailure = .categoryChoice
+            return
+        }
+        let item = CategoryMemory.item(ofMemo: entry.memo, amount: entry.amount, isIncome: entry.isIncome)
+        let remembered = (try? learnedCategories.remember(item: item, category: category)) ?? false
+        categoryQuestionIDs.remove(id)
+        refreshPendingReviews()
+        snapshotJustRecorded()
+        let name = categories.catalog.localizedName(for: category)
+        appendQuestion(text, askedAt: sentAt, state: .recategorized(item: item, category: name, remembered: remembered))
         announce(
             remembered
                 ? String(localized: "\(name)にしました。次から「\(item)」は\(name)にします")

@@ -32,6 +32,9 @@ struct QuestionExchange: Identifiable, Equatable {
         case unclear
         /// 前の記録を直そうとする文だった（「さっきのを900に直して」）。記録を直さず、新しい記録にもしない。
         case correction
+        /// 直前の記録のカテゴリを、チャットの文（「それ日用品」）で直した。`item` は品目、`category` は直した先のカテゴリの名前、
+        /// `remembered` は次から同じ品目をそのカテゴリにするか（品目を覚えられたか）。
+        case recategorized(item: String, category: String, remembered: Bool)
         /// 記録として送った文に、金額が見つからなかった（「ランチ」）。記録しない。前はアラートで知らせていたが、閉じるまで
         /// キーボードが下がって流れが止まり、送った文もタイムラインに残らなかったので、ほかの案内と同じくタイムラインに出す。
         case noAmount
@@ -43,7 +46,10 @@ struct QuestionExchange: Identifiable, Equatable {
         /// 質問として読んだ文か。記録か質問か決められなかった文・記録を直そうとする文・金額の無い文は、質問として扱っていない
         /// ので、VoiceOver でも「質問」と名乗らない（下の案内と食い違うため）。
         var isQuestion: Bool {
-            self != .unclear && self != .correction && self != .noAmount
+            switch self {
+            case .unclear, .correction, .noAmount, .recategorized: false
+            case .answering, .answered, .unreadable, .limitReached, .loadFailed: true
+            }
         }
     }
 }
