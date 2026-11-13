@@ -59,6 +59,6 @@ struct EntryTests {
     }
 
     @Test func summaryTextUsesMemoAndAmount() {
-        #expect(TestSupport.entry(amount: 12_000, memo: "焼肉").summaryText == "焼肉 ¥12,000")
+        #expect(TestSupport.entry(amount: 12_000, memo: "焼肉").summaryText(in: .builtIn) == "焼肉 ¥12,000")
     }
 }

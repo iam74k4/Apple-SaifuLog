@@ -1,117 +1,6 @@
 import SaifuLogCore
 import SwiftUI
 
-/// 品目と金額の行。品目と金額が 1 行に収まるときだけ横に並べ、収まらなければ金額を品目の下の行に置く（右寄せのまま）。
-///
-/// 横に並べたまま品目を折り返させると、金額が品目の 1 行目の右端に並び、「焼肉（4人で割り勘・総額 ¥3,000 / ¥12,000・
-/// 立替 ¥9,000）」のように品目の文と金額が続けて読めてしまうため。文字の大きさによらず（アクセシビリティサイズでも）、
-/// 収まるかどうかで選ぶ。
-///
-/// どちらの並べ方でも品目・金額の順に置く（VoiceOver が 1 件をまとめて読む順を、並べ方で変えないため）。
-struct EntryTitleAmountRow<Title: View, Amount: View>: View {
-    /// 横に並べるときの品目と金額の間。
-    static var horizontalSpacing: CGFloat { 8 }
-    /// 縦に積むときの品目と金額の間。
-    static var stackedSpacing: CGFloat { 2 }
-
-    /// 品目に改行が入っているか。入っているときだけ、横に並べる候補で品目を 1 行に限る（下の `ViewThatFits`）。
-    var titleHasLineBreaks = false
-    @ViewBuilder let title: Title
-    @ViewBuilder let amount: Amount
-
-    var body: some View {
-        Group {
-            if titleHasLineBreaks {
-                // ViewThatFits は、理想の幅（文字を折り返さない幅）が収まる最初の候補を選ぶ。横に並べる候補の理想の幅は品目と
-                // 金額を 1 行に並べた幅なので、品目が折り返すほど長ければ縦に積む候補に落ちる。
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .firstTextBaseline, spacing: Self.horizontalSpacing) {
-                        // 横に並べる候補では品目を 1 行に限る。並べた後に品目だけが折り返して、金額が品目の 1 行目に並ぶ形に
-                        // ならないようにするため（収まらなければ縦に積む候補が選ばれる）。
-                        title
-                            .lineLimit(1)
-                        amount
-                    }
-                    VStack(alignment: .trailing, spacing: Self.stackedSpacing) {
-                        title
-                        amount
-                    }
-                }
-            } else {
-                // 改行の無い品目は、理想の幅で 1 行になる（1 行に限らなくても同じ形）ので、品目と金額を 1 組だけ作り、
-                // 上の ViewThatFits と同じ選び方で並べる（`TitleAmountLayout`）。ViewThatFits は候補ごとに品目と金額の文字を
-                // 作って測るので、タイムラインを開くときの手間が倍になる（行はすべて測る。`HomeView` の `TimelineScrollView`）。
-                TitleAmountLayout(horizontalSpacing: Self.horizontalSpacing, stackedSpacing: Self.stackedSpacing) {
-                    title
-                    amount
-                }
-            }
-        }
-        // 品目が折り返すときも各行を吹き出しの右端に揃える（自分が送ったメッセージのように右寄せで出しているため）。
-        .multilineTextAlignment(.trailing)
-    }
-}
-
-/// 品目と金額（2 つの子）を、1 行に収まれば横に（1 行目の文字の下端をそろえ、間は `horizontalSpacing`）、収まらなければ
-/// 縦に（右寄せ、間は `stackedSpacing`）並べる。
-///
-/// `ViewThatFits(in: .horizontal) { HStack(alignment: .firstTextBaseline) { 品目; 金額 }; VStack(alignment: .trailing) { 品目; 金額 } }`
-/// と同じ選び方と形にする。横に並べる候補は、理想の幅の合計が提案された幅に収まるときだけ選ばれるので、そのとき HStack は
-/// ほぼ必ず子を理想の大きさで並べる。ここでは HStack のように伸び縮みの幅を調べる提案（幅 0 と無限大。金額は縮めて収める計算も
-/// 走る）をせずに、理想の大きさで並べる。縦に積むときは VStack（`VStackLayout`）にそのまま任せる。
-///
-/// 例外は、品目と金額の理想の幅がほぼ同じで、行の幅の半分をまたぐとき。HStack は残りの幅を子の数で割って伸び縮みの小さい子から
-/// 渡すので、前の組み立てでは品目が理想の幅より狭く渡されて「…」で切れることがあった（撮影用のデモの記録と、品目の長さ・金額の
-/// 桁を変えた記録を、すべての文字の大きさと iPhone の幅で描き比べた範囲では起きなかった）。ここではそのときも両方を 1 行に並べる。
-private struct TitleAmountLayout: Layout {
-    let horizontalSpacing: CGFloat
-    let stackedSpacing: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {
-        if let row = row(proposal: proposal, subviews: subviews) {
-            return row.size
-        }
-        return FallbackLayout(stacked).sizeThatFits(proposal: proposal, subviews: subviews)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) {
-        if let row = row(proposal: proposal, subviews: subviews) {
-            row.place(subviews, in: bounds)
-        } else {
-            FallbackLayout(stacked).placeSubviews(in: bounds, proposal: proposal, subviews: subviews)
-        }
-    }
-
-    func explicitAlignment(
-        of guide: HorizontalAlignment, in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void
-    ) -> CGFloat? {
-        // 横に並べるとき: HStack は子の独自の横の揃えを合わせるが、品目と金額の文字には無いので、既定の位置（nil）。
-        guard row(proposal: proposal, subviews: subviews) == nil else { return nil }
-        return FallbackLayout(stacked).explicitAlignment(of: guide, in: bounds, proposal: proposal, subviews: subviews)
-    }
-
-    func explicitAlignment(
-        of guide: VerticalAlignment, in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void
-    ) -> CGFloat? {
-        let layout = row(proposal: proposal, subviews: subviews) == nil ? stacked : horizontal
-        return FallbackLayout(layout).explicitAlignment(of: guide, in: bounds, proposal: proposal, subviews: subviews)
-    }
-
-    private var horizontal: AnyLayout {
-        AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: horizontalSpacing))
-    }
-
-    private var stacked: AnyLayout {
-        AnyLayout(VStackLayout(alignment: .trailing, spacing: stackedSpacing))
-    }
-
-    /// 横に並べる形。1 行に収まらなければ nil（縦に積む）。
-    private func row(proposal: ProposedViewSize, subviews: Subviews) -> IdealRowArrangement? {
-        let row = IdealRowArrangement(subviews: subviews, alignment: .firstTextBaseline, spacing: horizontalSpacing, proposal: proposal)
-        return row.fits(proposal) ? row : nil
-    }
-}
-
 /// 種別・記録した人・日付を横に並べる行（家計の記録の吹き出しと、アプリの返事のカードの行の種別と日付）。すべてが理想の幅
 /// （折り返さない幅）で収まるときは 1 行に並べる。収まらないときは、`stacksWhenNeeded` なら縦に積み（`stackAlignment` に寄せる）、
 /// そうでなければ HStack に任せる（文字を折り返して詰める）。
@@ -288,23 +177,13 @@ extension LedgerEntryDisplaying {
         !calendar.isDate(spentAt, equalTo: today, toGranularity: .year)
     }
 
-    /// 種別の名前（「収入」かカテゴリ名。組み込みのカテゴリだけの記録（家計の記録）に使う）。
-    var kindText: String {
-        kindText(in: .builtIn)
-    }
-
     /// 種別の名前（「収入」かカテゴリ名。作ったカテゴリは一覧から名前を引く）。
     func kindText(in catalog: CategoryCatalog) -> String {
         isIncome ? String(localized: "収入") : catalog.localizedName(for: category)
     }
 
-    /// 削除の確認や入力欄の VoiceOver の「直す: …」に出す「ランチ ¥850」。品目が無ければ種別の名前にする（返事の行と吹き出しの
-    /// 見出しと同じ）。組み込みのカテゴリだけの記録（家計の記録）に使う。
-    var summaryText: String {
-        summaryText(in: .builtIn)
-    }
-
-    /// 「ランチ ¥850」（作ったカテゴリは一覧から名前を引く）。
+    /// 削除の確認や入力欄の VoiceOver の「直す: …」に出す「ランチ ¥850」。品目が無ければ種別の名前にする（返事の行の見出しと
+    /// 同じ）。作ったカテゴリは一覧から名前を引く。
     func summaryText(in catalog: CategoryCatalog) -> String {
         "\(memo.isEmpty ? kindText(in: catalog) : memo) \(YenFormatter.string(from: amount))"
     }
