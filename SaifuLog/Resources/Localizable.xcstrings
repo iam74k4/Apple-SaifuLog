@@ -2957,16 +2957,6 @@
         }
       }
     },
-    "コーヒー" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Coffee"
-          }
-        }
-      }
-    },
     "サイフログ プレミアム" : {
       "comment" : "プレミアムのシート（⑨）の見出しと、設定の「プレミアム」の節の行の名前（課金アイテムの表示名と同じ）",
       "localizations" : {
@@ -4350,16 +4340,6 @@
         }
       }
     },
-    "使える" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Available"
-          }
-        }
-      }
-    },
     "使えるか" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。端末内 AI や音声の書き起こしが使えるか（使えなければ理由）の項目名",
       "localizations" : {
@@ -4367,16 +4347,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Availability"
-          }
-        }
-      }
-    },
-    "使った" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Spent"
           }
         }
       }
@@ -5482,16 +5452,6 @@
         }
       }
     },
-    "固定費" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fixed costs"
-          }
-        }
-      }
-    },
     "固定費を引いた今月あと" : {
       "comment" : "カレンダーのページの見通しの行。予算から今月の支出と、まだ記録していない固定費を引いた残り",
       "localizations" : {
@@ -5686,16 +5646,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Graduation Cap"
-          }
-        }
-      }
-    },
-    "完了" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Done"
           }
         }
       }
@@ -7736,17 +7686,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Me"
-          }
-        }
-      }
-    },
-    "自動で記録" : {
-      "comment" : "設定の節の見出し（くり返しの記録と Apple Pay の支払い）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Automatic Entries"
           }
         }
       }

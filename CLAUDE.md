@@ -4,7 +4,7 @@
 端末内の AI（Apple の Foundation Models）で行い、家計のデータを端末の外に出さない。
 
 ## 現在の到達点
-- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・カテゴリの振り分けと聞き返しと修正の記憶・よく使うひとこと・家計への質問・レシートの読み取り・声の入力・月の予算・カレンダー・月のまとめ・週のふりかえり・設定と CSV 書き出し・iCloud 同期（自分の端末どうし）・アプリのロック・初回の案内・プレミアム（StoreKit）の試作**まで。
+- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・チャットで頼む操作（直す・消す・予算）・カテゴリの振り分けと聞き返しと修正の記憶・よく使うひとこと・家計への質問・レシートの読み取り・声の入力・月の予算・カレンダー・月のまとめ・週のふりかえり・設定と CSV 書き出し・iCloud 同期（自分の端末どうし）・アプリのロック・初回の案内・プレミアム（StoreKit）の試作**まで。
   - 試作済み: 一行の読み取り（端末内 AI、使えない端末ではキーワード辞書）、タイムライン（会話の形。1 回の送信で記録したものを
     送信にまとめ（コアの `TimelineSend`。送信は保存せず、元の文・入力元が同じで記録した日時が 0.1 秒以内に続く記録をまとめる）、送った文を
     右寄せの自分の吹き出し（灰色。声はマイク・レシートは印つき）に、記録をアプリの返事のカード（「記録しました」・記録ごとの行。
@@ -154,6 +154,21 @@
     品目の言葉とともに覚える（AI への手がかりには渡さない）。保存は `LearnedCategory`（暗号化フィールド）と `LearnedCategoryStore`、状態は
     `HomeModel.categoryQuestionIDs`・`chooseCategory`。⑧ の「覚えたカテゴリ」（`LearnedCategoriesView`・`LearnedCategoriesModel`）で一覧・
     変える・忘れる。実機でのモデルの選び方の確認はまだ）。
+    チャットで頼む操作（記録にも質問にもしない文。コアの `ChatCommand`・`ChatCommandReader`。`HomeModel.submit` が記録か質問かを
+    見分ける前に読み、「自分」のときだけ。直す相手は直前の送信の支出が 1 件か、聞き返し中が 1 件のとき（`HomeModel.commandTarget`）。
+    行えなければふつうの送信として読む）。決まりで読むのは、カテゴリを変える（`CategoryCorrection`）・消す（数字の無い文で、消す語
+    （「消して」「削除」「取り消して」「なし」「なかったことに」など）のほかは前の記録を指す語・語尾だけ。「取り消す」と同じだが、文は
+    入力欄に戻さない。返事「取り消しました」）・月の全体の予算を決める（「予算」と金額がちょうど 1 つ、カテゴリの名前が無く、「来月」
+    「先月」などでなく、残りが「今月」「にして」「に設定」などだけ。`BudgetStore.setAmount(.total)`、返事「月の予算を決めました」）・
+    金額を直す（`InputIntentClassifier` の直す語があり、金額がちょうど 1 つか「じゃなくて」の後ろ。メモは品目だけにし（割り勘の
+    説明は前の金額のため）、カテゴリの聞き返しは残し、「取り消す」は引っ込める（⑥ と同じ理由）。返事「金額を直しました」）。
+    決まりで読めず、記録か質問か決められない文・前の記録を直そうとする文・金額の無い記録の文になったときだけ、AI が使える端末では
+    文だけを端末内 AI に渡して操作の種類（5 つの選択肢から 1 つ）を選ばせ（`AI/ChatCommandInterpreter`・
+    `FoundationModelsChatCommandInterpreter`。上限は `AITimeouts.chatCommand` の 3 秒、失敗と時間切れは `AIFallbackLog` の
+    `chatCommand`）、値は `ChatCommandReader.command(kind:in:…)` が文から読む（文に無い値では行わない）。AI が選んだ「消す」は
+    確認（`pendingDeletion`）を出してから消し、返事「消すか確かめます」。返事はタイムラインの案内のカード（`QuestionExchange.State` の
+    `.amountChanged`・`.removed`・`.removalAsked`・`.budgetSet`）、書き込めなければ文を入力欄に戻して `StoreFailure.chatCommand`。
+    読めなければこれまでどおりの案内（書き直し・直し方・金額が見つからない）。実機でのモデルの選び方の確認はまだ）。
     作ったカテゴリ（利用者が 20 個まで作る。記録は ID だけを持つ `EntryCategory.custom`（rawValue は「custom:」と ID）で、名前・記号・色・
     並びは `CustomCategory`（暗号化フィールド）と `CustomCategoryStore`。一覧はコアの `CategoryCatalog` で、ホームが `CategoryCatalogModel` を
     1 つ持ち、画面へは環境の `categoryCatalog` で渡す（名前・色・記号は `CategoryCatalog` の拡張から引き、`EntryCategory.displayName` を

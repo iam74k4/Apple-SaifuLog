@@ -14,8 +14,8 @@ App Store Connect の「英語（米国）」のローカライズに入れる�
 |---|---|---|
 | アプリ名 | 30 文字 | 8 文字 |
 | サブタイトル | 30 文字 | 18 文字 |
-| プロモーション用テキスト | 170 文字 | 169 文字 |
-| 説明 | 4,000 文字 | 3,996 文字（改行を含む） |
+| プロモーション用テキスト | 170 文字 | 160 文字 |
+| 説明 | 4,000 文字 | 3,985 文字（改行を含む） |
 | キーワード | 100 バイト | 90 バイト |
 | 著作権 | — | 14 文字 |
 
@@ -42,21 +42,17 @@ Budget in one line
 ## プロモーション用テキスト
 
 ```text
-Log spending by sending one line like “ランチ 850,” or just by paying with Apple Pay. Text, receipts, and voice are read on your iPhone. No developer server, no bank login.
+Log spending by sending one line like “ランチ 850.” Categories are sorted for you, and you can fix them by chat. Text, receipts, and voice are read on your iPhone.
 ```
 
 ## 説明
 
 ```text
-Send one line like “ランチ 850” and it’s logged, the way you send a chat message. Paying with Apple Pay can log spending for you.
+Send one line like “ランチ 850” and it’s logged, the way you send a chat message. Categories are sorted for you, and fixes are just another message.
 
 SaifuLog reads entries written in Japanese and records amounts in yen. The interface is also available in English.
 
 Text, receipts, and voice are read on your iPhone. No developer server, nothing sent to the developer, and no bank or card login.
-
-LOG BY PAYING (APPLE PAY)
-• Set up a Shortcuts automation once (Settings shows how). When you pay with Apple Pay, SaifuLog gets the amount and merchant and records it next time you open the app.
-• The category comes from the merchant name. For unknown merchants SaifuLog asks once and remembers. Undo right away if something’s wrong.
 
 ONE-LINE ENTRY
 • Send “ランチ 850,” “昨日 焼肉12000 4人で割り勘” (yesterday, yakiniku ¥12,000 split four ways), or “給料 25万,” and SaifuLog records the date, category, and amount. Multiple entries, dates, and discounts work too.
@@ -65,6 +61,11 @@ ONE-LINE ENTRY
 • Edit or Undo right after each entry; touch and hold to delete.
 • If a category is unclear, the reply asks and remembers. Create your own categories such as rent or clothing.
 • Items you log often appear as buttons above the entry field.
+
+CATEGORIES AND CHAT FIXES
+• Categories come from what you wrote, chose, or logged before, and store names like “ローソン.”
+• On iPhone models that support Apple Intelligence, on-device AI sorts unknown items, including into categories you created.
+• After an entry, send “それ日用品” (that’s daily goods), “さっきのを900に直して” (make it 900), or “さっきの消して” (delete it). “今月の予算を5万にして” sets the budget.
 
 AUTOMATIC MONTHLY ENTRIES
 • Rent, subscriptions, or salary can be recorded automatically each month.
@@ -92,7 +93,7 @@ EXPORT, SYNC, AND PRIVACY
 • No analytics, no ads, no tracking. The developer receives no data from the app.
 
 PRICING
-• Free to download, with no ads. One-line entry (including AI reading), Apple Pay logging, recurring entries, voice input, budgets, the calendar, summaries, CSV export, and iCloud sync are free with no limits.
+• Free to download, with no ads. One-line entry (including AI reading), automatic categories, recurring entries, voice input, budgets, the calendar, summaries, CSV export, and iCloud sync are free with no limits.
 • Free includes 5 receipt scans a month (only scans you record count) and 10 questions a month.
 • Premium is a one-time purchase of ¥1,800 in Japan, not a subscription. It removes the limits on receipts and questions, adds a short on-device AI note to your reviews (on iPhone models that support Apple Intelligence), and adds budgets by category. Family Sharing is supported.
 • Try Premium free for 14 days (once per Apple Account). You won’t be charged when the trial ends.
@@ -100,14 +101,13 @@ PRICING
 REQUIREMENTS
 • iPhone with iOS 26 or later.
 • On-device AI features need an iPhone that supports Apple Intelligence, with Apple Intelligence turned on and its model downloaded.
-• Apple Pay logging needs a Shortcuts automation and records payments in yen only.
 • Entries are read as Japanese text, and amounts are in yen.
 
 Privacy Policy: https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md
 ```
 
 - **カテゴリ別の予算:** 字数（上限 4,000 文字）のため「adds budgets by category」とだけ書く。ホームの帯や質問の答えに出るようには書かない（日本語と同じ）。
-- **字数:** 機能を足したときに上限を超えたので、各節を短くまとめた（2026-10-01。カレンダーを足した 2026-10-02 にも詰めた。残りは 4 文字）。足すときは、ほかの節を詰めて 4,000 文字に収める。
+- **字数:** 機能を足したときに上限を超えたので、各節を短くまとめた（2026-10-01。カレンダーを足した 2026-10-02 と、チャットでの直しを足した 2026-11-13 にも詰めた。残りは 15 文字）。足すときは、ほかの節を詰めて 4,000 文字に収める。
 - **価格:** 「¥1,800 in Japan」と国を添える。配信は日本だけにした（`../release-flow.md` の「一度だけの準備」の 5）。ほかの国や地域にも出すなら、
   価格はその国の App Store の表示になるので、この行を見直す（アプリは円だけを扱う。円以外の通貨は `docs/design.md` §13 で未決）。
 - **例文:** 入力の例は日本語のまま書き、意味を英語で括弧に添える（アプリの画面の例も日本語のまま出している）。

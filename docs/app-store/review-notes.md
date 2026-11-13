@@ -22,12 +22,12 @@ App Store Connect → アプリ → バージョン → 「App Review に関す�
 No sign-in is required. The app has no accounts and no developer server.
 
 HOW TO TRY IT
-- Type one line in the field at the bottom of the home screen and send it, for example "ランチ 850" (lunch 850 yen) or "昨日 焼肉12000 4人で割り勘" (yesterday, dinner 12,000 yen split four ways). The app records it and replies in the timeline with what it recorded; the latest reply has an Undo button. Tap a recorded item in a reply to edit it; touch and hold to delete it.
+- Type one line in the field at the bottom of the home screen and send it, for example "ランチ 850" (lunch 850 yen) or "昨日 焼肉12000 4人で割り勘" (yesterday, dinner 12,000 yen split four ways). The app records it and replies in the timeline with what it recorded; the latest reply has an Undo button. Tap a recorded item in a reply to edit it; touch and hold to delete it. Right after recording, sending "さっきのを900に直して" (change that to 900 yen), "それ日用品" (that is daily goods), or "さっきの消して" (delete that) edits or deletes the latest entry instead of recording a new one, and "今月の予算を5万にして" (set this month's budget to 50,000 yen) sets the monthly budget.
 - Ask a question in the same field, for example "今月カフェいくら?" (how much on cafes this month?). The answer is calculated by the app from the records.
 - Receipts: tap the camera button on the left of the field, then "Take Photo" or "Choose from Photos". Any photo or screenshot of a receipt works.
 - Voice: tap the microphone button on the right of the field and speak Japanese. The transcription is placed in the field; nothing is sent until the user taps Send.
-- The gear at the top right opens Settings (SaifuLog Premium, Restore Purchases, monthly budget, categories, learned categories, recurring entries, Apple Pay payments, week start, Sync with iCloud, Face ID lock, CSV export). Tapping the numbers at the top of the home screen opens the Monthly Summary.
-- Siri and Shortcuts: the app provides App Shortcuts such as "Record in SaifuLog" and "Ask SaifuLog"; each opens the app. The "Record Payment" action is for a Shortcuts Transaction automation (paying with Apple Pay). It runs without opening the app, keeps the amount and merchant on the device, and records them the next time the app is opened. To try it without paying, run "Record Payment" from a shortcut with any yen amount and a merchant, then open the app.
+- The gear at the top right opens Settings (SaifuLog Premium, Restore Purchases, monthly budget, categories, learned categories, recurring entries, week start, Sync with iCloud, Face ID lock, CSV export). Tapping the numbers at the top of the home screen opens the Monthly Summary.
+- Siri and Shortcuts: the app provides App Shortcuts such as "Record in SaifuLog" and "Ask SaifuLog"; each opens the app.
 - "Last Week in Review" appears on the home timeline only the first time the app is opened in a new week, when there are records from before that week, so it may not appear during a short review.
 
 APPLE INTELLIGENCE
@@ -51,12 +51,12 @@ Premium is a one-time non-consumable purchase (not a subscription) and supports 
 サインインは要りません。アカウントも開発者のサーバーもありません。
 
 試し方
-- ホーム画面の下の入力欄に一行を入れて送ります。例: 「ランチ 850」「昨日 焼肉12000 4人で割り勘」。記録すると、アプリがタイムラインの返事で記録した内容を見せ、いちばん新しい返事に「取り消す」が出ます。返事の記録を押すと直せ、長押しで削除できます。
+- ホーム画面の下の入力欄に一行を入れて送ります。例: 「ランチ 850」「昨日 焼肉12000 4人で割り勘」。記録すると、アプリがタイムラインの返事で記録した内容を見せ、いちばん新しい返事に「取り消す」が出ます。返事の記録を押すと直せ、長押しで削除できます。記録した直後に「さっきのを900に直して」「それ日用品」「さっきの消して」と送ると、新しい記録にせずに直前の記録を直す・消すことができ、「今月の予算を5万にして」と送ると月の予算を決められます。
 - 同じ入力欄で質問できます。例: 「今月カフェいくら?」。答えの数字はアプリが記録から計算します。
 - レシート: 入力欄の左のカメラのボタン →「撮る」か「写真から選ぶ」。レシートの写真やスクリーンショットなら、どれでも試せます。
 - 声: 入力欄の右のマイクのボタンを押して日本語で話します。書き起こしは入力欄に入るだけで、送信を押すまで何も送りません。
-- 右上の歯車で設定（サイフログ プレミアム・購入の復元・月の予算・カテゴリ・覚えたカテゴリ・くり返しの記録・Apple Pay の支払い・週の始まり・iCloud で同期・Face ID でロック・CSV 書き出し）。ホーム画面の上の数字を押すと月のまとめが開きます。
-- Siri・ショートカット: 「サイフログで記録」「サイフログに質問」などの App Shortcuts があり、どれもアプリを開きます。「支払いを記録」の操作は、ショートカットの「取引」のオートメーション（Apple Pay で払ったとき）のためのものです。アプリを開かずに動き、金額と店名を端末の中に置いて、次にアプリを開いたときに記録します。払わずに試すには、「ショートカット」App でショートカットに「支払いを記録」を足し、円の金額と店名を入れて実行してから、アプリを開いてください。
+- 右上の歯車で設定（サイフログ プレミアム・購入の復元・月の予算・カテゴリ・覚えたカテゴリ・くり返しの記録・週の始まり・iCloud で同期・Face ID でロック・CSV 書き出し）。ホーム画面の上の数字を押すと月のまとめが開きます。
+- Siri・ショートカット: 「サイフログで記録」「サイフログに質問」などの App Shortcuts があり、どれもアプリを開きます。
 - 「先週のふりかえり」は、週が替わって最初に開いたときに、その週より前の記録があるときだけタイムラインに出るので、短い審査の間には出ないことがあります。
 
 Apple Intelligence

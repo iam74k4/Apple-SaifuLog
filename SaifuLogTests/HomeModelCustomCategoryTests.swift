@@ -94,23 +94,6 @@ struct HomeModelCustomCategoryTests {
         #expect(answer.value == .amount(3000))
         #expect(try fixture.entries().count == 2)
     }
-}
-
-/// 家族の家計には作ったカテゴリを持ち込まない（家族の端末には無いカテゴリなので「その他」にする）。
-@MainActor
-struct HomeModelCustomCategoryHouseholdTests {
-    @Test func householdEntriesUseOtherForCustomCategory() async throws {
-        let fixture = try HomeModelHouseholdTests.Fixture()
-        try fixture.household.insertHousehold(role: .owner)
-        _ = try CustomCategoryStore(context: fixture.context, now: { TestSupport.now })
-            .create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
-        fixture.model.categories.reload()
-        fixture.model.ledgerScope = .household
-
-        await fixture.send("衣服 3000")
-
-        #expect(try fixture.household.entries().map(\.category) == [.other])
-    }
 
     /// AI が使える端末では、名前を書かなくても、作ったカテゴリに当たる品目をそのカテゴリにする。作ったカテゴリを選択肢に渡す。
     @Test func aiChoosesCustomCategory() async throws {
@@ -166,4 +149,23 @@ struct HomeModelCustomCategoryHouseholdTests {
             return answer
         }
     }
+
+}
+
+/// 家族の家計には作ったカテゴリを持ち込まない（家族の端末には無いカテゴリなので「その他」にする）。
+@MainActor
+struct HomeModelCustomCategoryHouseholdTests {
+    @Test func householdEntriesUseOtherForCustomCategory() async throws {
+        let fixture = try HomeModelHouseholdTests.Fixture()
+        try fixture.household.insertHousehold(role: .owner)
+        _ = try CustomCategoryStore(context: fixture.context, now: { TestSupport.now })
+            .create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
+        fixture.model.categories.reload()
+        fixture.model.ledgerScope = .household
+
+        await fixture.send("衣服 3000")
+
+        #expect(try fixture.household.entries().map(\.category) == [.other])
+    }
+
 }

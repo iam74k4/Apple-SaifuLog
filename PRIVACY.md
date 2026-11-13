@@ -61,6 +61,11 @@ Apple Intelligence を使えない端末では、端末内のキーワード辞�
 名前を含む）を端末内 AI に渡して、カテゴリを選ばせます。金額・日付・覚えたカテゴリは AI に渡しません。この処理もお使いの iPhone の
 上で行い、AI の答えを覚えることはありません。
 
+チャットの文で直前の記録を直す・消す・月の予算を決めるとき（「さっきのを900に直して」など）は、本アプリが文を読み取ります。
+本アプリの決まりで読み取れない文は、Apple Intelligence を使える端末では、送った文だけを端末内 AI に渡し、どの操作を頼んでいるかを
+選ばせます（金額やカテゴリは本アプリが送った文から読み取ります）。記録や予算の中身は AI に渡しません。この処理もお使いの iPhone の
+上で行い、**送った文を外部へ送信することはありません。**
+
 ### 家計への質問
 
 記録と同じ入力欄で家計について質問したとき（「今月カフェいくら?」など）、答えの数字は本アプリがお使いの iPhone の中の
@@ -333,6 +338,12 @@ this and are never sent anywhere. When the category is still undecided (or when 
 and the list of category names (including the names of categories you created) are passed to the on-device AI to choose a category.
 Amounts, dates, and learned categories are not passed to the AI. This also happens on your iPhone, and the AI's answers are not
 remembered.
+
+When you send a chat message to fix or remove your latest entry or to set your monthly budget (for example, "さっきのを900に直して"),
+the app reads the message. If the app's own rules can't read it, on devices where Apple Intelligence is available only the message
+is passed to the on-device AI to choose which operation you asked for (the app itself reads the amount or category from your
+message). Your records and budgets are not passed to the AI. This also happens on your iPhone, and **your message is never sent
+anywhere.**
 
 ### Questions About Your Spending
 
