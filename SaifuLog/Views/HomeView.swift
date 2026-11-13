@@ -101,9 +101,6 @@ struct HomeView: View {
                 .navigationDestination(item: $model.weeklyRecapDetail) { recap in
                     WeeklyRecapView(model: recap)
                 }
-                .sheet(isPresented: $model.showsReviewQueue) {
-                    EntryReviewQueueView(model: model)
-                }
                 // 無料体験が終わった後の最初の起動に、一度だけプレミアム（⑨）を出す（`HomeModel.presentPremiumIfTrialEnded`）。
                 .sheet(item: $model.premiumSheet) { premium in
                     PremiumSheet(model: premium)
@@ -209,7 +206,7 @@ struct HomeView: View {
                     model.weeklyRecap?.reload()
                     model.refreshQuickPhrases()
                     model.calendarPage.reload()
-                    model.refreshPendingReviews()
+                    model.refreshCategoryQuestions()
                 }
                 // iCloud で届いたほかの端末の変更でも読み直す（didSave にならないため。帯とタイムラインは @Query が追う）。
                 // ほかの端末が同じ月のくり返しの記録を記録していたら片づける。
@@ -221,7 +218,7 @@ struct HomeView: View {
                     model.weeklyRecap?.reload()
                     model.refreshQuickPhrases()
                     model.calendarPage.reload()
-                    model.refreshPendingReviews()
+                    model.refreshCategoryQuestions()
                 }
                 #if DEBUG || INTERNAL_DIAGNOSTICS
                 .sheet(isPresented: $showsDiagnostics) {
@@ -377,9 +374,7 @@ struct HomeView: View {
             if model.voice.isActive == false {
                 QuickPhraseBar(
                     phrases: model.quickPhraseSuggestions,
-                    pick: { model.pickQuickPhrase($0) },
-                    reviewCount: model.reviewLoadFailed ? nil : model.reviewItems.count,
-                    review: !model.reviewItems.isEmpty || model.reviewLoadFailed ? { model.showsReviewQueue = true } : nil
+                    pick: { model.pickQuickPhrase($0) }
                 )
                 // 候補は画面の端から端まで送れるようにする（下の入力欄の左右の余白の外まで）。
                 .padding(.horizontal, -16)
@@ -479,7 +474,7 @@ struct HomeView: View {
     }
 
     private var showsStoreFailure: Binding<Bool> {
-        Binding(get: { model.storeFailure != nil && !model.showsReviewQueue }, set: { if !$0 && !model.showsReviewQueue { model.storeFailure = nil } })
+        Binding(get: { model.storeFailure != nil }, set: { if !$0 { model.storeFailure = nil } })
     }
 
     private var showsDeletionConfirmation: Binding<Bool> {

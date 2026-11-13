@@ -5,31 +5,17 @@ import SwiftUI
 /// （額を直してから送れるように）。入力欄が空なら 2 回以上記録した品目を、打ち始めたら打った文字で始まる品目を出す。
 ///
 /// 毎日の記録を、打たずに 2 回押すだけにするため（候補を押して、送信を押す）。キーボードを出していないときにも出す
-/// （出していなければ、キーボードを開かずに送れる）。候補と確認待ちの操作が無ければ何も出さない。
+/// （出していなければ、キーボードを開かずに送れる）。候補が無ければ何も出さない。
 /// ボタンは横に送れる 1 行に並べ、ガラスのボタンにする（`GlassEffectContainer` でまとめて描く）。
 struct QuickPhraseBar: View {
     let phrases: [QuickPhrase]
     let pick: (QuickPhrase) -> Void
-    var reviewCount: Int?
-    var review: (() -> Void)?
 
     var body: some View {
-        if !phrases.isEmpty || review != nil {
+        if !phrases.isEmpty {
             ScrollView(.horizontal) {
                 GlassEffectContainer(spacing: 8) {
                     HStack(spacing: 8) {
-                        if let review {
-                            Button(action: review) {
-                                Group {
-                                    if let reviewCount { Label("確認待ち \(reviewCount)件", systemImage: "checklist") }
-                                    else { Label("確認を再読み込み", systemImage: "arrow.clockwise") }
-                                }
-                                    .font(.subheadline.weight(.semibold)).lineLimit(1)
-                                    .padding(.horizontal, 4).frame(minHeight: 32)
-                            }
-                            .buttonStyle(.glass).buttonBorderShape(.capsule)
-                            .accessibilityIdentifier("open-pending-reviews")
-                        }
                         ForEach(phrases) { phrase in
                             chip(phrase)
                         }

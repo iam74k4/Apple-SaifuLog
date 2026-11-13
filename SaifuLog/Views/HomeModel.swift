@@ -47,9 +47,6 @@ final class HomeModel {
     private(set) var quickPhrases: [QuickPhrase] = []
     /// 送った文を読み取っている間（送信ボタンを押せなくし、読み取り中の印を出す）。
     private(set) var isParsing = false
-    private(set) var reviewItems: [EntryReviewItem] = []
-    private(set) var reviewLoadFailed = false
-    var showsReviewQueue = false
     /// 記録として送り、読み取っている文。読み取りが終わるまで、タイムラインのいちばん下に送った文の吹き出しと「読み取っています…」
     /// を出す（質問の「計算しています…」と同じ）。読み取りは AI だと 1 秒以上かかることがあり、その間に何も出ないと、送った文が
     /// 入力欄から消えただけに見え、送れたのか分からないため。記録したら記録した送信に替わり、読めなければ消えて文が入力欄に戻る。
@@ -74,7 +71,8 @@ final class HomeModel {
     /// 次のページの切り替えで、VoiceOver に画面が替わったことを知らせないか（「この日に記録」で会話へ戻るとき。入力欄へ移す
     /// フォーカスを、知らせが画面の最初の要素へ動かさないように）。画面が切り替えを受け取ったら戻す（`consumePageChange()`）。
     @ObservationIgnored private var pageChangeFocusesInput = false
-    /// 保存済みのカテゴリの確認待ち。直前の返事に加え、確認待ちの一覧からも選べる。
+    /// カテゴリを聞き返している記録（`Entry.needsCategoryReview`）。直前の返事の行の下にカテゴリのボタンを出す。保存先から
+    /// 読み直すので、開き直した後も聞き返しが残る。
     private(set) var categoryQuestionIDs: Set<PersistentIdentifier> = []
     var storeFailure: StoreFailure?
     var pendingDeletion: PendingDeletion?
@@ -236,7 +234,7 @@ final class HomeModel {
         self.today = now()
         self.voice.insertTranscript = { [weak self] text in self?.insertTranscript(text) }
         self.voice.isCoveredByOtherScreen = { [weak self] in self?.isPresentingOtherScreen ?? false }
-        refreshPendingReviews()
+        refreshCategoryQuestions()
     }
 
     convenience init(
@@ -251,7 +249,7 @@ final class HomeModel {
     var isPresentingOtherScreen: Bool {
         budgetSetup != nil || editing != nil || categoryEditor != nil || recurringEditor != nil || monthlyReport != nil
             || settings != nil
-            || premiumSheet != nil || showsReviewQueue
+            || premiumSheet != nil
             || weeklyRecapDetail != nil || receiptResult != nil || receiptCapture != nil || showsReceiptSourceChoice
     }
 
@@ -546,7 +544,7 @@ final class HomeModel {
                 return
             }
             justRecorded = recorded
-            refreshPendingReviews()
+            refreshCategoryQuestions()
             // 返事のカテゴリのボタンは画面に出るだけでは VoiceOver の利用者に伝わらないので、聞き返すときは選べることも読み上げる。
             announceRecorded(
                 recorded, today: sentAt, calendar: calendar, asksCategory: recorded.contains(where: \.needsCategoryReview)
@@ -832,7 +830,7 @@ final class HomeModel {
             receiptQuotaCharge = nil
         }
         justRecorded = recorded
-        refreshPendingReviews()
+        refreshCategoryQuestions()
         receiptResult = nil
         announceRecorded(recorded, today: recordedAt, calendar: calendar)
         return .recorded
@@ -893,7 +891,7 @@ final class HomeModel {
             return nil
         }
         justRecorded = []
-        refreshPendingReviews()
+        refreshCategoryQuestions()
         if let charge = receiptQuotaCharge, charge.ids == ids {
             quotaStore.refundUse(of: .receiptScan, month: charge.month)
         }
@@ -973,7 +971,7 @@ final class HomeModel {
         }
         // 直すでカテゴリを選んだ（直すで変えたカテゴリは、そこで覚える）ので、返事で聞き返すのをやめる。
         categoryQuestionIDs.remove(id)
-        refreshPendingReviews()
+        refreshCategoryQuestions()
     }
 
     /// 消した記録を、「取り消す」と聞き返しの対象から外す（消えた記録を取り消したり、選んだりしないように）。
@@ -988,7 +986,7 @@ final class HomeModel {
         let kept = zip(justRecorded, justRecordedIDs).filter { !ids.contains($0.1) }.map(\.0)
         if kept.count != justRecorded.count { justRecorded = kept }
         categoryQuestionIDs.subtract(ids)
-        refreshPendingReviews()
+        refreshCategoryQuestions()
     }
 
     /// ほかの端末（iCloud）で消された記録を、「取り消す」・聞き返し・削除の確認の対象から外す（`StoreChanges.remote` のたび。
@@ -1028,7 +1026,7 @@ final class HomeModel {
         let item = CategoryMemory.item(ofMemo: entry.memo, amount: entry.amount, isIncome: entry.isIncome)
         let remembered = (try? learnedCategories.remember(item: item, category: category)) ?? false
         categoryQuestionIDs.remove(id)
-        refreshPendingReviews()
+        refreshCategoryQuestions()
         // 入力欄の VoiceOver の「直す: …」の文を、選んだカテゴリで作り直す。
         snapshotJustRecorded()
         let name = categories.catalog.localizedName(for: category)
@@ -1104,7 +1102,7 @@ final class HomeModel {
         let item = CategoryMemory.item(ofMemo: entry.memo, amount: entry.amount, isIncome: entry.isIncome)
         let remembered = (try? learnedCategories.remember(item: item, category: category)) ?? false
         categoryQuestionIDs.remove(id)
-        refreshPendingReviews()
+        refreshCategoryQuestions()
         snapshotJustRecorded()
         let name = categories.catalog.localizedName(for: category)
         appendQuestion(text, askedAt: sentAt, state: .recategorized(item: item, category: name, remembered: remembered))
@@ -1213,34 +1211,14 @@ final class HomeModel {
         }
     }
 
-    // MARK: - 確認待ち
+    // MARK: - カテゴリの聞き返しの読み直し
 
-    /// 保存済みの確認（カテゴリを聞き返している記録）を読み直す。直前の送信・タイムラインの表示件数とは別に持つ。
-    @discardableResult
-    func refreshPendingReviews() -> Bool {
-        do {
-            let entries = try store.context.fetch(FetchDescriptor<Entry>(
-                predicate: #Predicate { $0.needsCategoryReview },
-                sortBy: [SortDescriptor(\Entry.createdAt)]
-            ))
-            categoryQuestionIDs = Set(entries.map(\.persistentModelID))
-            reviewItems = entries.map { entry in
-                EntryReviewItem(id: entry.persistentModelID, memo: entry.memo, amount: entry.amount, category: entry.category,
-                                spentAt: entry.spentAt)
-            }
-            reviewLoadFailed = false
-            return true
-        } catch {
-            // 読めなかったときに「確認なし」と見せない。
-            reviewLoadFailed = true
-            return false
-        }
-    }
-
-    func chooseReviewCategory(_ category: EntryCategory, for id: PersistentIdentifier) {
-        guard refreshPendingReviews(),
-              let entry = try? store.context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.persistentModelID == id })).first else { return }
-        chooseCategory(category, for: entry)
+    /// カテゴリを聞き返している記録を保存先から読み直す（記録を足した・直した・消したとき、ほかの端末の変更が届いたとき、
+    /// 開いたとき）。読めなければ、いまの聞き返しのまま（記録は止めない）。
+    func refreshCategoryQuestions() {
+        guard let entries = try? store.context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.needsCategoryReview }))
+        else { return }
+        categoryQuestionIDs = Set(entries.map(\.persistentModelID))
     }
 
     // MARK: - くり返しの記録
@@ -1258,7 +1236,7 @@ final class HomeModel {
             return
         }
         justRecorded = recorded
-        refreshPendingReviews()
+        refreshCategoryQuestions()
         receiptQuotaCharge = nil
         let items = recorded.map { entry in
             var item = "\(entry.kindText(in: categories.catalog)) \(YenFormatter.string(from: entry.amount))"

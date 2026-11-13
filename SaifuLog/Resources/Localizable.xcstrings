@@ -2566,16 +2566,6 @@
         }
       }
     },
-    "カテゴリを選ぶ" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose a category"
-          }
-        }
-      }
-    },
     "カテゴリ別の予算" : {
       "comment" : "予算を決める画面の見出し（プレミアムの機能）",
       "localizations" : {
@@ -6671,46 +6661,6 @@
         }
       }
     },
-    "確認はすべて完了" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "All reviews complete"
-          }
-        }
-      }
-    },
-    "確認を再読み込み" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reload pending reviews"
-          }
-        }
-      }
-    },
-    "確認待ち" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "To review"
-          }
-        }
-      }
-    },
-    "確認待ち %lld件" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "To review: %lld"
-          }
-        }
-      }
-    },
     "社内テスト用と開発用のビルドにだけある画面です。コピーする文には、金額やメモなどの記録の中身は入りません。" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。先頭の説明",
       "localizations" : {
@@ -7278,16 +7228,6 @@
         }
       }
     },
-    "記録は保存されています。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your records are saved."
-          }
-        }
-      }
-    },
     "記録は消えません。次からは、いつもどおり AI とキーワード辞書でカテゴリを読みます。" : {
       "comment" : "設定の「覚えたカテゴリ」の「すべて忘れる」の確認の本文",
       "localizations" : {
@@ -7818,16 +7758,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Coming Soon"
-          }
-        }
-      }
-    },
-    "迷った記録だけ、ここで確認。閉じても残ります。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Review only the records that need a choice. They stay here when you close the app."
           }
         }
       }
