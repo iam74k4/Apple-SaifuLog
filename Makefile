@@ -10,6 +10,7 @@
 #     make test-app             アプリのテストをシミュレータで動かす（TEST_DESTINATION で宛先を変えられる）
 #     make test-app-ios26       アプリのテストを iOS 26 の版（IOS26_TEST_OS）のシミュレータで動かす
 #     make test-ui              画面を操作する UI テストをシミュレータで動かす（TEST_DESTINATION で宛先を変えられる）
+#     make test-ai              本物の端末内 AI の答え方のテストを動かす（Apple Intelligence をオンにした Mac で。CI には入れない）
 #     make check-strings        String Catalog とコードの文字列の整合を確かめる（make build の後に）
 #     make ci                   CI（build.yml）と同じ 9 つ（build / check-strings / test / build-tests / test-app /
 #                               test-ui / test-app-ios26 / check-version / 署名なしの archive）
@@ -56,7 +57,7 @@ IOS26_TEST_OS ?= 26.2
 # 例: make test-app-ios26 IOS26_TEST_DESTINATION='platform=iOS Simulator,OS=26.2,name=iPhone 17 Pro'
 IOS26_TEST_DESTINATION ?= $(shell ./scripts/pick-simulator.sh $(IOS26_TEST_OS) 2>/dev/null)
 
-.PHONY: all generate build build-tests test test-app test-app-ios26 test-ui print-ios26-os check-strings ci open clean check-xcodegen
+.PHONY: all generate build build-tests test test-app test-app-ios26 test-ui test-ai print-ios26-os check-strings ci open clean check-xcodegen
 
 all: build
 
@@ -104,6 +105,8 @@ build-tests: generate
 # アプリのテストをシミュレータで動かす。先に build-tests を通し（変わったところだけビルドし直す）、
 # できたものを test-without-building でそのまま動かす。
 # コアのテスト（SaifuLogCoreTests）は make test の swift test で回しているので、ここでは SaifuLogTests だけ。
+# 本物の端末内 AI の答え方のテスト（AIEvaluationTests）は外す（make test-ai で動かす）。Apple Intelligence を使える Mac では
+# 本物のモデルを呼び、モデルの答えの揺れで make ci の結果が変わるため（CI のランナーでは、外さなくても飛ばされるだけ）。
 # 宛先が id= で決まっているときは、先に起動して起動し終えるまで待つ（simctl bootstatus -b）。起動の途中で
 # テストのアプリを開こうとすると「Busy (Application failed preflight checks)」で落ちることがあるため。
 test-app: build-tests
@@ -116,6 +119,7 @@ test-app: build-tests
 		-destination '$(TEST_DESTINATION)' \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SaifuLogTests \
+		-skip-testing:SaifuLogTests/AIEvaluationTests \
 		$(XCODEBUILD_FLAGS)
 
 # 画面を操作する UI テスト（SaifuLogUITests。XCUITest）をシミュレータで動かす。make test-app と同じく build-tests の
@@ -134,6 +138,21 @@ test-ui: build-tests
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SaifuLogUITests \
 		$(XCODEBUILD_FLAGS)
+
+# 本物の端末内 AI（Foundation Models）の答え方のテスト（SaifuLogTests/AIEvaluation/ の AIEvaluationTests）だけを動かす
+# （scripts/test-ai.sh）。読み取り・カテゴリの聞き直し・チャットの操作の種類・家計への質問・記録の返事と月のまとめの一言を
+# 本物のモデルに頼み、答えの合い方・上限の時間（AITimeouts）・一言の数字の照合を確かめる。Apple Intelligence が使えなければ
+# 飛ばさずに失敗する（REQUIRE_AI_EVALUATION=1）。シミュレータの端末内 AI は Mac の Apple Intelligence を使うので、Apple シリコンの
+# Mac（macOS 26 以降）で Apple Intelligence をオンにし、モデルを入れ終えてから動かす。
+# モデルの答えは版や端末で揺れ、CI のランナーでは使えないので、make ci と build.yml には入れない。指示文・AI に渡すもの・
+# AI の答えの扱い（AITimeouts など）を変えたときと、リリースの前に動かす。結果は build/AIEvaluation.xcresult に残る。
+AI_TEST_RESULT := build/AIEvaluation.xcresult
+
+test-ai: build-tests
+	@test -n "$(TEST_DESTINATION)" || { echo "error: AI の答え方のテストを動かすシミュレータがありません。TEST_DESTINATION で宛先を渡してください。"; exit 1; }
+	@udid=$$(printf '%s\n' '$(TEST_DESTINATION)' | sed -n 's/.*id=\([0-9A-Fa-f-]*\).*/\1/p'); \
+		if [ -n "$$udid" ]; then xcrun simctl bootstatus "$$udid" -b >/dev/null; fi
+	./scripts/test-ai.sh '$(TEST_DESTINATION)' $(DERIVED_DATA) $(AI_TEST_RESULT) $(XCODEBUILD_FLAGS)
 
 # アプリのテストを IOS26_TEST_OS の版のシミュレータで動かす。その版のシミュレータが無ければ、入れ方を示して止まる
 # （ランタイムは数 GB あるので、手元では勝手に入れない。CI は scripts/prepare-simulator.sh で入れる）。
