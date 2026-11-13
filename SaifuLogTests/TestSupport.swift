@@ -116,7 +116,7 @@ struct StubAnswerer: QuestionAnswering {
     }
 }
 
-/// 書き方を差し替えられる、ふりかえりの AI の一言の書き手（HomeModel・RecapRemarkModel に渡す）。呼ばれた回数も数える。
+/// 書き方を差し替えられる、月のまとめの AI の一言の書き手（HomeModel・RecapRemarkModel に渡す）。呼ばれた回数も数える。
 struct StubRemarkWriter: RecapRemarkWriting {
     let calls = CallCounter()
     let body: @Sendable (String) async throws -> String

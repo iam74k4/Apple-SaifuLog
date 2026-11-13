@@ -28,7 +28,7 @@ struct HomeModelTests {
         var answerer: any QuestionAnswering = RuleBasedQuestionAnswerer()
         /// 答え手を作った回数（無料の回数を使い切ったときは、答えさせない）。
         private(set) var answererCalls = 0
-        /// ふりかえりの AI の一言の書き手。既定は無し（AI が使えない端末と同じ。テストで本物のモデルを呼ばないため）。
+        /// 月のまとめの AI の一言の書き手。既定は無し（AI が使えない端末と同じ。テストで本物のモデルを呼ばないため）。
         var remarkWriter: (any RecapRemarkWriting)?
         /// 設定の置き場所（無料で質問した回数など）。テストごとの使い捨ての領域。
         let suiteName = "HomeModelTests.Fixture.\(UUID().uuidString)"
@@ -970,25 +970,6 @@ struct HomeModelTests {
 
         #expect(!fixture.model.canUndo)
         #expect(report.report?.breakdown.item(for: .medical)?.amount == 1_200)
-    }
-
-    /// 先週のふりかえりの内訳の一覧から直前の記録を直したら、ホームから直したときと同じく「取り消す」を引っ込める。
-    @Test func editingFromWeeklyRecapDismissesUndo() async throws {
-        let fixture = try Fixture()
-        // 先週の日付（9/22 は日曜始まりでも月曜始まりでも先週）で記録する。記録を始めたのが先週なので、ふりかえりのカードが出る。
-        await fixture.send("9/22 ドラッグ1200")
-        #expect(fixture.model.canUndo)
-        fixture.model.showWeeklyRecapIfDue(calendar: TestSupport.calendar)
-        let recap = try #require(fixture.model.weeklyRecap)
-        let drug = try #require(recap.entries(in: .daily).first)
-
-        recap.presentEdit(drug)
-        let editing = try #require(recap.editing)
-        editing.category = .medical
-        #expect(editing.save())
-
-        #expect(!fixture.model.canUndo)
-        #expect(recap.recap?.breakdown.item(for: .medical)?.amount == 1_200)
     }
 
     // MARK: - 予算

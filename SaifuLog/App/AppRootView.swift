@@ -72,14 +72,9 @@ struct AppRootView: View {
         #if DEBUG
         if let demo = ScreenshotDemo.current {
             // 撮影用のデモ（DEBUG のビルドだけ）: 初回の案内を出さず、デモの設定・時計・AI の代わりでホームを作る。
-            let home = demo.makeHomeModel(
+            home = demo.makeHomeModel(
                 context: container.mainContext, pendingWrites: storeHost.pendingWrites, purchases: purchases, storeHost: storeHost
             )
-            let calendar = weekStart.applied(to: systemCalendar)
-            Task {
-                await demo.prepare(home, calendar: calendar)
-                self.home = home
-            }
             return
         }
         #endif

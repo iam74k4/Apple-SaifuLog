@@ -2,13 +2,13 @@
 import Foundation
 import FoundationModels
 
-/// 端末内 AI（Foundation Models）で、ふりかえりの一言を書く。
+/// 端末内 AI（Foundation Models）で、月のまとめの一言を書く。
 ///
 /// モデルには数字の文（`RecapFacts`）だけを渡し、ツールは渡さない（数字はもう計算してあり、モデルに選ばせるものが無いため）。
 /// 一言は呼び出し側が数字の文と突き合わせる（`RecapRemark.checked`）。
 struct FoundationModelsRecapRemarkWriter: RecapRemarkWriting {
     func remark(from facts: String) async throws -> String {
-        // 書くたびに新しいセッションにする（前の週や月の文脈を引きずらせないため）。
+        // 書くたびに新しいセッションにする（前の月の文脈を引きずらせないため）。
         let session = LanguageModelSession(instructions: Self.instructions)
         return try await session.respond(to: facts).content
     }

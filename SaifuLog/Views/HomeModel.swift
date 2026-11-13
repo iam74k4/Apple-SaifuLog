@@ -5,7 +5,7 @@ import SwiftData
 import SwiftUI
 
 /// ホームの状態と操作（送信・家計への質問・チャットで頼む操作・レシートの読み取り・取り消し・直す・削除・予算を決める
-/// 画面と月のまとめと設定とプレミアムの出し入れ・先週のふりかえりのカード・会話とカレンダーのページの切り替え）。
+/// 画面と月のまとめと設定とプレミアムの出し入れ・会話とカレンダーのページの切り替え）。
 ///
 /// 画面（`HomeView`）から切り離し、解析器・時計・読み上げを差し替えて SaifuLogTests で確かめられるようにしている。
 /// 画面は、ここの値を表示し、操作をここへ渡すだけにする。
@@ -88,10 +88,6 @@ final class HomeModel {
     var settings: SettingsModel?
     /// 無料体験が終わった後の最初の起動に出す「プレミアム」のシート。出していなければ nil（閉じると画面が nil に戻す）。
     var premiumSheet: PremiumSheetModel?
-    /// 先週のふりかえりのカード（タイムラインの中）。出していなければ nil（「閉じる」で nil にする）。
-    private(set) var weeklyRecap: WeeklyRecapModel?
-    /// 先週のふりかえりの内訳（カードから横に進む画面）。中身はカードと同じもの。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
-    var weeklyRecapDetail: WeeklyRecapModel?
     /// プレミアムの購入と状態（アプリで 1 つ）。カテゴリ別の予算（予算の画面の欄と月のまとめの進み）を出すかの判定と、設定・プレミアムのシートに渡す。
     let purchases: PurchaseManager
     /// いまのカテゴリの一覧（組み込みと作ったカテゴリ）。画面へは環境で渡し、記録に作ったカテゴリの名前を当てるのに使う。
@@ -170,7 +166,7 @@ final class HomeModel {
     ///   - makeCommandInterpreter: 決まりで読めなかったチャットの文の操作の種類を AI に選ばせるもの（AI が使えなければ nil）。
     ///     テストで差し替える。
     ///   - makeAnswerer: 質問のたびに答え方（AI かキーワード辞書）を選ぶ。テストで差し替える。
-    ///   - makeRemarkWriter: ふりかえり（先週のふりかえり・月のまとめ）の AI の一言を書くもの。AI が使えなければ nil。テストで差し替える。
+    ///   - makeRemarkWriter: 月のまとめの AI の一言を書くもの。AI が使えなければ nil。テストで差し替える。
     ///   - receiptReader: レシートの画像の読み取り（文字認識と AI）。テストで決めた文字や偽物の AI に差し替える。
     ///   - canUseDocumentCamera: 書類カメラを使えるか。テストで決める。
     ///   - now: 記録の日時と「今日」の基準。テストで固定の日時にする。
@@ -236,7 +232,7 @@ final class HomeModel {
         budgetSetup != nil || editing != nil || categoryEditor != nil || recurringEditor != nil || monthlyReport != nil
             || settings != nil
             || premiumSheet != nil
-            || weeklyRecapDetail != nil || receiptResult != nil || receiptCapture != nil || showsReceiptSourceChoice
+            || receiptResult != nil || receiptCapture != nil || showsReceiptSourceChoice
     }
 
     /// 直前の記録を取り消せるか（返事の「取り消す」と入力欄の VoiceOver の操作を出すか）。
@@ -1316,52 +1312,9 @@ final class HomeModel {
         defaults.set(true, for: AppSettings.hasShownTrialEndedPremium)
     }
 
-    // MARK: - 先週のふりかえり
-
-    /// 週が替わって最初に開いたときだけ、先週のふりかえりのカードを出す（`WeeklyRecap.isDue`）。出したら、出した日時を設定に
-    /// 書く（同じ週にはもう出さない。閉じなくても、次に開き直したときには出さない）。
-    ///
-    /// ホームが出たとき・前面に戻ったとき・日付が変わったとき・画面の暦（週の始まりの設定）が変わったときに呼ぶ。出している
-    /// カードは、暦が変わったら変えた後の週で数え直し、開いたまま週が替わったら新しい週のカードに替える。
-    /// 保存先は読むだけで書き込まないので、`pendingWrites` には数えない。
-    /// - Parameter calendar: 週の区切りの暦（ホームの画面の暦。週の始まりは設定のとおり）。
-    func showWeeklyRecapIfDue(calendar: Calendar) {
-        let now = now()
-        weeklyRecap?.update(calendar: calendar)
-        let earliest = try? store.context.fetch(Entry.earliestDescriptor).first?.spentAt
-        guard WeeklyRecap.isDue(
-            lastShownAt: defaults.date(for: AppSettings.weeklyRecapShownAt), earliestRecordAt: earliest, now: now, calendar: calendar
-        ) else { return }
-        defaults.set(now, for: AppSettings.weeklyRecapShownAt)
-        weeklyRecap = WeeklyRecapModel(
-            store: store,
-            calendar: calendar,
-            shownAt: now,
-            remark: RecapRemarkModel(purchases: purchases, makeWriter: makeRemarkWriter),
-            now: self.now,
-            announce: announce,
-            didSave: { [weak self] entry in self?.finishEditing(entry) },
-            didDelete: { [weak self] id in self?.forgetJustRecorded(id) }
-        )
-    }
-
-    /// 先週のふりかえりのカードを閉じる（「閉じる」の操作）。同じ週にはもう出さない（出した日時は出したときに書いてある）。
-    func dismissWeeklyRecap() {
-        guard weeklyRecap != nil else { return }
-        weeklyRecap = nil
-        // カードが消えると VoiceOver のフォーカスの行き先が無くなるので、閉じたことを読み上げる。
-        announce(String(localized: "先週のふりかえりを閉じました"))
-    }
-
-    /// 先週のふりかえりの内訳へ進む（カードを押したとき）。
-    func presentWeeklyRecapDetail() {
-        weeklyRecapDetail = weeklyRecap
-    }
-
-    /// プレミアムの状態が変わったとき（体験を始めた・買った・返金された）に、ふりかえりと月のまとめの AI の一言を決め直す
+    /// プレミアムの状態が変わったとき（体験を始めた・買った・返金された）に、月のまとめの AI の一言を決め直す
     /// （月のまとめのカテゴリ別の予算の案内から体験を始めたときも、開いている月のまとめに一言が付くように）。
     func premiumStatusDidChange() {
-        weeklyRecap?.remark.refresh()
         monthlyReport?.remark.refresh()
     }
 

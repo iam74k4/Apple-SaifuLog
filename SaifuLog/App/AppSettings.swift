@@ -38,12 +38,6 @@ enum AppSettings {
     static let receiptScanQuota = AppSetting(key: "quota.receiptScan", defaultValue: UsageQuota())
     /// 家計への質問を無料で使った回数（暦の月ごと。`QuotaStore`）。
     static let questionQuota = AppSetting(key: "quota.question", defaultValue: UsageQuota())
-    /// 先週のふりかえりのカードを最後に出した日時。週が替わって最初に開いたときだけ出すのに使う（`WeeklyRecap.isDue`・
-    /// `HomeModel.showWeeklyRecapIfDue`）。まだ出したことが無ければ nil。
-    ///
-    /// 出した週の始まりではなく、出した瞬間を持つ。週の始まりの設定や時間帯を変えたときに、変えた後の暦で「今週もう出したか」を
-    /// 決め直せるようにするため（週の始まりの日時で持つと、設定を変えただけで同じ週にもう一度出る）。家計の中身は含まない。
-    static let weeklyRecapShownAt = AppSetting<Date?>(key: "weeklyRecap.shownAt", defaultValue: nil)
     /// アプリのロック（設定の「Face ID でロック」）がオンか。この版より前の置き場所。いまは `LaunchSettingsStore` のファイルに
     /// 置き、ファイルがまだ無いときに値を移すためだけに読む（`iCloudSyncEnabled` と同じ理由）。
     static let appLockEnabled = AppSetting(key: "appLock.enabled", defaultValue: false)
@@ -60,7 +54,7 @@ enum AppSettings {
     static var allKeys: [String] {
         [
             hasCompletedOnboarding.key, iCloudSyncEnabled.key, weekStart.key, hasShownTrialEndedPremium.key,
-            receiptScanQuota.key, questionQuota.key, weeklyRecapShownAt.key, appLockEnabled.key,
+            receiptScanQuota.key, questionQuota.key, appLockEnabled.key,
         ]
     }
 }
@@ -97,16 +91,6 @@ extension UserDefaults {
     /// 選択肢の設定を書く（rawValue で保存する。`@AppStorage` と同じ形なので、画面の `@AppStorage` にも伝わる）。
     func set<Value: RawRepresentable>(_ value: Value, for setting: AppSetting<Value>) where Value.RawValue == String {
         set(value.rawValue, forKey: setting.key)
-    }
-
-    /// 日時の設定を読む。まだ書いていないか、日時でない値なら既定値（nil）。
-    func date(for setting: AppSetting<Date?>) -> Date? {
-        object(forKey: setting.key) as? Date ?? setting.defaultValue
-    }
-
-    /// 日時の設定を書く。nil なら消す。
-    func set(_ date: Date?, for setting: AppSetting<Date?>) {
-        set(date, forKey: setting.key)
     }
 
     /// 形のある設定（無料で使った回数など）を JSON で読む。まだ書いていないか、読めない値（壊れた値・新しい版で形を

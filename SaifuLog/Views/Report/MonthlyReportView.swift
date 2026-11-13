@@ -330,7 +330,6 @@ private struct BudgetCard: View {
 
 /// 多い・少ないの矢印と文。アクセシビリティサイズの文字では矢印を省き、文に幅を使わせる（多い・少ないは文で分かる。
 /// 矢印を残すと、文が数文字ずつに折り返されて読みにくくなる）。矢印は VoiceOver では読ませない（文と同じ内容のため）。
-/// 先週のふりかえりのカードと内訳でも使う。
 struct TrendLabelStyle: LabelStyle {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -346,7 +345,7 @@ struct TrendLabelStyle: LabelStyle {
 }
 
 /// 見出しと金額の 1 行。アクセシビリティサイズの文字で 1 行に収まらなければ縦に積み、金額に全幅を使わせる。
-/// VoiceOver では 1 行を 1 つの要素として読ませる。先週のふりかえりの内訳でも使う。
+/// VoiceOver では 1 行を 1 つの要素として読ませる。
 struct ReportRow: View {
     let label: Text
     let value: String
@@ -385,8 +384,7 @@ struct ReportRow: View {
 // MARK: - カテゴリ別の内訳
 
 /// カテゴリ別の支出。割合を 1 本の横棒で塗り分けた帯（`BreakdownCompositionBar`）と、押すとその期間の記録の一覧へ進む行。
-/// 先週のふりかえりの内訳でも使う（期間の言葉だけ差し替える）。カテゴリ別の予算の進みは月のまとめだけが渡す（予算は月の
-/// ものなので、週の内訳には渡さない）。
+/// カテゴリ別の予算の進みは、渡したカテゴリの行にだけ出す。
 struct BreakdownCard: View {
     let breakdown: CategoryBreakdown
     /// カテゴリ別の予算の進み。渡したカテゴリの行に、使った額と予算・バー・残りか超えた額を添える。
@@ -803,7 +801,7 @@ private struct EmptyMonthView: View {
     }
 }
 
-/// 保存先を読めなかったときの案内と、もう一度読むボタン。先週のふりかえりの内訳でも使う。
+/// 保存先を読めなかったときの案内と、もう一度読むボタン。
 struct LoadFailedView: View {
     let retry: () -> Void
 
@@ -825,7 +823,7 @@ struct LoadFailedView: View {
 }
 
 extension View {
-    /// まとめの 1 まとまり（面の色の角丸の板）。先週のふりかえりの内訳でも使う。
+    /// まとめの 1 まとまり（面の色の角丸の板）。
     func reportCard() -> some View {
         padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)

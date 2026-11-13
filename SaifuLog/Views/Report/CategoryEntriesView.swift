@@ -1,8 +1,7 @@
 import SaifuLogCore
 import SwiftUI
 
-/// カテゴリの記録の一覧に出すもの（期間の見出し・記録・内訳の行・直すシート）。月のまとめ（⑦）と先週のふりかえりの内訳が
-/// 同じ一覧を使うための境目。
+/// カテゴリの記録の一覧に出すもの（期間の見出し・記録・内訳の行・直すシート）。月のまとめ（⑦）が一覧に渡す境目。
 @MainActor
 protocol CategoryEntriesSource: AnyObject, Observable {
     /// 期間の見出し（「2026年9月」「9月21日～27日」）。
@@ -23,7 +22,7 @@ protocol CategoryEntriesSource: AnyObject, Observable {
     func presentEdit(_ entry: Entry)
 }
 
-/// 月のまとめ（⑦）と先週のふりかえりの内訳の行から進む、その期間のそのカテゴリの支出の記録の一覧。
+/// 月のまとめ（⑦）の内訳の行から進む、その期間のそのカテゴリの支出の記録の一覧。
 ///
 /// 読むための一覧で、ここでは並べ替えも削除もしない。記録を押すと「直す」（⑥）のシートを開き、そこで直したり
 /// 消したりできる（直してカテゴリや期間が変わった記録は、一覧から外れる）。並びは使った日時の新しい順。
@@ -72,7 +71,7 @@ struct CategoryEntriesView<Model: CategoryEntriesSource>: View {
         }
     }
 
-    /// 期間・そのカテゴリの合計と割合・件数。合計と割合は内訳の行と同じ値（`MonthlyReport`・`WeeklyRecap` の内訳）を出す。
+    /// 期間・そのカテゴリの合計と割合・件数。合計と割合は内訳の行と同じ値（`MonthlyReport` の内訳）を出す。
     private func header(count: Int) -> some View {
         let item = model.breakdownItem(for: category)
         return VStack(alignment: .leading, spacing: 4) {

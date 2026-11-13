@@ -12,7 +12,7 @@ enum AITimeouts {
     static let entry: Duration = .seconds(6)
     /// 家計への質問（ツール呼び出しと一言）。
     static let question: Duration = .seconds(8)
-    /// ふりかえり（先週のふりかえり・月のまとめ）の一言。
+    /// 月のまとめの一言。
     static let recapRemark: Duration = .seconds(8)
     /// レシートの品名とカテゴリの整え。品目の数だけ生成が長くなり、iOS 27 では画像も渡すので、ほかより長くする。
     static let receiptRefine: Duration = .seconds(15)

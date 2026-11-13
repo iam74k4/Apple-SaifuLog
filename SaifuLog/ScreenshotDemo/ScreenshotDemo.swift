@@ -28,8 +28,6 @@ final class ScreenshotDemo {
         case ask
         /// 月のまとめの予算の進みとカテゴリ別のグラフ・行（カテゴリ別の予算の進みも。下の端まで送って開く）。
         case report
-        /// 先週のふりかえりのカード。
-        case recap
         /// レシートの読み取り結果のシート。
         case receipt
         /// プレミアムのシートの上のほう（プレミアムでできることと、下の帯の体験と購入のボタン。プレミアムの課金アイテムの審査用の
@@ -42,11 +40,11 @@ final class ScreenshotDemo {
         case calendar
 
         /// 購入の状態を指定しなかったときの状態。プレミアムのシートは購入と体験のボタンを写すので無料、ほかは購入済み
-        /// （無料の残りの回数の行などを写さず、ふりかえりと月のまとめの AI の一言を写すため）。
+        /// （無料の残りの回数の行などを写さず、月のまとめの AI の一言を写すため）。
         var defaultPremium: PremiumChoice {
             switch self {
             case .premium, .trial: .free
-            case .home, .ask, .report, .recap, .receipt, .calendar: .purchased
+            case .home, .ask, .report, .receipt, .calendar: .purchased
             }
         }
     }
@@ -111,7 +109,7 @@ final class ScreenshotDemo {
     /// デモを作った瞬間。デモの時計（`makeClock`）は、ここからの経過をデモの「いま」に足して進める。
     ///
     /// `launchedAt` からは測らない。テストは過去の決まった日時を `launchedAt` に渡すので、そこから測ると、実際の時間が
-    /// 経つほどデモの時計が先へ進み、週や月の境目を越えて、ふりかえりのカードが出るかどうかなどが日によって変わってしまう
+    /// 経つほどデモの時計が先へ進み、週や月の境目を越えて、写す数字などが日によって変わってしまう
     /// （2026-10-02 に、9/15 20:30 の「いま」が 9/20 の週へ進み、CI のテストが落ちた）。経過は時計の変更に左右されない
     /// `ContinuousClock` で測る。
     private let startedAt = ContinuousClock.now
@@ -146,10 +144,6 @@ final class ScreenshotDemo {
         defaults.removePersistentDomain(forName: defaultsSuiteName)
         // 初回の案内を終えたことにする（デモはホームから始める）。
         defaults.set(true, for: AppSettings.hasCompletedOnboarding)
-        // ふりかえりのカードは、ふりかえりの画面でだけ出す。ほかの画面では「今週もう出した」ことにする。
-        if screen != .recap {
-            defaults.set(now, for: AppSettings.weeklyRecapShownAt)
-        }
         // ロックと iCloud 同期はオフ。ファイルを先に書いておく（無いと、ロックは決めるまで画面を隠すため）。
         let settingsURL = URL.temporaryDirectory.appending(
             path: "\(defaultsSuiteName).LaunchSettings.json", directoryHint: .notDirectory
@@ -272,25 +266,12 @@ final class ScreenshotDemo {
 
     // MARK: - 撮る画面を開く
 
-    /// ホームのモデルを作った直後（ホームが画面に出る前）に、撮る画面の下ごしらえをする（`AppRootView` が呼び、済んでから
-    /// ホームを出す）。
-    ///
-    /// ふりかえりのカードは、AI の一言まで書き終えてからホームを出す。ホームが出た後にカードが出たり伸びたりすると、タイムラインが
-    /// 下端まで送られずに途中で止まった（シミュレータの iOS 26.4 で見た。一言の無いカードはタイムラインの途中で止まり、一言が後から
-    /// 付いたカードは下の端が入力欄に隠れた）。スクリーンショットには、カードが下端に出そろった形を写す。タイムラインを VStack にして
-    /// 途中で止まる不具合を直した後も（`HomeView` の `TimelineScrollView`）、一言を書き終えた形を写すために残す。
-    func prepare(_ home: HomeModel, calendar: Calendar) async {
-        guard screen == .recap else { return }
-        home.showWeeklyRecapIfDue(calendar: calendar)
-        await home.weeklyRecap?.remark.currentTask?.value
-    }
-
     /// ホームが出た後に、撮る画面を開く（`AppRootView` が呼ぶ）。開き終えるまで（質問の答え・レシートの読み取りが済むまで）待つ。
     func stage(on home: HomeModel, calendar: Calendar) async {
         Self.logger.notice("\(Self.marker, privacy: .public): \(self.screen.rawValue, privacy: .public)")
         switch screen {
-        case .home, .recap:
-            // タイムラインと帯はそのまま。ふりかえりのカードは、ホームが出たときに出る（`HomeModel.showWeeklyRecapIfDue`）。
+        case .home:
+            // タイムラインと帯はそのまま。
             break
         case .ask:
             for question in Self.questions {

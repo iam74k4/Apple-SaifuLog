@@ -1,7 +1,7 @@
 import Foundation
 import SaifuLogCore
 
-/// ふりかえり（先週のふりかえりのカード・月のまとめ）に添える、端末内 AI の一言を書く。
+/// 月のまとめに添える、端末内 AI の一言を書く。
 ///
 /// 数字はコアが計算し、AI には計算した数字の文（`RecapFacts`）だけを渡して、励ましか気づきの一言を書かせる。一言に文に無い数字
 /// があれば使わない（`RecapRemark.checked`。家計への質問の一言と同じ `AnswerSentenceCheck`）。

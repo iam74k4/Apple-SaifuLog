@@ -6,8 +6,7 @@ import Testing
 import UIKit
 @testable import SaifuLog
 
-/// ホームを開いたとき、いちばん新しい行（送信の返事のカード・質問の回答カード・先週のふりかえり・家計の記録）がタイムラインの
-/// 下の端に見えること。
+/// ホームを開いたとき、いちばん新しい行（送信の返事のカード・質問の回答カード）がタイムラインの下の端に見えること。
 ///
 /// 大きな文字でタイムラインが空に見えた不具合の再発を防ぐ。行の高さがそろわないタイムラインを LazyVStack で下端に合わせると、
 /// 見積もった全体の高さが揺れて行の無い位置で止まり、空に見えた（`HomeView` の `TimelineScrollView`）。どの文字の大きさで
@@ -18,15 +17,14 @@ import UIKit
 /// 部品だけを描くのではなく、ウィンドウに実際のホーム（ナビゲーション・帯・入力欄の中のスクロール）を置き、行と見える範囲が
 /// 描かれた位置（`timelineFrameObserver`）で確かめる。下端に合わせる動きと LazyVStack の見積もりの揺れは、スクロールの中に
 /// 並べた画面で起きるため（タイムラインを LazyVStack に戻すと、この置き方で AX1 の記録と、標準から AX5 まで（AX4 を除く）の
-/// ふりかえりのカードが落ちることを確かめた）。
+/// 当時あったふりかえりのカードが落ちることを確かめた）。
 ///
-/// 開いた後に足した行（送った記録の返事・質問の回答カード・開いたまま出たふりかえりのカード）も、開いたときと同じく下の余白を
+/// 開いた後に足した行（送った記録の返事・質問の回答カード）も、開いたときと同じく下の余白を
 /// 残して下の端に出ることを確かめる。行の id まで送っていたときは余白が隠れ、動きを付けて送ると、同じときに見える範囲の高さが
 /// 変わった分だけ下端からずれた（`HomeView` の `TimelineScrollView`）。
 ///
 /// 画面を画像にして目で見るときは、環境変数 `SAIFULOG_TIMELINE_SNAPSHOTS` に書き出す先のフォルダを渡す（xcodebuild には
 /// `TEST_RUNNER_SAIFULOG_TIMELINE_SNAPSHOTS=…` で渡す）。`SAIFULOG_TIMELINE_SNAPSHOT_STYLE=dark` でダークにする。
-/// 家計の共有は署名の無いビルドのアプリでは始まらないので、家計のタイムラインはこの書き出しで見る。
 @MainActor
 @Suite(.serialized)
 struct HomeTimelineLayoutTests {
@@ -41,7 +39,6 @@ struct HomeTimelineLayoutTests {
     func newestSendIsAtTheBottom(size: UIContentSizeCategory) async throws {
         let fixture = try TimelineFixture()
         try fixture.insertDemoLedger()
-        fixture.markWeeklyRecapShown()
         let newest = try #require(try fixture.latestSend())
         // 前提: いちばん新しい送信は、1 行に 2 件を書いた送信（返事のカードに 2 件が並ぶ）。
         #expect(newest.entries.map(\.originalText) == [ScreenshotDemoLedger.multiItemText, ScreenshotDemoLedger.multiItemText])
@@ -55,7 +52,6 @@ struct HomeTimelineLayoutTests {
     func answerCardIsAtTheBottom(size: UIContentSizeCategory) async throws {
         let fixture = try TimelineFixture()
         try fixture.insertDemoLedger()
-        fixture.markWeeklyRecapShown()
         fixture.model.draft = "今月カフェいくら?"
         await fixture.model.send(calendar: TestSupport.calendar)?.value
         let exchange = try #require(fixture.model.questions.last)
@@ -68,18 +64,6 @@ struct HomeTimelineLayoutTests {
         let frames = try await fixture.host(size: size, name: "question")
 
         try Self.expectAtTheBottom(frames, key: .row(exchange.id), size: size)
-    }
-
-    @Test("先週のふりかえりのカードは、出したときにいちばん下で、下の端に見える", arguments: sizes)
-    func weeklyRecapCardIsAtTheBottom(size: UIContentSizeCategory) async throws {
-        let fixture = try TimelineFixture()
-        try fixture.insertDemoLedger()
-        // 出した日時を書かずに開く（ホームが出たときに、週が替わって最初に開いたとしてカードを出す）。
-
-        let frames = try await fixture.host(size: size, name: "recap")
-
-        let recap = try #require(fixture.model.weeklyRecap)
-        try Self.expectAtTheBottom(frames, key: .row(recap.id), size: size)
     }
 
     /// 開いた後に送ったものを確かめる文字の大きさ（標準・AX1・AX5）。
@@ -95,7 +79,6 @@ struct HomeTimelineLayoutTests {
     func sentEntryIsAtTheBottom(size: UIContentSizeCategory) async throws {
         let fixture = try TimelineFixture()
         try fixture.insertDemoLedger()
-        fixture.markWeeklyRecapShown()
         let before = try #require(try fixture.latestSend()).id
 
         let frames = try await fixture.host(size: size, name: "sent") { opened in
@@ -115,7 +98,6 @@ struct HomeTimelineLayoutTests {
     func askedAnswerCardIsAtTheBottom(size: UIContentSizeCategory) async throws {
         let fixture = try TimelineFixture()
         try fixture.insertDemoLedger()
-        fixture.markWeeklyRecapShown()
 
         let frames = try await fixture.host(size: size, name: "asked") { opened in
             try Self.expectTallerThanViewport(opened, size: size)
@@ -133,26 +115,6 @@ struct HomeTimelineLayoutTests {
         try Self.expectAtTheBottom(frames, key: .row(exchange.id), size: size)
     }
 
-    /// 開いたまま週が替わってふりかえりのカードが出たときも、下の余白を残して下の端に出る。
-    @Test("開いたままふりかえりのカードが出ると、カードが下の余白を残して下の端に見える", arguments: sendSizes)
-    func weeklyRecapShownWhileOpenIsAtTheBottom(size: UIContentSizeCategory) async throws {
-        let fixture = try TimelineFixture()
-        try fixture.insertDemoLedger()
-        // 開いたときは今週もう出したことにして、開いた後に週が替わったとして出す。
-        fixture.markWeeklyRecapShown()
-
-        let frames = try await fixture.host(size: size, name: "recap-while-open") { opened in
-            try Self.expectTallerThanViewport(opened, size: size)
-            #expect(fixture.model.weeklyRecap == nil)
-            fixture.defaults.set(nil, for: AppSettings.weeklyRecapShownAt)
-            fixture.model.showWeeklyRecapIfDue(calendar: TestSupport.calendar)
-            return .row(try #require(fixture.model.weeklyRecap).id)
-        }
-
-        let recap = try #require(fixture.model.weeklyRecap)
-        try Self.expectAtTheBottom(frames, key: .row(recap.id), size: size)
-    }
-
     /// 前提: 中身が画面より高い（見える範囲より上に行がある）。行の id まで送ったときに下の余白が隠れたのは、この形のときだけ。
     private static func expectTallerThanViewport(
         _ frames: [TimelineFrameKey: CGRect], size: UIContentSizeCategory
@@ -165,7 +127,7 @@ struct HomeTimelineLayoutTests {
     }
 
     /// 行が見える範囲に描かれ、その下の端が見える範囲の下の端（タイムラインの余白の分だけ上）にある。行が見える範囲より
-    /// 高いとき（AX5 のふりかえりのカードなど）も、下の端が見えていればよい。
+    /// 高いとき（AX5 の返事のカードなど）も、下の端が見えていればよい。
     private static func expectAtTheBottom(
         _ frames: [TimelineFrameKey: CGRect], key: TimelineFrameKey, size: UIContentSizeCategory
     ) throws {
@@ -213,11 +175,6 @@ private final class TimelineFixture {
     /// 撮影用のデモの家計（先月の 1 日から「いま」まで毎日の記録と、月の予算）を入れる。
     func insertDemoLedger() throws {
         try ScreenshotDemoLedger.insert(into: context, now: now, calendar: TestSupport.calendar)
-    }
-
-    /// 先週のふりかえりを今週はもう出したことにする（記録だけのタイムラインで確かめるため）。
-    func markWeeklyRecapShown() {
-        defaults.set(now, for: AppSettings.weeklyRecapShownAt)
     }
 
     /// いちばん新しい送信（タイムラインのいちばん下の返事のカード）。画面と同じく、読み込む件数の記録を送信にまとめて決める。

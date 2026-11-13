@@ -10,15 +10,13 @@ import UIKit
 /// タイムラインは会話の形にする。送った文を右寄せの自分の吹き出しに、アプリの返事（記録しました・質問の答え）を左寄せの
 /// カードに、送った順に出す（質問とその答えは保存しない）。記録の直後の「取り消す」は、その返事の見出しに出す。
 ///
-/// 週が替わって最初に開いたときは、先週のふりかえりのカードも同じタイムラインに出す（アプリからの返事として、出した時点の位置に）。
-///
 /// 入力欄の左のカメラのボタンから、レシートを撮るか写真から選んで読み取り（④）、読み取り結果（⑤）のシートで確かめて記録する。
 ///
 /// 会話を左へスワイプすると、カレンダーのページ（日ごとの支出・選んだ日の記録・今日あといくら使えるか。`LedgerCalendarView`）が
 /// 出る。帯にカレンダーのボタンは置かない（スワイプで出るページと入口が重なるため）。
 ///
 /// 状態と操作（送信・質問・レシート・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ・
-/// 先週のふりかえり・ページの切り替え）は `HomeModel` が持つ。ここは表示と、
+/// ページの切り替え）は `HomeModel` が持つ。ここは表示と、
 /// 環境（文字の大きさ・前面かどうか）に合わせた出し方だけを受け持つ。
 struct HomeView: View {
     @Environment(\.calendar) private var calendar
@@ -94,10 +92,6 @@ struct HomeView: View {
                 .navigationDestination(item: $model.settings) { settings in
                     SettingsView(model: settings)
                 }
-                // 先週のふりかえりの内訳も横に進む（まとめと同じ出し方）。
-                .navigationDestination(item: $model.weeklyRecapDetail) { recap in
-                    WeeklyRecapView(model: recap)
-                }
                 // 無料体験が終わった後の最初の起動に、一度だけプレミアム（⑨）を出す（`HomeModel.presentPremiumIfTrialEnded`）。
                 .sheet(item: $model.premiumSheet) { premium in
                     PremiumSheet(model: premium)
@@ -127,20 +121,18 @@ struct HomeView: View {
                 .task(id: model.purchases.hasLoadedPurchases) {
                     model.presentPremiumIfTrialEnded()
                 }
-                // 体験を始めた・買った・返金されたら、ふりかえりと月のまとめの AI の一言を決め直す（体験を始めてホームや月のまとめに
-                // 戻ったら一言が付くように）。
+                // 体験を始めた・買った・返金されたら、月のまとめの AI の一言を決め直す（体験を始めて月のまとめに戻ったら一言が
+                // 付くように）。
                 .onChange(of: model.purchases.status.unlocksPremium) {
                     model.premiumStatusDidChange()
                 }
-                // 週が替わって最初に開いたときだけ、先週のふりかえりのカードを出す（前面に戻ったとき・日付が変わったときは下）。
                 .onAppear {
                     // カレンダーのページに画面の暦を渡し、今月を読んでおく（左へスワイプしたときに、すぐ出せるように）。
                     model.calendarPage.configure(calendar: calendar)
                     // モデルは初回の案内より前に作っている（`AppRootView`）。案内の間に日付が変わっていても今日で数えるよう、読み直す。
                     model.refreshToday()
-                    // 記録する日を過ぎたくり返しの記録を記録する（ふりかえりより先に。ふりかえりのカードをいちばん下に出すため）。
+                    // 記録する日を過ぎたくり返しの記録を記録する（前面に戻ったとき・日付が変わったときは下）。
                     recordDueRecurringEntries()
-                    showWeeklyRecapIfDue()
                     // 起動の途中（案内の間・保存先を開く前）に受けた Siri・ショートカットの頼みを行う。
                     deliverQuickActions()
                 }
@@ -154,9 +146,8 @@ struct HomeView: View {
                 .onChange(of: model.isPresentingOtherScreen) { _, presenting in
                     if !presenting { deliverQuickActions() }
                 }
-                // 週の始まりの設定を変えると画面の暦が変わるので、変えた後の週で決め直す（カレンダーの並びも）。
+                // 週の始まりの設定を変えると画面の暦が変わるので、カレンダーの並びを変えた後の暦で決め直す。
                 .onChange(of: calendar) { _, calendar in
-                    model.showWeeklyRecapIfDue(calendar: calendar)
                     model.calendarPage.configure(calendar: calendar)
                 }
                 // ページが替わったら、VoiceOver に知らせ、新しいページの最初の要素から読ませる（スワイプでもボタンでも）。「この日に
@@ -164,11 +155,9 @@ struct HomeView: View {
                 .onChange(of: model.page) {
                     if model.consumePageChange() { VoiceOver.screenChanged() }
                 }
-                // 保存先に書き込まれたら、ふりかえりのカード（と内訳）の数字を読み直す（記録を足した・
-                // 直した・消したとき）。
+                // 保存先に書き込まれたら、カテゴリの一覧・カレンダー・聞き返しを読み直す（記録を足した・直した・消したとき）。
                 .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { _ in
                     model.categories.reload()
-                    model.weeklyRecap?.reload()
                     model.calendarPage.reload()
                     model.refreshCategoryQuestions()
                 }
@@ -179,7 +168,6 @@ struct HomeView: View {
                     model.forgetRecordsDeletedElsewhere()
                     model.removeDuplicateRecurringEntries()
                     model.categories.reload()
-                    model.weeklyRecap?.reload()
                     model.calendarPage.reload()
                     model.refreshCategoryQuestions()
                 }
@@ -209,7 +197,6 @@ struct HomeView: View {
                         deliverQuickActions()
                             // 状態が変わらなくても、前面に戻ったときには確かめる（ほかの画面を閉じた後で出せるように）。
                         model.presentPremiumIfTrialEnded()
-                        showWeeklyRecapIfDue()
                     default:
                         break
                     }
@@ -218,7 +205,6 @@ struct HomeView: View {
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
                     model.refreshToday()
                     recordDueRecurringEntries()
-                    showWeeklyRecapIfDue()
                 }
         }
         // カテゴリの一覧（作ったカテゴリの名前・記号・色）を、ホームから開くすべての画面とシートに渡す。
@@ -278,7 +264,6 @@ struct HomeView: View {
                 today: model.today,
                 questions: model.questions,
                 pendingRecord: model.pendingRecord,
-                weeklyRecap: model.weeklyRecap,
                 // 控えた ID を渡す（ほかの端末で消された記録の値に、描くときに触れないため）。
                 undoableEntryIDs: Set(model.justRecordedIDs),
                 askingCategory: model.categoryQuestionIDs,
@@ -293,10 +278,7 @@ struct HomeView: View {
                 openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
                 setBudget: { model.presentBudgetSetup() },
                 openPremium: { model.presentPremium() },
-                askFollowUp: { model.askFollowUp($0, calendar: calendar) },
-                openWeeklyRecap: { model.presentWeeklyRecapDetail() },
-                // 閉じたときは、上の行がカードのあった所へ下りてくる動きを付ける（出したときは付けない。`TimelineScrollView`）。
-                dismissWeeklyRecap: { withAnimation { model.dismissWeeklyRecap() } }
+                askFollowUp: { model.askFollowUp($0, calendar: calendar) }
             )
     }
 
@@ -360,18 +342,10 @@ struct HomeView: View {
         model.recordDueRecurringEntries(calendar: calendar)
     }
 
-    /// 週が替わって最初に開いたときだけ、先週のふりかえりのカードを出す。くり返しの記録と同じく、家計の画面を出してから
-    /// （くり返しの記録の後に出し、カードをいちばん下に置く順を保つため）。
-    private func showWeeklyRecapIfDue() {
-        guard !hidesContent else { return }
-        model.showWeeklyRecapIfDue(calendar: calendar)
-    }
-
     /// ロックを解いた（家計の画面を隠すのをやめた）ときに、待っていたものを前面に戻ったときと同じ順で行う。
     private func catchUpAfterShowingContent() {
         recordDueRecurringEntries()
         deliverQuickActions()
-        showWeeklyRecapIfDue()
     }
 
     /// 入力欄の「直前の記録を取り消す」の操作。取り消せるものがあるときだけ渡す。
@@ -432,8 +406,7 @@ extension HomeModel.StoreFailure {
 ///
 /// 1 回の送信で記録したもの（ひとこと入力の複数件・レシートの品目）を 1 つの送信にまとめ（`EntrySend`。コアの `TimelineSend`）、
 /// 送った文を右寄せの自分の吹き出しに、記録したものを左寄せの返事のカード（「記録しました」）に出す。この起動の間に送った質問と
-/// その答えも、送った順に同じ流れへ差し込む。先週のふりかえりのカードは、出した日時の位置に差し込む（出したときはいちばん下で、
-/// 開いたときに見える。その後に記録すると、その上に流れていく）。暦の日が替わるところには日付の見出しを置く（コアの `TimelineDay`）。
+/// その答えも、送った順に同じ流れへ差し込む。暦の日が替わるところには日付の見出しを置く（コアの `TimelineDay`）。
 ///
 /// 全期間を読むと、記録が増えるほど開くのも描き直すのも遅くなる。読み込む件数は `limit` で区切り（送信ではなく記録の件数で数える）、
 /// さかのぼりたいときは上の「前の記録を表示」で増やす（行はすべて測るので、件数を区切る意味は大きい。`TimelineScrollView`）。
@@ -447,7 +420,6 @@ private struct EntryTimeline: View {
     let questions: [QuestionExchange]
     /// 記録として送り、読み取っている文（読み取りが終わるまで、いちばん下に送った文と「読み取っています…」を出す）。
     let pendingRecord: HomeModel.PendingRecord?
-    let weeklyRecap: WeeklyRecapModel?
     /// 直前の送信で記録したもの（まだ取り消せるもの）。これを含む送信の返事にだけ「取り消す」を出す。取り消せなければ空。
     let undoableEntryIDs: Set<PersistentIdentifier>
     /// カテゴリを聞き返している記録。その記録の行の下にカテゴリのボタンを出す。
@@ -468,8 +440,6 @@ private struct EntryTimeline: View {
     let openPremium: () -> Void
     /// 回答カードの「続けて聞く質問」を送る（いちばん新しい答えにだけ出す）。
     let askFollowUp: (QuestionFollowUp) -> Void
-    let openWeeklyRecap: () -> Void
-    let dismissWeeklyRecap: () -> Void
 
     @Environment(\.calendar) private var calendar
     @Query private var recentEntries: [Entry]
@@ -480,7 +450,6 @@ private struct EntryTimeline: View {
         today: Date,
         questions: [QuestionExchange],
         pendingRecord: HomeModel.PendingRecord?,
-        weeklyRecap: WeeklyRecapModel?,
         undoableEntryIDs: Set<PersistentIdentifier>,
         askingCategory: Set<PersistentIdentifier>,
         showMore: @escaping () -> Void,
@@ -494,16 +463,13 @@ private struct EntryTimeline: View {
         openReport: @escaping (Date) -> Void,
         setBudget: @escaping () -> Void,
         openPremium: @escaping () -> Void,
-        askFollowUp: @escaping (QuestionFollowUp) -> Void,
-        openWeeklyRecap: @escaping () -> Void,
-        dismissWeeklyRecap: @escaping () -> Void
+        askFollowUp: @escaping (QuestionFollowUp) -> Void
     ) {
         self.limit = limit
         self.canShowMore = canShowMore
         self.today = today
         self.questions = questions
         self.pendingRecord = pendingRecord
-        self.weeklyRecap = weeklyRecap
         self.undoableEntryIDs = undoableEntryIDs
         self.askingCategory = askingCategory
         self.showMore = showMore
@@ -518,37 +484,32 @@ private struct EntryTimeline: View {
         self.setBudget = setBudget
         self.openPremium = openPremium
         self.askFollowUp = askFollowUp
-        self.openWeeklyRecap = openWeeklyRecap
-        self.dismissWeeklyRecap = dismissWeeklyRecap
         _recentEntries = Query(Entry.timelineDescriptor(limit: limit))
     }
 
-    /// タイムラインのやりとりの 1 つ（送信か、読み取っている送信か、質問とその答えか、先週のふりかえり）。
+    /// タイムラインのやりとりの 1 つ（送信か、読み取っている送信か、質問とその答え）。
     private enum Exchange {
         case send(EntrySend)
         case pendingRecord(HomeModel.PendingRecord)
         case question(QuestionExchange)
-        case weeklyRecap(WeeklyRecapModel)
 
-        /// 並べる日時。送信は送った日時（記録した日時）、質問は送った日時、ふりかえりは出した日時。日付の見出しもこの日で決める。
+        /// 並べる日時。送信は送った日時（記録した日時）、質問は送った日時。日付の見出しもこの日で決める。
         var date: Date {
             switch self {
             case .send(let send): send.sentAt
             case .pendingRecord(let pending): pending.sentAt
             case .question(let exchange): exchange.askedAt
-            case .weeklyRecap(let recap): recap.shownAt
             }
         }
     }
 
-    /// 画面に並べる 1 つ（日付の見出し・送った文の吹き出し・記録の返事・質問とその答え・先週のふりかえり）。
+    /// 画面に並べる 1 つ（日付の見出し・送った文の吹き出し・記録の返事・質問とその答え）。
     private enum Item: Identifiable {
         case day(Date)
         case sentText(EntrySend)
         case reply(EntrySend)
         case pendingRecord(HomeModel.PendingRecord)
         case question(QuestionExchange)
-        case weeklyRecap(WeeklyRecapModel)
 
         var id: ItemID {
             switch self {
@@ -557,7 +518,6 @@ private struct EntryTimeline: View {
             case .reply(let send): .reply(send.id)
             case .pendingRecord(let pending): .pendingRecord(pending.id)
             case .question(let exchange): .question(exchange.id)
-            case .weeklyRecap(let recap): .weeklyRecap(recap.id)
             }
         }
     }
@@ -568,15 +528,13 @@ private struct EntryTimeline: View {
         case reply(PersistentIdentifier)
         case pendingRecord(UUID)
         case question(UUID)
-        case weeklyRecap(UUID)
     }
 
-    /// 送信と質問とふりかえりを送った順（古いものが上）に並べ、送信を吹き出しと返事に分け、日が替わるところに見出しを置く。
+    /// 送信と質問を送った順（古いものが上）に並べ、送信を吹き出しと返事に分け、日が替わるところに見出しを置く。
     private var items: [Item] {
         let sends = EntrySend.sends(from: Array(recentEntries.reversed()))
         let exchanges = (sends.map(Exchange.send) + questions.map(Exchange.question)
-            + (pendingRecord.map { [Exchange.pendingRecord($0)] } ?? [])
-            + (weeklyRecap.map { [Exchange.weeklyRecap($0)] } ?? []))
+            + (pendingRecord.map { [Exchange.pendingRecord($0)] } ?? []))
             .sorted { $0.date < $1.date }
         let headers = Set(TimelineDay.headerIndices(for: exchanges.map(\.date), calendar: calendar))
         var items: [Item] = []
@@ -595,8 +553,6 @@ private struct EntryTimeline: View {
                 items.append(.pendingRecord(pending))
             case .question(let exchange):
                 items.append(.question(exchange))
-            case .weeklyRecap(let recap):
-                items.append(.weeklyRecap(recap))
             }
         }
         return items
@@ -605,7 +561,7 @@ private struct EntryTimeline: View {
     var body: some View {
         ScrollViewReader { proxy in
             TimelineScrollView {
-                if recentEntries.isEmpty && questions.isEmpty && pendingRecord == nil && weeklyRecap == nil {
+                if recentEntries.isEmpty && questions.isEmpty && pendingRecord == nil {
                     EmptyTimelineView(fill: fillDraft)
                 }
                 // 読み込んだ件数が上限に届いていれば、まだ前の記録があるかもしれない。
@@ -639,15 +595,6 @@ private struct EntryTimeline: View {
                             askFollowUp: exchange.id == questions.last?.id ? askFollowUp : nil
                         )
                         .reportsTimelineFrame(.row(exchange.id))
-                    case .weeklyRecap(let recap):
-                        WeeklyRecapCard(model: recap, open: openWeeklyRecap, dismiss: dismissWeeklyRecap, setBudget: setBudget)
-                            .reportsTimelineFrame(.row(recap.id))
-                            // 出し入れの動き（薄く出て消える）はカードにだけ付ける。タイムライン全体に `animation(_:value:)` を
-                            // 付けていたときは、カードを出すたびにほかの行とスクロールの位置まで 0.5 秒ほど動きになり、その間に
-                            // 見える範囲の高さが変わると（開いた直後の帯の高さが決まるまでなど）、下端からずれて止まりうる
-                            // （`TimelineScrollView`。iOS 26.4 のシミュレータでは、下端へ動きなしで送れば全体に付けたままでも
-                            // ずれなかった。CI の iOS 27.0 のシミュレータでカードが 2〜3pt ずれた原因の候補として外した）。
-                            .transition(.opacity.animation(.default))
                     }
                 }
             }
@@ -665,11 +612,6 @@ private struct EntryTimeline: View {
             // 質問を送ったときと、返事が届いた（カードが伸びた）ときに、下端まで送る。
             .onChange(of: questions.last) { _, exchange in
                 guard exchange != nil else { return }
-                proxy.scrollToTimelineBottom()
-            }
-            // 開いたまま週が替わってふりかえりのカードが出たら、下端まで送る（開いたときは下端から開くので、そのまま見える）。
-            .onChange(of: weeklyRecap?.id) { _, id in
-                guard id != nil else { return }
                 proxy.scrollToTimelineBottom()
             }
         }
@@ -713,18 +655,18 @@ private struct TimelineOlderRecords: View {
 ///
 /// 行は LazyVStack ではなく、すべての行を測る並べ方（`TimelineStack`。VStack と同じ位置に置く）に並べる。LazyVStack は、まだ
 /// 描いていない行の高さを、そのとき描いている行から見積もる。
-/// タイムラインの行は高さがそろわない（送った文の吹き出し・品目の数だけ伸びる返事のカード・回答カード・ふりかえりのカード）ので、描く行が替わるたびに
+/// タイムラインの行は高さがそろわない（送った文の吹き出し・品目の数だけ伸びる返事のカード・回答カード）ので、描く行が替わるたびに
 /// 全体の高さの見積もりが大きく揺れる。下端に合わせる（`defaultScrollAnchor(.bottom)`）と、揺れるたびに位置も同じだけ動いて
 /// 描く行がまた替わり、見える範囲に行が 1 つも無い位置で止まることがあった。開いたときにタイムラインが空に見えた不具合で、
 /// 見える行が少なく見積もりが数行で決まる大きな文字で起きた（シミュレータで、見積もりが 1 万 pt ほど揺れ、行を描かないまま
 /// 止まるのを確かめた。どの文字の大きさで起きるかは記録の中身と画面の幅で変わる）。途中で止まって、いちばん下の行が入力欄に
-/// 隠れることもあった（先週のふりかえりのカード）。すべての行を測れば全体の高さが正しく、下端に正しく合う。
+/// 隠れることもあった（当時あった先週のふりかえりのカード）。すべての行を測れば全体の高さが正しく、下端に正しく合う。
 ///
 /// すべての行を測るぶん開くときの手間は件数に比例するので、読み込む件数を `HomeModel.timelinePageSize` で区切る。
 /// 読み込んだ行は、記録の追加・削除や同期の取り込み、前面に戻ったときにもすべて描き直すので、「前の記録を表示」で読み足せる件数にも
 /// 上限（`HomeModel.timelineMaxLimit`）を設ける。
 ///
-/// 開いた後にいちばん新しいものを足したとき（送信の返事・質問・ふりかえりのカード）は、中身の本当の下端に置いた目印
+/// 開いた後にいちばん新しいものを足したとき（送信の返事・質問）は、中身の本当の下端に置いた目印
 /// （`TimelineBottomMarker`）まで、動きを付けずに送る（`ScrollViewProxy.scrollToTimelineBottom`）。
 /// - 行の id で下端に合わせると、行の下の端が見える範囲の下の端にそろい、その下の余白（`padding()` の 16pt）が見える範囲の外に
 ///   隠れた（中身が画面より高いときだけ。開いたときと、当時あった「取り消す」のバナーが引っ込んだ後は余白が見えるので、送った
@@ -732,7 +674,7 @@ private struct TimelineOlderRecords: View {
 /// - 動きを付けると、送り先の位置が送り始めたときの見える範囲の高さで決まり、動いている間はその位置に向かい続ける。同じときに
 ///   見える範囲の高さが変わると（声の入力の知らせ。当時は送った記録と一緒に出た「取り消す」のバナーも）、`defaultScrollAnchor(.bottom)`
 ///   が下端に合わせ直す分が打ち消され、変わった分だけ下端からずれて止まった（シミュレータの iOS 26.4 で、送った記録が見える範囲の
-///   下に 36〜129pt はみ出し、声の入力の知らせと同時に出たふりかえりのカードは AX1 と AX5 で 400pt 以上下に隠れた）。動きなしで
+///   下に 36〜129pt はみ出し、当時の声の入力の知らせと同時に出た当時のふりかえりのカードは AX1 と AX5 で 400pt 以上下に隠れた）。動きなしで
 ///   下端に着けば、その後の高さの変化は `defaultScrollAnchor(.bottom)` が下端に合わせ続ける。
 private struct TimelineScrollView<Content: View>: View {
     @ViewBuilder let content: Content
@@ -808,7 +750,7 @@ private struct TimelineStack: Layout {
 
 /// タイムラインの中身の下端の目印の id（`TimelineScrollView`）。いちばん新しいものまで送るときの行き先。
 ///
-/// いちばん新しいもの（送信の返事・質問・ふりかえりのカード）はいつもいちばん下に並ぶので、下端まで送れば見える。
+/// いちばん新しいもの（送信の返事・質問）はいつもいちばん下に並ぶので、下端まで送れば見える。
 private enum TimelineBottomMarker: Hashable {
     case id
 }
@@ -830,7 +772,7 @@ private extension ScrollViewProxy {
 enum TimelineFrameKey: Hashable {
     /// 行の見える範囲（帯と入力欄の間）。
     case viewport
-    /// 行。送信の返事のカードは送信の `id`（送信のいちばん古い記録の `persistentModelID`）、質問・ふりかえりは `id`。
+    /// 行。送信の返事のカードは送信の `id`（送信のいちばん古い記録の `persistentModelID`）、質問は `id`。
     case row(AnyHashable)
 }
 

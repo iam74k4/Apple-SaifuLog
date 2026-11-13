@@ -3,7 +3,7 @@ import SaifuLogCore
 import Testing
 @testable import SaifuLog
 
-/// ふりかえりの AI の一言の状態（RecapRemarkModel）のうち、画面を通さずに確かめるもの。書いている途中で数字の文が替わったとき・
+/// 月のまとめの AI の一言の状態（RecapRemarkModel）のうち、画面を通さずに確かめるもの。書いている途中で数字の文が替わったとき・
 /// プレミアムでなくなったとき・覚えておく結果の数・購入の事実を読み終える前に書かせたとき。
 /// 数字の文は、照合に使う行だけの短いもの（`facts(_:)`）にする。
 @MainActor
@@ -17,7 +17,7 @@ struct RecapRemarkModelTests {
 
     /// `facts(thousands)` の数字だけで書いた一言（照合を通る）。
     nonisolated static func sentence(_ thousands: Int) -> String {
-        "先週は\(YenFormatter.string(from: thousands * 1_000))でした。"
+        "今月は\(YenFormatter.string(from: thousands * 1_000))でした。"
     }
 
     /// 数字の文ごとに違う一言を書く書き手（書き直した一言が、古い文のものか新しい文のものかを見分けるため）。

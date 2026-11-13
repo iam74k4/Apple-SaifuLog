@@ -37,7 +37,7 @@ struct ScreenshotDemoAnswerer: QuestionAnswering {
     }
 }
 
-/// ふりかえり（先週のふりかえり・月のまとめ）の AI の一言の代わり。数字の文（`RecapFacts`）から、支出のいちばん多いカテゴリを
+/// 月のまとめの AI の一言の代わり。数字の文（`RecapFacts`）から、支出のいちばん多いカテゴリを
 /// 読んで、数字を書かない励ましの一文にする（端末内 AI への指示「励ましか気づきを一文か二文で」に沿う形）。
 struct ScreenshotDemoRemarkWriter: RecapRemarkWriting {
     func remark(from facts: String) async throws -> String {
@@ -46,9 +46,6 @@ struct ScreenshotDemoRemarkWriter: RecapRemarkWriting {
 
     static func remark(from facts: String) -> String {
         guard let top = topCategory(in: facts) else { return "記録を続けられていて、いい調子です。" }
-        if facts.hasPrefix("期間: 先週") {
-            return "先週いちばん多かったのは\(top)でした。こまめに記録できていて、いい調子です。"
-        }
         if facts.hasPrefix("期間: 今月") {
             return "今月は\(top)がいちばん多くなっています。記録を続けられていて、いい調子です。"
         }

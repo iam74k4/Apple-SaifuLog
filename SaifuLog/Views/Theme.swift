@@ -23,7 +23,7 @@ import UIKit
 enum Theme {
     /// 画面の背景。
     static let background = Palette.background.color
-    /// アプリの返事のカード（記録しました・質問の回答・ふりかえり）など、背景の上に載せる面。
+    /// アプリの返事のカード（記録しました・質問の回答）など、背景の上に載せる面。
     static let surface = Palette.surface.color
     /// 本文の文字（墨）。
     static let ink = Palette.ink.color

@@ -228,7 +228,7 @@ struct PremiumSheet: View {
                 freeItem(Text("ひとこと入力と AI の読み取り（回数の制限なし）"))
                 freeItem(Text("声の入力と Siri・ショートカット"))
                 freeItem(Text("くり返しの記録とカテゴリの自動の振り分け"))
-                freeItem(Text("月の予算・月のまとめ・週のふりかえり"))
+                freeItem(Text("月の予算と月のまとめ"))
                 freeItem(Text("iCloud 同期と CSV 書き出し"))
             }
             // 「外へ出ません」とは書かない（CSV の書き出しは利用者が選んだ先へ送れるため）。PRIVACY.md と同じ言い方にする。
@@ -435,7 +435,7 @@ enum PremiumFeature: CaseIterable, Identifiable {
     case receiptScan
     case question
     case categoryBudget
-    /// 先週のふりかえりと月のまとめの AI の一言。
+    /// 月のまとめの AI の一言。
     case recapAI
 
     var id: Self { self }
@@ -511,7 +511,7 @@ private struct PremiumBenefitRow: View {
             "カテゴリ別の予算（プレミアムの行）", defaultValue: "カテゴリ別の予算",
             comment: "プレミアムのシート（⑨）。プレミアムでできることの行の名前"
         ))
-        case .recapAI: Text("ふりかえりの AI の一言")
+        case .recapAI: Text("月のまとめの AI の一言")
         }
     }
 
@@ -523,7 +523,7 @@ private struct PremiumBenefitRow: View {
         case .question: Text("「今月カフェいくら?」のように聞くと、数字はアプリが計算して答えます。")
         case .categoryBudget: Text("食費・交通など、カテゴリごとにも月の予算を決められ、月のまとめで使った額と比べられます。")
         // AI の使えない端末では、プレミアムでも一言は付かない。買ってから気づくことが無いよう、ここで書いておく。
-        case .recapAI: Text("先週のふりかえりと月のまとめに、端末内の AI が一言を添えます（Apple Intelligence に対応した iPhone のみ。数字はどちらもアプリが計算します）。")
+        case .recapAI: Text("月のまとめに、端末内の AI が一言を添えます（Apple Intelligence に対応した iPhone のみ。数字はアプリが計算します）。")
         }
     }
 
