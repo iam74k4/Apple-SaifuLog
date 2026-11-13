@@ -75,6 +75,13 @@ Apple Intelligence を使えない端末では、端末内のキーワード辞�
 質問と答えは記録として保存せず、アプリを起動している間だけアプリのメモリの中に置きます（アプリを開き直すと消えます）。
 無料で質問した回数（月ごとの回数）だけを、下の「保存される設定」に保存します。
 
+### 記録の返事の一言
+
+ひとこと入力で記録した直後に、Apple Intelligence を使える端末では、いま記録した支出（品目・金額・カテゴリ）、そのカテゴリの今月の
+合計と件数、今月の支出の合計と件数、予算の残りを本アプリがお使いの iPhone の中で計算して文にし、その文を Foundation Models に渡して
+一言を書かせます。この処理もお使いの iPhone の上で行い、**記録や計算した数字、一言を外部へ送信することはありません。** 一言は保存せず、
+アプリを起動している間だけアプリのメモリの中に置きます。
+
 ### 月のまとめ
 
 月のまとめの数字（支出・収入・収支・前の月との差・カテゴリ別の内訳・予算の進み）は、本アプリがお使いの iPhone の中の記録から
@@ -99,7 +106,7 @@ iPhone の上で行います。**記録や計算した数字、一言を外部�
 設定の「カテゴリ」や記録の返事から作ったカテゴリ（名前・記号・色・並び順・作った日時・直した日時）は、上の「入力した家計の記録」と
 同じ場所（お使いの iPhone の中の本アプリ専用の保存先。「iCloud で同期」をオンにしているときは、記録と同じく暗号化フィールドとして
 利用者自身の iCloud にも）に保存し、**開発者や第三者へ送信することはありません。** 記録にはカテゴリの名前ではなく、作ったカテゴリを
-見分ける番号だけを保存します。記録のカテゴリを端末内 AI に選ばせるときと、月のまとめの一言、質問の答えの一言を
+見分ける番号だけを保存します。記録のカテゴリを端末内 AI に選ばせるときと、記録の返事の一言、月のまとめの一言、質問の答えの一言を
 端末内 AI に書かせるときは、ほかのカテゴリと同じく作ったカテゴリの名前も渡しますが、この処理もお使いの iPhone の上で行います。CSV に書き出すときは、カテゴリの列に作ったカテゴリの名前を
 書きます。カテゴリを削除すると、そのカテゴリの記録は「その他」になります。
 
@@ -308,6 +315,14 @@ Questions and answers are not saved as records. They are kept only in the app's 
 when you reopen the app. Only the number of free questions you have used (counted per month) is stored, as described in
 Settings We Store below.
 
+### The Note in a Reply to an Entry
+
+Right after you record something with a one-line entry, on devices that can use Apple Intelligence, the app calculates on your own
+iPhone the spending you just recorded (item, amount, category), this month's total and count for that category, this month's total
+spending and count, and what is left of your budget, puts them into a text, and passes that text to Apple's Foundation Models framework
+to write a short note; this also happens on your own iPhone. **Your records, the calculated numbers, and the note are never sent
+anywhere.** The note is not saved; it is kept only in the app's memory while the app is running.
+
 ### The Monthly Summary
 
 The numbers in the monthly summary (spending, income, net, the difference from the month before, spending by category, and budget
@@ -335,7 +350,7 @@ Categories you create in Categories in Settings or from a reply (their names, sy
 last edited) are stored in the same place as your records described above (in an area reserved for this app on your iPhone, and, when
 Sync with iCloud is on, also in your own iCloud as encrypted fields, like your records). **They are never sent to the developer or to
 any third party.** Each record stores only an identifier of the category you created, not its name. When the app asks the on-device AI
-to choose the category of an entry, or to write a remark for the monthly summary or for an answer to a question,
+to choose the category of an entry, or to write a remark for a reply to an entry, for the monthly summary or for an answer to a question,
 the names of categories you created are passed along with the other categories, and this also happens on your iPhone. When you export a CSV file, the category column
 contains the name of the category you created. If you delete a category, its records move to Other.
 
