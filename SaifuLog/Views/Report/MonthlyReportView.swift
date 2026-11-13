@@ -5,8 +5,9 @@ import UIKit
 
 /// ⑦ 月のまとめ。何にいくら使ったかを一目で分かるようにする月の報告。ホームの帯（今月の合計）から横に進む。
 ///
-/// 上に月送り（前の月・次の月）、その下に AI の一言（AI が使える端末だけ）、月の支出・収入・収支・
-/// 1 日あたりの平均・前の月との差、予算の進み（予算を当てはめる月だけ）、カテゴリ別の内訳（割合の帯と行）を並べる。
+/// 上に月送り（前の月・次の月）、その下に月に使った額（大きく）と前の月との差（終わった月だけ）、収入があれば収入と収支の
+/// 小さな 1 行、AI の一言（AI が使える端末だけ）、予算の進み（予算を当てはめる月だけ）、カテゴリ別の内訳（割合の帯と行）を並べる。
+/// 「いくら使ったか」がすぐ分かるよう、平均や日割りの目安のような副次的な数字は出さない（質問で聞ける）。
 /// 行を押すと、その月のそのカテゴリの記録の一覧へ進む。
 ///
 /// 状態と操作は `MonthlyReportModel` が持ち、数字の計算はコア（`MonthlyReport`）が受け持つ。ここは表示と、文字の大きさに
@@ -64,7 +65,7 @@ struct MonthlyReportView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { model.refreshToday() }
         }
-        // 日付が変わったとき（0 時・時間帯の変更など）。今月かどうかと平均の日数が変わる。
+        // 日付が変わったとき（0 時・時間帯の変更など）。今月かどうかと予算の残りの日数が変わる。
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
             model.refreshToday()
         }
@@ -78,12 +79,13 @@ struct MonthlyReportView: View {
             if report.recordCount == 0 {
                 EmptyMonthView(isCurrentMonth: report.timing == .current)
             } else {
-                // 一言は数字（コードが計算したもの）の前に添える。数字は下のカードにいつも出ている。
+                // 使った額を先に出し、一言はその下に添える（一言は AI が書くまで少し遅れて出るので、上に置くと数字のカードが
+                // 下へずれて読みにくいため）。
+                SummaryCard(report: report)
                 if model.remark.state != .none {
                     RecapRemarkView(state: model.remark.state)
                         .reportCard()
                 }
-                SummaryCard(report: report)
                 if let budget = report.budget {
                     BudgetCard(report: report, budget: budget)
                 }
@@ -142,14 +144,15 @@ private struct MonthSwitcher: View {
 
 // MARK: - 数字
 
-/// 月の支出を大きく、その下に前の月との差、収入・収支・1 日あたりの平均を並べる。
+/// 月に使った額を大きく、その下に前の月との差（終わった月だけ）と、収入があれば収入と収支を小さく 1 行で出す（支出だけを
+/// つける人に、毎月「収入 ¥0・収支 -¥…」と赤字のように見せないため。カレンダーと同じ出し方）。
 private struct SummaryCard: View {
     let report: MonthlyReport
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("支出")
+                Text("使った額")
                     .font(.subheadline)
                     .foregroundStyle(Theme.inkSecondary)
                 Text(verbatim: YenFormatter.string(from: report.expense))
@@ -166,14 +169,12 @@ private struct SummaryCard: View {
                     .font(.footnote)
                     .foregroundStyle(Theme.inkSecondary)
             }
-            Divider()
-            // 収入の色は、収入があるときだけ（¥0 を収入の色にすると、何かあったように見えるため）。
-            ReportRow(
-                label: Text("収入"), value: YenFormatter.string(from: report.income),
-                valueColor: report.income > 0 ? Theme.income : Theme.ink
-            )
-            ReportRow(label: Text("収支"), value: YenFormatter.signedString(from: report.balance))
-            ReportRow(label: Text("1日あたりの平均"), value: YenFormatter.string(from: report.dailyAverage))
+            if report.income > 0 {
+                Text("収入 \(YenFormatter.string(from: report.income))・収支 \(YenFormatter.signedString(from: report.balance))")
+                    .font(.footnote)
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.inkSecondary)
+            }
         }
         .reportCard()
     }
@@ -193,8 +194,8 @@ private struct SummaryCard: View {
     }
 }
 
-/// 予算の進み。使った額と予算、使った割合のバー（主の塗り）、残りか超えた額、今月なら 1 日あたりの額と日割りの目安との比べ
-/// （先の日付の記録があれば、比べた今日までの支出も）。
+/// 予算の進み。使った割合のバー（主の塗り）、残りか超えた額、予算の額、今月なら 1 日あたりに使える額。使った額は上の
+/// カードと同じ値なので出さない。
 ///
 /// バーは目安として添えるだけで、VoiceOver では読ませない（数字は行の文字で伝える。ホームの帯と同じ）。
 /// 予算を超えたことは、注意の色だけでなくアイコンと「オーバー」の語でも伝える。
@@ -207,12 +208,8 @@ private struct BudgetCard: View {
             Text("予算")
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
-            BudgetProgressBar(
-                fraction: budget.spentFraction,
-                isOver: budget.isOver,
-                paceFraction: report.budgetPace.map { min(max(Double($0) / Double(budget.budget), 0), 1) }
-            )
-            .padding(.vertical, 4)
+            BudgetProgressBar(fraction: budget.spentFraction, isOver: budget.isOver)
+                .padding(.vertical, 4)
             if budget.isOver {
                 Label {
                     Text("\(YenFormatter.string(from: budget.overspent)) オーバー")
@@ -227,44 +224,19 @@ private struct BudgetCard: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
             }
-            ReportRow(label: Text("使った額"), value: YenFormatter.string(from: budget.spent))
-            ReportRow(label: Text("予算"), value: YenFormatter.string(from: budget.budget))
             if !budget.isOver {
-                ReportRow(label: Text("残り"), value: YenFormatter.string(from: budget.remaining))
+                // 終わった月は「残り」ではなく「余った額」と言う（もう使えないため）。
+                ReportRow(
+                    label: report.timing == .past ? Text("余った額") : Text("残り"),
+                    value: YenFormatter.string(from: budget.remaining)
+                )
             }
-            if report.timing == .current {
-                if !budget.isOver {
-                    ReportRow(label: Text("1日あたり"), value: YenFormatter.string(from: budget.dailyAllowance))
-                }
-                if let pace = report.budgetPace, let beyond = report.spentBeyondPace {
-                    ReportRow(label: Text("今日までの目安"), value: YenFormatter.string(from: pace))
-                    // 目安と比べるのは今日までの支出（MonthlyReport.spentBeyondPace）。先の日付の記録（払う予定の家賃など）が
-                    // あると上の「使った額」と違い、比べた結果が「使った額」と目安の差に合わなくなるので、比べた額も出す。
-                    if report.expenseThroughToday != budget.spent {
-                        ReportRow(label: Text("今日までに使った額"), value: YenFormatter.string(from: report.expenseThroughToday))
-                    }
-                    paceComparison(beyond)
-                        .labelStyle(TrendLabelStyle())
-                        .font(.footnote)
-                        .foregroundStyle(Theme.inkSecondary)
-                }
+            ReportRow(label: Text("予算"), value: YenFormatter.string(from: budget.budget))
+            if report.timing == .current, !budget.isOver {
+                ReportRow(label: Text("1日あたりに使える額"), value: YenFormatter.string(from: budget.dailyAllowance))
             }
         }
         .reportCard()
-    }
-
-    /// 日割りの目安と比べて、多く使っているか少ないか。矢印だけでなく語でも伝える。
-    @ViewBuilder
-    private func paceComparison(_ beyond: Int) -> some View {
-        let amount = YenFormatter.string(from: abs(beyond))
-        switch beyond {
-        case 1...:
-            Label { Text("今日までの目安より \(amount) 多い") } icon: { Image(systemName: "arrow.up.right") }
-        case ..<0:
-            Label { Text("今日までの目安より \(amount) 少ない") } icon: { Image(systemName: "arrow.down.right") }
-        default:
-            Label { Text("今日までの目安どおり") } icon: { Image(systemName: "equal") }
-        }
     }
 }
 

@@ -465,35 +465,13 @@
         }
       }
     },
-    "1日あたり" : {
-      "comment" : "月のまとめの予算の行の見出し。今日から月末まで 1 日あたりに使える額（今月だけ）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Per day"
-          }
-        }
-      }
-    },
     "1日あたりに使える額" : {
-      "comment" : "家計への質問の回答カードの見出し。今日から月末まで、1 日あたりに使える予算の額",
+      "comment" : "家計への質問の回答カードの見出しと、月のまとめの予算の行の見出し（今月で、予算の内のとき）。今日から月末まで、1 日あたりに使える予算の額",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Available per day"
-          }
-        }
-      }
-    },
-    "1日あたりの平均" : {
-      "comment" : "月のまとめの行の見出し。その月の 1 日あたりの平均の支出（今月は 1 日から今日までの平均）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Daily average"
           }
         }
       }
@@ -2873,61 +2851,6 @@
         }
       }
     },
-    "今日までに使った額" : {
-      "comment" : "月のまとめの予算の行の見出し（今月で、今日より先の日付の記録があるときだけ）。今日までの目安と比べた、今日の終わりまでの日付の支出の合計",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Spent through today"
-          }
-        }
-      }
-    },
-    "今日までの目安" : {
-      "comment" : "月のまとめの予算の行の見出し（今月だけ）。予算を月の日数で割り、1 日から今日までの日数を掛けた額",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Target through today"
-          }
-        }
-      }
-    },
-    "今日までの目安どおり" : {
-      "comment" : "月のまとめの予算の欄（今月だけ）。今月の支出が今日までの目安とちょうど同じとき",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Right on target through today"
-          }
-        }
-      }
-    },
-    "今日までの目安より %@ 多い" : {
-      "comment" : "月のまとめの予算の欄（今月だけ）。今月の支出が今日までの目安より多いとき。%@ は「¥5,000」のような差額。矢印のアイコンを添える",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ over target through today"
-          }
-        }
-      }
-    },
-    "今日までの目安より %@ 少ない" : {
-      "comment" : "月のまとめの予算の欄（今月だけ）。今月の支出が今日までの目安より少ないとき。%@ は「¥5,000」のような差額。矢印のアイコンを添える",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ under target through today"
-          }
-        }
-      }
-    },
     "今日より先の日付です。予定の記録でなければ、日付を確かめてください。" : {
       "comment" : "直すシートで今日より先の日付を選んだときの注意（保存はできる）",
       "localizations" : {
@@ -3121,6 +3044,17 @@
         }
       }
     },
+    "余った額" : {
+      "comment" : "月のまとめの予算の行の見出し（終わった月で、予算の内だったとき）。予算から使った額を引いた、使わずに済んだ額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Left over"
+          }
+        }
+      }
+    },
     "作ったカテゴリ" : {
       "comment" : "設定の「カテゴリ」の節の見出し。利用者が作ったカテゴリ",
       "localizations" : {
@@ -3155,7 +3089,7 @@
       }
     },
     "使った額" : {
-      "comment" : "月のまとめの予算の行の見出し。その月の予算の対象の支出",
+      "comment" : "月のまとめのいちばん上の見出し。その月の支出の合計",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3646,6 +3580,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Income %@"
+          }
+        }
+      }
+    },
+    "収入 %@・収支 %@" : {
+      "comment" : "月のまとめの使った額の下の小さな 1 行（収入の記録がある月だけ）。1 つめの %@ は「¥250,000」のような収入の合計、2 つめの %@ は「+¥222,000」のような収入と支出の差",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Income %1$@ · Net %2$@"
           }
         }
       }

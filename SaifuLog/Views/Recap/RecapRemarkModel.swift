@@ -29,7 +29,7 @@ final class RecapRemarkModel {
 
     @ObservationIgnored private let makeWriter: () -> (any RecapRemarkWriting)?
     @ObservationIgnored private let aiFallbackLog: AIFallbackLog
-    /// 一言を待つ上限。過ぎたら書き終わるのを待たずに、定型文だけにする（モデルが返らないまま止まっても、書いている印を出し続けないため）。
+    /// 一言を待つ上限。過ぎたら書き終わるのを待たずに、一言を添えない（モデルが返らないまま止まっても、書いている印を出し続けないため）。
     @ObservationIgnored private let remarkTimeout: Duration
     /// いま画面に出している数字の文。
     @ObservationIgnored private var facts: String?
@@ -94,7 +94,7 @@ final class RecapRemarkModel {
             do {
                 sentence = try await withDeadline(remarkTimeout) { try await writer.remark(from: facts) }
             } catch {
-                // 書けなかった（安全のための拒否・文脈の長さの超過・上限の時間までに返らなかったなど）。添えずにおき（定型文だけ）、
+                // 書けなかった（安全のための拒否・文脈の長さの超過・上限の時間までに返らなかったなど）。添えずにおき（数字と文はコードが作るので画面はそのまま）、
                 // 結果は覚えない（決め直したときにまた試す）。取り消した（数字の文が替わった・決め直した）後の失敗は、取り消しによる
                 // ものかもしれないので残さない。
                 guard !Task.isCancelled else { return }

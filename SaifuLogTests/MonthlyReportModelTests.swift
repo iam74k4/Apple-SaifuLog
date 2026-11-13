@@ -98,7 +98,7 @@ struct MonthlyReportModelTests {
         #expect(future.month == Self.month(2026, 9))
     }
 
-    @Test("今月の数字は、その月の記録から出す（前の月との差も）")
+    @Test("今月の数字は、その月の記録から出す（前の月との差は、終わった月にだけ出す）")
     func reportOfCurrentMonth() throws {
         let fixture = try Fixture()
         try fixture.insert(
@@ -113,7 +113,8 @@ struct MonthlyReportModelTests {
         #expect(report.expense == 1_250)
         #expect(report.income == 250_000)
         #expect(report.breakdown.items.map(\.category) == [.food, .cafe])
-        #expect(report.expenseChange == -1_750)
+        // 月の途中で前の月のまる 1 か月と比べると、ほとんどの月で「少ない」になるので出さない。
+        #expect(report.expenseChange == nil)
     }
 
     // MARK: - 月送り
@@ -201,7 +202,6 @@ struct MonthlyReportModelTests {
 
         #expect(model.month == Self.month(2026, 9))
         #expect(model.report?.timing == .past)
-        #expect(model.report?.averagingDays == 30)
         #expect(model.canShowNextMonth)
         model.showNextMonth()
         #expect(model.month == Self.month(2026, 10))
@@ -350,7 +350,6 @@ struct MonthlyReportModelTests {
         let model = fixture.makeModel()
 
         #expect(model.report?.budget == nil)
-        #expect(model.report?.budgetPace == nil)
     }
 
     /// 予算は月ごとに持たないので、いまの額に決める前の月には出さない（§6-1、docs/design.md の ⑦ の決め事）。
@@ -367,13 +366,12 @@ struct MonthlyReportModelTests {
         let budget = try #require(model.report?.budget)
         #expect(budget.spent == 57_000)
         #expect(budget.remaining == 93_000)
-        #expect(model.report?.budgetPace == 140_000)
 
         model.showPreviousMonth()
         #expect(model.report?.budget == nil)
     }
 
-    @Test("予算を前の月より前に決めていれば、前の月にも予算の進みを出す（日割りの目安は今月だけ）")
+    @Test("予算を前の月より前に決めていれば、前の月にも予算の進みを出す")
     func budgetInPastMonth() throws {
         let fixture = try Fixture()
         try fixture.insert(TestSupport.entry(amount: 162_000, spentAt: TestSupport.date(2026, 8, 20)))
@@ -385,12 +383,10 @@ struct MonthlyReportModelTests {
         let budget = try #require(model.report?.budget)
         #expect(budget.isOver)
         #expect(budget.overspent == 12_000)
-        #expect(model.report?.budgetPace == nil)
     }
 
-    /// 払う予定の家賃のように、今月の先の日付で付けた記録（§4-4）。月の支出と予算の使った額には数え（ホームの帯と同じ）、
-    /// 1 日あたりの平均と今日までの目安との比べには数えない。56,000 ÷ 28 = 2,000、56,000 − 140,000 = −84,000。
-    @Test("今月の先の日付の記録は、平均と今日までの目安との比べに数えない")
+    /// 払う予定の家賃のように、今月の先の日付で付けた記録（§4-4）。月の支出と予算の使った額に数える（ホームの帯と同じ）。
+    @Test("今月の先の日付の記録も、月の支出と予算の使った額に数える")
     func futureDatedRecordInCurrentMonth() throws {
         let fixture = try Fixture()
         try fixture.insert(
@@ -403,10 +399,7 @@ struct MonthlyReportModelTests {
 
         #expect(report.expense == 136_000)
         #expect(report.budget?.spent == 136_000)
-        #expect(report.expenseThroughToday == 56_000)
-        #expect(report.dailyAverage == 2_000)
-        #expect(report.budgetPace == 140_000)
-        #expect(report.spentBeyondPace == -84_000)
+        #expect(report.budget?.remaining == 14_000)
     }
 
     @Test("予算を変えたら、変えた月から後にだけ出す（変える前の月には出さない）")

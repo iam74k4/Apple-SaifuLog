@@ -275,17 +275,10 @@ struct SummaryHeader: View {
     }
 }
 
-/// 予算のうち使った割合のバー。主の塗り（墨か白）で塗り、予算を超えたら注意の色で満たす（ホームの帯と月のまとめ）。
-///
-/// 数字（残り・超えた額）は文字で出しているので、バーは目安として添えるだけにし、VoiceOver では読ませない
-/// （割合は帯の要素の「予算」「使った額」や、まとめの行の文字で伝わる）。
-///
-/// `paceFraction` を渡すと、その位置に日割りの目安の印（墨の縦線）を立てる（月のまとめの今月）。印はバーの上下に
-/// はみ出させ、onAccent の色で縁取る。印と塗りは同じ墨（ダークでは白）なので、縁が無いと塗りの上では印が消えるため。
+/// 予算の使った割合のバー（主の塗り。超えたら注意の色）。数字は文字で伝えるので、VoiceOver では読ませない。
 struct BudgetProgressBar: View {
     let fraction: Double
     let isOver: Bool
-    var paceFraction: Double?
 
     @ScaledMetric(relativeTo: .footnote) private var height = 6
 
@@ -301,30 +294,6 @@ struct BudgetProgressBar: View {
             }
             .clipShape(.capsule)
             .frame(height: height)
-            .overlay {
-                if let paceFraction {
-                    GeometryReader { proxy in
-                        let width: CGFloat = 2
-                        let outline: CGFloat = 1
-                        Capsule()
-                            .fill(Theme.ink)
-                            .frame(width: width, height: height * 2.5)
-                            // 塗りの上でも見えるよう、塗りの上の色（onAccent）で縁取る（印と塗りが同じ墨か白のため）。
-                            .padding(outline)
-                            .background(Theme.onAccent, in: .capsule)
-                            // 端でもバーの外に出ないよう、縁を含めた線の幅の分だけ内側に収める。
-                            .position(
-                                x: min(
-                                    max(proxy.size.width * paceFraction, width / 2 + outline),
-                                    proxy.size.width - width / 2 - outline
-                                ),
-                                y: proxy.size.height / 2
-                            )
-                    }
-                }
-            }
-            // 上下にはみ出した印がほかの文字に重ならないよう、はみ出す分の余白を取る。
-            .padding(.vertical, paceFraction == nil ? 0 : height * 0.75)
             .accessibilityHidden(true)
     }
 }

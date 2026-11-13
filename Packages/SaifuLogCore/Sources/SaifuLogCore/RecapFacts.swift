@@ -1,6 +1,7 @@
 import Foundation
 
-/// 月のまとめの数字を、端末内 AI に渡す文にする。
+/// 月のまとめの数字を、端末内 AI に渡す文にする。画面（⑦）に出す数字と同じものだけを書く（画面に無い数字を一言に
+/// 書かせないため）。
 ///
 /// AI にはこの文だけを渡し、励ましか気づきの一言をこの内容から書かせる。モデルの一言に出てよい数字は、この文に書いた
 /// 数字だけ（`AnswerSentenceCheck`。家計への質問の一言と同じ照合）。質問の結果の文（`LedgerAnswerFacts`）と同じく日本語で書き、
@@ -26,7 +27,6 @@ public enum RecapFacts {
             lines.append("収入の合計: \(yen(report.income))")
             lines.append("収支: \(YenFormatter.signedString(from: report.balance))（\(balanceNote(report.balance))）")
         }
-        lines.append("1日あたりの平均の支出: \(yen(report.dailyAverage))（\(report.averagingDays)日で割った額）")
         if let change = report.expenseChange {
             let comparison = change > 0
                 ? "\(yen(change)) 多い" : change < 0 ? "\(yen(-change)) 少ない" : "同じ"
@@ -41,9 +41,6 @@ public enum RecapFacts {
             } else {
                 lines.append("月の予算: \(yen(budget.budget)) のうち \(yen(budget.spent)) を使い、残りは \(yen(budget.remaining))")
             }
-            if let pace = report.budgetPace, let beyond = report.spentBeyondPace {
-                lines.append("今日までの予算の目安: \(yen(pace))（\(paceComparison(beyond))）")
-            }
         }
         return lines.joined(separator: "\n")
     }
@@ -52,15 +49,6 @@ public enum RecapFacts {
     static func categories(_ items: [CategoryBreakdown.Item], catalog: CategoryCatalog = .builtIn) -> String {
         items.map { "\(catalog.name(of: $0.category)) \(YenFormatter.string(from: $0.amount))（\($0.percent)%）" }
             .joined(separator: "、")
-    }
-
-    /// 目安との比べ（目安より多い・少ない・目安どおり）。
-    static func paceComparison(_ beyond: Int) -> String {
-        switch beyond {
-        case 1...: "目安より \(YenFormatter.string(from: beyond)) 多い"
-        case ..<0: "目安より \(YenFormatter.string(from: -beyond)) 少ない"
-        default: "目安どおり"
-        }
     }
 
     /// 収支の向きの注記（質問の結果の文と同じ言葉。照合が一言の向きと比べる）。

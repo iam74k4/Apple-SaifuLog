@@ -17,7 +17,7 @@ import SwiftData
 final class MonthlyReportModel {
     /// 表示している月（終わりの時刻は含まない）。月は `ReportPeriod`（ホームの今月と同じ、利用者が選んだ暦の月）で区切る。
     private(set) var month: DateInterval
-    /// 今日。今月より先へ進めないことと、今月かどうか（平均の日数・日割りの目安）の基準。
+    /// 今日。今月より先へ進めないことと、今月かどうか（予算の残りの日数）の基準。
     private(set) var today: Date
     /// 表示している月の数字。読み込めなかったときは nil。
     private(set) var report: MonthlyReport?
@@ -31,7 +31,7 @@ final class MonthlyReportModel {
     var selectedCategory: EntryCategory?
     /// 「直す」のシートで直している記録の状態と操作。シートを閉じると画面が nil に戻す。
     var editing: EditEntryModel?
-    /// まとめの先頭に添える AI の一言（AI が使える端末だけ）。
+    /// 使った額の下に添える AI の一言（AI が使える端末だけ）。
     let remark: RecapRemarkModel
     #if DEBUG
     /// まとめを下の端（カテゴリ別のグラフと金額の行）まで送るか。撮影用のデモ（`ScreenshotDemo`）が、月のまとめの
@@ -52,7 +52,8 @@ final class MonthlyReportModel {
     ///   - calendar: 月の区切りの暦。ホームと同じ暦を渡す（ホームの今月の合計と同じ月でまとめるため）。
     ///   - month: 開く月に入る日時（質問の回答カードから先月を開くときなど）。nil なら今月。今月より先の月は今月にする
     ///     （月送りで今月より先へ進めないのと同じ）。
-    ///   - remark: AI の一言の状態と書かせ方。渡さなければ一言を添えない（テストとプレビュー用）。
+    ///   - remark: AI の一言の状態と書かせ方。渡さなければ一言を添えない（テストとプレビュー用）。ホームは 1 つを持ち続けて
+    ///     毎回渡す（開き直すたびに作ると、書いた結果を覚えておけず、同じ月でも毎回 AI を呼ぶため）。
     ///   - now: 今日の基準。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     ///   - didSave: ここから開いた「直す」で保存できたあとに呼ぶ（ホームが「取り消す」を片づける）。
@@ -159,7 +160,7 @@ final class MonthlyReportModel {
         }
     }
 
-    /// 「今日」を読み直す。前面に戻ったときと、日付が変わったときに呼ぶ（今月かどうかと平均の日数が変わるため）。
+    /// 「今日」を読み直す。前面に戻ったときと、日付が変わったときに呼ぶ（今月かどうかと予算の残りの日数が変わるため）。
     /// 表示している月はそのまま（見ている月が黙って替わらないように）。
     func refreshToday() {
         today = now()
@@ -183,7 +184,15 @@ final class MonthlyReportModel {
     }
 
     /// 一覧の記録から「直す」のシートを出す。直したり消したりしたら読み直す（数字と一覧をすぐ合わせるため）。
+    ///
+    /// ほかの端末（iCloud）で消された記録なら開かずに読み直す（シートは開いた時点の記録の値を読むので、消えた記録の値を
+    /// 読むとアプリが落ちうるため。カレンダーの一覧と同じ）。削除の確認と読み上げに作ったカテゴリの名前を使うよう、
+    /// カテゴリの一覧を渡す（渡さないと、作ったカテゴリが「その他」と読まれる）。
     func presentEdit(_ entry: Entry) {
+        guard store.exists(entry.persistentModelID) else {
+            reload()
+            return
+        }
         editing = EditEntryModel(
             entry: entry,
             store: store,
@@ -197,23 +206,9 @@ final class MonthlyReportModel {
             didDelete: { [weak self] id in
                 self?.reload()
                 self?.didDelete(id)
-            }
+            },
+            catalog: (try? CustomCategoryStore(context: store.context).catalog()) ?? .builtIn
         )
-    }
-}
-
-/// カテゴリの記録の一覧（`CategoryEntriesView`）に、この月の記録を出す。
-extension MonthlyReportModel: CategoryEntriesSource {
-    var periodTitle: String {
-        monthTitle
-    }
-
-    var emptyEntriesText: LocalizedStringResource {
-        "この月の記録はありません"
-    }
-
-    func breakdownItem(for category: EntryCategory) -> CategoryBreakdown.Item? {
-        report?.breakdown.item(for: category)
     }
 }
 

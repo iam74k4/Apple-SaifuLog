@@ -96,6 +96,9 @@ final class HomeModel {
     private(set) var inputFocusRequest = 0
     /// 「月のまとめ」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
     var monthlyReport: MonthlyReportModel?
+    /// 月のまとめの AI の一言。月のまとめを開き直しても同じものを使う（書いた一言を月の数字ごとに覚えておき、数字の
+    /// 変わらない月で AI を呼び直さないため）。初めて開いたときに作る。
+    @ObservationIgnored private var monthlyRemark: RecapRemarkModel?
     /// 「設定」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
     var settings: SettingsModel? {
         didSet {
@@ -1403,11 +1406,13 @@ final class HomeModel {
     ///   - calendar: 月の区切りの暦（ホームの画面の暦。帯の今月と同じ月でまとめるため）。
     ///   - month: 開く月に入る日時（質問の回答カードから先月を開くとき）。nil なら今月。
     func presentMonthlyReport(calendar: Calendar, month: Date? = nil) {
+        let remark = monthlyRemark ?? RecapRemarkModel(makeWriter: makeRemarkWriter)
+        monthlyRemark = remark
         monthlyReport = MonthlyReportModel(
             store: store,
             calendar: calendar,
             month: month,
-            remark: RecapRemarkModel(makeWriter: makeRemarkWriter),
+            remark: remark,
             now: now,
             announce: announce,
             didSave: { [weak self] entry in self?.finishEditing(entry) },
