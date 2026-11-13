@@ -17,8 +17,6 @@
 - **セキュリティやプライバシーに関わる問題、公開の場に書けないご相談:** Issues ではなく、GitHub の非公開の報告窓口
   （リポジトリの Security タブの「Report a vulnerability」）からお知らせください。内容は開発者とご本人だけが見られます。
   https://github.com/iam74k4/Apple-SaifuLog/security/advisories/new
-- **購入の返金:** 購入と支払いは Apple の App Store が扱っており、開発者は返金の手続きができません。Apple の「問題を報告する」
-  （https://reportaproblem.apple.com ）からお申し込みください。
 
 ### よくある質問
 
@@ -34,12 +32,8 @@
 **カメラを許可しなかったので、レシートを撮れません。**
 iPhone の「設定」→「サイフログ」で、カメラの許可を変えられます。写真から選ぶときは、写真のライブラリの許可は要りません。
 
-**機種を変えたら、プレミアムが使えなくなりました。**
-設定の画面か、プレミアムの画面の「購入の復元」を押してください。購入したときと同じ Apple アカウントでサインインしている必要があります。
-
-**14 日間の無料体験が終わったら、料金がかかりますか？**
-かかりません。体験は 0 円で、終わっても自動で課金されることはありません。続けて使うときだけ、プレミアム（買い切り）を購入してください。
-体験が終わっても、記録と決めた予算は消えません。
+**料金はかかりますか？**
+かかりません。すべての機能を無料で、回数の制限なく使えます。広告とアプリ内課金もありません。
 
 **記録をほかの iPhone でも見たいです。**
 設定の「iCloud で同期」をオンにすると、同じ Apple アカウントの iPhone どうしで記録と予算をそろえます（既定はオフ）。
@@ -66,8 +60,6 @@ https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md
 - **Security or privacy issues, or anything you can't post publicly:** Please use GitHub's private reporting channel instead of Issues
   ("Report a vulnerability" on the repository's Security tab). Only the developer and you can see it.
   https://github.com/iam74k4/Apple-SaifuLog/security/advisories/new
-- **Refunds:** Purchases and payments are handled by Apple's App Store, and the developer can't issue refunds. Please request one
-  from Apple's Report a Problem page (https://reportaproblem.apple.com ).
 
 ### Frequently asked questions
 
@@ -83,12 +75,8 @@ microphone button from earlier versions has been removed.
 **I didn't allow the camera, so I can't photograph receipts.**
 You can change camera access in the iPhone Settings app under SaifuLog. Choosing a photo doesn't require photo library access.
 
-**Premium stopped working after I changed iPhones.**
-Tap Restore Purchases in Settings or on the Premium screen, signed in to the same Apple Account you purchased with.
-
-**Will I be charged when the 14-day free trial ends?**
-No. The trial is free and never charges you automatically. Buy Premium (a one-time purchase) only if you want to keep using it. Your
-records and budgets stay when the trial ends.
+**Does it cost anything?**
+No. Every feature is free, with no usage limits. There are no ads and no in-app purchases.
 
 **I want to see my records on another iPhone.**
 Turn on Sync with iCloud in Settings to keep records and budgets the same on iPhone devices signed in to the same Apple Account (off by

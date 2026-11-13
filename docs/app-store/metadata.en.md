@@ -15,7 +15,7 @@ App Store Connect の「英語（米国）」のローカライズに入れる�
 | アプリ名 | 30 文字 | 8 文字 |
 | サブタイトル | 30 文字 | 18 文字 |
 | プロモーション用テキスト | 170 文字 | 152 文字 |
-| 説明 | 4,000 文字 | 3,712 文字（改行を含む） |
+| 説明 | 4,000 文字 | 3,452 文字（改行を含む） |
 | キーワード | 100 バイト | 89 バイト |
 | 著作権 | — | 14 文字 |
 
@@ -60,11 +60,12 @@ ONE-LINE ENTRY
 • Splits, totals, and what’s left are calculated by the app, not by the AI.
 • Edit or Undo right after each entry; touch and hold to delete.
 • If a category is unclear, the reply asks and remembers. Create your own categories such as rent or clothing.
+• On iPhone models that support Apple Intelligence, replies include a short on-device AI note about your month (numbers calculated by the app).
 
 CATEGORIES AND CHAT FIXES
 • Categories come from what you wrote, chose, or logged before, and store names like “ローソン.”
 • On iPhone models that support Apple Intelligence, on-device AI sorts unknown items, including into categories you created.
-• After an entry, send “それ日用品” (that’s daily goods), “さっきのを900に直して” (make it 900), or “さっきの消して” (delete it). “今月の予算を5万にして” sets the budget.
+• After an entry, send “それ日用品” (that’s daily goods), “さっきのを900に直して” (make it 900), or “さっきの消して” (delete it). “今月の予算を5万にして” sets the budget. When on-device AI reads a fix worded another way, SaifuLog asks before changing anything.
 
 AUTOMATIC MONTHLY ENTRIES
 • Rent, subscriptions, or salary can be recorded automatically each month.
@@ -81,7 +82,7 @@ QUESTIONS ABOUT YOUR SPENDING
 BUDGET, CALENDAR, AND SUMMARY
 • The top of the home screen shows what you’ve spent this month and, with a monthly budget, what’s left.
 • Swipe left for a calendar of what you spent each day. Tap a day to see and edit its entries.
-• The monthly summary shows spending, income, balance, daily average, budget progress, and spending by category.
+• The monthly summary shows what you spent, what’s left of your budget, spending by category, and, for past months, the change from the month before. With Apple Intelligence, it adds a short AI note.
 
 EXPORT, SYNC, AND PRIVACY
 • Export your records as a CSV file.
@@ -90,10 +91,7 @@ EXPORT, SYNC, AND PRIVACY
 • No analytics, no ads, no tracking. The developer receives no data from the app.
 
 PRICING
-• Free to download, with no ads. One-line entry (including AI reading), automatic categories, chat fixes, recurring entries, Siri, budgets, the calendar, summaries, CSV export, and iCloud sync are free with no limits.
-• Free includes 5 receipt scans a month (only scans you record count) and 10 questions a month.
-• Premium is a one-time purchase of ¥1,800 in Japan, not a subscription. It removes the limits on receipts and questions and adds a short on-device AI note to your monthly summary (on iPhone models that support Apple Intelligence). Family Sharing is supported.
-• Try Premium free for 14 days (once per Apple Account). You won’t be charged when the trial ends.
+• Free, with no ads and no in-app purchases. Every feature above works with no usage limits.
 
 REQUIREMENTS
 • iPhone with iOS 26 or later.
@@ -104,13 +102,10 @@ Privacy Policy: https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md
 ```
 
 - **予算は月の全体の 1 つだけ:** カテゴリ別の予算はやめた（2026-11-13）。カテゴリごとに予算を決められるようには書かない（日本語と同じ）。
-- **字数:** 機能を足したときに上限を超えたので、各節を短くまとめた（2026-10-01。カレンダーを足した 2026-10-02 と、チャットでの直しを足した 2026-11-13 にも詰めた。同じ日に声の入力・週のふりかえりなどを外して、残りは 288 文字）。足すときは、ほかの節を詰めて 4,000 文字に収める。
-- **価格:** 「¥1,800 in Japan」と国を添える。配信は日本だけにした（`../release-flow.md` の「一度だけの準備」の 5）。ほかの国や地域にも出すなら、
-  価格はその国の App Store の表示になるので、この行を見直す（アプリは円だけを扱う。円以外の通貨は `docs/design.md` §13 で未決）。
+- **字数:** 機能を足したときに上限を超えたので、各節を短くまとめた（2026-10-01。カレンダーを足した 2026-10-02 と、チャットでの直しを足した 2026-11-13 にも詰めた。同じ日に声の入力・週のふりかえり・プレミアムなどを外した）。足すときは、ほかの節を詰めて 4,000 文字に収める。
+- **料金:** すべて無料で、App 内課金は無い（2026-11-13 にプレミアムと 14 日間の体験をやめた。`docs/design.md` §6）。配信は日本だけ
+  （`../release-flow.md` の「一度だけの準備」の 5。アプリは円だけを扱う。円以外の通貨は `docs/design.md` §13 で未決）。
 - **例文:** 入力の例は日本語のまま書き、意味を英語で括弧に添える（アプリの画面の例も日本語のまま出している）。
-- **体験の名前:** 説明の文では「Try Premium free for 14 days」と書く。課金アイテムそのものの英語の表示名（App Store の購入の確認に
-  出る名前）は、ガイドライン 3.1.1 の形の「14-day Trial」で、説明とは別に App Store Connect の課金アイテムの英語のローカライズに入れる
-  （`Config/SaifuLog.storekit` と同じ。[`review-notes.md`](review-notes.md) の「課金アイテムの審査メモ」。App Store Connect に入力済み）。
 
 ## キーワード
 
@@ -127,10 +122,10 @@ expense,spending,tracker,receipt,money,yen,japanese,chat,private,cash,diary,spli
 
 ## スクリーンショット
 
-`docs/app-store/screenshots/en/` の 6.9 インチ（1320 × 2868）の画像。順と使い道は日本語と同じ（`01`〜`04` をストアに、
-`05-premium.png` と `06-trial.png` は課金アイテムの審査用）。日本語と同じく、いまの画像は声の入力と週のふりかえりを
+`docs/app-store/screenshots/en/` の 6.9 インチ（1320 × 2868）の画像。順と使い道は日本語と同じ（`01`〜`04` をストアに。
+`05-calendar.png` はまだ入れない）。日本語と同じく、いまの画像は声の入力・週のふりかえり・プレミアムを
 やめる前に撮ったもので、撮り直すまで App Store Connect に入れない（[`metadata.ja.md`](metadata.ja.md) の「スクリーンショット」）。
 
 英語の画面でも、記録の品目・質問・レシートの品名は日本語で写る（アプリは日本語の入力を読むため。説明の最初に書いている）。
-英語の画面では、質問の答えと月のまとめの **AI の一言を写していない**（端末内 AI は一言を日本語で書くので、英語の画面に
+英語の画面では、記録の返事・質問の答え・月のまとめの **AI の一言を写していない**（端末内 AI は一言を日本語で書くので、英語の画面に
 日本語の文が混ざる。AI の使えない端末と同じく一言の無い形にした）。

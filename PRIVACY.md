@@ -73,7 +73,6 @@ Apple Intelligence を使えない端末では、端末内のキーワード辞�
 使えない端末では端末内のキーワード辞書を用います。**質問の文や記録、計算した答えを外部へ送信することはありません。**
 
 質問と答えは記録として保存せず、アプリを起動している間だけアプリのメモリの中に置きます（アプリを開き直すと消えます）。
-無料で質問した回数（月ごとの回数）だけを、下の「保存される設定」に保存します。
 
 ### 記録の返事の一言
 
@@ -84,8 +83,8 @@ Apple Intelligence を使えない端末では、端末内のキーワード辞�
 
 ### 月のまとめ
 
-月のまとめの数字（支出・収入・収支・前の月との差・カテゴリ別の内訳・予算の進み）は、本アプリがお使いの iPhone の中の記録から
-計算します。プレミアムと無料体験の間は、計算した数字を並べた文を Foundation Models に渡して一言を書かせますが、この処理もお使いの
+月のまとめの数字（使った額・収入・収支・前の月との差・カテゴリ別の内訳・予算の残り）は、本アプリがお使いの iPhone の中の記録から
+計算します。Apple Intelligence を使える端末では、計算した数字を並べた文を Foundation Models に渡して一言を書かせますが、この処理もお使いの
 iPhone の上で行います。**記録や計算した数字、一言を外部へ送信することはありません。** 一言は保存せず、アプリを起動している
 間だけアプリのメモリの中に置きます。
 
@@ -177,21 +176,6 @@ iOS の共有の画面に渡され、**利用者が選んだ共有先（アプ�
 - 同期をオンのまま iCloud からサインアウトすると、同期した記録がその端末から見えなくなることがあります（iCloud には残ります）。
   サインアウトする前に、本アプリの設定で同期をオフにしてください。
 
-### 購入の取り扱い
-
-プレミアムの購入、14日間の無料体験（価格 0 円の App 内課金）、購入の復元は、Apple の App Store の仕組み
-（StoreKit）が扱います。支払いの方法やお支払いの情報を、開発者が受け取ることはありません。
-
-本アプリは、プレミアムを使えるかを決めるために、Apple の仕組みがお使いの iPhone に持っている購入の記録
-（どの商品を買ったか、買った日時、ファミリー共有によるものか、返金などで取り消されたか）を端末上で読みます。
-無料体験の残りの日数も、この記録（体験を始めた日時）から端末上で計算します。**これらの購入の情報を、本アプリが
-開発者や第三者へ送信することはなく、本アプリの中にも保存しません**（使えるかどうかは、そのつど Apple の仕組みから読み直します）。
-購入の記録そのものは Apple が管理し、その取り扱いには Apple のプライバシーポリシーが適用されます。
-
-「購入の復元」を押したときは、Apple の App Store と購入の記録を同期します。このとき、Apple アカウントの
-確認を求められることがあります。なお、Apple は開発者に売上の集計を提供しますが、購入者の氏名や連絡先、
-支払いの情報は含まれません。
-
 ### アプリのロック（任意）
 
 設定の「Face ID でロック」（Face ID の無い端末では Touch ID かパスコード）は、既定ではオフです。オンにすると、本アプリを開くときに
@@ -201,20 +185,17 @@ iOS の共有の画面に渡され、**利用者が選んだ共有先（アプ�
 
 ### 保存される設定
 
-初回の案内を終えたかどうか、週の始まり（日曜か月曜か）、iCloud で同期するかどうか、アプリのロックをオンにしているかどうか、無料体験が終わったときの案内を出したかどうか、家計への質問を
-無料で使った回数（月ごとの回数。質問の文や答えは含みません）、レシートの読み取りを無料で使った回数（月ごとの回数。画像や読み取った内容は含みません）といったアプリの設定は、
+初回の案内を終えたかどうか、iCloud で同期するかどうか、アプリのロックをオンにしているかどうかといったアプリの設定は、
 iOS の標準的な仕組み（UserDefaults）を用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存します。ただし、iCloud で同期するか
 どうかとアプリのロックをオンにしているかどうかの 2 つは、本アプリが iPhone のロック中に裏で動くとき（iCloud の変更の知らせを受けたときなど）にも
 正しく読めるよう、同じ領域の小さな設定のファイルに、iPhone を起動して最初にロックを解いた後から読める保護で保存します。
 これらを外部に送信することはありません。予算の金額は設定ではなく、上の家計の記録と同じ場所に保存します。
-購入したかどうかは設定には保存しません（上の「購入の取り扱い」）。
 
 ### 設定の画面から開くページ
 
-設定の画面の「ヘルプ・お問い合わせ」「プライバシーポリシー」「ライセンス」は、Safari で GitHub のページ（サポートのページ、
-このポリシー、ライセンスの文書）を開きます。開いたページの閲覧には、GitHub のプライバシーポリシーが適用されます。
-プレミアムの画面の「利用規約（Apple の標準 EULA）」は、Safari で Apple のページを開き、その閲覧には Apple の
-プライバシーポリシーが適用されます。本アプリが記録や設定をそれらのページへ送ることはありません。
+設定の画面の「ヘルプ・お問い合わせ」「プライバシーポリシー」は、Safari で GitHub のページ（サポートのページと
+このポリシー）を開きます。開いたページの閲覧には、GitHub のプライバシーポリシーが適用されます。
+本アプリが記録や設定をそれらのページへ送ることはありません。
 
 ### アプリの削除
 
@@ -312,8 +293,7 @@ with an on-device keyword dictionary otherwise. **Your question, your records, a
 anywhere.**
 
 Questions and answers are not saved as records. They are kept only in the app's memory while the app is running and disappear
-when you reopen the app. Only the number of free questions you have used (counted per month) is stored, as described in
-Settings We Store below.
+when you reopen the app.
 
 ### The Note in a Reply to an Entry
 
@@ -325,8 +305,8 @@ anywhere.** The note is not saved; it is kept only in the app's memory while the
 
 ### The Monthly Summary
 
-The numbers in the monthly summary (spending, income, net, the difference from the month before, spending by category, and budget
-progress) are calculated by the app from the records on your own iPhone. While you have Premium or the free trial, the app passes a
+The numbers in the monthly summary (spending, income, net, the difference from the month before, spending by category, and the
+remaining budget) are calculated by the app from the records on your own iPhone. On devices where Apple Intelligence is available, the app passes a
 text listing the calculated numbers to Apple's Foundation Models framework to write a short note; this also happens on your own
 iPhone. **Your records, the calculated numbers, and the note are never sent anywhere.** The note is not saved; it is kept only in
 the app's memory while the app is running.
@@ -433,24 +413,6 @@ already on your device when you turn it on are saved to iCloud as well. This is 
 - If you sign out of iCloud while sync is on, synced records may disappear from that device (they stay in iCloud). Turn off
   sync in the app's Settings before you sign out.
 
-### Purchases
-
-Purchases of Premium, the 14-day free trial (an in-app purchase priced at 0 yen), and Restore
-Purchases are handled by Apple's App Store system (StoreKit). The developer never receives your
-payment method or payment information.
-
-To decide whether you can use Premium, the app reads, on your device, the purchase records that
-Apple's system keeps on your iPhone (which item was bought, when, whether it comes through Family
-Sharing, and whether it was revoked, for example by a refund). The days left in the free trial are
-also calculated on your device from these records (the date and time you started the trial). **The
-app never sends this purchase information to the developer or any third party, and does not store
-it in the app** (it reads it again from Apple's system each time). The purchase records themselves
-are managed by Apple and covered by Apple's privacy policy.
-
-When you tap Restore Purchases, the app syncs your purchase records with Apple's App Store, which may
-ask you to confirm your Apple Account. Apple provides the developer with aggregated sales reports,
-which do not include buyers' names, contact details, or payment information.
-
 ### App Lock (Optional)
 
 Lock with Face ID in Settings (Touch ID or your passcode on devices without Face ID) is off by default. When it is on, the app
@@ -460,23 +422,18 @@ fingerprint data or your passcode.** Only whether app lock is on is stored, as d
 
 ### Settings We Store
 
-App settings, such as whether you have finished the first-launch introduction, which day your
-week starts on, whether to sync with iCloud, whether app lock is on, whether the notice at the end of the free trial has been shown, and the number of free
-questions about your spending you have used (counted per month; your questions and answers are not
-included), and the number of free receipt scans you have used
-(counted per month; no images or scanned contents), are stored only on your own iPhone, in an area reserved for this app, using the
+App settings, such as whether you have finished the first-launch introduction, whether to sync with iCloud, and whether app lock
+is on, are stored only on your own iPhone, in an area reserved for this app, using the
 standard iOS mechanism (UserDefaults). The two settings for iCloud sync and app lock are instead kept in a small settings file in the same
 area, using protection that makes it readable after you first unlock your iPhone following a restart, so they are read correctly even when
 the app runs in the background while your iPhone is locked (for example, when notified of iCloud changes). They are never transmitted
 anywhere. Your budget amount is not a setting; it is stored in the same place as your records,
-described above. Whether you have purchased Premium is not stored as a setting (see Purchases above).
+described above.
 
 ### Pages Opened from Settings
 
-Help & Contact, Privacy Policy, and License in Settings open pages on GitHub (the support page, this policy, and the license
-document) in Safari. Your visit to those pages is covered by GitHub's privacy policy. Terms of Use
-(Apple's Standard EULA) on the Premium screen opens a page on Apple's website in Safari, covered by
-Apple's privacy policy. The app does not send your records or settings to those pages.
+Help & Contact and Privacy Policy in Settings open pages on GitHub (the support page and this policy) in Safari. Your visit
+to those pages is covered by GitHub's privacy policy. The app does not send your records or settings to those pages.
 
 ### Deleting the App
 
