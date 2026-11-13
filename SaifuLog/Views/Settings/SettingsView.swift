@@ -3,13 +3,13 @@ import SwiftUI
 
 /// ⑧ 設定。必要なときだけ開く画面。ホームの帯の右上の歯車から横に進む。
 ///
-/// プレミアム（「サイフログ プレミアム」の行で ⑨ のシートを開く・購入の復元）、月の予算（② のシートを開く）、週の始まり、iCloud で同期（既定はオフ）、
-/// 家族と共有（家計の共有が有効なビルドだけ）、記録の CSV 書き出し、このアプリについて（プライバシーポリシー・ライセンス・版）を並べる。
+/// 月の予算（② のシートを開く）、週の始まり、iCloud で同期（既定はオフ）、記録の CSV 書き出し、
+/// このアプリについて（プライバシーポリシー・ライセンス・版）を並べる。
 ///
 /// 状態と操作は `SettingsModel` が持つ。ここは表示と、共有のシート・アラートの出し入れだけ。
 /// 押せる行の名前は墨にし、操作のボタン（「CSV ファイルを書き出す」）だけ、ほかの画面のボタンと同じ tint（AccentColor。
 /// §7 のとおり、墨か白の文字）にする。どの行にも頭の印（`SettingsRowIcon`）を付け、行を目で探しやすくする。塗りの主ボタンは
-/// 置かない（主の塗りは「サイフログ プレミアム」の行の印にだけ使う）。
+/// 置かない。
 struct SettingsView: View {
     @Bindable var model: SettingsModel
 
@@ -20,7 +20,6 @@ struct SettingsView: View {
 
     var body: some View {
         List {
-            premiumSection
             budgetSection
             learningSection
             recurringSection
@@ -45,9 +44,6 @@ struct SettingsView: View {
         .sheet(item: $model.budgetSetup, onDismiss: { model.reloadBudget() }) { budgetSetup in
             BudgetSetupSheet(model: budgetSetup)
         }
-        .sheet(item: $model.premiumSheet) { premium in
-            PremiumSheet(model: premium)
-        }
         .alert(
             alertTitle,
             isPresented: showsExportAlert,
@@ -56,16 +52,6 @@ struct SettingsView: View {
             Button("OK", role: .cancel) {}
         } message: { alert in
             alertMessage(alert)
-        }
-        // 購入の復元の結果（ホームと同じく、同じ画面に種類ごとのアラートを付ける）。
-        .alert(
-            model.purchaseAlert?.title ?? Text(verbatim: ""),
-            isPresented: showsPurchaseAlert,
-            presenting: model.purchaseAlert
-        ) { _ in
-            Button("OK", role: .cancel) {}
-        } message: { alert in
-            alert.message
         }
         // iCloud 同期を切り替える前の説明。切り替えると記録を開き直す（この画面も作り直される）ので、何が起きるかを先に伝える。
         .alert(
@@ -121,75 +107,6 @@ struct SettingsView: View {
             model.recurringList.reload()
             model.learnedCategories.reload()
         }
-    }
-
-    // MARK: - プレミアム
-
-    private var premiumSection: some View {
-        Section {
-            Button {
-                model.presentPremium()
-            } label: {
-                Label {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("サイフログ プレミアム")
-                            .foregroundStyle(Theme.ink)
-                        premiumRowDetail
-                            .font(.subheadline)
-                    }
-                    .padding(.vertical, 4)
-                } icon: {
-                    SettingsRowIcon(symbolName: "sparkles", fill: Theme.accentFill, symbol: Theme.onAccent)
-                }
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                .contentShape(.rect)
-            }
-            .accessibilityHint("プレミアムでできることと購入の画面を開きます")
-            .listRowBackground(Theme.surface)
-            Button {
-                model.restorePurchases()
-            } label: {
-                HStack(spacing: 12) {
-                    Label {
-                        Text("購入の復元")
-                    } icon: {
-                        SettingsRowIcon(symbolName: "arrow.clockwise", fill: SettingsRowIcon.gray)
-                    }
-                    Spacer(minLength: 0)
-                    if model.purchases.isRestoring {
-                        ProgressView()
-                            .accessibilityHidden(true)
-                    }
-                }
-                .frame(minHeight: 44)
-                .contentShape(.rect)
-            }
-            .disabled(model.purchases.isRestoring || model.purchases.isPurchasing)
-            .accessibilityHint("この Apple アカウントで購入したプレミアムを読み込みます")
-            .listRowBackground(Theme.surface)
-        } header: {
-            sectionHeader("プレミアム")
-        } footer: {
-            sectionFooter("購入は Apple アカウントに記録されます。機種を変えたときなどにプレミアムが使えなければ、「購入の復元」をお試しください。")
-        }
-    }
-
-    /// プレミアムの行の 2 行目（補足の文字の色）。まだ体験していなければ体験を勧め（0 円で全部を試せることが、いちばんの案内に
-    /// なるため。体験の商品を売り場に出せないときは勧めない。`PurchaseManager.offersTrial`）、体験中は残りの日数、体験の後は
-    /// 買い切りで増えること、購入済みは購入の形を出す。
-    private var premiumRowDetail: Text {
-        let text = switch model.purchases.status {
-        case .free where model.purchases.offersTrial: Text("14日間 無料で試せます")
-        case .free, .trialEnded: Text("買い切りで、レシートと質問が無制限に")
-        case .trial(let days, _): Text("体験中 あと \(days) 日")
-        case .premium(.purchased): Text("購入済み")
-        case .premium(.familyShared): Text("ファミリー共有")
-        }
-        return text.foregroundStyle(Theme.inkSecondary)
-    }
-
-    private var showsPurchaseAlert: Binding<Bool> {
-        Binding(get: { model.purchaseAlert != nil }, set: { if !$0 { model.purchaseAlert = nil } })
     }
 
     // MARK: - 予算
@@ -723,18 +640,17 @@ private struct SettingsPickerRow<Value: Hashable, Options: View>: View {
 /// 設定の行の頭の印（iOS の設定 App と同じ、色の付いた角丸の四角に記号）。行を目で探しやすくするための飾りなので読ませない。
 ///
 /// 塗りはライトとダークで同じ濃い色にし、白い記号を載せる（カテゴリの丸と同じく、白い記号に 4:1 以上の濃さの色。
-/// `Palette.category` のライトの値を使う）。プレミアムの行だけ主の塗り（墨か白）に onAccent の記号にする（ほかの行と見分けるため）。
+/// `Palette.category` のライトの値を使う）。
 struct SettingsRowIcon: View {
     let symbolName: String
     let fill: Color
-    var symbol: Color = .white
 
     @ScaledMetric(relativeTo: .body) private var size = 29
 
     var body: some View {
         Image(systemName: symbolName)
             .font(.system(size: size * 0.5, weight: .semibold))
-            .foregroundStyle(symbol)
+            .foregroundStyle(.white)
             .frame(width: size, height: size)
             .background(fill, in: .rect(cornerRadius: size * 0.24))
             .accessibilityHidden(true)
@@ -750,8 +666,6 @@ struct SettingsRowIcon: View {
     static let purple = fixed(Palette.category(.entertainment).light)
     static let teal = fixed(Palette.category(.utilities).light)
     static let gray = fixed(Palette.category(.other).light)
-    /// 家族と共有の行（柿。作ったカテゴリに選べる色と同じ値）。
-    static let orange = fixed(Palette.customCategoryChoices[3].light)
 }
 
 #Preview {

@@ -4,9 +4,8 @@ import SaifuLogCore
 
 /// 月のまとめに添える、端末内 AI の一言の状態と書かせ方。
 ///
-/// 一言を添えるのは、プレミアムと体験中で、AI が使える端末のときだけ。無料と AI の使えない端末（プレミアムでも）は、何も
-/// 添えない（画面はコードで作る文と数字だけ）。一言は数字の文（`RecapFacts`）と突き合わせ、文に無い数字があれば捨てる
-/// （`RecapRemark.checked`）。
+/// 一言を添えるのは、AI が使える端末のときだけ。AI の使えない端末は何も添えない（画面はコードで作る文と数字だけ）。
+/// 一言は数字の文（`RecapFacts`）と突き合わせ、文に無い数字があれば捨てる（`RecapRemark.checked`）。
 ///
 /// 数字の文が同じなら書き直さない（同じ月を開き直すたび・記録が保存されて読み直すたびに AI を呼ばないため）。書いた結果は
 /// 数字の文ごとに少しだけ覚えておき、月送りで行き来しても書き直さない。
@@ -15,7 +14,7 @@ import SaifuLogCore
 final class RecapRemarkModel {
     /// 一言の状態。
     enum State: Equatable {
-        /// 添えない（無料・AI が使えない・照合で捨てた・書けなかった・数字の文が無い）。
+        /// 添えない（AI が使えない・照合で捨てた・書けなかった・数字の文が無い）。
         case none
         /// 書いている（画面は進行中の印を出す）。
         case writing
@@ -28,7 +27,6 @@ final class RecapRemarkModel {
     /// 覚えておく結果の数。月送りで行き来する分くらいで足りる。
     static let cacheLimit = 12
 
-    @ObservationIgnored private let purchases: PurchaseManager?
     @ObservationIgnored private let makeWriter: () -> (any RecapRemarkWriting)?
     @ObservationIgnored private let aiFallbackLog: AIFallbackLog
     /// 一言を待つ上限。過ぎたら書き終わるのを待たずに、定型文だけにする（モデルが返らないまま止まっても、書いている印を出し続けないため）。
@@ -42,17 +40,14 @@ final class RecapRemarkModel {
     @ObservationIgnored private var task: Task<Void, Never>?
 
     /// - Parameters:
-    ///   - purchases: プレミアムの状態。nil なら一言を添えない（無料と同じ）。
     ///   - makeWriter: 一言を書くもの。書くたびに選ぶ（AI の使える・使えないは途中から変わるため）。AI が使えなければ nil を返す。
     ///   - aiFallbackLog: 書けなかったときの失敗を残す先（利用者には知らせず、ログと診断画面にだけ出す）。テストで別の記録を渡す。
     ///   - remarkTimeout: 一言を待つ上限。テストで短くする（アプリは `AITimeouts.recapRemark`）。
     init(
-        purchases: PurchaseManager?,
         makeWriter: @escaping () -> (any RecapRemarkWriting)? = { RecapRemarkWriterFactory.makeWriter() },
         aiFallbackLog: AIFallbackLog = .shared,
         remarkTimeout: Duration = AITimeouts.recapRemark
     ) {
-        self.purchases = purchases
         self.makeWriter = makeWriter
         self.aiFallbackLog = aiFallbackLog
         self.remarkTimeout = remarkTimeout
@@ -71,7 +66,7 @@ final class RecapRemarkModel {
         task
     }
 
-    /// プレミアムの状態や AI の使える・使えないが変わったかもしれないときに、同じ数字の文で決め直す（体験を始めた・買った・返金された）。
+    /// AI の使える・使えないが変わったかもしれないときや、書けなかった後に、同じ数字の文で決め直す。
     @discardableResult
     func refresh() -> Task<Void, Never>? {
         write()
@@ -79,18 +74,14 @@ final class RecapRemarkModel {
 
     private func write() -> Task<Void, Never>? {
         task?.cancel()
-        guard let facts, let purchases else {
+        guard let facts else {
             state = .none
             task = nil
             return nil
         }
         let task = Task { [weak self] in
-            // 購入の事実を読み終える前は、プレミアムでも無料に見えるので、読み終えてから決める（家計への質問と同じ）。
-            if !purchases.hasLoadedPurchases {
-                await purchases.refreshPurchases()
-            }
             guard let self, !Task.isCancelled, self.facts == facts else { return }
-            guard purchases.status.unlocksPremium, let writer = makeWriter() else {
+            guard let writer = makeWriter() else {
                 state = .none
                 return
             }

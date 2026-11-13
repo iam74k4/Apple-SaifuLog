@@ -48,7 +48,7 @@ jobs:
     # CI だけが落ちる。xcode-27 が GA でラベルを変えたら、release.yml と一緒に直す。
     runs-on: xcode-27
     # 固まったときに macOS ランナーを 6 時間（既定の上限）使い切らないようにする。
-    # シミュレータ向けのビルド、アプリのテスト（シミュレータの起動を含む）、購入のテスト用の iOS のランタイムの取得
+    # シミュレータ向けのビルド、アプリのテスト（シミュレータの起動を含む）、iOS 26 での互換性の確認用の iOS のランタイムの取得
     # （イメージに無いときだけ。数 GB）、Release の実機向けアーカイブを見込んだ値。
     timeout-minutes: 90
 
@@ -120,26 +120,17 @@ jobs:
         if: ${{ !cancelled() }}
         run: make test-app
 
-      # 購入のテスト（StoreKitPurchaseTests。StoreKit の設定ファイルと SKTestSession で、購入・承認待ち・返金・復元など）は、
-      # SKTestSession が動く版のシミュレータ（Makefile の STOREKIT_TEST_OS。iOS 26.3・26.4 では Apple の不具合で動かない）で
-      # 動かす。上の make test-app はいちばん新しい版を選ぶので、購入のテストを除いている。
-      # ランナーのイメージにその版のランタイムが無ければ入れ、iPhone のシミュレータが無ければ作る（scripts/prepare-storekit-simulator.sh）。
-      # make test-storekit は、テストが 1 つでも飛ばされたら失敗にし、通った・失敗・飛ばした数をログに出す
-      # （飛ばしただけでは成功に紛れ、購入の流れを確かめないまま緑になるため）。
-      - name: 購入のテスト用のシミュレータを用意
-        id: storekit-simulator
+      # iOS 27 では通っても iOS 26 の SwiftData で失敗する処理があるため、アプリのテストを iOS 26 のシミュレータ
+      # （Makefile の IOS26_TEST_OS）でも動かす。上の make test-app はいちばん新しい版を選ぶ。
+      # ランナーのイメージにその版のランタイムが無ければ入れ、iPhone のシミュレータが無ければ作る（scripts/prepare-simulator.sh）。
+      - name: iOS 26 のシミュレータを用意
+        id: ios26-simulator
         if: ${{ !cancelled() }}
-        run: ./scripts/prepare-storekit-simulator.sh "$(make -s print-storekit-os)"
+        run: ./scripts/prepare-simulator.sh "$(make -s print-ios26-os)"
 
-      - name: 購入のテスト
-        if: ${{ !cancelled() && steps.storekit-simulator.outcome == 'success' }}
-        run: make test-storekit
-
-      # iOS 27 では通っても iOS 26 の SwiftData で失敗する処理があるため、本体も両方で確かめる。
-      # 購入テストのために用意済みの iOS 26.2 を使い、別のランタイムは追加しない。
       - name: iOS 26 でアプリの互換性を確認
-        if: ${{ !cancelled() && steps.storekit-simulator.outcome == 'success' }}
-        run: make test-app TEST_DESTINATION="$(./scripts/pick-simulator.sh "$(make -s print-storekit-os)")"
+        if: ${{ !cancelled() && steps.ios26-simulator.outcome == 'success' }}
+        run: make test-app-ios26
 
       # Config/Base.xcconfig と CHANGELOG.md が食い違ったまま main へ進むと、
       # App Store のリリースノートが別バージョンのものになる。

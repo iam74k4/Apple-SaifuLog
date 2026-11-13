@@ -86,7 +86,7 @@ struct HomeModelCustomCategoryTests {
 
         await fixture.send("今月の衣服いくら?")
 
-        guard case .answered(let answer, _, _) = fixture.lastQuestionState else {
+        guard case .answered(let answer, _) = fixture.lastQuestionState else {
             Issue.record("答えのカードが出なかった")
             return
         }

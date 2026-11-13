@@ -15,8 +15,6 @@ struct AppRootView: View {
     /// 保存先を開いたもの。あとで保存先に書き込む処理を数える先（`pendingWrites`）と、設定の「iCloud で同期」の
     /// 切り替え先として、ホームのモデルに渡す。
     let storeHost: StoreHost
-    /// プレミアムの購入と状態（アプリで 1 つ）。ホームのモデルに渡す。
-    let purchases: PurchaseManager
 
     /// 初回の案内。出さないと決めたら nil のまま。終えても持ち続ける（終えたかどうかでホームへの切り替えを描くため）。
     @State private var onboarding: OnboardingModel?
@@ -73,7 +71,7 @@ struct AppRootView: View {
         if let demo = ScreenshotDemo.current {
             // 撮影用のデモ（DEBUG のビルドだけ）: 初回の案内を出さず、デモの設定・時計・AI の代わりでホームを作る。
             home = demo.makeHomeModel(
-                context: container.mainContext, pendingWrites: storeHost.pendingWrites, purchases: purchases, storeHost: storeHost
+                context: container.mainContext, pendingWrites: storeHost.pendingWrites, storeHost: storeHost
             )
             return
         }
@@ -81,9 +79,7 @@ struct AppRootView: View {
         if OnboardingModel.needsOnboarding(context: container.mainContext) {
             onboarding = OnboardingModel(budgetStore: BudgetStore(context: container.mainContext))
         }
-        let home = HomeModel(
-            context: container.mainContext, pendingWrites: storeHost.pendingWrites, purchases: purchases, storeHost: storeHost
-        )
+        let home = HomeModel(context: container.mainContext, pendingWrites: storeHost.pendingWrites, storeHost: storeHost)
         // iCloud 同期を切り替えて開き直したときは、切り替えた設定の画面を開いた状態から始める（どうなったかをその画面で見せる）。
         home.restoreSettingsAfterStoreSwitch()
         self.home = home

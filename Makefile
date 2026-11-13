@@ -7,12 +7,11 @@
 #     make build                生成 → シミュレータ向けに署名なしでビルド（CI と同じ経路）
 #     make test                 SaifuLogCore のテスト（swift test）
 #     make build-tests          アプリのテスト（SaifuLogTests）をビルドする（動かさない。CI と同じ経路）
-#     make test-app             アプリのテストをシミュレータで動かす（TEST_DESTINATION で宛先を変えられる。購入のテストは除く）
-#     make test-storekit        購入のテスト（SKTestSession）を、それが動く iOS の版（STOREKIT_TEST_OS）のシミュレータで動かし、
-#                               1 つでも飛ばされたら失敗にする
+#     make test-app             アプリのテストをシミュレータで動かす（TEST_DESTINATION で宛先を変えられる）
+#     make test-app-ios26       アプリのテストを iOS 26 の版（IOS26_TEST_OS）のシミュレータで動かす
 #     make check-strings        String Catalog とコードの文字列の整合を確かめる（make build の後に）
 #     make ci                   CI（build.yml）と同じ 8 つ（build / check-strings / test / build-tests / test-app /
-#                               test-storekit / check-version / 署名なしの archive）
+#                               test-app-ios26 / check-version / 署名なしの archive）
 #     make open                 生成して Xcode で開く
 #     make clean                生成物とビルドの残りを消す
 #
@@ -49,17 +48,14 @@ XCODEBUILD_FLAGS ?=
 # 例: make test-app TEST_DESTINATION='platform=iOS Simulator,name=iPhone 17 Pro'
 TEST_DESTINATION ?= $(shell ./scripts/pick-simulator.sh)
 
-# 購入のテスト（SaifuLogTests/StoreKitPurchaseTests）を動かすシミュレータの iOS の版。SKTestSession は iOS 26.3・26.4 の
-# シミュレータでは xcodebuild test から使えず（Apple の不具合。設定ファイルを渡せず、本物の Sandbox につながる）、
-# テストは飛ばされる。いちばん新しい版を選ぶ TEST_DESTINATION では購入のテストが 1 つも動かないまま CI が緑になるので、
-# 動くことを確かめた版を決めて動かす。ほかの版で動くと確かめたら、ここを変える（CI の build.yml も同じ値を読む）。
-STOREKIT_TEST_OS ?= 26.2
-# 例: make test-storekit STOREKIT_TEST_DESTINATION='platform=iOS Simulator,OS=26.2,name=iPhone 17 Pro'
-STOREKIT_TEST_DESTINATION ?= $(shell ./scripts/pick-simulator.sh $(STOREKIT_TEST_OS) 2>/dev/null)
-# 購入のテストの結果。飛ばした数を数えるのに使う（scripts/test-storekit.sh）。
-STOREKIT_TEST_RESULT := build/StoreKitPurchaseTests.xcresult
+# iOS 26 での互換性を確かめるシミュレータの iOS の版。iOS 27 では通っても iOS 26 の SwiftData で失敗する処理があるため、
+# アプリのテストを iOS 26 でも動かす（TEST_DESTINATION はいちばん新しい版を選ぶ）。CI のランナーで入れられることを
+# 確かめた版にしている（CI の build.yml も同じ値を読む）。
+IOS26_TEST_OS ?= 26.2
+# 例: make test-app-ios26 IOS26_TEST_DESTINATION='platform=iOS Simulator,OS=26.2,name=iPhone 17 Pro'
+IOS26_TEST_DESTINATION ?= $(shell ./scripts/pick-simulator.sh $(IOS26_TEST_OS) 2>/dev/null)
 
-.PHONY: all generate build build-tests test test-app test-storekit print-storekit-os check-strings ci open clean check-xcodegen
+.PHONY: all generate build build-tests test test-app test-app-ios26 print-ios26-os check-strings ci open clean check-xcodegen
 
 all: build
 
@@ -107,8 +103,6 @@ build-tests: generate
 # アプリのテストをシミュレータで動かす。先に build-tests を通し（変わったところだけビルドし直す）、
 # できたものを test-without-building でそのまま動かす。
 # コアのテスト（SaifuLogCoreTests）は make test の swift test で回しているので、ここでは SaifuLogTests だけ。
-# 購入のテスト（StoreKitPurchaseTests）は除き、make test-storekit で動かす。いちばん新しい版のシミュレータでは
-# SKTestSession が動かずに飛ばされ、飛ばしたことが結果の成功に紛れるため。
 # 宛先が id= で決まっているときは、先に起動して起動し終えるまで待つ（simctl bootstatus -b）。起動の途中で
 # テストのアプリを開こうとすると「Busy (Application failed preflight checks)」で落ちることがあるため。
 test-app: build-tests
@@ -121,28 +115,23 @@ test-app: build-tests
 		-destination '$(TEST_DESTINATION)' \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SaifuLogTests \
-		-skip-testing:SaifuLogTests/StoreKitPurchaseTests \
 		$(XCODEBUILD_FLAGS)
 
-# 購入のテスト（StoreKit の設定ファイルと SKTestSession）を、STOREKIT_TEST_OS の版のシミュレータで動かす。
-# テストに REQUIRE_STOREKIT_TESTS=1 を渡して、使えないシミュレータでは飛ばさずに失敗させ、結果の数をログに出して、
-# 1 つでも飛ばされたら失敗にする（scripts/test-storekit.sh）。その版のシミュレータが無ければ、入れ方を示して止まる
-# （ランタイムは数 GB あるので、手元では勝手に入れない。CI は scripts/prepare-storekit-simulator.sh で入れる）。
-test-storekit: build-tests
-	@test -n "$(STOREKIT_TEST_DESTINATION)" || { \
-		echo "error: iOS $(STOREKIT_TEST_OS) の iPhone のシミュレータがありません。購入のテストは SKTestSession の動く版で動かします。"; \
-		echo "       ./scripts/prepare-storekit-simulator.sh $(STOREKIT_TEST_OS) で入れるか（xcodebuild -downloadPlatform iOS -buildVersion $(STOREKIT_TEST_OS)）、"; \
-		echo "       STOREKIT_TEST_DESTINATION で宛先を渡してください。"; \
+# アプリのテストを IOS26_TEST_OS の版のシミュレータで動かす。その版のシミュレータが無ければ、入れ方を示して止まる
+# （ランタイムは数 GB あるので、手元では勝手に入れない。CI は scripts/prepare-simulator.sh で入れる）。
+test-app-ios26:
+	@test -n "$(IOS26_TEST_DESTINATION)" || { \
+		echo "error: iOS $(IOS26_TEST_OS) の iPhone のシミュレータがありません。"; \
+		echo "       ./scripts/prepare-simulator.sh $(IOS26_TEST_OS) で入れるか（xcodebuild -downloadPlatform iOS -buildVersion $(IOS26_TEST_OS)）、"; \
+		echo "       IOS26_TEST_DESTINATION で宛先を渡してください。"; \
 		exit 1; \
 	}
-	@udid=$$(printf '%s\n' '$(STOREKIT_TEST_DESTINATION)' | sed -n 's/.*id=\([0-9A-Fa-f-]*\).*/\1/p'); \
-		if [ -n "$$udid" ]; then xcrun simctl bootstatus "$$udid" -b >/dev/null; fi
-	./scripts/test-storekit.sh '$(STOREKIT_TEST_DESTINATION)' $(DERIVED_DATA) $(STOREKIT_TEST_RESULT) $(XCODEBUILD_FLAGS)
+	$(MAKE) test-app TEST_DESTINATION='$(IOS26_TEST_DESTINATION)'
 
-# 購入のテストを動かす iOS の版を書く。CI の build.yml が、その版のシミュレータを用意するのに使う
+# iOS 26 での互換性を確かめる iOS の版を書く。CI の build.yml が、その版のシミュレータを用意するのに使う
 # （版を Makefile の 1 か所だけに書くため）。
-print-storekit-os:
-	@echo $(STOREKIT_TEST_OS)
+print-ios26-os:
+	@echo $(IOS26_TEST_OS)
 
 # String Catalog（Localizable.xcstrings）とコードの文字列が食い違っていないかを確かめる（scripts/check-strings.py）。
 # 足りないキー・使われていないキー・en の無いキー・ja と en の書式指定子の不一致があれば失敗する。
@@ -155,7 +144,7 @@ check-strings:
 		--stringsdata-dir $(DERIVED_DATA)/Build/Intermediates.noindex/SaifuLog.build/Debug-iphonesimulator/SaifuLog.build/Objects-normal
 
 # 必須チェック build（.github/workflows/build.yml）と同じ確認を手元で通す。make build が
-# 通っても、CI はテスト（コア・アプリ・購入）・版の検査・提出用のアーカイブまで見るので、それだけでは足りない。
+# 通っても、CI はテスト（コア・アプリ。アプリは iOS 26 でも）・版の検査・提出用のアーカイブまで見るので、それだけでは足りない。
 # 引数は build.yml と同じにする（片方を変えたらもう片方も）。BUILD_NUMBER が xcconfig の
 # 既定値（1）と重ならないのは、ビルド番号の上書きの検査を素通りさせないため。
 # CI は失敗しても残りのステップを続けるが、こちらは最初の失敗で止まる。
@@ -165,8 +154,7 @@ ci:
 	$(MAKE) test
 	$(MAKE) build-tests
 	$(MAKE) test-app
-	$(MAKE) test-storekit
-	$(MAKE) test-app TEST_DESTINATION='$(STOREKIT_TEST_DESTINATION)'
+	$(MAKE) test-app-ios26
 	$(MAKE) check-version
 	$(MAKE) archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999
 

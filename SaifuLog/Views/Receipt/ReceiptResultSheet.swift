@@ -142,9 +142,6 @@ private struct ReceiptUnreadableView: View {
                         tip("金額の書かれたレシートの画像を選んでください。", systemImage: "photo")
                     }
                 }
-                Text("読み取れなかったときは、無料の回数を使いません。")
-                    .font(.footnote)
-                    .foregroundStyle(Theme.inkSecondary)
                 // 閉じるのは左上の「閉じる」から（同じボタンを 2 つ並べない）。主の塗りは使わない（記録するボタンにだけ使う）。
                 Button(action: retake) {
                     retakeLabel

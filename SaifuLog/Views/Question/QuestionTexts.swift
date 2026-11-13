@@ -164,16 +164,9 @@ enum QuestionTexts {
         return String(localized: "\(trend.points.count) か月の推移: \(items.formatted(.list(type: .and)))")
     }
 
-    /// 今月の無料の質問の残り（「今月の無料の質問 あと 3 回」）。
-    static func freeQuestionsLeft(_ count: Int) -> String {
-        String(localized: "今月の無料の質問 あと \(count) 回")
-    }
-
-    /// VoiceOver に読み上げる答え（期間・見出し・数字・件数・一言・無料の残りの回数）。
-    /// - Parameter freeQuestionsLeft: 回答カードに出す無料の残りの回数（少ないときだけ。出さないなら nil）。
+    /// VoiceOver に読み上げる答え（期間・見出し・数字・件数・一言）。
     static func spoken(
-        _ answer: LedgerAnswer, remark: QuestionRemark?, freeQuestionsLeft: Int? = nil, calendar: Calendar,
-        catalog: CategoryCatalog = .builtIn
+        _ answer: LedgerAnswer, remark: QuestionRemark?, calendar: Calendar, catalog: CategoryCatalog = .builtIn
     ) -> String {
         var parts = [
             String(localized: answer.period.label), title(for: answer.question, catalog: catalog),
@@ -182,7 +175,6 @@ enum QuestionTexts {
         if let comparison = answer.comparison { parts.append(self.comparison(comparison, value: answer.value)) }
         parts.append(recordCount(answer.recordCount))
         if case .ai(let sentence) = remark { parts.append(sentence) }
-        if let freeQuestionsLeft { parts.append(self.freeQuestionsLeft(freeQuestionsLeft)) }
         return parts.joined(separator: String(localized: LocalizedStringResource(
             "読み上げの区切り", defaultValue: "、", comment: "回答を VoiceOver で読み上げるときの、項目の間の区切り"
         )))

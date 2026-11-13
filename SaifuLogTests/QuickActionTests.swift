@@ -56,7 +56,7 @@ struct QuickActionTests {
         let fixture = try Fixture()
         fixture.model.receive(.ask("今月の支出は?"))
         await fixture.model.performPendingQuickAction(calendar: TestSupport.calendar)?.value
-        guard case .answered(let answer, _, _) = fixture.lastQuestionState else {
+        guard case .answered(let answer, _) = fixture.lastQuestionState else {
             Issue.record("答えのカードが出なかった")
             return
         }

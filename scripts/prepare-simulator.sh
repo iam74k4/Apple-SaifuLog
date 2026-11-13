@@ -1,12 +1,12 @@
 #!/bin/sh
-# 購入のテスト（make test-storekit）に使う版の iPhone のシミュレータを用意し、xcodebuild の -destination の値を書く。
+# 決めた版の iPhone のシミュレータを用意し、xcodebuild の -destination の値を書く。
 #
-#   ./scripts/prepare-storekit-simulator.sh 26.2
+#   ./scripts/prepare-simulator.sh 26.2
 #
-# CI の build.yml が make test-storekit の前に呼ぶ。SKTestSession は iOS 26.3・26.4 のシミュレータでは
-# xcodebuild test から使えない（Apple の不具合）ので、動くことを確かめた版（Makefile の STOREKIT_TEST_OS）で動かす。
-# ランナーのイメージにその版のランタイムが無ければ xcodebuild -downloadPlatform で入れ（数 GB・数分かかる）、
-# その版の iPhone が無ければ作る。手元では、ランタイムを入れる前に確かめたいときだけ使う（make test-storekit は
+# CI の build.yml が、iOS 26 での互換性の確認（make test-app-ios26。版は Makefile の IOS26_TEST_OS）の前に呼ぶ。
+# iOS 27 では通っても iOS 26 の SwiftData で失敗する処理があるため、いちばん新しい版のほかに、この版でもアプリの
+# テストを動かす。ランナーのイメージにその版のランタイムが無ければ xcodebuild -downloadPlatform で入れ（数 GB・数分かかる）、
+# その版の iPhone が無ければ作る。手元では、ランタイムを入れる前に確かめたいときだけ使う（make test-app-ios26 は
 # ランタイムを入れず、無ければ入れ方を示して止まる）。
 
 set -eu

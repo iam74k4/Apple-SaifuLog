@@ -3,12 +3,10 @@ import Observation
 import SaifuLogCore
 import SwiftData
 
-/// 「設定」（⑧）の状態と操作。プレミアム（⑨ を開く・購入の復元）、月の予算を開く、週の始まり、iCloud で同期、
-/// 家族と共有（家計の共有が有効なビルドだけ）、記録の CSV 書き出し、このアプリについて。
+/// 「設定」（⑧）の状態と操作。月の予算を開く、週の始まり、iCloud で同期、記録の CSV 書き出し、このアプリについて。
 ///
 /// 画面（`SettingsView`）から切り離し、保存先・設定の置き場所・時計・書き出し先を差し替えて SaifuLogTests で
 /// 確かめられるようにしている。CSV の中身はコア（`LedgerCSVWriter`）、ファイルの作成は `LedgerExporter` が受け持つ。
-/// 購入と復元そのものは、アプリで 1 つの `PurchaseManager` が受け持つ。
 ///
 /// iCloud 同期は、オンにする前に iCloud のアカウントを確かめ（使えなければ案内だけ）、説明を読んでもらってから
 /// `StoreHost.setICloudSyncEnabled(_:)` に頼む（保存先を開き直すので、この画面ごと作り直される）。オフにするときも説明を出す。
@@ -32,12 +30,6 @@ final class SettingsModel {
     var exportAlert: ExportAlert?
     /// 「予算を決める」のシートの状態と操作。シートを出していなければ nil（シートを閉じると画面が nil に戻す）。
     var budgetSetup: BudgetSetupModel?
-    /// 「プレミアム」のシートの状態と操作。シートを出していなければ nil（シートを閉じると画面が nil に戻す）。
-    var premiumSheet: PremiumSheetModel?
-    /// 購入の復元の結果（アラートを出す）。
-    var purchaseAlert: PurchaseAlert?
-    /// プレミアムの購入と状態（アプリで 1 つ）。
-    let purchases: PurchaseManager
     /// いまの月の予算。決めていないか、読めなければ nil。
     private(set) var totalBudget: Int?
     /// 端末の設定（地域と iOS の設定）の週の始まり（1 = 日曜）。「端末の設定に合わせる」の選択肢に曜日を添える。
@@ -95,8 +87,6 @@ final class SettingsModel {
     ///   - budgetStore: 予算の読み書き。渡さなければ `context` を使う。
     ///   - categories: いまのカテゴリの一覧。アプリはホームと同じもの（作ったカテゴリをホームにもすぐ出すため）を渡す。
     ///     渡さなければ `context` から読む。
-    ///   - purchases: プレミアムの購入と状態。アプリはホームから同じもの（`SaifuLogApp` の 1 つ）を渡す。渡さなければ
-    ///     購入の無い状態（テストとプレビュー用）。
     ///   - storeHost: 保存先を開いたもの。「iCloud で同期」の切り替えを頼む。渡さなければ iCloud の節を出さない。
     ///   - accountStatus: iCloud のアカウントの状態の問い合わせ。テストでは CloudKit に問い合わせない値に差し替える
     ///     （iCloud の entitlement の無いテストのプロセスで `CKContainer` を作ると落ちるため）。
@@ -113,7 +103,6 @@ final class SettingsModel {
         context: ModelContext,
         budgetStore: BudgetStore? = nil,
         categories: CategoryCatalogModel? = nil,
-        purchases: PurchaseManager? = nil,
         storeHost: StoreHost? = nil,
         accountStatus: @escaping @MainActor () async -> ICloudAccountStatus = { await ICloudAccountStatus.current() },
         defaults: UserDefaults = .standard,
@@ -126,7 +115,6 @@ final class SettingsModel {
         recurringDidChange: @escaping @MainActor () -> Void = {}
     ) {
         self.budgetStore = budgetStore ?? BudgetStore(context: context)
-        self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
         self.storeHost = storeHost
         self.learnedCategories = LearnedCategoriesModel(store: LearnedCategoryStore(context: context, now: now), announce: announce)
         let categoryStore = CustomCategoryStore(context: context, now: now)
@@ -217,23 +205,6 @@ final class SettingsModel {
     /// 「予算を決める」のシートを出す（ホームの帯のボタンと同じ画面）。
     func presentBudgetSetup() {
         budgetSetup = BudgetSetupModel(store: budgetStore, announce: announce)
-    }
-
-    // MARK: - プレミアム
-
-    /// 「プレミアム」のシート（⑨）を出す。
-    func presentPremium() {
-        premiumSheet = PremiumSheetModel(purchases: purchases, announce: announce)
-    }
-
-    /// 購入の復元。終わるのを待つ Task を返す（テストで使う）。購入や復元の途中は受け付けない（nil を返す）。
-    @discardableResult
-    func restorePurchases() -> Task<Void, Never>? {
-        guard !purchases.isPurchasing, !purchases.isRestoring else { return nil }
-        return Task {
-            let outcome = await purchases.restore()
-            purchaseAlert = PurchaseAlert(outcome)
-        }
     }
 
     /// いまの予算を読み直す（予算を決める画面を閉じたとき）。

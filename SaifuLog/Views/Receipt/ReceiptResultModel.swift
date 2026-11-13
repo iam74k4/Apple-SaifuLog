@@ -4,7 +4,7 @@ import SaifuLogCore
 
 /// ⑤ 読み取り結果のシートの状態と操作。店名・日付・品目の行（外す・直す）・照合・まとめて 1 件か品目ごとか・記録する。
 ///
-/// 画面（`ReceiptResultSheet`）から切り離し、SaifuLogTests で確かめられるようにしている。記録そのもの（保存・無料の回数・
+/// 画面（`ReceiptResultSheet`）から切り離し、SaifuLogTests で確かめられるようにしている。記録そのもの（保存・
 /// 「取り消す」）はホーム（`HomeModel.recordReceipt`）が受け持つ。
 @MainActor
 @Observable
@@ -49,8 +49,6 @@ final class ReceiptResultModel: Identifiable {
         case recorded
         /// 書き込めなかった（シートは閉じずに知らせる）。
         case failed
-        /// 無料の回数を使い切っていた（ホームがシートを閉じてプレミアムの案内を出す）。
-        case limitReached
     }
 
     /// 記録するもの（ホームに渡す）。
@@ -108,7 +106,7 @@ final class ReceiptResultModel: Identifiable {
     ///   - readAt: 読み取りを始めた瞬間（日付が読めなければこの日時で記録する）。
     ///   - calendar: 日付の区切り（画面の暦）。
     ///   - firstSkippedPage: 書類カメラで上限より多く撮ったとき、読み取らなかった最初のページ。
-    ///   - record: 記録する（ホームが保存し、無料の回数を数える）。
+    ///   - record: 記録する（ホームが保存する）。
     ///   - retake: 撮り直す（ホームがシートを閉じて、同じ取り込み口をもう一度開く）。
     ///   - catalog: いまのカテゴリの一覧（作ったカテゴリの名前を引く）。
     init(
@@ -286,7 +284,7 @@ final class ReceiptResultModel: Identifiable {
         guard canRecord else { return }
         let submission = makeSubmission()
         switch record(submission) {
-        case .recorded, .limitReached:
+        case .recorded:
             break
         case .failed:
             showsSaveFailure = true

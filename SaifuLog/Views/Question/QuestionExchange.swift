@@ -24,8 +24,8 @@ struct QuestionExchange: Identifiable, Equatable {
     enum State: Equatable {
         /// 答えを計算している（AI だと 1 秒以上かかることがある）。
         case answering
-        /// 答えた。`freeQuestionsLeft` は、無料の残りの回数が少ないとき（3 回以下）だけ入る（プレミアムと体験中は nil）。
-        case answered(LedgerAnswer, remark: QuestionRemark?, freeQuestionsLeft: Int?)
+        /// 答えた。
+        case answered(LedgerAnswer, remark: QuestionRemark?)
         /// 読めなかった。質問の例を出す。
         case unreadable
         /// 記録か質問か決められなかった（金額と質問の語が両方ある）。記録しない。
@@ -53,8 +53,6 @@ struct QuestionExchange: Identifiable, Equatable {
         /// 記録として送った文に、金額が見つからなかった（「ランチ」）。記録しない。前はアラートで知らせていたが、閉じるまで
         /// キーボードが下がって流れが止まり、送った文もタイムラインに残らなかったので、ほかの案内と同じくタイムラインに出す。
         case noAmount
-        /// 今月の無料の回数を使い切った。答えずに、プレミアムの案内を出す。
-        case limitReached
         /// 保存先を読めなかった。
         case loadFailed
 
@@ -65,7 +63,7 @@ struct QuestionExchange: Identifiable, Equatable {
             case .unclear, .correction, .noAmount, .recategorized, .amountChanged, .removed, .commandAsked, .commandCancelled,
                  .budgetSet, .noTarget, .splitNotChanged:
                 false
-            case .answering, .answered, .unreadable, .limitReached, .loadFailed: true
+            case .answering, .answered, .unreadable, .loadFailed: true
             }
         }
     }

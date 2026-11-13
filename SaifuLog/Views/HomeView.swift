@@ -15,7 +15,7 @@ import UIKit
 /// 会話を左へスワイプすると、カレンダーのページ（日ごとの支出・選んだ日の記録・今日あといくら使えるか。`LedgerCalendarView`）が
 /// 出る。帯にカレンダーのボタンは置かない（スワイプで出るページと入口が重なるため）。
 ///
-/// 状態と操作（送信・質問・レシート・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ・
+/// 状態と操作（送信・質問・レシート・取り消し・直す・削除・予算を決める画面と月のまとめと設定の出し入れ・
 /// ページの切り替え）は `HomeModel` が持つ。ここは表示と、
 /// 環境（文字の大きさ・前面かどうか）に合わせた出し方だけを受け持つ。
 struct HomeView: View {
@@ -108,10 +108,6 @@ struct HomeView: View {
                 .navigationDestination(item: $model.settings) { settings in
                     SettingsView(model: settings)
                 }
-                // 無料体験が終わった後の最初の起動に、一度だけプレミアム（⑨）を出す（`HomeModel.presentPremiumIfTrialEnded`）。
-                .sheet(item: $model.premiumSheet) { premium in
-                    PremiumSheet(model: premium)
-                }
                 // ④ 撮影（書類カメラ）。閉じきってから読み取りのシートを出す（出し入れが重なると出ないことがあるため）。
                 .fullScreenCover(isPresented: showsDocumentCamera, onDismiss: { model.receiptCaptureDidDismiss(calendar: calendar) }) {
                     DocumentCameraView(
@@ -127,20 +123,9 @@ struct HomeView: View {
                     photoItem = nil
                     readPhoto(item)
                 }
-                // ⑤ 読み取り結果。item で出す（閉じる間も中身を保つ）。閉じきったら、撮り直しやプレミアムの案内を続ける。
+                // ⑤ 読み取り結果。item で出す（閉じる間も中身を保つ）。閉じきったら、撮り直しを続ける。
                 .sheet(item: $model.receiptResult, onDismiss: { model.receiptResultDidDismiss() }) { result in
                     ReceiptResultSheet(model: result)
-                }
-                // ホームが出たときと、購入の事実を読み終えたときに確かめる（前面に戻ったときは下の scenePhase）。
-                // 状態の変化では出さない。アプリを開いたまま体験が終わる瞬間（`PurchaseManager` が描き直させる）に出すと、
-                // 入力の途中でも遮るため。そのときは次に前面に戻ったときに出す（「体験が終わった後の最初の起動」）。
-                .task(id: model.purchases.hasLoadedPurchases) {
-                    model.presentPremiumIfTrialEnded()
-                }
-                // 体験を始めた・買った・返金されたら、月のまとめの AI の一言を決め直す（体験を始めて月のまとめに戻ったら一言が
-                // 付くように）。
-                .onChange(of: model.purchases.status.unlocksPremium) {
-                    model.premiumStatusDidChange()
                 }
                 .onAppear {
                     // カレンダーのページに画面の暦を渡し、今月を読んでおく（左へスワイプしたときに、すぐ出せるように）。
@@ -215,8 +200,6 @@ struct HomeView: View {
                         AIPrewarm.prewarmIfAvailable()
                         recordDueRecurringEntries()
                         deliverQuickActions()
-                            // 状態が変わらなくても、前面に戻ったときには確かめる（ほかの画面を閉じた後で出せるように）。
-                        model.presentPremiumIfTrialEnded()
                     default:
                         break
                     }
@@ -295,7 +278,6 @@ struct HomeView: View {
                 fillDraft: { model.draft = $0 },
                 openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
                 setBudget: { model.presentBudgetSetup() },
-                openPremium: { model.presentPremium() },
                 askFollowUp: { model.askFollowUp($0, calendar: calendar) }
             )
     }
@@ -318,7 +300,7 @@ struct HomeView: View {
                 text: $model.draft,
                 isSending: model.isParsing,
                 send: { model.send(calendar: calendar) },
-                scanReceipt: { model.requestReceiptScan(calendar: calendar) },
+                scanReceipt: { model.requestReceiptScan() },
                 showsReceiptChoice: $model.showsReceiptSourceChoice,
                 canUseDocumentCamera: model.canUseDocumentCamera,
                 chooseReceiptSource: { model.startReceiptCapture($0) },
@@ -468,7 +450,6 @@ private struct EntryTimeline: View {
     let fillDraft: (String) -> Void
     let openReport: (Date) -> Void
     let setBudget: () -> Void
-    let openPremium: () -> Void
     /// 回答カードの「続けて聞く質問」を送る（いちばん新しい答えにだけ出す）。
     let askFollowUp: (QuestionFollowUp) -> Void
 
@@ -495,7 +476,6 @@ private struct EntryTimeline: View {
         fillDraft: @escaping (String) -> Void,
         openReport: @escaping (Date) -> Void,
         setBudget: @escaping () -> Void,
-        openPremium: @escaping () -> Void,
         askFollowUp: @escaping (QuestionFollowUp) -> Void
     ) {
         self.limit = limit
@@ -517,7 +497,6 @@ private struct EntryTimeline: View {
         self.fillDraft = fillDraft
         self.openReport = openReport
         self.setBudget = setBudget
-        self.openPremium = openPremium
         self.askFollowUp = askFollowUp
         _recentEntries = Query(Entry.timelineDescriptor(limit: limit))
     }
@@ -626,7 +605,7 @@ private struct EntryTimeline: View {
                             .reportsTimelineFrame(.row(pending.id))
                     case .question(let exchange):
                         QuestionExchangeView(
-                            exchange: exchange, openReport: openReport, setBudget: setBudget, openPremium: openPremium,
+                            exchange: exchange, openReport: openReport, setBudget: setBudget,
                             // 続けて聞く質問は、いちばん新しい答えにだけ出す（前の答えに並べると、タイムラインが候補で埋まるため）。
                             askFollowUp: exchange.id == questions.last?.id ? askFollowUp : nil
                         )
@@ -921,7 +900,7 @@ private struct EmptyTimelineView: View {
 #Preview {
     // プレビューも、アプリとテストと同じ作り方の保存先（iCloud を切った、メモリの上だけのもの）を使う。
     if let container = try? ModelContainerFactory.makeInMemoryContainer() {
-        HomeView(model: HomeModel(context: container.mainContext, purchases: PurchaseManager(loadPurchases: { [] })))
+        HomeView(model: HomeModel(context: container.mainContext))
             .modelContainer(container)
     }
 }

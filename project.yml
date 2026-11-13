@@ -35,11 +35,6 @@ targets:
           - "Info*.plist"
       - path: SaifuLog/Info.plist
         buildPhase: none
-      # StoreKit の設定ファイル（課金アイテム 2 つ）。Xcode の Run で App Store の代わりに使う（下のスキームの
-      # storeKitConfiguration）。アプリには入れない（buildPhase: none）。スキームから指すには、ファイルが
-      # プロジェクトに載っている必要があるため、ここに置く。
-      - path: Config/SaifuLog.storekit
-        buildPhase: none
     dependencies:
       - package: SaifuLogCore
     # エンタイトルメント。ファイルは make generate がここの properties から書き出す（直接書き換えても消える）。
@@ -125,9 +120,6 @@ targets:
     platform: iOS
     sources:
       - path: SaifuLogTests
-      # 購入のテスト（SKTestSession）が読む StoreKit の設定ファイル。テストのバンドルにだけ入れる（アプリには入れない）。
-      - path: Config/SaifuLog.storekit
-        buildPhase: resources
     dependencies:
       - target: SaifuLog
     settings:
@@ -142,10 +134,6 @@ schemes:
         SaifuLog: all
     run:
       config: Debug
-      # Xcode の Run（手元の実行）だけ、App Store の代わりに StoreKit の設定ファイルで購入を試す（価格や購入の成功・
-      # 失敗・承認待ち・返金を、Xcode の Debug → StoreKit → Manage Transactions で操作できる）。Test・Archive には
-      # 効かない（提出物は本物の App Store とつながる。テストは SKTestSession で同じファイルを読む）。
-      storeKitConfiguration: Config/SaifuLog.storekit
     test:
       # アプリのテストは日本語の文で期待値を書いているので、テストを動かすときの言語と地域を日本語に固定する。
       # 固定しないとシミュレータの言語に左右され、手元（Mac が日本語）では通り、CI のランナー（英語）では英語の訳が

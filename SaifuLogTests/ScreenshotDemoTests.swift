@@ -12,22 +12,12 @@ import Testing
 struct ScreenshotDemoTests {
     // MARK: - 起動引数
 
-    @Test("起動引数から撮る画面と購入の状態を読む（購入の状態を省けば、プレミアムのシートは無料・ほかは購入済み）")
+    @Test("起動引数から撮る画面を読む")
     func parsesArguments() {
         let arguments = ["SaifuLog", "-AppleLanguages", "(ja)"]
-        #expect(ScreenshotDemo.parse(arguments: arguments + ["-SaifuLogScreenshotDemo", "ask"])
-            == .init(screen: .ask, premium: .purchased))
-        #expect(ScreenshotDemo.parse(arguments: arguments + ["-SaifuLogScreenshotDemo", "premium"])
-            == .init(screen: .premium, premium: .free))
-        #expect(ScreenshotDemo.parse(arguments: arguments + ["-SaifuLogScreenshotDemo", "trial"])
-            == .init(screen: .trial, premium: .free))
-        #expect(ScreenshotDemo.parse(arguments: [
-            "SaifuLog", "-SaifuLogScreenshotPremium", "free", "-SaifuLogScreenshotDemo", "report",
-        ]) == .init(screen: .report, premium: .free))
-        // 知らない購入の状態は、画面ごとの既定にする。
-        #expect(ScreenshotDemo.parse(arguments: [
-            "SaifuLog", "-SaifuLogScreenshotDemo", "home", "-SaifuLogScreenshotPremium", "lifetime",
-        ]) == .init(screen: .home, premium: .purchased))
+        #expect(ScreenshotDemo.parse(arguments: arguments + ["-SaifuLogScreenshotDemo", "ask"]) == .init(screen: .ask))
+        #expect(ScreenshotDemo.parse(arguments: ["SaifuLog", "-SaifuLogScreenshotDemo", "report"]) == .init(screen: .report))
+        #expect(ScreenshotDemo.parse(arguments: arguments + ["-SaifuLogScreenshotDemo", "calendar"]) == .init(screen: .calendar))
     }
 
     @Test("撮る画面の引数が無い・値が無い・知らない画面なら、撮影用のデモにしない（ふだんの起動）")
@@ -35,7 +25,9 @@ struct ScreenshotDemoTests {
         #expect(ScreenshotDemo.parse(arguments: ["SaifuLog"]) == nil)
         #expect(ScreenshotDemo.parse(arguments: ["SaifuLog", "-SaifuLogScreenshotDemo"]) == nil)
         #expect(ScreenshotDemo.parse(arguments: ["SaifuLog", "-SaifuLogScreenshotDemo", "settings"]) == nil)
-        #expect(ScreenshotDemo.parse(arguments: ["SaifuLog", "-SaifuLogScreenshotPremium", "free"]) == nil)
+        // プレミアムをやめたので、プレミアムと体験のシートの画面は無い。
+        #expect(ScreenshotDemo.parse(arguments: ["SaifuLog", "-SaifuLogScreenshotDemo", "premium"]) == nil)
+        #expect(ScreenshotDemo.parse(arguments: ["SaifuLog", "-SaifuLogScreenshotDemo", "trial"]) == nil)
     }
 
     @Test("テストのプロセスは起動引数を持たないので、撮影用のデモにならない")
@@ -277,7 +269,7 @@ struct ScreenshotDemoTests {
         let standardOnboarding = UserDefaults.standard.object(forKey: AppSettings.hasCompletedOnboarding.key) as? Bool
 
         let demo = ScreenshotDemo(
-            configuration: .init(screen: .home, premium: .purchased), launchedAt: TestSupport.now,
+            configuration: .init(screen: .home), launchedAt: TestSupport.now,
             calendar: TestSupport.calendar, uiLanguage: "ja", defaultsSuiteName: suiteName
         )
         #expect(demo.defaults !== UserDefaults.standard)
@@ -285,32 +277,6 @@ struct ScreenshotDemoTests {
         #expect(demo.defaults.bool(for: AppSettings.hasCompletedOnboarding))
 
         #expect(UserDefaults.standard.object(forKey: AppSettings.hasCompletedOnboarding.key) as? Bool == standardOnboarding)
-    }
-
-    // MARK: - 購入の状態
-
-    @Test("購入の状態は選んだとおりで、価格は App Store を読まずに日本の価格の表示を出す")
-    func purchasesFollowChoice() async throws {
-        let purchased = try Self.makeDemo(.home)
-        defer { Self.removeDefaults(of: purchased) }
-        let premium = purchased.makePurchases()
-        await premium.refreshPurchases()
-        #expect(premium.status == .premium(.purchased))
-
-        let free = try Self.makeDemo(.premium)
-        defer { Self.removeDefaults(of: free) }
-        let manager = free.makePurchases()
-        await manager.refreshPurchases()
-        #expect(manager.status == .free)
-        #expect(manager.productsState == .loaded)
-        #expect(manager.displayPrice(for: .premium) == 1_800.formatted(.currency(code: "JPY")))
-        #expect(manager.isOffered(.premium))
-        #expect(manager.isOffered(.trial14))
-        // シートは読み込み済みとして価格と購入・体験のボタンを出す。
-        let sheet = PremiumSheetModel(purchases: manager, announce: { _ in })
-        #expect(sheet.premiumPrice == 1_800.formatted(.currency(code: "JPY")))
-        #expect(sheet.canPurchase)
-        #expect(sheet.canStartTrial)
     }
 
     // MARK: - 撮る画面の開き方
@@ -323,11 +289,10 @@ struct ScreenshotDemoTests {
 
         #expect(home.questions.map(\.text) == ScreenshotDemo.questions)
         for exchange in home.questions {
-            guard case .answered(let answer, let remark, let freeQuestionsLeft) = exchange.state else {
+            guard case .answered(let answer, let remark) = exchange.state else {
                 Issue.record("答えていません: \(exchange.state)")
                 continue
             }
-            #expect(freeQuestionsLeft == nil)
             guard case .ai(let sentence) = remark else {
                 Issue.record("一言がありません: \(String(describing: remark))")
                 continue
@@ -346,7 +311,7 @@ struct ScreenshotDemoTests {
 
         #expect(home.questions.count == 2)
         for exchange in home.questions {
-            guard case .answered(_, let remark, _) = exchange.state else {
+            guard case .answered(_, let remark) = exchange.state else {
                 Issue.record("答えていません: \(exchange.state)")
                 continue
             }
@@ -445,19 +410,6 @@ struct ScreenshotDemoTests {
         #expect(otherHome.page == .conversation)
     }
 
-    @Test("プレミアムと体験の画面: プレミアムのシートを出し、体験の画面は下の端から開く")
-    func premiumScreensPresentSheet() async throws {
-        let (premiumDemo, premiumHome) = try Self.makeHome(.premium, uiLanguage: "ja")
-        defer { Self.removeDefaults(of: premiumDemo) }
-        await premiumDemo.stage(on: premiumHome, calendar: premiumDemo.calendar)
-        #expect(premiumHome.premiumSheet?.screenshotScrollsToBottom == false)
-
-        let (trialDemo, trialHome) = try Self.makeHome(.trial, uiLanguage: "ja")
-        defer { Self.removeDefaults(of: trialDemo) }
-        await trialDemo.stage(on: trialHome, calendar: trialDemo.calendar)
-        #expect(trialHome.premiumSheet?.screenshotScrollsToBottom == true)
-    }
-
     // MARK: - Release に入らないことの印
 
     /// release.mk の RELEASE_SCREENSHOT_DEMO_MARKER と同じ値。15 バイトまでの文字列は、Swift がバイナリに文字列として置かない
@@ -474,7 +426,7 @@ struct ScreenshotDemoTests {
         -> ScreenshotDemo
     {
         ScreenshotDemo(
-            configuration: .init(screen: screen, premium: screen.defaultPremium), launchedAt: day,
+            configuration: .init(screen: screen), launchedAt: day,
             calendar: TestSupport.calendar, uiLanguage: uiLanguage,
             defaultsSuiteName: "ScreenshotDemoTests.\(UUID().uuidString)"
         )
@@ -484,15 +436,12 @@ struct ScreenshotDemoTests {
         UserDefaults.standard.removePersistentDomain(forName: demo.defaultsDomain)
     }
 
-    /// デモのホームのモデル（メモリの上の保存先。購入の事実は読み終えた状態）。
+    /// デモのホームのモデル（メモリの上の保存先）。
     static func makeHome(_ screen: ScreenshotDemo.Screen, uiLanguage: String) throws -> (ScreenshotDemo, HomeModel) {
         let demo = try makeDemo(screen, uiLanguage: uiLanguage)
         let container = try demo.makeContainer()
         retained.append(container)
-        let home = demo.makeHomeModel(
-            context: container.mainContext, pendingWrites: PendingStoreWrites(), purchases: demo.makePurchases(),
-            storeHost: nil
-        )
+        let home = demo.makeHomeModel(context: container.mainContext, pendingWrites: PendingStoreWrites(), storeHost: nil)
         return (demo, home)
     }
 

@@ -14,7 +14,7 @@ import SwiftData
 /// - 保存先はメモリの上だけにし、架空の記録と予算を入れる（利用者の記録のファイル default.store を開かない）。
 /// - 設定（UserDefaults）は専用の領域（`defaultsSuiteName`）を毎回空にして使う（利用者の設定に触れない）。
 /// - 初回の案内を出さず、診断画面のボタン（帯の聴診器）など開発用の表示を出さない。
-/// - 端末や AI によって変わるもの（AI の一言・レシートの文字認識・App Store の価格）は、決まった中身にする
+/// - 端末や AI によって変わるもの（AI の一言・レシートの文字認識）は、決まった中身にする
 ///   （どれも実際のアプリが出しうる中身にする）。
 /// - 「いま」は撮影の月の 15 日の 20:30 に置き、日付はそこから相対で作る（`pinnedNow(on:calendar:)`）。月のどの日に撮っても
 ///   同じ画面になるようにする。
@@ -30,40 +30,17 @@ final class ScreenshotDemo {
         case report
         /// レシートの読み取り結果のシート。
         case receipt
-        /// プレミアムのシートの上のほう（プレミアムでできることと、下の帯の体験と購入のボタン。プレミアムの課金アイテムの審査用の
-        /// スクリーンショット）。
-        case premium
-        /// プレミアムのシートの下のほう（14 日間の無料体験の説明とボタン。体験の課金アイテムの審査用のスクリーンショット）。
-        case trial
         /// カレンダーのページ（今月に使った額・月のカレンダー・今日の記録）。
         case calendar
-
-        /// 購入の状態を指定しなかったときの状態。プレミアムのシートは購入と体験のボタンを写すので無料、ほかは購入済み
-        /// （無料の残りの回数の行などを写さず、月のまとめの AI の一言を写すため）。
-        var defaultPremium: PremiumChoice {
-            switch self {
-            case .premium, .trial: .free
-            case .home, .ask, .report, .receipt, .calendar: .purchased
-            }
-        }
-    }
-
-    /// デモの購入の状態（起動引数 `-SaifuLogScreenshotPremium`）。
-    enum PremiumChoice: String, CaseIterable, Sendable {
-        case purchased
-        case free
     }
 
     /// 起動引数から読んだ設定。
     struct Configuration: Equatable, Sendable {
         var screen: Screen
-        var premium: PremiumChoice
     }
 
     /// 撮る画面を渡す起動引数。
     nonisolated static let screenArgument = "-SaifuLogScreenshotDemo"
-    /// 購入の状態を渡す起動引数（省けば画面ごとの既定。`Screen.defaultPremium`）。
-    nonisolated static let premiumArgument = "-SaifuLogScreenshotPremium"
     /// 撮影用のデモが入ったビルドにだけある印。release.mk の `RELEASE_SCREENSHOT_DEMO_MARKER` と同じ値にする（変えるときは両方）。
     ///
     /// release.mk は、アーカイブのアプリの中にこの文字列があれば止める（撮影用のデモは DEBUG のビルドだけのもの）。
@@ -89,7 +66,6 @@ final class ScreenshotDemo {
     }
 
     let screen: Screen
-    let premium: PremiumChoice
     /// デモの「いま」（撮影の月の 15 日の 20:30）。記録と予算はここから相対で作る。
     let now: Date
     let calendar: Calendar
@@ -128,7 +104,6 @@ final class ScreenshotDemo {
         defaultsSuiteName: String = ScreenshotDemo.defaultsSuiteName
     ) {
         screen = configuration.screen
-        premium = configuration.premium
         self.calendar = calendar
         self.launchedAt = launchedAt
         now = Self.pinnedNow(on: launchedAt, calendar: calendar)
@@ -152,13 +127,12 @@ final class ScreenshotDemo {
         _ = try? launchSettings.update { _ in }
     }
 
-    /// 起動引数から撮る画面と購入の状態を読む。撮る画面の引数が無いか、知らない画面なら nil。
+    /// 起動引数から撮る画面を読む。撮る画面の引数が無いか、知らない画面なら nil。
     nonisolated static func parse(arguments: [String]) -> Configuration? {
         guard let screenValue = value(after: screenArgument, in: arguments),
               let screen = Screen(rawValue: screenValue)
         else { return nil }
-        let premium = value(after: premiumArgument, in: arguments).flatMap(PremiumChoice.init(rawValue:))
-        return Configuration(screen: screen, premium: premium ?? screen.defaultPremium)
+        return Configuration(screen: screen)
     }
 
     private nonisolated static func value(after name: String, in arguments: [String]) -> String? {
@@ -207,43 +181,14 @@ final class ScreenshotDemo {
         )
     }
 
-    /// 購入の状態。購入済みならプレミアムの購入の記録を 1 つ持ち、App Store の価格の代わりに日本の価格の表示を出す
-    /// （`PurchaseManager.useScreenshotDisplayPrices`）。App Store の購入の記録（Transaction）は読まない。
-    func makePurchases() -> PurchaseManager {
-        let purchases: [VerifiedPurchase] = switch premium {
-        case .purchased:
-            [VerifiedPurchase(
-                transactionID: 1,
-                purchase: PremiumPurchase(product: .premium, purchaseDate: now.addingTimeInterval(-30 * 24 * 60 * 60))
-            )]
-        case .free:
-            []
-        }
-        let manager = PurchaseManager(now: makeClock(), loadPurchases: { purchases }, loadProducts: { _ in [] }, sync: {})
-        manager.useScreenshotDisplayPrices(Self.displayPrices)
-        Task { await manager.refreshPurchases() }
-        return manager
-    }
-
-    /// 日本の App Store の価格の表示（`Config/SaifuLog.storekit` と App Store Connect の価格）。画面の言語の書き方で書く。
-    nonisolated static var displayPrices: [PremiumProduct: String] {
-        [
-            .premium: 1_800.formatted(.currency(code: "JPY")),
-            .trial14: 0.formatted(.currency(code: "JPY")),
-        ]
-    }
-
     /// ホームのモデル。設定・時計・解析・質問の答え方・AI の一言・レシートの読み取りを、デモのものに差し替える。
-    func makeHomeModel(
-        context: ModelContext, pendingWrites: PendingStoreWrites, purchases: PurchaseManager, storeHost: StoreHost?
-    ) -> HomeModel {
+    func makeHomeModel(context: ModelContext, pendingWrites: PendingStoreWrites, storeHost: StoreHost?) -> HomeModel {
         let clock = makeClock()
         let writesRemarks = showsAIRemarks
         let receiptLines = ScreenshotDemoReceipt.lines(now: now, calendar: calendar)
         return HomeModel(
             store: EntryStore(context: context),
             pendingWrites: pendingWrites,
-            purchases: purchases,
             storeHost: storeHost,
             defaults: defaults,
             // 端末内 AI を使わず、キーワード辞書で読む（端末によって読み方が変わらないように）。カテゴリの聞き直しも AI なので使わない。
@@ -287,11 +232,6 @@ final class ScreenshotDemo {
             home.monthlyReport?.screenshotScrollsToBottom = true
         case .receipt:
             await home.readReceipt([ScreenshotDemoReceipt.image()], source: .photos, calendar: calendar).value
-        case .premium:
-            home.presentPremium()
-        case .trial:
-            home.presentPremium()
-            home.premiumSheet?.screenshotScrollsToBottom = true
         case .calendar:
             home.page = .calendar
         }

@@ -10,13 +10,12 @@ import UIKit
 @Suite(.serialized)
 struct FirstRunPreviewTests {
     @Test(arguments: ["ja_JP", "en_US"], [UIContentSizeCategory.large, .accessibilityExtraExtraExtraLarge])
-    func firstRunAndPaidPreviewFitPhone(locale: String, size: UIContentSizeCategory) async throws {
+    func firstRunPreviewFitsPhone(locale: String, size: UIContentSizeCategory) async throws {
         let fixture = try HomeModelTests.Fixture()
         let onboarding = OnboardingModel(budgetStore: BudgetStore(context: fixture.context), defaults: fixture.defaults, aiStatus: { .available })
         let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let views: [(String, AnyView)] = [
             ("welcome", AnyView(OnboardingView(model: onboarding))),
-            ("premium", AnyView(PremiumSheet(model: PremiumSheetModel(purchases: fixture.purchases))))
         ]
         for (name, view) in views {
             let host = UIHostingController(rootView: view.environment(\.locale, Locale(identifier: locale)))

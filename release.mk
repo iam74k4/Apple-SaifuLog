@@ -178,7 +178,7 @@ RELEASE_SCREENSHOT_DEMO_CHECK = \
 	grep -r -a -F -q "$(RELEASE_SCREENSHOT_DEMO_MARKER)" "$(RELEASE_ARCHIVE)/Products/$$app"; \
 	case $$? in \
 		0) echo "error: このアーカイブのアプリには撮影用のデモ（DEBUG のビルドだけの仕組み）が入っています（$(RELEASE_SCREENSHOT_DEMO_MARKER) が見つかった）。Release のビルドには入れないため止めます。"; \
-		   echo "       SaifuLog/ScreenshotDemo/ のコードと、それを呼ぶ場所（SaifuLogApp・AppRootView・HomeView・PurchaseManager・PremiumSheet・MonthlyReportView）が \#if DEBUG の外に出ていないか、Release の構成で DEBUG の条件を足していないかを確かめてください。"; \
+		   echo "       SaifuLog/ScreenshotDemo/ のコードと、それを呼ぶ場所（SaifuLogApp・AppRootView・HomeView・MonthlyReportView）が \#if DEBUG の外に出ていないか、Release の構成で DEBUG の条件を足していないかを確かめてください。"; \
 		   exit 1 ;; \
 		1) echo "撮影用のデモ: 入っていない" ;; \
 		*) echo "error: $(RELEASE_ARCHIVE)/Products/$$app を読めず、撮影用のデモが入っていないかを確かめられませんでした。"; exit 1 ;; \

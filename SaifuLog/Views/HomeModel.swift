@@ -5,7 +5,7 @@ import SwiftData
 import SwiftUI
 
 /// ホームの状態と操作（送信・家計への質問・チャットで頼む操作・レシートの読み取り・取り消し・直す・削除・予算を決める
-/// 画面と月のまとめと設定とプレミアムの出し入れ・会話とカレンダーのページの切り替え）。
+/// 画面と月のまとめと設定の出し入れ・会話とカレンダーのページの切り替え）。
 ///
 /// 画面（`HomeView`）から切り離し、解析器・時計・読み上げを差し替えて SaifuLogTests で確かめられるようにしている。
 /// 画面は、ここの値を表示し、操作をここへ渡すだけにする。
@@ -103,10 +103,6 @@ final class HomeModel {
             if settings == nil, oldValue != nil { discardReplyRemarkIfBudgetChanged() }
         }
     }
-    /// 無料体験が終わった後の最初の起動に出す「プレミアム」のシート。出していなければ nil（閉じると画面が nil に戻す）。
-    var premiumSheet: PremiumSheetModel?
-    /// プレミアムの購入と状態（アプリで 1 つ）。無料の回数の判定と、月のまとめの一言・設定・プレミアムのシートに渡す。
-    let purchases: PurchaseManager
     /// いまのカテゴリの一覧（組み込みと作ったカテゴリ）。画面へは環境で渡し、記録に作ったカテゴリの名前を当てるのに使う。
     let categories: CategoryCatalogModel
     /// 今日。「今月」の範囲と、日付に年を添えるかの基準にする。
@@ -123,8 +119,6 @@ final class HomeModel {
     ///
     /// 質問は記録ではないので保存しない（アプリを開き直すと消える。docs/design.md §9 の質問の決め事）。
     private(set) var questions: [QuestionExchange] = []
-    /// 無料で使える回数（家計への質問は月 10 回、レシートの読み取りは月 5 回。プレミアムと体験中は無制限）。
-    let quotaStore: QuotaStore
     /// 「撮る」「写真から選ぶ」を選ばせる確認（カメラのボタンを押したとき）。
     var showsReceiptSourceChoice = false
     /// 出しているレシートの取り込み口（書類カメラか写真の選択）。出していなければ nil（閉じると画面が nil に戻す）。
@@ -163,10 +157,6 @@ final class HomeModel {
     @ObservationIgnored private var capturedReceiptImages: (images: [ReceiptImage], skippedPageCount: Int)?
     /// ⑤ のシートを閉じた後に開く取り込み口（撮り直し）。
     @ObservationIgnored private var pendingReceiptRetake: ReceiptCaptureSource?
-    /// ⑤ のシートを閉じた後にプレミアムの案内を出すか（記録しようとしたら無料の回数を使い切っていた）。
-    @ObservationIgnored private var presentsPremiumAfterReceipt = false
-    /// 直前にレシートから記録したときに数えた無料の 1 回（数えた月と、記録した記録）。取り消したら戻す。
-    @ObservationIgnored private var receiptQuotaCharge: (month: QuotaMonth, ids: [PersistentIdentifier])?
 
     /// - Parameters:
     ///   - budgetStore: 予算の読み書き。渡さなければ記録と同じ保存先（`store` の ModelContext）を使う。
@@ -175,11 +165,8 @@ final class HomeModel {
     ///   - recurring: くり返しの記録の読み書き。渡さなければ記録と同じ保存先を使う。
     ///   - pendingWrites: 解析を待ってから記録する処理を数える先（`StoreHost.pendingWrites`）。保存先を開き直すとき、
     ///     記録し終えるのを待ってもらうため。
-    ///   - purchases: プレミアムの購入と状態。アプリは `SaifuLogApp` の 1 つを渡す。渡さなければ購入の無い状態（テスト用）。
     ///   - storeHost: 保存先を開いたもの（設定の「iCloud で同期」の切り替え先）。アプリは `SaifuLogApp` の 1 つを渡す。
-    ///   - defaults: 設定の置き場所（体験の終わりの案内を出したか、無料で質問した回数）。アプリは `UserDefaults.standard`、
-    ///     テストは使い捨ての領域。
-    ///   - quotaStore: 無料で使った回数の読み書き。渡さなければ `defaults` と `now` で作る。
+    ///   - defaults: 設定の置き場所（設定の画面に渡す週の始まりなど）。アプリは `UserDefaults.standard`、テストは使い捨ての領域。
     ///   - makeParser: 送信のたびに解析器を選ぶ（AI の使える・使えないは途中から変わるため）。送った瞬間の日時と暦を渡し、
     ///     「昨日」「9/26」をその日時を基準に読ませる。テストで差し替える。
     ///   - makeCategoryRefiner: 記録のたびに、辞書で決まらなかった品目のカテゴリを AI に聞き直すものを選ぶ（AI が使えなければ nil）。
@@ -201,10 +188,8 @@ final class HomeModel {
         categories: CategoryCatalogModel? = nil,
         recurring: RecurringEntryStore? = nil,
         pendingWrites: PendingStoreWrites = PendingStoreWrites(),
-        purchases: PurchaseManager? = nil,
         storeHost: StoreHost? = nil,
         defaults: UserDefaults = .standard,
-        quotaStore: QuotaStore? = nil,
         makeParser: @escaping (Date, Calendar) -> any EntryParsing = { EntryParserFactory.makeParser(now: $0, calendar: $1) },
         makeCategoryRefiner: @escaping () -> CategoryRefiner? = { CategoryRefiner.forDevice() },
         makeCommandInterpreter: @escaping () -> ChatCommandInterpreter? = { ChatCommandInterpreter.forDevice() },
@@ -227,9 +212,7 @@ final class HomeModel {
         self.calendarPage = LedgerCalendarModel(store: store, now: now, announce: announce)
         self.pendingWrites = pendingWrites
         self.storeHost = storeHost
-        self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
         self.defaults = defaults
-        self.quotaStore = quotaStore ?? QuotaStore(defaults: defaults, now: now)
         self.makeParser = makeParser
         self.makeCategoryRefiner = makeCategoryRefiner
         self.makeCommandInterpreter = makeCommandInterpreter
@@ -246,17 +229,15 @@ final class HomeModel {
     }
 
     convenience init(
-        context: ModelContext, pendingWrites: PendingStoreWrites = PendingStoreWrites(), purchases: PurchaseManager,
-        storeHost: StoreHost? = nil
+        context: ModelContext, pendingWrites: PendingStoreWrites = PendingStoreWrites(), storeHost: StoreHost? = nil
     ) {
-        self.init(store: EntryStore(context: context), pendingWrites: pendingWrites, purchases: purchases, storeHost: storeHost)
+        self.init(store: EntryStore(context: context), pendingWrites: pendingWrites, storeHost: storeHost)
     }
 
-    /// ホームの上にほかの画面・シート・確認を出しているか。出している間は、体験の終わりの案内を重ねない。
+    /// ホームの上にほかの画面・シート・確認を出しているか。
     var isPresentingOtherScreen: Bool {
         budgetSetup != nil || editing != nil || categoryEditor != nil || recurringEditor != nil || monthlyReport != nil
             || settings != nil || pendingCommand != nil
-            || premiumSheet != nil
             || receiptResult != nil || receiptCapture != nil || showsReceiptSourceChoice
     }
 
@@ -657,9 +638,6 @@ final class HomeModel {
     // MARK: - 質問
 
     /// 家計への質問に答える。数字はコアが計算し（AI には計算させない）、答えは保存しない。
-    ///
-    /// 無料の回数（月 10 回）を使い切っていれば、答えずにプレミアムの案内を出す（記録は無料で無制限のまま）。数えるのは
-    /// 答えを出せたときだけ（読めなかった質問・失敗は数えない）。プレミアムと体験中は数えない（`UsageQuota`）。
     /// 保存先には書き込まない（読むだけ）ので、`pendingWrites` には数えない。
     private func ask(_ text: String, source: EntrySource, sentAt: Date, calendar: Calendar) -> Task<Void, Never> {
         let id = appendQuestion(text, askedAt: sentAt, state: .answering)
@@ -675,34 +653,13 @@ final class HomeModel {
         isParsing = true
         return Task {
             defer { isParsing = false }
-            // 購入の事実を読み終える前は、プレミアムでも無料に見える。起動の直後に送った質問で、買った人に「使い切りました」を
-            // 出したり、プレミアムや体験中の人の質問を無料の回数として数えたりしないよう、読み終えるのを待ってから決める
-            // （体験の終わりの案内と同じく、読み終える前の状態では決めない）。
-            if !purchases.hasLoadedPurchases {
-                await purchases.refreshPurchases()
-            }
-            guard quotaStore.allowance(for: .question, status: purchases.status, calendar: calendar).canUse else {
-                setQuestionState(.limitReached, for: id)
-                // プレミアムを買ったあとに送り直せるよう、送った文を入力欄に戻す。
-                restoreDraft(text)
-                announce(String(localized: "今月の無料の質問を使い切りました"))
-                return
-            }
             let answerer = makeAnswerer()
             let reply = (try? await answerer.answer(text, ledger: ledger, now: sentAt, calendar: calendar)) ?? .unreadable
             switch reply {
             case .answered(let answer, let remark):
-                // 答えを出せたときだけ数える。答えの後に状態を読み直す（答えを待つ間に体験を始めたり買ったりしていれば数えない）。
-                let status = purchases.status
-                quotaStore.recordUse(of: .question, status: status, calendar: calendar)
-                let freeQuestionsLeft = freeQuestionsLeftToShow(status: status, calendar: calendar)
-                setQuestionState(.answered(answer, remark: remark, freeQuestionsLeft: freeQuestionsLeft), for: id)
-                // 画面にカードが出るだけでは VoiceOver の利用者に伝わらないので、答えを読み上げる。残りの回数が少ないときの
-                // 知らせも、カードの小さな行だけでは気づけないので一緒に読む。
-                announce(QuestionTexts.spoken(
-                    answer, remark: remark, freeQuestionsLeft: freeQuestionsLeft, calendar: calendar,
-                    catalog: categories.catalog
-                ))
+                setQuestionState(.answered(answer, remark: remark), for: id)
+                // 画面にカードが出るだけでは VoiceOver の利用者に伝わらないので、答えを読み上げる。
+                announce(QuestionTexts.spoken(answer, remark: remark, calendar: calendar, catalog: categories.catalog))
             case .unreadable:
                 setQuestionState(.unreadable, for: id)
                 // 書き直して送り直せるよう、送った文を入力欄に戻す（記録の「金額が見つかりませんでした」と同じ）。
@@ -721,17 +678,6 @@ final class HomeModel {
         retractLastReply()
         return ask(followUp.text, source: .text, sentAt: now(), calendar: calendar)
     }
-
-    /// 回答カードに出す、今月の無料の質問の残り。残りが少ない（3 回以下の）ときだけ（プレミアムと体験中は出さない）。
-    private func freeQuestionsLeftToShow(status: PremiumStatus, calendar: Calendar) -> Int? {
-        guard case .limited(let remaining, _) = quotaStore.allowance(for: .question, status: status, calendar: calendar),
-              remaining <= Self.fewFreeQuestionsLeft
-        else { return nil }
-        return remaining
-    }
-
-    /// 回答カードに無料の残りの回数を出し始める回数。
-    static let fewFreeQuestionsLeft = 3
 
     @discardableResult
     private func appendQuestion(_ text: String, askedAt: Date, state: QuestionExchange.State) -> UUID {
@@ -779,23 +725,9 @@ final class HomeModel {
 
     // MARK: - レシート
 
-    /// カメラのボタン（入力欄の左）。無料の回数が残っていれば「撮る」「写真から選ぶ」を選ばせ、使い切っていればプレミアム（⑨）の
-    /// 案内を出す（プレミアムと体験中は無制限）。選ばせるまでを待つ Task を返す（テストで使う）。
-    ///
-    /// 購入の事実を読み終える前は、プレミアムでも無料に見えるので、読み終えるのを待ってから決める（家計への質問と同じ）。
-    @discardableResult
-    func requestReceiptScan(calendar: Calendar) -> Task<Void, Never> {
-        Task {
-            if !purchases.hasLoadedPurchases {
-                await purchases.refreshPurchases()
-            }
-            guard quotaStore.allowance(for: .receiptScan, status: purchases.status, calendar: calendar).canUse else {
-                announce(String(localized: "今月の無料のレシートの読み取りを使い切りました"))
-                presentPremium()
-                return
-            }
-            showsReceiptSourceChoice = true
-        }
+    /// カメラのボタン（入力欄の左）。「撮る」「写真から選ぶ」を選ばせる。
+    func requestReceiptScan() {
+        showsReceiptSourceChoice = true
     }
 
     /// 選んだ取り込み口（書類カメラか写真の選択）を開く。
@@ -825,8 +757,7 @@ final class HomeModel {
 
     /// 画像を読み取る。⑤ のシートを読み取り中で出し、読み終えたら結果を入れる。読み終えるまでを待つ Task を返す（テストで使う）。
     ///
-    /// 読み取りでは無料の回数を数えない（数えるのは記録したときだけ。`recordReceipt`）。保存先には書き込まない（記録は利用者が
-    /// 「記録する」を押したときにその場で書き込む）ので、`pendingWrites` には数えない。
+    /// 保存先には書き込まない（記録は利用者が「記録する」を押したときにその場で書き込む）ので、`pendingWrites` には数えない。
     ///
     /// - Parameter skippedPageCount: 書類カメラで上限を超えて読み取らなかったページの数。
     @discardableResult
@@ -880,17 +811,8 @@ final class HomeModel {
         }
     }
 
-    /// ⑤ から記録する。記録したら ⑤ を閉じ、タイムラインにレシートの送信と返事（「取り消す」つき）を出し、無料の 1 回を数える。
-    ///
-    /// 数えるのは記録したときだけ（読み取っただけ・読めなかった・閉じたは数えない）。記録の直後に「取り消す」を押したら戻す。
-    /// 記録しようとした時点で使い切っていれば（読み取りの間に月が替わった・時計を動かしたなど）、記録せずにプレミアムの案内を出す。
+    /// ⑤ から記録する。記録したら ⑤ を閉じ、タイムラインにレシートの送信と返事（「取り消す」つき）を出す。
     func recordReceipt(_ submission: ReceiptResultModel.Submission, calendar: Calendar) -> ReceiptResultModel.RecordOutcome {
-        let status = purchases.status
-        guard quotaStore.allowance(for: .receiptScan, status: status, calendar: calendar).canUse else {
-            presentsPremiumAfterReceipt = true
-            receiptResult = nil
-            return .limitReached
-        }
         let recordedAt = now()
         let recorded = Entry.records(fromReceipt: submission, now: recordedAt, calendar: calendar)
         guard !recorded.isEmpty else { return .failed }
@@ -898,11 +820,6 @@ final class HomeModel {
             try store.insert(recorded)
         } catch {
             return .failed
-        }
-        if case .counted(let month) = quotaStore.use(.receiptScan, status: status, calendar: calendar) {
-            receiptQuotaCharge = (month, recorded.map(\.persistentModelID))
-        } else {
-            receiptQuotaCharge = nil
         }
         justRecorded = recorded
         refreshCategoryQuestions()
@@ -917,14 +834,8 @@ final class HomeModel {
         receiptResult = nil
     }
 
-    /// ⑤ のシートが閉じきった。撮り直しなら取り込み口を開き、使い切っていたならプレミアムの案内を出す。
+    /// ⑤ のシートが閉じきった。撮り直しなら取り込み口を開く。
     func receiptResultDidDismiss() {
-        if presentsPremiumAfterReceipt {
-            presentsPremiumAfterReceipt = false
-            pendingReceiptRetake = nil
-            presentPremium()
-            return
-        }
         if let source = pendingReceiptRetake {
             pendingReceiptRetake = nil
             startReceiptCapture(source)
@@ -936,7 +847,7 @@ final class HomeModel {
     /// 直前の記録を取り消す。元の文を入力欄に戻し、その場で直して送り直せるようにする。
     ///
     /// レシートから記録したものは、入力欄に何も戻さない（元の文は「レシート: 店名 合計 ¥…」の要約で、送り直すと合計の 1 件を
-    /// ひとこと入力として記録してしまうため）。その回に数えた無料の 1 回は戻す（取り消した記録は数えない決め事。docs/design.md §6）。
+    /// ひとこと入力として記録してしまうため）。
     /// くり返しの記録も入力欄に何も戻さない。取り消した月の分はもう記録しない（記録した月は覚えたまま。`RecurringEntryStore`）。
     func undoLastRecord() {
         // チャットで金額を直した後は「取り消す」を引っ込めている（直した内容と、入力欄に戻す直す前の文が食い違うため）。
@@ -958,7 +869,6 @@ final class HomeModel {
         let originalText = targets.first?.originalText ?? ""
         // レシート・くり返しの記録・Apple Pay の支払い（前の版で記録したもの）は打った文ではないので、入力欄に戻さない。
         let restoresDraft = restoringDraft && !targets.contains { [.receipt, .recurring, .wallet].contains($0.source) }
-        let ids = targets.map(\.persistentModelID)
         do {
             try store.delete(targets)
         } catch {
@@ -968,10 +878,6 @@ final class HomeModel {
         }
         justRecorded = []
         refreshCategoryQuestions()
-        if let charge = receiptQuotaCharge, charge.ids == ids {
-            quotaStore.refundUse(of: .receiptScan, month: charge.month)
-        }
-        receiptQuotaCharge = nil
         if restoresDraft { restoreDraft(originalText) }
         announce(String(localized: "取り消しました: \(items.formatted(.list(type: .and)))"))
         return items
@@ -1340,11 +1246,6 @@ final class HomeModel {
             return
         }
         forgetJustRecorded(Set(ids))
-        // レシートから記録した回なら、数えた無料の 1 回を戻す（「取り消す」と同じ）。
-        if let charge = receiptQuotaCharge, Set(charge.ids) == Set(ids) {
-            quotaStore.refundUse(of: .receiptScan, month: charge.month)
-            receiptQuotaCharge = nil
-        }
         reply(.removed(summary: summary))
         announce(String(localized: "取り消しました: \(items.formatted(.list(type: .and)))"))
     }
@@ -1446,7 +1347,6 @@ final class HomeModel {
         }
         justRecorded = recorded
         refreshCategoryQuestions()
-        receiptQuotaCharge = nil
         let items = recorded.map { entry in
             var item = "\(entry.kindText(in: categories.catalog)) \(YenFormatter.string(from: entry.amount))"
             if !calendar.isDate(entry.spentAt, inSameDayAs: recordedAt) {
@@ -1507,7 +1407,7 @@ final class HomeModel {
             store: store,
             calendar: calendar,
             month: month,
-            remark: RecapRemarkModel(purchases: purchases, makeWriter: makeRemarkWriter),
+            remark: RecapRemarkModel(makeWriter: makeRemarkWriter),
             now: now,
             announce: announce,
             didSave: { [weak self] entry in self?.finishEditing(entry) },
@@ -1523,7 +1423,7 @@ final class HomeModel {
     /// （`storeHost`）も渡す。渡さないと、設定の「iCloud で同期」の節が黙って消える（テストで確かめている）。
     func presentSettings() {
         settings = SettingsModel(
-            context: store.context, budgetStore: budgetStore, categories: categories, purchases: purchases, storeHost: storeHost,
+            context: store.context, budgetStore: budgetStore, categories: categories, storeHost: storeHost,
             defaults: defaults, now: now, announce: announce,
             // 足した・直したくり返しの記録の、記録する日を過ぎた分をすぐ記録する（ホームに戻ると返事のカードが出ている）。
             recurringDidChange: { [weak self] in
@@ -1544,39 +1444,11 @@ final class HomeModel {
         }
     }
 
-    // MARK: - プレミアム
-
-    /// 「プレミアム」のシートを出す（無料の質問やレシートの読み取りを使い切ったときの案内から）。
-    func presentPremium() {
-        premiumSheet = PremiumSheetModel(purchases: purchases, announce: announce)
-    }
-
-    /// 無料体験が終わった後の最初の起動で、一度だけ「プレミアム」のシートを出す。
-    ///
-    /// 出したことは設定に書き、二度と出さない（しつこく出さない）。購入の事実を読み終えるまでは出さない（読み終える前は
-    /// 無料と見分けがつかないため）。ほかのシートや画面を出しているときは出さず、次に呼ばれたときに出す（重ねて出すと、
-    /// 利用者の操作を遮るため）。ホームが出たとき・前面に戻ったとき・プレミアムの状態が変わったときに呼ぶ。
-    func presentPremiumIfTrialEnded() {
-        guard purchases.hasLoadedPurchases, case .trialEnded = purchases.status else { return }
-        guard !defaults.bool(for: AppSettings.hasShownTrialEndedPremium) else { return }
-        guard !isPresentingOtherScreen else { return }
-        premiumSheet = PremiumSheetModel(purchases: purchases, announce: announce)
-        defaults.set(true, for: AppSettings.hasShownTrialEndedPremium)
-    }
-
-    /// プレミアムの状態が変わったとき（体験を始めた・買った・返金された）に、月のまとめの AI の一言を決め直す
-    /// （開いている月のまとめにも、一言が付くか外れるように）。
-    func premiumStatusDidChange() {
-        monthlyReport?.remark.refresh()
-    }
-
     // MARK: - 日付とタイムライン
 
     /// 「今日」を読み直す。前面に戻ったときと、日付が変わったとき（0 時・時間帯の変更など）に呼ぶ。
     func refreshToday() {
         today = now()
-        // 体験の残りの日数と終わりも、今の時刻で出し直す。
-        purchases.clockDidChange()
         calendarPage.refreshToday()
     }
 

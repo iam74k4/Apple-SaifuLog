@@ -31,7 +31,7 @@ final class MonthlyReportModel {
     var selectedCategory: EntryCategory?
     /// 「直す」のシートで直している記録の状態と操作。シートを閉じると画面が nil に戻す。
     var editing: EditEntryModel?
-    /// まとめの先頭に添える AI の一言（プレミアムと体験中で、AI が使える端末だけ）。
+    /// まとめの先頭に添える AI の一言（AI が使える端末だけ）。
     let remark: RecapRemarkModel
     #if DEBUG
     /// まとめを下の端（カテゴリ別のグラフと金額の行）まで送るか。撮影用のデモ（`ScreenshotDemo`）が、月のまとめの
@@ -52,7 +52,7 @@ final class MonthlyReportModel {
     ///   - calendar: 月の区切りの暦。ホームと同じ暦を渡す（ホームの今月の合計と同じ月でまとめるため）。
     ///   - month: 開く月に入る日時（質問の回答カードから先月を開くときなど）。nil なら今月。今月より先の月は今月にする
     ///     （月送りで今月より先へ進めないのと同じ）。
-    ///   - remark: AI の一言の状態と書かせ方。渡さなければ一言を添えない（無料と同じ）。
+    ///   - remark: AI の一言の状態と書かせ方。渡さなければ一言を添えない（テストとプレビュー用）。
     ///   - now: 今日の基準。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     ///   - didSave: ここから開いた「直す」で保存できたあとに呼ぶ（ホームが「取り消す」を片づける）。
@@ -74,7 +74,7 @@ final class MonthlyReportModel {
         self.announce = announce
         self.didSave = didSave
         self.didDelete = didDelete
-        self.remark = remark ?? RecapRemarkModel(purchases: nil)
+        self.remark = remark ?? RecapRemarkModel(makeWriter: { nil })
         self.today = today
         // 暦で月を区切れないことは実際には無いが、そのときは数字を出さない（report が nil のまま）。
         self.month = ReportPeriod.thisMonth.interval(now: min(anchor ?? today, today), calendar: calendar)

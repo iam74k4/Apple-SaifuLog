@@ -7,12 +7,12 @@
 # iOS の版を渡さなければ、いちばん新しい iOS のランタイムにある、最初の iPhone を選ぶ。
 # 機種の名前（「iPhone 17 Pro」など）を決め打ちすると、CI のランナーのイメージや手元の Xcode で
 # その機種が無くなった日に、テストが「宛先が見つからない」で落ちるため。
-# 版を渡すのは、購入のテスト（make test-storekit）が SKTestSession の動く版のシミュレータを要るため
-# （iOS 26.3・26.4 のシミュレータでは xcodebuild test から SKTestSession を使えない）。
+# 版を渡すのは、iOS 26 での互換性の確認（make test-app-ios26）が、いちばん新しい版ではなく決めた版のシミュレータを
+# 要るため。
 # 使えるシミュレータが 1 台も無ければ、何も書かずに 1 で終わる。
 #
 # Makefile の make test-app が、TEST_DESTINATION を渡されなかったときに呼ぶ（CI の build.yml も同じ）。
-# make test-storekit は STOREKIT_TEST_OS の版を渡して呼ぶ。
+# make test-app-ios26 は IOS26_TEST_OS の版を渡して呼ぶ。
 
 set -eu
 
