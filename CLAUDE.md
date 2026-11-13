@@ -247,9 +247,9 @@ docs: add privacy policy
 - `make build` — 生成してから `xcodebuild build -scheme SaifuLog`（汎用 iOS シミュレータ向け、
   署名なし、`SIM_ARCHS`（既定 arm64）だけ）。CI の最初のステップと同じ経路
 - `make test` — `swift test --package-path Packages/SaifuLogCore`（コアのテスト）
-- `make build-tests` — アプリ側のテスト（`SaifuLogTests/`、Swift Testing）を `xcodebuild build-for-testing` で
-  ビルドする（汎用のシミュレータ向け、署名なし）。`make build` はスキームの build アクション（SaifuLog だけ）
-  なので、テストのターゲットが壊れても `make build` だけでは気づけない
+- `make build-tests` — アプリ側のテスト（`SaifuLogTests/`、Swift Testing）と UI テスト（`SaifuLogUITests/`）を
+  `xcodebuild build-for-testing` でビルドする（汎用のシミュレータ向け、署名なし）。`make build` はスキームの build アクション
+  （SaifuLog だけ）なので、テストのターゲットが壊れても `make build` だけでは気づけない
 - `make test-app` — アプリ側のテストをシミュレータで動かす（`build-tests` の後に `test-without-building`、
   `-only-testing:SaifuLogTests`）。SwiftData の保存・読み込みの条件や保存の失敗の扱い、保存先の開き方、
   画面のモデル（`HomeModel`）の操作など、コアに置けない部分。
@@ -257,10 +257,21 @@ docs: add privacy policy
 - `make test-app-ios26` — アプリ側のテストを iOS 26 の版（`IOS26_TEST_OS`、いまは iOS 26.2）のシミュレータで動かす（iOS 26 での
   SwiftData などの動作の違いを確かめる）。その版のシミュレータが無ければ止まる（`./scripts/prepare-simulator.sh 26.2` で入れる。
   ランタイムは数 GB。CI は build.yml が `scripts/prepare-simulator.sh` で入れる）
+- `make test-ui` — 画面を操作する UI テスト（`SaifuLogUITests/`、XCTest の XCUITest）をシミュレータで動かす（`build-tests` の後に
+  `test-without-building`、`-only-testing:SaifuLogUITests`。宛先は `make test-app` と同じ）。アプリを起動引数 `-SaifuLogUITest YES` で
+  開き（`SaifuLog/UITestMode/`。**DEBUG のビルドだけ**で `#if DEBUG` の中。メモリの上の保存先（`-SaifuLogUITestSeed demo` なら撮影用の
+  デモと同じ記録）・専用の UserDefaults の領域・キーワード辞書（端末内 AI は使わない）・「いま」はその月の 15 日の 20:30・ロックと
+  iCloud 同期はオフ・診断のボタンなし。`-SaifuLogUITestFirstRun YES` で初回の案内から、`-SaifuLogUITestReceipt YES` で決まった
+  レシートの ⑤ を開く）、初回の案内・記録と取り消し・カテゴリの聞き返し・チャットの操作・質問・直す・削除・カレンダー・
+  月のまとめ・設定とその先・CSV の書き出し・レシート・アクセシビリティの検査（`performAccessibilityAudit`。要素の説明と押せる
+  範囲）・いちばん大きな文字を押して確かめる。要素は表示の文ではなく名前（`SaifuLog/App/AccessibilityID.swift`。UI テストの
+  ターゲットにも同じファイルを入れる）で探す。画面に要素を足したり作り替えたりしたら、名前を付け直して UI テストも直す。
+  待つときは決まった時間眠らず、要素の状態を待つ
 - `make check-strings` — `make build` が書き出した Debug の .stringsdata と `Localizable.xcstrings` を突き合わせ、
   足りないキー・使われていないキー・en の無いキー・ja と en の書式指定子の不一致があれば止まる（`scripts/check-strings.py`）
-- `make ci` — 必須チェック `build`（build.yml）と同じ 8 種類（`make build`・`make check-strings`・`make test`・`make build-tests`・
-  `make test-app`・`make test-app-ios26`・`make check-version`・`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を順に通す。
+- `make ci` — 必須チェック `build`（build.yml）と同じ 9 種類（`make build`・`make check-strings`・`make test`・`make build-tests`・
+  `make test-app`・`make test-ui`・`make test-app-ios26`・`make check-version`・`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を
+  順に通す。
   アプリ側のテストは最新 iOS と iOS 26.2 の両方で動かす（SwiftData などの動作の違いも確かめる）。
   **`make build` が通るだけでは CI が通るとは限らない。** PR の前はこれを通す
 - `make clean` / `make open` — 生成物の削除 / Xcode で開く
@@ -322,7 +333,8 @@ docs: add privacy policy
   `@Observable` のモデル（`Views/`）、SwiftData のモデルと保存先の作り方（`Models/`）、
   Foundation Models を使う部分（`AI/`）、Siri とショートカット（`Intents/`）、レシートの文字認識（`Receipt/`）、
   `Resources/`（Assets、String Catalog など）、
-  実機での確認に使う診断画面（`Diagnostics/`）、App Store のスクリーンショットの撮影用のデモ（`ScreenshotDemo/`。DEBUG だけ）。
+  実機での確認に使う診断画面（`Diagnostics/`）、App Store のスクリーンショットの撮影用のデモ（`ScreenshotDemo/`。DEBUG だけ）、
+  UI テストで起動したときの状態（`UITestMode/`。DEBUG だけ）、UI テストが要素を探す名前（`App/AccessibilityID.swift`）。
 - 診断画面（`SaifuLog/Diagnostics/`）は、社内テスト用のビルド（Swift の条件 `INTERNAL_DIAGNOSTICS`。
   `make archive INTERNAL_BUILD=YES`）と DEBUG のビルドにだけ入れる。コードは必ず `#if DEBUG || INTERNAL_DIAGNOSTICS` で
   囲い（入口のボタンや `HomeView` のシートも）、App Store へ出すビルドに入れない（`make archive` がアプリの中の印

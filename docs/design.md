@@ -516,6 +516,16 @@ build アクション（アプリだけ）なので、これが無いとテス�
 iOS 26 の SwiftData などの動作の違いを確かめるため、`make test-app-ios26` で iOS 26.2 のシミュレータでも同じテストを動かす
 （`IOS26_TEST_OS`。CI はランタイムが無ければ `scripts/prepare-simulator.sh` で入れる）。
 
+画面を操作する UI テスト（`SaifuLogUITests`。XCUITest）は `make test-ui` で動かす（CI も）。アプリのテストはモデルを直に呼ぶので、
+画面の上で押せない・出ない・モデルとつながっていない、には気づけないため（2026-11-13 に足した）。アプリは起動引数
+`-SaifuLogUITest YES` で、UI テスト用の状態（`SaifuLog/UITestMode/`。DEBUG のビルドだけ。メモリの上の保存先・専用の UserDefaults の
+領域・キーワード辞書・「いま」はその月の 15 日・ロックと iCloud 同期はオフ）で開く。端末内 AI は使わない（端末によって読み方や
+答えが変わり、UI テストの結果が揺れるため。AI の答え方はアプリのテストで差し替えて確かめる）。書類カメラと写真の選択はアプリの
+外の画面で押せないので、レシートは決まった文字を読んだ ⑤ を起動引数で開く。要素は表示の文ではなく名前（accessibilityIdentifier。
+`SaifuLog/App/AccessibilityID.swift`）で探し、待つときは決まった時間眠らず、要素の状態を待つ。アクセシビリティの検査
+（`performAccessibilityAudit`）は要素の説明と押せる範囲だけを見る（コントラストは `ThemeContrastTests` が値で確かめ、文字の大きさの
+上限と金額を縮めて 1 行に収めるのは意図した形のため）。
+
 ### 5-2. データモデル（案）
 
 実装時に確定する。ここでは形の見当だけを書く。

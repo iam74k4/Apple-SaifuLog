@@ -137,12 +137,13 @@ Xcode で開きます。スキーム **SaifuLog** とシミュレータを選ん
 | `make open` | 生成したプロジェクトを Xcode で開く |
 | `make build` | 生成してから、シミュレータ向けに署名なしでビルドする（Apple シリコンの Mac 向けに arm64 だけ。Intel の Mac では `make build SIM_ARCHS=x86_64`） |
 | `make test` | 計算や解析を受け持つ `Packages/SaifuLogCore` のテストを実行する |
-| `make build-tests` | アプリ側（`SaifuLog/`）のテスト（`SaifuLogTests`）をビルドする（動かさない） |
+| `make build-tests` | アプリ側（`SaifuLog/`）のテスト（`SaifuLogTests`）と UI テスト（`SaifuLogUITests`）をビルドする（動かさない） |
 | `make test-app` | アプリ側のテストをシミュレータで動かす（保存と読み込みの条件など） |
 | `make test-app-ios26` | アプリ側のテストを iOS 26 の版（`IOS26_TEST_OS`、いまは 26.2）のシミュレータでも動かす（無ければ入れ方を示して止まる） |
+| `make test-ui` | 画面を操作する UI テスト（`SaifuLogUITests`）をシミュレータで動かす（初回の案内・記録と取り消し・カテゴリ・チャットの操作・質問・直す・削除・カレンダー・月のまとめ・設定・書き出し・レシート・アクセシビリティの検査・大きな文字） |
 | `make check-version` | アプリのバージョンと `CHANGELOG.md` の先頭の見出しが一致しているか確かめる |
 | `make check-strings` | 画面の文字列の一覧（String Catalog）とコードの文字列が食い違っていないか（足りない・使っていない・英語の訳が無い・`%@` などの数や種類が違う）を確かめる（`make build` の後に） |
-| `make ci` | CI（`build`）と同じ 8 種類（`make build`・`make check-strings`・`make test`・`make build-tests`・`make test-app`・`make test-app-ios26`・`make check-version`・署名なしの `make archive`）を順に通す |
+| `make ci` | CI（`build`）と同じ 9 種類（`make build`・`make check-strings`・`make test`・`make build-tests`・`make test-app`・`make test-ui`・`make test-app-ios26`・`make check-version`・署名なしの `make archive`）を順に通す |
 | `make clean` | ビルドの生成物を消す |
 
 `make test-app` は、入っているシミュレータのうち、いちばん新しい iOS の iPhone を選んで動かします。
@@ -150,6 +151,8 @@ Xcode で開きます。スキーム **SaifuLog** とシミュレータを選ん
 のように渡します。Xcode でスキーム **SaifuLog** の Test を実行しても動かせます。
 CI と `make ci` は、最新の iOS に加え、iOS 26.2 でもアプリのテストをすべて実行します（`make test-app-ios26`）。
 最新の iOS だけでは見つからない SwiftData などの動作の違いも確かめるためです。
+`make test-ui` も同じシミュレータを選びます。UI テストはアプリを UI テスト用の状態（メモリの上の記録・キーワード辞書・
+決まった日付。Debug のビルドだけ）で開くので、手元の記録や設定には触れません。
 
 iOS 26.2 のシミュレータが無ければ、`./scripts/prepare-simulator.sh 26.2` で入れられます（ランタイムは数 GB）。
 
@@ -183,8 +186,8 @@ Xcode の自動署名が、ご自身のチームにその Bundle ID の App ID �
   ブランチを切り、PR でマージします。コミットは Conventional Commits で書きます
   （詳しくは [`CLAUDE.md`](CLAUDE.md)）
 - PR では CI（`build`）が `make build`・`make check-strings`（String Catalog の整合）・`make test`・`make build-tests`・
-  `make test-app`（アプリのテスト）・`make test-app-ios26`（iOS 26 でのアプリのテスト）・`make check-version` と、署名なしの `make archive`
-  （提出物と同じ組み立て）を通します。手元では `make ci` で同じ 8 種類を通せます
+  `make test-app`（アプリのテスト）・`make test-ui`（画面を操作する UI テスト）・`make test-app-ios26`（iOS 26 でのアプリのテスト）・
+  `make check-version` と、署名なしの `make archive`（提出物と同じ組み立て）を通します。手元では `make ci` で同じ 9 種類を通せます
 - `develop` → `main` の PR は **merge commit でマージします**（`main` は merge しか受け付けない
   設定です）。squash すると `develop` と履歴が分かれ、次のリリースから毎回衝突するためです
 - **`main` へのマージがリリースの合図です。** App Store Connect へのアップロードと
