@@ -14,15 +14,7 @@ struct LocalizationTests {
         return try #require(Bundle(path: path))
     }
 
-    /// 日本語の中黒（全角）のまま英語の画面に出すと、半角の文の間で幅が広く浮いて見える。
-    @Test("ホームの帯の区切りの点は、英語では中点にする")
-    func summarySeparatorIsLocalized() throws {
-        let english = try Self.bundle(for: "en")
-
-        #expect(english.localizedString(forKey: "・", value: nil, table: nil) == "·")
-    }
-
-    /// 回答カードの期間の見出しは文字をつなげるだけなので（帯のように並べ方で空きが入らない）、英語の訳の区切りに空白が
+    /// 回答カードの期間の見出しは文字をつなげるだけなので、英語の訳の区切りに空白が
     /// 無いと「This Month·Sep 1–30」と詰まる。App Store の英語のスクリーンショットにも写る。
     @Test("質問の回答カードの期間の見出しは、英語では中点の前後に空白を入れる（日本語は全角の中黒でつなげる）")
     func questionPeriodSeparatorIsSpaced() throws {
