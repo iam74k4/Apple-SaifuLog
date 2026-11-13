@@ -11,7 +11,10 @@ struct FoundationModelsChatCommandInterpreter: ChatCommandInterpreting {
     func kind(of text: String) async throws -> ChatCommandKind {
         // 文ごとに新しいセッションにする。前の文の文脈を引きずらないようにするため。
         let session = LanguageModelSession(instructions: Self.instructions)
-        let choice = try await session.respond(to: text, generating: GeneratedChatCommand.self).content.operation
+        // 選ぶだけの答えなので、毎回いちばん確かな選択肢にする（同じ文で選ぶ操作が揺れないように）。
+        let choice = try await session.respond(
+            to: text, generating: GeneratedChatCommand.self, options: GenerationOptions(sampling: .greedy)
+        ).content.operation
         return Self.kinds[choice] ?? .none
     }
 

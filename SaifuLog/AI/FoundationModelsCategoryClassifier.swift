@@ -14,7 +14,8 @@ struct FoundationModelsCategoryClassifier: ItemCategoryClassifying {
         // 品目ごとに新しいセッションにする。前の品目の文脈を引きずらないようにするため。
         let session = LanguageModelSession(instructions: Self.instructions)
         let schema = try GenerationSchema(root: Self.schema(choices: choices), dependencies: [])
-        let response = try await session.respond(to: item, schema: schema)
+        // 選ぶだけの答えなので、毎回いちばん確かな選択肢にする（同じ品目で答えが揺れないように）。
+        let response = try await session.respond(to: item, schema: schema, options: GenerationOptions(sampling: .greedy))
         return try response.content.value(String.self, forProperty: Self.categoryProperty)
     }
 
