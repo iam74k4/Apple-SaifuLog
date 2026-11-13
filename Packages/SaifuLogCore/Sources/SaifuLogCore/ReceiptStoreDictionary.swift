@@ -56,6 +56,32 @@ enum ReceiptStoreDictionary {
         match(in: name)?.category
     }
 
+    /// ひとこと入力の品目（利用者が打った文）に当たるチェーンの名前のカテゴリ。当たらなければ nil。
+    ///
+    /// レシートの店名の行と違い、打った品目は店の名前とは限らない。店の種類の語（「スーパー」「カフェ」「弁当」）と、ほかの意味にも
+    /// なる名前（「ライフ」「サミット」「コスモス」）は当てない（「ライフカード 年会費」「サミットの参加費」を食費にしないため）。
+    /// 英字の名前は、前後が英字でないところだけ当てる（`KeywordMatcher.firstRange`。"dcm" を別の英語の語の中に当てない）。
+    static func chainCategory(forTypedItem item: String) -> EntryCategory? {
+        let haystack = KeywordMatcher.fold(item)
+        var best: (category: EntryCategory, length: Int)?
+        for entry in entries {
+            for word in entry.words where !typedItemExclusions.contains(word) {
+                let needle = KeywordMatcher.fold(word)
+                guard needle.count > (best?.length ?? 0), KeywordMatcher.firstRange(of: needle, in: haystack) != nil else { continue }
+                best = (entry.category, needle.count)
+            }
+        }
+        return best?.category
+    }
+
+    /// 打った品目には当てない語（店の種類の語と、ほかの意味にもなるチェーンの名前）。
+    static let typedItemExclusions: Set<String> = [
+        "スーパー", "マーケット", "食品館", "生協", "コープ", "COOP", "CO-OP", "八百屋", "青果", "精肉", "鮮魚",
+        "ベーカリー", "パン屋", "惣菜", "弁当", "コンビニ", "ドラッグストア", "ドラッグ", "ホームセンター",
+        "カフェ", "CAFE", "Cafe", "珈琲", "コーヒー",
+        "ライフ", "サミット", "オーケー", "コスモス", "クリエイト", "ポプラ", "フレスコ", "ベルク", "万代", "ココス",
+    ]
+
     /// 行にチェーンの名前か店の種類の語が含まれるか（店名の行を探すのに使う）。
     static func containsStoreWord(_ text: String) -> Bool {
         match(in: text) != nil

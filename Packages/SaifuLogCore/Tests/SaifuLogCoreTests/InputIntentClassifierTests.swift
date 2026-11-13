@@ -124,6 +124,8 @@ struct InputIntentClassifierTests {
         "前のを1000に変更",
         "今のは500にして",
         "直前のランチ 1200 に直しといて",
+        "今のランチ 900 に直して",
+        "先ほどのは700に変更",
     ])
     func corrections(text: String) {
         #expect(Self.classify(text) == .correction, "\(text)")
@@ -135,6 +137,11 @@ struct InputIntentClassifierTests {
         "修正テープ 200",
         "今のランチ 900",
         "前の店でランチ 850",
+        // 「名前の」「出前の」の「前の」は前の記録を指さない。「前のタイヤ」は品目（直した先を示す「に変えて」も無い）。
+        "名前の変更 2500",
+        "出前の注文を変更 2000",
+        "前のタイヤ変えて 20000",
+        "午前の診察を変更 3000",
     ])
     func correctionLikeRecords(text: String) {
         #expect(Self.classify(text) == .record, "\(text)")

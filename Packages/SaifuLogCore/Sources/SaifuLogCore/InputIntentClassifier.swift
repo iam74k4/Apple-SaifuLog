@@ -89,6 +89,19 @@ public enum InputIntentClassifier {
     /// 前の記録を指す語。直す語（`editWords`）と組のときだけ、記録を直す文とみなす（「今のランチ 900」は記録）。
     static let referenceWords = ["さっき", "先ほど", "前の", "今の", "直前"]
 
+    /// 「前の」「今の」を含むが、前の記録を指さない語（「名前の変更 2500」「出前の注文」「午前の」）。
+    static let referenceWordExceptions = [
+        "名前", "出前", "午前", "駅前", "手前", "建前", "以前", "寸前", "事前", "自前", "生前", "門前", "目の前", "腕前", "板前",
+        "気前", "人前", "只今", "ただ今",
+    ]
+
+    /// 「前の」「今の」のすぐ後ろに続いても、前の記録を指す語・助詞（「前の記録」「今のは」）。
+    static let recordPointerFollowers = ["記録", "やつ", "金額", "値段", "額", "支出", "入力", "分", "件", "を", "は", "が", "も", "の", "、", "。"]
+
+    /// 直した先を示す直す語（「に直して」「に変えて」）。品目らしい語が続く「前の」「今の」（「今のランチ 900 に直して」）でも、
+    /// これがあれば前の記録を直す文とみなす。
+    static let targetedEditWords = ["に直", "になお", "に変え", "にかえ", "に変更", "にして", "に修正", "に訂正"]
+
     /// 記録を直す語。「直し」は「直して」「直しといて」も含む（「お直し」は `correctionWordExceptions` で除く）。
     static let editWords = ["直し", "直す", "変えて", "変更", "にして"]
 
@@ -136,7 +149,32 @@ public enum InputIntentClassifier {
     static func containsCorrectionWord(_ text: String) -> Bool {
         let haystack = masking(correctionWordExceptions, in: text)
         if correctionWords.contains(where: { haystack.contains($0) }) { return true }
-        return referenceWords.contains { haystack.contains($0) } && editWords.contains { haystack.contains($0) }
+        return editWords.contains { haystack.contains($0) } && refersToPreviousRecord(haystack)
+    }
+
+    /// 前の記録を指す語があるか。
+    ///
+    /// 「前の」「今の」はほかの語の一部（「名前の」「出前の」）や、品目を指す言い方（「前のタイヤ変えて 20000」は前輪のタイヤの
+    /// 交換の記録）にもなる。ほかの語の一部（`referenceWordExceptions`）は見ず、後ろに品目らしい語が続くときは、直した先を示す直す語
+    /// （`targetedEditWords`）があるときだけ前の記録を指すとみなす（記録の文を、直す文として書き直しを頼まないため）。
+    static func refersToPreviousRecord(_ text: String) -> Bool {
+        let haystack = masking(referenceWordExceptions, in: text)
+        let boundWords: Set<String> = ["前の", "今の"]
+        for word in referenceWords {
+            var searchStart = haystack.startIndex
+            while searchStart < haystack.endIndex,
+                  let range = haystack.range(of: word, range: searchStart..<haystack.endIndex) {
+                guard boundWords.contains(word) else { return true }
+                let rest = haystack[range.upperBound...]
+                if let next = rest.first, next.isLetter, !recordPointerFollowers.contains(where: { rest.hasPrefix($0) }) {
+                    if targetedEditWords.contains(where: { haystack.contains($0) }) { return true }
+                } else {
+                    return true
+                }
+                searchStart = range.upperBound
+            }
+        }
+        return false
     }
 
     /// 比べる文か（`comparisonWords`）。

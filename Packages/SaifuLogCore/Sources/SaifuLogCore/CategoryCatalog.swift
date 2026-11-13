@@ -108,7 +108,10 @@ public struct CategoryCatalog: Sendable, Hashable {
         guard !trimmed.isEmpty else { return .failure(.empty) }
         guard trimmed.count <= Self.maximumNameLength else { return .failure(.tooLong) }
         let folded = Self.fold(trimmed)
-        let builtInNames = EntryCategory.builtIns.map(\.displayName) + ["光熱", "通信"]
+        // 組み込みのカテゴリの言い換え（「交通費」「光熱費」など。チャットでカテゴリを直すときに読む名前）とも重ねない。
+        // 重なると「それ交通費」がどちらのカテゴリか決まらず、利用者の思ったほうにならないことがあるため。
+        let aliases: [String] = CategoryCorrection.aliases.values.flatMap { $0 }
+        let builtInNames: [String] = EntryCategory.builtIns.map(\.displayName) + ["光熱", "通信"] + aliases
         if builtInNames.contains(where: { Self.fold($0) == folded }) { return .failure(.duplicate) }
         if customs.contains(where: { $0.id != editing && Self.fold($0.name) == folded }) { return .failure(.duplicate) }
         return .success(trimmed)

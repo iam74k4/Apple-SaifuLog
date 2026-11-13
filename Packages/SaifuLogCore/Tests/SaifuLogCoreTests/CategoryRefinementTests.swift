@@ -156,6 +156,18 @@ struct CategoryRefinementTests {
         #expect(CategoryRefinement.choices(in: Self.customCatalog) == ["食費", "日用品", "交通", "カフェ", "娯楽", "光熱・通信", "医療", "衣服", "その他"])
     }
 
+    @Test("選択肢の同じ名前は 1 つにする（前の版で組み込みと同じ名前のカテゴリを作れたため）")
+    func choicesAreUnique() {
+        let legacy = CustomCategoryInfo(id: "legacy", name: "しょくひ", symbolName: "fork.knife", colorIndex: 0)
+        let catalog = CategoryCatalog(customs: [legacy, CustomCategoryInfo(id: "legacy2", name: "食費", symbolName: "cart", colorIndex: 1)])
+
+        let choices = CategoryRefinement.choices(in: catalog)
+
+        #expect(choices.filter { $0 == "食費" }.count == 1)
+        #expect(choices.contains("しょくひ"))
+        #expect(choices.last == "その他")
+    }
+
     // MARK: - 聞き方
 
     @Test("AI が選んだカテゴリで記録し、その他を選んだ品目はそのまま（返事で聞き返す）")

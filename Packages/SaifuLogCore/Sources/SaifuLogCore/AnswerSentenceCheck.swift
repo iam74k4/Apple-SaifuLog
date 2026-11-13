@@ -25,6 +25,9 @@ import Foundation
 /// 符号と向き: 数字が合っていても、収支の向きを逆に書いた一言（黒字なのに「赤字」「マイナス」「-¥3,000」「支出が収入より
 /// 多い」）は使わない。一言に書いた向きが、結果の文の向き（収支の「+」「-」と「収入が支出より多い」などの注記）に無ければ捨てる。
 /// 収支ではない答え（支出の合計・予算など）の結果の文には向きが無いので、向きを書いた一言はいつも捨てる。
+///
+/// 予算と比べの向き: 同じように、予算を超えたのに「予算の残りは…」と書いた一言や、前の月より多いのに「先月より減りました」と
+/// 書いた一言も使わない（`trends(in:)`。数字が合っていても、向きを逆に書くと読む人が逆の受け取り方をするため）。
 public enum AnswerSentenceCheck {
     /// 一言として受け入れる長さの上限（文字数）。長い文は一言ではなく、確かめる数字も増えるので使わない。
     public static let maximumLength = 160
@@ -36,7 +39,8 @@ public enum AnswerSentenceCheck {
         let found = numbers(in: trimmed)
         guard found.isReadable else { return false }
         guard found.isAllowed(by: numbers(in: facts)) else { return false }
-        return directions(in: trimmed).isSubset(of: directions(in: facts))
+        guard directions(in: trimmed).isSubset(of: directions(in: facts)) else { return false }
+        return trends(in: trimmed).isSubset(of: trends(in: facts))
     }
 
     /// 数字の種類。
@@ -208,6 +212,61 @@ public enum AnswerSentenceCheck {
                     continue
                 }
                 result.insert(subjectIsLarger == comparison.incomeIsSubject ? .surplus : .deficit)
+            }
+        }
+        return result
+    }
+
+    // MARK: - 予算と比べの向き
+
+    /// 予算の向きと、前の期間・目安との比べの向き。
+    enum Trend: Hashable {
+        /// 予算を超えた（「予算を¥150超えています」「予算オーバー」）。
+        case overBudget
+        /// 予算の中に収まっている（「予算の残りは…」「予算内」）。
+        case withinBudget
+        /// 比べた相手より多い・増えた（「先月より多い」「増えました」）。
+        case more
+        /// 比べた相手より少ない・減った（「先月より少ない」「減りました」）。
+        case less
+    }
+
+    /// 文に書いた予算と比べの向き。結果の文にも同じ読み方を当て、一言の向きが結果の文にあるかを見る。
+    ///
+    /// 予算の向きは「予算」と一緒に書いたときだけ見る（「残り」だけなら残りの日数のこともあるため）。ただし「オーバー」「超過」は
+    /// それだけで予算を超えた向きとみなす。比べの向きは「より」の後ろ（文の終わりまで）の「多」「増」「上回」と「少な」「減」「下回」の
+    /// 先に出た方と、「増え」「増加」「減っ」「減り」「減少」の語で決める。「収入が支出より」「支出が収入より」は収支の向き
+    /// （`directions(in:)`）で見るので、ここでは見ない。
+    static func trends(in text: String) -> Set<Trend> {
+        let chars = Array(TextNormalizer.normalize(text))
+        let joined = String(chars)
+        var result: Set<Trend> = []
+
+        let mentionsBudget = joined.contains("予算")
+        if ["オーバー", "超過"].contains(where: { joined.contains($0) })
+            || (mentionsBudget && ["超え", "こえ"].contains(where: { joined.contains($0) })) {
+            result.insert(.overBudget)
+        }
+        // 「上回」「下回」は予算の向きに数えない（「予算の目安を上回るペース」は、予算の中でも書くため）。
+        if mentionsBudget, ["残り", "のこり", "以内", "予算内", "収ま", "おさま"].contains(where: { joined.contains($0) }) {
+            result.insert(.withinBudget)
+        }
+
+        if ["増え", "増加"].contains(where: { joined.contains($0) }) { result.insert(.more) }
+        if ["減っ", "減り", "減少"].contains(where: { joined.contains($0) }) { result.insert(.less) }
+        for range in QuestionParser.ranges(of: ["より"], in: chars) {
+            let before = String(chars[..<range.lowerBound])
+            guard !before.hasSuffix("支出"), !before.hasSuffix("収入") else { continue }
+            var end = range.upperBound
+            while end < chars.count, !["。", "\n", "!", "?"].contains(chars[end]) { end += 1 }
+            let tail = String(chars[range.upperBound..<end])
+            let more = ["多", "増", "上回"].compactMap { tail.range(of: $0)?.lowerBound }.min()
+            let less = ["少な", "減", "下回"].compactMap { tail.range(of: $0)?.lowerBound }.min()
+            switch (more, less) {
+            case let (more?, less?): result.insert(more < less ? .more : .less)
+            case (.some, nil): result.insert(.more)
+            case (nil, .some): result.insert(.less)
+            case (nil, nil): break
             }
         }
         return result

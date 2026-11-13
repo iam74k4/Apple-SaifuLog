@@ -40,9 +40,15 @@ public enum CategoryRefinement {
         }
     }
 
-    /// AI に渡す選択肢（`CategoryCatalog.all` の順の名前。「その他」が最後）。
+    /// AI に渡す選択肢（`CategoryCatalog.all` の順の名前。「その他」が最後）。同じ名前（表記ゆれをそろえて同じもの）は
+    /// 1 つにする。名前の確かめ（`CategoryCatalog.validateName`）の前の版で作ったカテゴリには組み込みと同じ名前のものがありえ、
+    /// 選択肢が重なると、端末内 AI の選択肢の型（`DynamicGenerationSchema`）を作れずに聞き直しが毎回失敗するため。
     public static func choices(in catalog: CategoryCatalog) -> [String] {
-        catalog.all.map(catalog.name(of:))
+        var seen: Set<String> = []
+        return catalog.all.map(catalog.name(of:)).filter { name in
+            let folded = CategoryCatalog.fold(name)
+            return !folded.isEmpty && seen.insert(folded).inserted
+        }
     }
 
     /// 聞き直す記録（記録の順）。AI に渡すのは品目だけ（割り勘や 1 人分の説明・金額・日付は渡さない。カテゴリには要らず、

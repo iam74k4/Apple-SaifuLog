@@ -139,6 +139,43 @@ struct AnswerSentenceCheckTests {
         #expect(!AnswerSentenceCheck.accepts("今月は赤字です。", facts: facts))
     }
 
+    // 以前は数字だけを照合していたので、予算を超えたのに「残りは¥150」、前の月より多いのに「先月より¥800減りました」と書いた
+    // 一言も、数字が結果の文にあれば出していた。
+    @Test("予算を超えたなら、予算の残りの向きの一言は使わない（逆も）")
+    func budgetTrend() {
+        let over = "今月の支出の合計: ¥5,150（支出の記録 4件）\n月の予算: ¥5,000 を ¥150 超えている"
+        #expect(AnswerSentenceCheck.accepts("予算を¥150超えています。", facts: over))
+        #expect(AnswerSentenceCheck.accepts("今月は予算オーバーです。", facts: over))
+        #expect(!AnswerSentenceCheck.accepts("予算の残りは¥150です。", facts: over))
+        #expect(!AnswerSentenceCheck.accepts("予算内に収まっています。", facts: over))
+
+        let within = "今月の支出の合計: ¥2,630（支出の記録 4件）\n月の予算: ¥100,000 のうち ¥2,630 を使い、残りは ¥97,370"
+        #expect(AnswerSentenceCheck.accepts("予算の残りは¥97,370です。", facts: within))
+        #expect(!AnswerSentenceCheck.accepts("予算を超えています。", facts: within))
+        #expect(!AnswerSentenceCheck.accepts("¥2,630で、もうオーバーです。", facts: within))
+        // 予算と書かない「残り」は、残りの日数のこともあるので見ない。
+        #expect(AnswerSentenceCheck.accepts("今月の支出は¥2,630です。残りの日も楽しんで。", facts: over.replacingOccurrences(of: "5,150", with: "2,630")))
+    }
+
+    @Test("前の期間より多いなら、少ない・減ったと書いた一言は使わない（逆も）")
+    func comparisonTrend() {
+        let more = "結果: ¥3,200\n前の期間との比べ: 先月の同じ日まで（¥2,400）より ¥800 多い"
+        #expect(AnswerSentenceCheck.accepts("先月より¥800多いです。", facts: more))
+        #expect(AnswerSentenceCheck.accepts("先月の同じ日までより¥800増えました。", facts: more))
+        #expect(!AnswerSentenceCheck.accepts("先月より¥800少ないです。", facts: more))
+        #expect(!AnswerSentenceCheck.accepts("先月から¥800減りました。", facts: more))
+
+        let less = "結果: ¥2,400\n前の期間との比べ: 先月の同じ日まで（¥3,200）より ¥800 少ない"
+        #expect(AnswerSentenceCheck.accepts("先月より¥800少なめです。", facts: less))
+        #expect(!AnswerSentenceCheck.accepts("先月より¥800多いです。", facts: less))
+        #expect(!AnswerSentenceCheck.accepts("¥800増えました。", facts: less))
+
+        // 比べの無い結果の文に、比べの向きを書いた一言は確かめられないので使わない。
+        #expect(!AnswerSentenceCheck.accepts("先月より減りました。", facts: Self.cafeFacts))
+        // 収支の比べ（収入が支出より多い）は、収支の向きで見る。
+        #expect(AnswerSentenceCheck.accepts("収入が支出より¥3,000多いです。", facts: Self.balanceFacts(3_000)))
+    }
+
     @Test("週の数は、別の数え方（割・人・か月・位など）と分けて比べる")
     func weeksAreSeparateFromOtherCounters() {
         #expect(AnswerSentenceCheck.numbers(in: "1週間")[.weeks] == [1])

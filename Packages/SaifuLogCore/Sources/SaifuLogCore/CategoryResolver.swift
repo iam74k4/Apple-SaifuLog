@@ -3,12 +3,15 @@ import Foundation
 /// ひとこと入力で読み取った記録のカテゴリを、AI に聞き直す前に手元の手がかりで決める（docs/design.md §3-2 の振り分けの順）。
 ///
 /// 当てる順（上が強い）:
-/// 1. 品目に作ったカテゴリの名前が書かれていれば、そのカテゴリ（`CategoryCatalog.customCategory(namedIn:)`）。組み込みの
-///    カテゴリの名前（「日用品」など）が書かれていれば、読み取ったカテゴリのまま（その場で書いたカテゴリを、覚えや履歴で変えない）。
-/// 2. 覚えたカテゴリ（利用者が返事・⑥・チャットで選んだもの。`CategoryMemory`）。
+/// 1. 品目に作ったカテゴリの名前が書かれていれば、そのカテゴリ（`CategoryCatalog.customCategory(namedIn:)`）。品目と同じ言葉の
+///    覚え（`CategoryMemory.exactCategory(forItem:)`）があれば、そのカテゴリ（利用者がその品目について選んだものなので、品目に
+///    組み込みのカテゴリの名前が入っていても当てる）。組み込みのカテゴリの名前（「日用品」など）が書かれていれば、読み取った
+///    カテゴリのまま（その場で書いたカテゴリを、ほかの言葉の覚えや履歴で変えない）。
+/// 2. 覚えたカテゴリ（利用者が返事・⑥・チャットで選んだもの。品目に含まれる言葉の覚え。`CategoryMemory`）。
 /// 3. 過去の記録のいつものカテゴリ（`CategoryHistory`）。
 /// 4. 読み取ったカテゴリ（AI かキーワード辞書）が「その他」でなければ、それ。
-/// 5. 店の名前の辞書（レシートと同じ `ReceiptStoreDictionary`。「マツキヨ」「ローソン」などのチェーンと店の種類の語）。
+/// 5. 店の名前の辞書のチェーンの名前（レシートと同じ `ReceiptStoreDictionary`。「マツキヨ」「ローソン」など。店の種類の語と、
+///    ほかの意味にもなる名前は当てない。`ReceiptStoreDictionary.chainCategory(forTypedItem:)`）。
 /// 6. どれでも決まらなければ「その他」のまま（AI に聞き直し、それでも決まらなければ返事で聞き返す。`CategoryRefinement`）。
 ///
 /// 一覧に無い作ったカテゴリ（消した・まだ iCloud から届いていない）を指す覚えと履歴は当てない。収入は変えない（収入はカテゴリを
@@ -75,11 +78,12 @@ public enum CategoryResolver {
             return Resolution(entry: result, source: source)
         }
         if let named = catalog.customCategory(namedIn: item) { return resolved(named, .named) }
+        if let exact = memory.exactCategory(forItem: item), catalog.contains(exact) { return resolved(exact, .learned) }
         if CategoryMemory.namesCategory(item) { return Resolution(entry: entry, source: .named) }
         if let learned = memory.category(forItem: item), catalog.contains(learned) { return resolved(learned, .learned) }
         if let usual = history.category(forItem: item), catalog.contains(usual) { return resolved(usual, .history) }
         if entry.category != .other { return Resolution(entry: entry, source: .parsed) }
-        if let store = ReceiptStoreDictionary.category(forStoreName: item) { return resolved(store, .store) }
+        if let store = ReceiptStoreDictionary.chainCategory(forTypedItem: item) { return resolved(store, .store) }
         return Resolution(entry: entry, source: .unresolved)
     }
 }

@@ -57,6 +57,27 @@ struct CategoryResolverTests {
         #expect(resolved.map(\.source) == [.named])
     }
 
+    @Test("品目と同じ言葉の覚えは、組み込みのカテゴリの名前が書かれた品目にも当てる")
+    func exactLearnedBeatsBuiltInName() {
+        let memory = CategoryMemory.resolve([CategoryMemoryTests.Row("日用品 まとめ買い", .food)])
+
+        let resolved = CategoryResolver.resolve([Self.expense("日用品 まとめ買い", .daily)], memory: memory)
+
+        #expect(resolved.map(\.entry.category) == [.food])
+        #expect(resolved.map(\.source) == [.learned])
+    }
+
+    /// 打った品目は店の名前とは限らない。店の種類の語やほかの意味にもなる名前で、黙って食費などにしない。
+    @Test("店の名前の辞書は、打った品目にはチェーンの名前だけを当てる")
+    func storeDictionaryUsesChainNamesOnly() {
+        let resolved = CategoryResolver.resolve(
+            [Self.expense("ライフカード 年会費"), Self.expense("スーパー"), Self.expense("DAISOで買い物")], memory: CategoryMemory()
+        )
+
+        #expect(resolved.map(\.entry.category) == [.other, .other, .daily])
+        #expect(resolved.map(\.source) == [.unresolved, .unresolved, .store])
+    }
+
     @Test("読み取りで「その他」になった品目は、店の名前の辞書で振り分ける")
     func storeDictionaryForOther() {
         let resolved = CategoryResolver.resolve(

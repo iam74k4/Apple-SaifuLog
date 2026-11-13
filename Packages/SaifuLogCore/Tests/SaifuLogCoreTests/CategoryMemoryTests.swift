@@ -110,6 +110,33 @@ struct CategoryMemoryTests {
         #expect(memory.category(forItem: "目薬") == nil)
     }
 
+    /// 以前は 2 文字の言葉も文字の並びだけで当て、「パン」を覚えると「パンツ」、「ガス」を覚えると「ガスト」まで同じカテゴリにしていた。
+    @Test("2 文字の言葉は、品目の中で語として区切れているときだけ当てる")
+    func twoCharacterKeyNeedsWordBoundary() {
+        let memory = CategoryMemory.resolve([Row("パン", .food), Row("ガス", .utilities)])
+
+        #expect(memory.category(forItem: "パン") == .food)
+        #expect(memory.category(forItem: "パン 2個") == .food)
+        #expect(memory.category(forItem: "食パン") == .food)
+        #expect(memory.category(forItem: "ガス代") == .utilities)
+        #expect(memory.category(forItem: "パンツ") == nil)
+        #expect(memory.category(forItem: "ガスト") == nil)
+    }
+
+    @Test("品目と同じ言葉の覚えは、品目にカテゴリの名前が書かれていても当てる")
+    func exactKeyBeatsBuiltInName() {
+        let memory = CategoryMemory.resolve([Row("日用品 まとめ買い", .food), Row("まとめ買い", .entertainment)])
+
+        #expect(memory.exactCategory(forItem: "日用品 まとめ買い") == .food)
+        #expect(memory.exactCategory(forItem: "日用品 まとめ買い 2") == nil)
+        let entries = [
+            ParsedEntry(amount: 500, category: .daily, memo: "日用品 まとめ買い"),
+            ParsedEntry(amount: 500, category: .daily, memo: "日用品のまとめ買い"),
+        ]
+        // 同じ言葉は覚えのとおり。ほかの言葉（部分一致）の覚えは、書いたカテゴリの名前を変えない。
+        #expect(memory.applying(to: entries).map(\.category) == [.food, .daily])
+    }
+
     @Test("読み取った記録のカテゴリを覚えで置き換える（AI と辞書のどちらで読んだものにも）")
     func applyingReplacesCategory() async throws {
         let memory = CategoryMemory.resolve([Row("家賃", .other), Row("ドラッグ", .daily), Row("ユニクロ", .other)])

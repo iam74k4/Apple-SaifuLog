@@ -105,6 +105,9 @@ struct CategoryCatalogTests {
         #expect(Self.catalog.validateName(String(repeating: "あ", count: CategoryCatalog.maximumNameLength + 1)) == .failure(.tooLong))
         #expect(Self.catalog.validateName("食費") == .failure(.duplicate))
         #expect(Self.catalog.validateName("光熱") == .failure(.duplicate))
+        // チャットで直すときに読む組み込みの言い換えとも重ねない（「それ交通費」がどちらか決まらなくなるため）。
+        #expect(Self.catalog.validateName("交通費") == .failure(.duplicate))
+        #expect(Self.catalog.validateName("趣味") == .failure(.duplicate))
         #expect(Self.catalog.validateName("いふく") == .success("いふく"))
         #expect(Self.catalog.validateName("じむ代") == .failure(.duplicate))
         // 自分の今の名前とは重なってよい（名前を変えずに記号だけ変えるとき）。
