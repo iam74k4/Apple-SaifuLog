@@ -270,7 +270,9 @@ docs: add privacy policy
   月のまとめ・設定とその先・CSV の書き出し・レシート・アクセシビリティの検査（`performAccessibilityAudit`。要素の説明と押せる
   範囲）・いちばん大きな文字を押して確かめる。要素は表示の文ではなく名前（`SaifuLog/App/AccessibilityID.swift`。UI テストの
   ターゲットにも同じファイルを入れる）で探す。画面に要素を足したり作り替えたりしたら、名前を付け直して UI テストも直す。
-  待つときは決まった時間眠らず、要素の状態を待つ
+  待つときは決まった時間眠らず、要素の状態を待つ。CI のシミュレータは遅く揺れるので、入力欄はフォーカスが入るまで押し直してから
+  打ち（`focusField`）、落ちたテストは xcodebuild が 1 回だけ動かし直す（`-retry-tests-on-failure -test-iterations 2`）。CI で
+  歯車を押したのに月のまとめが開いたことがあり（原因は未特定。`openSettings` が戻って押し直し、ログに残す）、実機で確かめる
 - `make test-ai` — 本物の端末内 AI（Foundation Models）の答え方のテスト（`SaifuLogTests/AIEvaluation/` の `AIEvaluationTests`）
   だけを動かす（`scripts/test-ai.sh`。`build-tests` の後に `-only-testing:SaifuLogTests/AIEvaluationTests`、宛先は `make test-app` と同じ）。
   ひとこと入力の読み取り・カテゴリの聞き直し・チャットの操作の種類・家計への質問・記録の返事と月のまとめの一言を本物のモデルに

@@ -127,6 +127,9 @@ test-app: build-tests
 # メモリの上の保存先・キーワード辞書・決まった「いま」で動く（DEBUG のビルドだけの UITestMode）。宛先はいちばん新しい iOS の
 # iPhone（TEST_DESTINATION）。iOS 26 では動かさない（画面の流れが通るモデルは make test-app-ios26 のアプリのテストが iOS 26 でも
 # 確かめていて、UI テストは 1 回に数分かかるため）。
+# 落ちたテストだけを 1 回動かし直す（-retry-tests-on-failure -test-iterations 2。2 回とも落ちれば失敗）。CI のランナーの
+# シミュレータは遅く、アプリを開けない（プロセスが作られない）ことや、押した入力欄にフォーカスが入らないことがあり、同じテストが
+# 次の実行では通ったため。動かし直したテストは xcodebuild の出力に残る。
 test-ui: build-tests
 	@test -n "$(TEST_DESTINATION)" || { echo "error: UI テストを動かすシミュレータがありません。TEST_DESTINATION で宛先を渡してください。"; exit 1; }
 	@udid=$$(printf '%s\n' '$(TEST_DESTINATION)' | sed -n 's/.*id=\([0-9A-Fa-f-]*\).*/\1/p'); \
@@ -137,6 +140,8 @@ test-ui: build-tests
 		-destination '$(TEST_DESTINATION)' \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SaifuLogUITests \
+		-retry-tests-on-failure \
+		-test-iterations 2 \
 		$(XCODEBUILD_FLAGS)
 
 # 本物の端末内 AI（Foundation Models）の答え方のテスト（SaifuLogTests/AIEvaluation/ の AIEvaluationTests）だけを動かす

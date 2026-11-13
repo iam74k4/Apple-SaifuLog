@@ -190,23 +190,30 @@ extension XCUIApplication {
     }
 
     /// 帯の右上の歯車から設定（⑧）を開く。開かなければ、いま出ている画面の要素の一覧を添えて失敗する（CI のログには
-    /// 失敗の時点の画面が残らないので、何が出ていたか（ほかの画面が開いた・歯車が押せなかった）を追えるようにする）。
+    /// 失敗の時点の画面が残らないので、何が出ていたかを追えるようにする）。
     ///
-    /// CI の遅いシミュレータでは、押した直後の画面が落ち着かず、押しても開かないことがあった（同じテストが次の実行では通った）。
-    /// 歯車がまだ押せる（ホームのまま）なら 1 回だけ押し直す（ログに残す）。
+    /// CI のシミュレータでは、撮影用のデモの記録で開いたときに、歯車を押しても設定が開かないことや、月のまとめが開くことがあった
+    /// （同じテストがほかの実行では通る。帯の数字と見出しは歯車と重なっておらず、原因は分かっていない。実機で確かめる）。
+    /// そのときは、いまの画面をログに出し、月のまとめが開いていれば戻ってから、3 回まで押し直す。
     func openSettings(file: StaticString = #filePath, line: UInt = #line) {
         let button = element(AccessibilityID.Home.settingsButton)
         let bar = navigationBars["設定"]
+        let report = navigationBars["月のまとめ"]
         XCTAssertTrue(button.waitUntilHittable(timeout: UITestTimeout.launch), "設定のボタンが押せません", file: file, line: line)
-        button.tap()
-        if !bar.waitForExistence(timeout: UITestTimeout.ui), button.isHittableNow {
-            print("設定が開かなかったので、歯車を押し直します。いまの画面:\n\(debugDescription)")
+        for attempt in 1...3 {
             button.tap()
+            if bar.waitForExistence(timeout: UITestTimeout.ui) {
+                return
+            }
+            print("歯車を押しても設定が開きませんでした（\(attempt) 回目）。いまの画面:\n\(debugDescription)")
+            if report.exists {
+                print("月のまとめが開いたので、戻って押し直します。")
+                goBack(file: file, line: line)
+                _ = report.waitForNonExistence(timeout: UITestTimeout.ui)
+            }
+            guard button.waitUntilHittable(timeout: UITestTimeout.ui) else { break }
         }
-        guard bar.waitForExistence(timeout: UITestTimeout.ui) else {
-            XCTFail("設定が開きません。いまの画面:\n\(debugDescription)", file: file, line: line)
-            return
-        }
+        XCTFail("設定が開きません。いまの画面:\n\(debugDescription)", file: file, line: line)
     }
 
     /// ナビゲーションで一つ前の画面へ戻る。
