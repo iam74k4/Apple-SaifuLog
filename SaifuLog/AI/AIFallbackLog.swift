@@ -15,6 +15,8 @@ enum AIFeature: String, CaseIterable, Sendable {
     case receipt
     /// 辞書で決まらなかった品目のカテゴリの聞き直し（`FoundationModelsCategoryClassifier`）。
     case category
+    /// 決まりで読めなかったチャットの文の、操作の種類の選び（`FoundationModelsChatCommandInterpreter`）。
+    case chatCommand
 }
 
 /// 端末内 AI の失敗と時間切れ、AI の結果を使わなかった回数を残す（os.Logger と、起動してからのメモリの上の記録）。

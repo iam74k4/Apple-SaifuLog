@@ -19,6 +19,8 @@ struct HomeModelTests {
         var makeParser: ((Date, Calendar) -> any EntryParsing)?
         /// カテゴリの聞き直し（AI の代わり）。既定は無し（AI が使えない端末と同じ。テストで本物のモデルを呼ばないため）。
         var categoryRefiner: CategoryRefiner?
+        /// チャットの文の操作の種類を選ぶもの（AI の代わり）。既定は無し（AI が使えない端末と同じ）。
+        var commandInterpreter: ChatCommandInterpreter?
         var now = TestSupport.now
         /// 解析を待ってから記録する処理の数（保存先の開き直しが待つもの）。
         let pendingWrites = PendingStoreWrites()
@@ -59,6 +61,7 @@ struct HomeModelTests {
                 defaults: defaults,
                 makeParser: { [unowned self] now, calendar in makeParser?(now, calendar) ?? parser },
                 makeCategoryRefiner: { [unowned self] in categoryRefiner },
+                makeCommandInterpreter: { [unowned self] in commandInterpreter },
                 makeAnswerer: { [unowned self] in
                     answererCalls += 1
                     return answerer
@@ -1409,28 +1412,29 @@ struct HomeModelTests {
     @Test func unclearTextIsNotRecorded() async throws {
         let fixture = try Fixture()
 
-        await fixture.send("予算 5万")
+        await fixture.send("残り 5000")
 
         #expect(try fixture.entries().isEmpty)
         #expect(fixture.lastQuestionState == .unclear)
-        #expect(fixture.model.draft == "予算 5万")
+        #expect(fixture.model.draft == "残り 5000")
         #expect(fixture.answererCalls == 0)
         #expect(fixture.freeQuestionsLeft == .limited(remaining: 10, limit: 10))
         #expect(!fixture.model.isParsing)
     }
 
-    /// 前の記録を直そうとする文は、記録を直さず新しい記録にもせず、直し方の案内を出して文を入力欄に戻す（数えない）。
+    /// 前の記録を直そうとする文で、直した後の金額が読めない（2 つ書かれている）ものは、記録を直さず新しい記録にもせず、
+    /// 直し方の案内を出して文を入力欄に戻す（数えない）。
     @Test func correctionTextIsNotRecorded() async throws {
         let fixture = try Fixture()
         await fixture.send("ランチ 850")
         #expect(try fixture.entries().map(\.amount) == [850])
 
-        await fixture.send("さっきのを900に直して")
+        await fixture.send("さっきのを900か950に直して")
 
         #expect(try fixture.entries().map(\.amount) == [850])
         #expect(try fixture.entries().map(\.memo) == ["ランチ"])
         #expect(fixture.lastQuestionState == .correction)
-        #expect(fixture.model.draft == "さっきのを900に直して")
+        #expect(fixture.model.draft == "さっきのを900か950に直して")
         #expect(fixture.announcements.last == String(localized: "記録は直していません"))
         #expect(fixture.answererCalls == 0)
         #expect(fixture.freeQuestionsLeft == .limited(remaining: 10, limit: 10))
@@ -1441,7 +1445,7 @@ struct HomeModelTests {
         #expect(fixture.model.justRecorded.map(\.amount) == [850])
         fixture.model.undoLastRecord()
         #expect(try fixture.entries().isEmpty)
-        #expect(fixture.model.draft == "さっきのを900に直して")
+        #expect(fixture.model.draft == "さっきのを900か950に直して")
     }
 
     /// 記録か質問か決められない文も、記録も答えもしないので、前の記録の「取り消す」と聞き返しを引っ込めない。
@@ -1451,7 +1455,7 @@ struct HomeModelTests {
         let recorded = try #require(try fixture.entries().first)
         #expect(fixture.model.categoryQuestionIDs == [recorded.persistentModelID])
 
-        await fixture.send("予算 5万")
+        await fixture.send("残り 5000")
 
         #expect(fixture.lastQuestionState == .unclear)
         #expect(fixture.model.canUndo)

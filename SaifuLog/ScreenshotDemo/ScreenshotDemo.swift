@@ -265,6 +265,7 @@ final class ScreenshotDemo {
             // 端末内 AI を使わず、キーワード辞書で読む（端末によって読み方が変わらないように）。カテゴリの聞き直しも AI なので使わない。
             makeParser: { now, calendar in RuleBasedParser(calendar: calendar, now: { now }) },
             makeCategoryRefiner: { nil },
+            makeCommandInterpreter: { nil },
             makeAnswerer: { ScreenshotDemoAnswerer(writesRemark: writesRemarks) },
             makeRemarkWriter: { writesRemarks ? ScreenshotDemoRemarkWriter() : nil },
             receiptReader: ReceiptReader(recognize: { _ in receiptLines }, makeRefiner: { nil }),

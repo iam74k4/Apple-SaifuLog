@@ -35,6 +35,14 @@ struct QuestionExchange: Identifiable, Equatable {
         /// 直前の記録のカテゴリを、チャットの文（「それ日用品」）で直した。`item` は品目、`category` は直した先のカテゴリの名前、
         /// `remembered` は次から同じ品目をそのカテゴリにするか（品目を覚えられたか）。
         case recategorized(item: String, category: String, remembered: Bool)
+        /// 直前の記録の金額を、チャットの文（「さっきのを900に直して」）で直した。
+        case amountChanged(item: String, from: Int, to: Int)
+        /// 直前の記録を、チャットの文（「さっきの消して」）で消した。`summary` は消した記録の要約。
+        case removed(summary: String)
+        /// 直前の記録を消すか、確認を出した（端末内 AI が「消す」と読んだとき）。
+        case removalAsked(summary: String)
+        /// 月の全体の予算を、チャットの文（「今月の予算を5万にして」）で決めた。
+        case budgetSet(amount: Int)
         /// 記録として送った文に、金額が見つからなかった（「ランチ」）。記録しない。前はアラートで知らせていたが、閉じるまで
         /// キーボードが下がって流れが止まり、送った文もタイムラインに残らなかったので、ほかの案内と同じくタイムラインに出す。
         case noAmount
@@ -47,7 +55,7 @@ struct QuestionExchange: Identifiable, Equatable {
         /// ので、VoiceOver でも「質問」と名乗らない（下の案内と食い違うため）。
         var isQuestion: Bool {
             switch self {
-            case .unclear, .correction, .noAmount, .recategorized: false
+            case .unclear, .correction, .noAmount, .recategorized, .amountChanged, .removed, .removalAsked, .budgetSet: false
             case .answering, .answered, .unreadable, .limitReached, .loadFailed: true
             }
         }

@@ -87,7 +87,23 @@ private struct QuestionReplyCard: View {
         case .correction:
             NoticeContent(
                 title: "記録は直していません",
-                message: "前の記録を直す文のようだったので、新しい記録にもしませんでした。記録を直すときは、返事の記録を押してください。記録した直後なら、「取り消す」で取り消して送り直すこともできます。"
+                message: "前の記録を直す文のようでしたが、直した後の金額が分からなかったので、新しい記録にもしませんでした。「さっきのを900に直して」のように直した後の金額を 1 つだけ書いて送るか、返事の記録を押して直してください。"
+            )
+        case .amountChanged(let item, let from, let to):
+            NoticeContent(
+                title: "金額を直しました",
+                message: item.isEmpty
+                    ? "\(YenFormatter.string(from: from)) から \(YenFormatter.string(from: to)) にしました。"
+                    : "「\(item)」を \(YenFormatter.string(from: from)) から \(YenFormatter.string(from: to)) にしました。"
+            )
+        case .removed(let summary):
+            NoticeContent(title: "取り消しました", message: "\(summary) を消しました。")
+        case .removalAsked(let summary):
+            NoticeContent(title: "消すか確かめます", message: "\(summary) を消すときは、確認で「削除」を押してください。")
+        case .budgetSet(let amount):
+            NoticeContent(
+                title: "月の予算を決めました",
+                message: "今月から \(YenFormatter.string(from: amount)) にしました。帯に今月あといくら使えるかと 1 日あたりを出します。"
             )
         case .recategorized(let item, let category, let remembered):
             NoticeContent(

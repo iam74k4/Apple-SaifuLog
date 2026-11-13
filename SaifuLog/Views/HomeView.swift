@@ -619,13 +619,14 @@ extension HomeModel.StoreFailure {
         case .undo: Text("取り消せませんでした")
         case .delete: Text("削除できませんでした")
         case .categoryChoice: Text("カテゴリを変えられませんでした")
+        case .chatCommand: Text("変えられませんでした")
         }
     }
 
     var message: Text {
         switch self {
         case .record: Text("保存に失敗しました。もう一度送ってください。")
-        case .undo, .delete, .categoryChoice: Text("保存に失敗しました。もう一度お試しください。")
+        case .undo, .delete, .categoryChoice, .chatCommand: Text("保存に失敗しました。もう一度お試しください。")
         }
     }
 }

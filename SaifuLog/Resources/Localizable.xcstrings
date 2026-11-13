@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "ja",
   "strings" : {
+    "%@ から %@ にしました。" : {
+      "comment" : "チャットの文で金額を直した後の返事のカードの本文（品目の無い記録）。1 つ目の %@ は直す前の金額、2 つ目は直した後の金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changed from %1$@ to %2$@."
+          }
+        }
+      }
+    },
     "%@ で購入する" : {
       "comment" : "プレミアムのシート（⑨）の下の帯の購入のボタン（大きな文字で「（買い切り）」まで収まらないとき）。%@ は App Store の価格の表示（「¥1,800」）",
       "localizations" : {
@@ -63,6 +74,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ split %2$lld ways. The %3$@ you paid for the others is noted in the memo."
+          }
+        }
+      }
+    },
+    "%@ を消しました。" : {
+      "comment" : "チャットの文で直前の記録を消した後の返事のカードの本文。%@ は「ランチ ¥850」のような記録の要約",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removed %@."
+          }
+        }
+      }
+    },
+    "%@ を消すときは、確認で「削除」を押してください。" : {
+      "comment" : "チャットの文を AI が「消す」と読み、確認を出したときの返事のカードの本文。%@ は記録の要約",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To remove %@, tap Delete in the confirmation."
           }
         }
       }
@@ -1023,6 +1056,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Stop repeating “%@”?"
+          }
+        }
+      }
+    },
+    "「%@」を %@ から %@ にしました。" : {
+      "comment" : "チャットの文で金額を直した後の返事のカードの本文。1 つ目の %@ は品目、2 つ目は直す前の金額、3 つ目は直した後の金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changed “%1$@” from %2$@ to %3$@."
           }
         }
       }
@@ -4001,6 +4045,17 @@
         }
       }
     },
+    "今月から %@ にしました。帯に今月あといくら使えるかと 1 日あたりを出します。" : {
+      "comment" : "チャットの文で月の予算を決めた後の返事のカードの本文。%@ は予算の金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set to %@ from this month. The top bar shows how much is left this month and per day."
+          }
+        }
+      }
+    },
     "今月のカフェの支出を答える（記録はしない）" : {
       "comment" : "ようこその画面。入力の例「今月カフェいくら?」（質問）がどう扱われるか",
       "localizations" : {
@@ -4932,13 +4987,13 @@
         }
       }
     },
-    "前の記録を直す文のようだったので、新しい記録にもしませんでした。記録を直すときは、返事の記録を押してください。記録した直後なら、「取り消す」で取り消して送り直すこともできます。" : {
-      "comment" : "ホームのタイムラインの案内。送った文が前の記録を直そうとする文で、記録しなかったときの説明。「取り消す」は返事の見出しのボタン（英語では Undo）",
+    "前の記録を直す文のようでしたが、直した後の金額が分からなかったので、新しい記録にもしませんでした。「さっきのを900に直して」のように直した後の金額を 1 つだけ書いて送るか、返事の記録を押して直してください。" : {
+      "comment" : "ホームの回答カード。前の記録を直そうとする文で、直した後の金額が読めなかったときの案内",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This looked like a request to fix an earlier entry, so nothing new was recorded. To fix an entry, tap it in the reply. Right after recording, you can also tap Undo and send it again."
+            "value" : "This looked like a fix to an earlier entry, but the new amount wasn’t clear, so nothing was recorded. Send the new amount once, like “さっきのを900に直して”, or tap the entry in the reply to edit it."
           }
         }
       }
@@ -5104,6 +5159,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Balance"
+          }
+        }
+      }
+    },
+    "取り消しました" : {
+      "comment" : "チャットの文で直前の記録を消した後の返事のカードの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removed"
           }
         }
       }
@@ -5554,6 +5620,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t hear your voice. Tap the microphone button and try again."
+          }
+        }
+      }
+    },
+    "変えられませんでした" : {
+      "comment" : "チャットで頼んだ操作（金額を直す・予算を決める）を保存できなかったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Make the Change"
           }
         }
       }
@@ -6789,6 +6866,17 @@
         }
       }
     },
+    "月の予算を%@にしました" : {
+      "comment" : "チャットの文で月の予算を決めた後に VoiceOver で読み上げる内容。%@ は予算の金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set the monthly budget to %@"
+          }
+        }
+      }
+    },
     "月の予算を、先週の日ごとにその月の日数で割って足した額です（月をまたぐ週は、それぞれの月で割ります）。" : {
       "comment" : "先週のふりかえりの内訳の週の目安の欄の説明",
       "localizations" : {
@@ -6796,6 +6884,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your monthly budget divided by the number of days in the month, added up for each day of last week (a week spanning two months uses each month’s length)."
+          }
+        }
+      }
+    },
+    "月の予算を決めました" : {
+      "comment" : "チャットの文で月の予算を決めた後の返事のカードの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly Budget Set"
           }
         }
       }
@@ -7143,6 +7242,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Seaweed Green"
+          }
+        }
+      }
+    },
+    "消すか確かめます" : {
+      "comment" : "チャットの文を AI が「消す」と読み、確認を出したときの返事のカードの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm Removal"
           }
         }
       }
@@ -8883,6 +8993,17 @@
         }
       }
     },
+    "金額を%@に直しました" : {
+      "comment" : "チャットの文で金額を直した後に VoiceOver で読み上げる内容。%@ は直した後の金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changed the amount to %@"
+          }
+        }
+      }
+    },
     "金額を入れてください。" : {
       "comment" : "直すシートで金額の欄が空のとき、保存できない理由として出す",
       "localizations" : {
@@ -8890,6 +9011,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enter an amount."
+          }
+        }
+      }
+    },
+    "金額を直しました" : {
+      "comment" : "チャットの文で直前の記録の金額を直した後の返事のカードの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amount Updated"
           }
         }
       }

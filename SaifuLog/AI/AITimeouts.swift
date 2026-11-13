@@ -19,4 +19,7 @@ enum AITimeouts {
     /// 辞書で決まらなかった品目のカテゴリの聞き直し（`CategoryRefiner`）。読み取りの後に続けて待つ（その間は次の文を送れない）ので、
     /// 読み取りより短くする。品目だけを渡して 8 つから選ばせる小さな生成なので、ふつうはこれよりずっと早く返る想定。
     static let categoryRefine: Duration = .seconds(3)
+    /// 決まりで読めなかったチャットの文の、操作の種類の選び（`ChatCommandInterpreter`）。選択肢から 1 つ選ぶだけの小さな生成で、
+    /// 待つ間は次の文を送れないので、カテゴリの聞き直しと同じく短くする。
+    static let chatCommand: Duration = .seconds(3)
 }
