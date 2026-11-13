@@ -2,7 +2,7 @@
 
 **SaifuLog（サイフログ）**
 
-最終更新日 / Last updated: 2026-10-05
+最終更新日 / Last updated: 2026-11-13
 
 施行日 / Effective date: 初回リリース時に確定します / To be set at the first release
 
@@ -55,7 +55,11 @@ iOS の機能で、開発者はその内容を見られません。
 Apple Intelligence を使えない端末では、端末内のキーワード辞書で読み取ります。この場合も
 外部へ送信することはありません。
 
-Apple Payの支払いで分類できなかったお店は、店名だけを端末内AIに渡してカテゴリを補います。金額や日時、覚えた分類の一覧はAIに渡しません。AIの結果を学習ルールとして保存せず、利用者が選んだ分類を優先します。AIが使えない場合や判断できない場合も、支払い自体は保存します。
+ひとこと入力の記録のカテゴリは、本アプリが、作ったカテゴリの名前・覚えたカテゴリ・お使いの iPhone の中の過去の記録（品目とカテゴリ）・
+店の名前の辞書から決めます。過去の記録はこの判断のためにお使いの iPhone の中で読むだけで、外部へ送信することはありません。
+それでもカテゴリが決まらないとき（と、作ったカテゴリがあるとき）は、その記録の品目だけと、カテゴリの名前の一覧（作ったカテゴリの
+名前を含む）を端末内 AI に渡して、カテゴリを選ばせます。金額・日付・覚えたカテゴリは AI に渡しません。この処理もお使いの iPhone の
+上で行い、AI の答えを覚えることはありません。
 
 ### 家計への質問
 
@@ -78,20 +82,23 @@ iPhone の上で行います。**記録や計算した数字、一言を外部�
 
 ### 覚えたカテゴリ（修正の記憶）
 
-記録の返事でカテゴリを選んだとき（「その他」になった記録に出るカテゴリのボタン）と、記録を直す画面でカテゴリを変えたときは、
-その記録の品目の言葉（例: 「ユニクロ」）と選んだカテゴリの組を覚え、次から同じ言葉の記録をそのカテゴリで記録します。
+記録の返事でカテゴリを選んだとき（「その他」になった記録に出るカテゴリのボタンか、確認待ちの一覧）と、記録の直後に「それ日用品」の
+ような文を送ってカテゴリを直したときと、記録を直す画面でカテゴリを変えたときは、その記録の品目の言葉（例: 「ユニクロ」）と選んだカテゴリの組を覚え、次から同じ言葉の記録をそのカテゴリで記録します。
 覚えた言葉とカテゴリは、上の「入力した家計の記録」と同じ場所（お使いの iPhone の中の本アプリ専用の保存先。「iCloud で同期」を
 オンにしているときは、記録と同じく暗号化フィールドとして利用者自身の iCloud にも）に保存し、**開発者や第三者へ送信することは
 ありません。** 端末内 AI に渡すこともありません（読み取った後に、本アプリが覚えたカテゴリへ置き換えます）。
 覚えたものは、設定の「覚えたカテゴリ」でいつでも確かめ、カテゴリを変えたり、1 つずつ、またはすべて忘れさせたりできます。
+
+カテゴリを選ぶ必要がある記録には、確認待ちの印を記録と一緒に保存します（「iCloud で同期」をオンにしているときは、記録と一緒に
+同期します）。カテゴリを選ぶか、記録を削除すると消えます。
 
 ### 作ったカテゴリ
 
 設定の「カテゴリ」や記録の返事から作ったカテゴリ（名前・記号・色・並び順・作った日時・直した日時）は、上の「入力した家計の記録」と
 同じ場所（お使いの iPhone の中の本アプリ専用の保存先。「iCloud で同期」をオンにしているときは、記録と同じく暗号化フィールドとして
 利用者自身の iCloud にも）に保存し、**開発者や第三者へ送信することはありません。** 記録にはカテゴリの名前ではなく、作ったカテゴリを
-見分ける番号だけを保存します。週のふりかえりや月のまとめの一言、質問の答えの一言を端末内 AI に書かせるときは、ほかのカテゴリと同じく
-作ったカテゴリの名前も渡しますが、この処理もお使いの iPhone の上で行います。CSV に書き出すときは、カテゴリの列に作ったカテゴリの名前を
+見分ける番号だけを保存します。記録のカテゴリを端末内 AI に選ばせるときと、週のふりかえりや月のまとめの一言、質問の答えの一言を
+端末内 AI に書かせるときは、ほかのカテゴリと同じく作ったカテゴリの名前も渡しますが、この処理もお使いの iPhone の上で行います。CSV に書き出すときは、カテゴリの列に作ったカテゴリの名前を
 書きます。カテゴリを削除すると、そのカテゴリの記録は「その他」になります。家族・パートナーとの家計には、作ったカテゴリを持ち込みません
 （家計の記録では「その他」になります）。
 
@@ -133,21 +140,6 @@ Apple のサーバーへも送信しません**（この書き起こしは端末
 書き起こしに使う日本語のモデルがお使いの iPhone に無いときは、確認のうえで Apple のサーバーからダウンロードします（モデルは
 iOS が管理し、ほかのアプリと共有されます）。このダウンロードに声や記録は含まれません。モバイル回線かどうかの確認のために
 回線の種類をアプリの中で調べますが、その結果を保存したり送信したりはしません。
-
-### Apple Pay の支払いの自動記録（任意）
-
-利用者が「ショートカット」App で、Apple Pay で払ったときのオートメーション（「取引」）を作り、本アプリの「支払いを記録」を使うようにした
-場合だけ、払った金額と店名（加盟店の名前）が、Apple のショートカットの仕組みを通って本アプリに渡されます。本アプリは、金融機関や
-カード会社とはつながらず、ログインの情報も預かりません。
-
-受け取った支払い（金額・店名・受け取った日時）は、次に本アプリを開いて記録にするまで、お使いの iPhone の中の本アプリ専用の小さな
-ファイルに置きます。iPhone がロックされたままでも受け取れるよう、このファイルは、iPhone を起動して最初にロックを解いた後から
-読み書きできる保護（iOS のデータ保護の「最初のユーザ認証まで保護」）にしています。記録にしたら、このファイルから消します。記録にした後は、上の「入力した家計の記録」と同じく扱います。**受け取った支払いを
-開発者や第三者へ送信することはありません。** オートメーションはいつでも「ショートカット」App で消せます。
-
-受信の動作を確かめるため、最後に支払いを受け取った日時だけを端末内に保存します。この状態表示には金額・店名を残さず、外部送信やiCloud同期はしません。アプリを削除すると消えます。
-
-分類や重複の確認が必要な記録には、確認待ちの状態と、重複候補を取り違えないための識別子・金額・品目・日時の控えを、家計の記録と同じ保存先に残します。iCloud同期を選んだ場合は、この状態も記録と一緒に同期します。確認を終えたときや、関係する記録をアプリで削除したときは、確認用の控えも消します。中断したカテゴリ分類は、次にアプリを開いたときに再試行します。
 
 ### Siri・ショートカット
 
@@ -249,7 +241,7 @@ iOS の共有の画面に渡され、**利用者が選んだ共有先（アプ�
 無料で使った回数（月ごとの回数。質問の文や答えは含みません）、先週のふりかえりを最後に表示した日時（ふりかえりの中身は
 含みません）、レシートの読み取りを無料で使った回数（月ごとの回数。画像や読み取った内容は含みません）といったアプリの設定は、
 iOS の標準的な仕組み（UserDefaults）を用いて、お使いの iPhone の中の本アプリ専用の領域にのみ保存します。ただし、iCloud で同期するか
-どうかとアプリのロックをオンにしているかどうかの 2 つは、本アプリが iPhone のロック中に動くとき（Apple Pay の支払いの受け取りなど）にも
+どうかとアプリのロックをオンにしているかどうかの 2 つは、本アプリが iPhone のロック中に裏で動くとき（iCloud の変更の知らせを受けたときなど）にも
 正しく読めるよう、同じ領域の小さな設定のファイルに、iPhone を起動して最初にロックを解いた後から読める保護で保存します。
 これらを外部に送信することはありません。予算の金額は設定ではなく、上の家計の記録と同じ場所に保存します。
 購入したかどうかは設定には保存しません（上の「購入の取り扱い」）。
@@ -335,7 +327,12 @@ enter and your records are never sent anywhere for analysis.**
 On devices where Apple Intelligence is not available, the app reads your entries with an
 on-device keyword dictionary. Nothing is sent anywhere in that case either.
 
-For uncategorized Apple Pay payments, only the merchant name is passed to on-device AI to suggest a category. Amounts, dates, and the list of learned choices are not passed to AI. AI results are not saved as learned rules, and your own choices take priority. Payments remain saved when AI is unavailable or cannot classify them.
+The app decides the category of a one-line entry from the names of categories you created, your learned categories, your past
+records on your iPhone (their items and categories), and a dictionary of store names. Past records are only read on your iPhone for
+this and are never sent anywhere. When the category is still undecided (or when you have created categories), only the entry's item
+and the list of category names (including the names of categories you created) are passed to the on-device AI to choose a category.
+Amounts, dates, and learned categories are not passed to the AI. This also happens on your iPhone, and the AI's answers are not
+remembered.
 
 ### Questions About Your Spending
 
@@ -364,13 +361,17 @@ appear again in the same week).
 
 ### Learned Categories (Remembered Corrections)
 
-When you choose a category in a reply (the category buttons shown for an entry that was recorded as Other) or change the
-category of an entry on the edit screen, the app remembers the pair of the entry's item words (for example, "UNIQLO") and the
+When you choose a category in a reply (the category buttons shown for an entry that was recorded as Other, or the list of entries to
+review), correct the category right after recording by sending a message such as "それ日用品", or change the category of an entry on
+the edit screen, the app remembers the pair of the entry's item words (for example, "UNIQLO") and the
 category you chose, and records entries with the same words in that category from then on. Learned words and categories are stored
 in the same place as your records described above (in an area reserved for this app on your iPhone, and, when Sync with iCloud is
 on, also in your own iCloud as encrypted fields, like your records). **They are never sent to the developer or to any third party.**
 They are not passed to the on-device AI either (the app replaces the category with the learned one after reading).
 You can review them at any time in Learned Categories in Settings, change their categories, and forget them one by one or all at once.
+
+An entry that needs a category is saved with a to-review mark alongside the record (synced with the record when Sync with iCloud is
+on). The mark is removed when you choose a category or delete the entry.
 
 ### Categories You Create
 
@@ -378,8 +379,8 @@ Categories you create in Categories in Settings or from a reply (their names, sy
 last edited) are stored in the same place as your records described above (in an area reserved for this app on your iPhone, and, when
 Sync with iCloud is on, also in your own iCloud as encrypted fields, like your records). **They are never sent to the developer or to
 any third party.** Each record stores only an identifier of the category you created, not its name. When the app asks the on-device AI
-to write a remark for Last Week in Review or the monthly summary, or for an answer to a question, the names of categories you created
-are passed along with the other categories, and this also happens on your iPhone. When you export a CSV file, the category column
+to choose the category of an entry, or to write a remark for Last Week in Review or the monthly summary, or for an answer to a question,
+the names of categories you created are passed along with the other categories, and this also happens on your iPhone. When you export a CSV file, the category column
 contains the name of the category you created. If you delete a category, its records move to Other. Categories you create are not
 brought into a household shared with family or a partner (such records use Other there).
 
@@ -428,21 +429,6 @@ If the Japanese model used for transcription is not on your iPhone, the app down
 (the model is managed by iOS and shared with other apps). This download does not include your voice or your records. To tell
 whether you are on cellular data, the app checks the type of network connection on the device; the result is neither stored nor
 sent.
-
-### Automatic Recording of Apple Pay Payments (Optional)
-
-Only if you create an automation in the Shortcuts app that runs when you pay with Apple Pay (a Transaction automation) and uses the app's
-Record Payment action, the amount and merchant name are passed to the app through Apple's Shortcuts. The app does not connect to banks or
-card companies and never holds your login information.
-
-Received payments (amount, merchant, and when they were received) are kept in a small file reserved for the app on your iPhone until you
-next open the app and they are recorded. So payments can be received while your iPhone is locked, this file uses the iOS data
-protection class that makes it readable after you first unlock your iPhone following a restart. The payments are removed from this file
-once recorded, after which they are handled as
-described in Your Records above. **Received payments are never sent to the developer or to any third party.** You can delete the automation
-in the Shortcuts app at any time.
-
-To help you check reception, only the date of the last received payment is retained locally. This status contains no amount or merchant, is not transmitted or synced with iCloud, and is removed when the app is deleted.
 
 ### Siri and Shortcuts
 
@@ -569,7 +555,7 @@ included), the date and time Last Week in Review was last shown (not its content
 (counted per month; no images or scanned contents), are stored only on your own iPhone, in an area reserved for this app, using the
 standard iOS mechanism (UserDefaults). The two settings for iCloud sync and app lock are instead kept in a small settings file in the same
 area, using protection that makes it readable after you first unlock your iPhone following a restart, so they are read correctly even when
-the app runs while your iPhone is locked (for example, when receiving an Apple Pay payment). They are never transmitted
+the app runs in the background while your iPhone is locked (for example, when notified of iCloud changes). They are never transmitted
 anywhere. Your budget amount is not a setting; it is stored in the same place as your records,
 described above. Whether you have purchased Premium is not stored as a setting (see Purchases above).
 

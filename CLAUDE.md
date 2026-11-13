@@ -4,7 +4,7 @@
 端末内の AI（Apple の Foundation Models）で行い、家計のデータを端末の外に出さない。
 
 ## 現在の到達点
-- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・カテゴリの聞き返しと修正の記憶・よく使うひとこと・家計への質問・レシートの読み取り・声の入力・月の予算・カレンダー・月のまとめ・週のふりかえり・設定と CSV 書き出し・iCloud 同期（自分の端末どうし）・アプリのロック・初回の案内・プレミアム（StoreKit）の試作**まで。
+- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・カテゴリの振り分けと聞き返しと修正の記憶・よく使うひとこと・家計への質問・レシートの読み取り・声の入力・月の予算・カレンダー・月のまとめ・週のふりかえり・設定と CSV 書き出し・iCloud 同期（自分の端末どうし）・アプリのロック・初回の案内・プレミアム（StoreKit）の試作**まで。
   - 試作済み: 一行の読み取り（端末内 AI、使えない端末ではキーワード辞書）、タイムライン（会話の形。1 回の送信で記録したものを
     送信にまとめ（コアの `TimelineSend`。送信は保存せず、元の文・入力元が同じで記録した日時が 0.1 秒以内に続く記録をまとめる）、送った文を
     右寄せの自分の吹き出し（灰色。声はマイク・レシートは印つき）に、記録をアプリの返事のカード（「記録しました」・記録ごとの行。
@@ -138,18 +138,27 @@
     `scripts/app-store-screenshots.sh` が 6.9 インチのシミュレータで日本語と英語で撮る（`docs/app-store/screenshots/`。透過の層は
     `scripts/screenshot-image.swift` で外す）。Release のアーカイブに入っていないことは `make archive` が印 `SaifuLog-ScreenshotDemo-v1`
     （`release.mk` の `RELEASE_SCREENSHOT_DEMO_MARKER`）で確かめる。組み立ては `ScreenshotDemoTests`。
-    カテゴリの聞き返しと修正の記憶（「その他」になり、品目が辞書にも覚えにも当たらない支出だけ、直前の返事の行の下にカテゴリのボタン
-    （`CategoryQuestionView`）を出して聞き返す。記録は止めない。AI が使える端末では、聞き返す前に品目だけを端末内 AI に渡して組み込みの
-    8 つから選ばせ、その他でなければそのカテゴリで記録する（`AI/CategoryRefiner`・`FoundationModelsCategoryClassifier`、決め事はコアの
-    `CategoryRefinement`。上限は全体で 3 秒。答えは覚えない。ひとこと入力の記録だけ）。返事で選んだカテゴリと ⑥ で変えたカテゴリを品目の言葉とともに覚え、
-    読み取った後に AI と辞書のどちらの記録にも当てる（AI への手がかりには渡さない）。当て方はコアの `CategoryMemory`、保存は
-    `LearnedCategory`（暗号化フィールド）と `LearnedCategoryStore`、状態は `HomeModel.categoryQuestionIDs`・`chooseCategory`。⑧ の
-    「覚えたカテゴリ」（`LearnedCategoriesView`・`LearnedCategoriesModel`）で一覧・変える・忘れる）。
+    カテゴリの振り分け・聞き返し・修正の記憶（ひとこと入力の記録だけ。読み取った後、コアの `CategoryResolver` が次の順で決める:
+    品目に作ったカテゴリの名前 → 品目に組み込みのカテゴリの名前があれば読み取ったまま → 覚えたカテゴリ（`CategoryMemory`）→ 過去の記録の
+    いつものカテゴリ（コアの `CategoryHistory`。同じ品目の記録が 2 件以上で、半分を超えるカテゴリ。「その他」と聞き返し中の記録は数えない。
+    読むのは新しい支出 1000 件まで、`Entry.categoryHistoryDescriptor`）→ 読み取ったカテゴリ（AI かキーワード辞書）→ 店の名前の辞書
+    （レシートと同じ `ReceiptStoreDictionary`）→ 「その他」。AI が使える端末では、決まらない品目と、作ったカテゴリがあるときは読み取りや
+    店の名前の辞書で決めた品目も、品目だけを端末内 AI に渡し、組み込みの表示名と作ったカテゴリの名前から選ばせる（決まらない品目を先に聞く。
+    読み取りで決めた品目には作ったカテゴリの答えだけを使う。`AI/CategoryRefiner`・`FoundationModelsCategoryClassifier`（選択肢は
+    `DynamicGenerationSchema`）、決め事はコアの `CategoryRefinement`。上限は全体で 3 秒。答えは覚えない）。それでも「その他」で、品目が辞書の
+    「その他」の語にも当たらない支出だけ、直前の返事の行の下にカテゴリのボタン（`CategoryQuestionView`）を出して聞き返し、確認待ちの一覧
+    （`EntryReviewQueueView`。`Entry.needsCategoryReview` で開き直しても残す）にも出す。記録は止めない。直前の記録はチャットの文
+    （「それ日用品」「さっきのは交際費にして」。コアの `CategoryCorrection`。数字の無い文で、カテゴリの名前のほかは前の記録を指す語・直す語・
+    語尾だけ）でも直せ、`HomeModel.submit` が記録か質問かを見分ける前に読み、直前の送信の支出が 1 件か聞き返し中が 1 件のときだけ直して、
+    返事のカード（`QuestionExchange.State.recategorized`）を出す（「取り消す」は残す）。返事・チャットで選んだカテゴリと ⑥ で変えたカテゴリを
+    品目の言葉とともに覚える（AI への手がかりには渡さない）。保存は `LearnedCategory`（暗号化フィールド）と `LearnedCategoryStore`、状態は
+    `HomeModel.categoryQuestionIDs`・`chooseCategory`。⑧ の「覚えたカテゴリ」（`LearnedCategoriesView`・`LearnedCategoriesModel`）で一覧・
+    変える・忘れる。実機でのモデルの選び方の確認はまだ）。
     作ったカテゴリ（利用者が 20 個まで作る。記録は ID だけを持つ `EntryCategory.custom`（rawValue は「custom:」と ID）で、名前・記号・色・
     並びは `CustomCategory`（暗号化フィールド）と `CustomCategoryStore`。一覧はコアの `CategoryCatalog` で、ホームが `CategoryCatalogModel` を
     1 つ持ち、画面へは環境の `categoryCatalog` で渡す（名前・色・記号は `CategoryCatalog` の拡張から引き、`EntryCategory.displayName` を
-    直接出さない）。AI の選択肢は組み込みの 8 種のままで、作ったカテゴリは文の中の名前（「衣服 3000」）・覚えたカテゴリ・返事の聞き返しの
-    「カテゴリを作る」・⑥・⑤ で付く。削除すると記録は「その他」、カテゴリ別の予算は 0、覚えたカテゴリからも外す。家族の家計には持ち込まない
+    直接出さない）。作ったカテゴリは文の中の名前（「衣服 3000」）・覚えたカテゴリ・過去の記録・AI の聞き直し（選択肢に作ったカテゴリの
+    名前を入れる）・返事の聞き返しの「カテゴリを作る」・チャットの直し・⑥・⑤ で付く（ひとこと入力の読み取りの選択肢は組み込みの 8 種のまま）。削除すると記録は「その他」、カテゴリ別の予算は 0、覚えたカテゴリからも外す。家族の家計には持ち込まない
     （「その他」にする）。⑧ の「カテゴリ」（`Views/Categories/` の `CategoryListView`・`CategoryListModel`、作る・直すシートは
     `CategoryEditorSheet`・`CategoryEditorModel`）。`docs/design.md` §8）。
     くり返しの記録（家賃・サブスク・給料のように毎月同じ記録。決めた日（1〜31。無い日は月末）を過ぎて最初に開いたとき（ホームが出た・前面に戻った・
@@ -165,22 +174,13 @@
     `QuickActionInbox` に置き、ホームが出たら `HomeModel.performPendingQuickAction` が行う（読み取りの間・ほかの画面・ロック中は待つ）。
     署名の無いビルドではショートカットから実行できないので、シミュレータでは ad hoc 署名で確かめる。操作の題名と説明に「Apple」の語を
     書かない（「Apple Pay」も。App Store Connect が ITMS-90626 でアップロードを弾く。`AppIntentMetadataTests`）。ウィジェットは未決（§13））。
-    Apple Pay の支払いの自動記録（ショートカットの「取引」のオートメーションで `RecordPaymentIntent`（アプリを開かない）が金額と店名を受け取り、
-    `PaymentInbox`（Application Support/PaymentInbox、保護は `completeUntilFirstUserAuthentication`。記録の保存先の Complete の唯一の例外。
-    `docs/design.md` §5-4）に置く。ホームが出たとき・前面に戻ったとき・受け取ったときに `HomeModel.importCapturedPayments` が記録にし、
-    返事「Apple Pay の支払い」と「取り消す」。入力元 `.wallet`、印 `wallet/<ID>` で 2 回記録しない。金額はウォレットの値のまま（円だけ）、
-    品目とカテゴリはコアの `PaymentCapture`（店名の辞書はレシートと同じ）。⑧ の「自動で記録」の「Apple Pay の支払い」（`WalletCaptureView`）に
-    作り方。同じ買い物を 2 回数えないよう、打った・声・Siri・レシートの記録と、使った日と金額が同じ支払いがあれば、直前の返事の行の下で
-    「Apple Pay の支払いと同じですか？」（支払いが後から届いたら支払いの行の下で「前の記録と同じ支払いですか？」）と聞き、選んだときだけ
-    Apple Pay の側を消す（見つけ方はコアの `PaymentOverlap`、状態は `HomeModel.paymentOverlaps`、画面は `PaymentOverlapView`）。
-    実機での確認はまだ）。
     よく使うひとこと（入力欄の上に、直近 90 日のよく記録する品目を「品目 ¥金額」のボタンで並べ、押すと入力欄に入る。送信は利用者。
     候補はコアの `QuickPhrases`、画面は `QuickPhraseBar`、`HomeModel.quickPhrases`）。
     アプリのロック（⑧ の「セキュリティ」の「Face ID でロック」。既定はオフ。起動と裏から戻ったときに `deviceOwnerAuthentication` を求め、
     前面を離れたら隠す。オンにするときもオフにするときも認証する。状態は `AppLock`（`SaifuLogApp` で 1 つ、環境で設定へ渡す）、ロックの画面は
     シートやアラートより上の別の窓（`AppLockOverlay` の `AppLockWindow`。VoiceOver もその窓の中だけにとどめる）。設定は UserDefaults では
     なく専用のファイル（`LaunchSettingsStore`。最初のロック解除の後は読める保護。ロック中に裏で起こされると UserDefaults は空の内容を
-    覚えてしまうため）。起動したときに読めなければ、読めるまで画面を隠す。家計の画面を隠している間は、くり返しの記録・支払いの取り込み・
+    覚えてしまうため）。起動したときに読めなければ、読めるまで画面を隠す。家計の画面を隠している間は、くり返しの記録・
     Siri の頼み・ふりかえりを待たせる（`HomeView`）。Face ID の利用目的は project.yml と InfoPlist.xcstrings。実機の Face ID と VoiceOver の
     確認はまだ）。⑧ に「ヘルプ・お問い合わせ」（`docs/support.md`）。
     保存先を開けないときは落とさず、ロック中なら解除を待って開き直し、それ以外は再試行の画面を出す（`StoreHost`）。
