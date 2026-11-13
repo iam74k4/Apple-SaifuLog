@@ -32,8 +32,9 @@ struct QuestionExchangeView: View {
 
 /// 質問への返事のカード（アプリからの返事として左寄せ。記録の返事のカードと同じ面）。
 ///
-/// 答えたときは、大きな数字（コードが計算した値をそのまま）、期間とカテゴリの見出し、元になった件数、AI の一言（ある場合。
-/// 数字の照合を通ったものか定型文）を出す。今月・先月の答えは、押すとその月の月のまとめへ進む。
+/// 答えたときは、大きな数字（コードが計算した値をそのまま）、期間とカテゴリの見出し、AI の一言（数字の照合を通ったときだけ）
+/// を出す。元になった記録の件数と、一言を捨てたときの定型文（「数字はアプリが計算しました」）は出さない（どの答えにも同じ形で
+/// 付き、答えの数字より目に入ってしまうため）。今月・先月の答えは、押すとその月の月のまとめへ進む。
 /// 主の塗りは使わない（塗りの主ボタンが無いため）。予算を超えた額は、注意の色にアイコンと語を添える（色だけに頼らない）。
 private struct QuestionReplyCard: View {
     let state: QuestionExchange.State
@@ -181,7 +182,7 @@ private struct AnswerContent: View {
         }
     }
 
-    /// 期間・見出し・数字・件数・一言。VoiceOver ではまとめて 1 つの要素として、この順に読ませる。
+    /// 期間・見出し・数字・一言。VoiceOver ではまとめて 1 つの要素として、この順に読ませる。
     private var summary: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -205,9 +206,6 @@ private struct AnswerContent: View {
                 AnswerTrendChart(trend: trend)
                     .padding(.vertical, 4)
             }
-            Text(verbatim: QuestionTexts.recordCount(answer.recordCount))
-                .font(.caption)
-                .foregroundStyle(Theme.inkSecondary)
             remarkView
         }
     }
@@ -336,13 +334,8 @@ private struct AnswerContent: View {
             .font(.subheadline)
             .foregroundStyle(Theme.ink)
             .padding(.top, 2)
-        case .fixed:
-            Text(QuestionTexts.fixedRemark)
-                .font(.subheadline)
-                .foregroundStyle(Theme.inkSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 2)
-        case nil:
+        case .fixed, nil:
+            // 一言を捨てたときは何も添えない（数字はいつもコードが計算したもの）。
             EmptyView()
         }
     }

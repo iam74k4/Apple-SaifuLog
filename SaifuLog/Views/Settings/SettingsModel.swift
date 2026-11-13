@@ -49,6 +49,13 @@ final class SettingsModel {
     /// 切り替えようとしたら設定を書けなかった（切り替えていない。アラートを出す）。
     var showsICloudSyncSaveFailure = false
 
+    /// 設定やその先の画面の上に、書きかけや途中の操作を持つシート・確認を出しているか（Siri の頼みを受けたときに、設定を
+    /// 閉じてよいかを決める。`HomeModel.receive`）。
+    var isPresentingSheet: Bool {
+        budgetSetup != nil || categoryList.editor != nil || recurringList.editor != nil
+            || iCloudSyncConfirmation != nil || sharedFile != nil
+    }
+
     /// 「覚えたカテゴリ」（修正の記憶の一覧）の状態と操作。「カテゴリ」の画面から進み、行には覚えた言葉の数を出す。
     let learnedCategories: LearnedCategoriesModel
 

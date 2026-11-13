@@ -1290,21 +1290,32 @@ final class HomeModel {
     func receive(_ action: QuickAction) {
         pendingQuickAction = action
         page = .conversation
+        closeScreensForQuickAction()
+    }
+
+    /// 頼みを受けたら、横に進んだ画面（設定・月のまとめ）を閉じて会話に戻す（答えや返事は会話に出るので、閉じないと見えない
+    /// まま終わる）。その上にシートや確認を出しているときは閉じない（書きかけを黙って捨てないため。閉じるまで頼みを待たせる）。
+    private func closeScreensForQuickAction() {
+        if let monthlyReport, monthlyReport.editing == nil {
+            self.monthlyReport = nil
+        }
+        if let settings, !settings.isPresentingSheet {
+            self.settings = nil
+        }
     }
 
     /// 待っている頼みを、行えるなら行う。行ったら、その処理を待つ Task を返す（テストで使う）。行えなければ nil（待ち続ける）。
     /// ホームが出たとき・頼みを受け取ったとき・読み取りが終わったとき・ほかの画面を閉じたとき・ロックを解いたときに呼ぶ。
     ///
-    /// 読み取りの間だけ待つ（ほかの画面を出していても行い、答えや返事はタイムラインに出す）。文が空なら入力欄を開く（ほかの画面を
-    /// 出している間は待つ。画面の下で入力欄を開かないため）。
+    /// 読み取りの間と、ほかの画面（シート・確認・閉じられなかった設定など）を出している間は待つ（画面の下で記録したり答えたり
+    /// すると、返事が見えないまま終わるため）。文が空なら入力欄を開く。
     @discardableResult
     func performPendingQuickAction(calendar: Calendar) -> Task<Void, Never>? {
-        guard let action = pendingQuickAction, !isParsing else { return nil }
+        guard let action = pendingQuickAction, !isParsing, !isPresentingOtherScreen else { return nil }
         switch action {
         case .record(let text), .ask(let text):
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else {
-                guard !isPresentingOtherScreen else { return nil }
                 pendingQuickAction = nil
                 inputFocusRequest += 1
                 return Task {}

@@ -117,8 +117,14 @@ struct CategoryEditorModelTests {
         #expect(editor.symbolName == "tshirt")
         #expect(editor.colorIndex == 2)
         #expect(editor.availablePresets.isEmpty)
+        // 開いたままなら黙って閉じてよい。直したら、閉じる前に捨てるかを確かめる。
+        #expect(!editor.hasChanges)
+        #expect(editor.requestClose())
 
         editor.name = "服"
+        #expect(editor.hasChanges)
+        #expect(!editor.requestClose())
+        #expect(editor.showsDiscardConfirmation)
         #expect(editor.save())
         #expect(try fixture.store.catalog().name(of: clothes) == "服")
         #expect(fixture.saved == [clothes])

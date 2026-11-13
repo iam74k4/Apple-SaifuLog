@@ -267,6 +267,17 @@
         }
       }
     },
+    "%@・次は%@" : {
+      "comment" : "設定の「くり返しの記録」の行の下の文（品目が無く、見出しがカテゴリ名か「収入」のとき）。1 つ目の %@ は毎月の日（「毎月25日」）、2 つ目は次に記録する日",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · Next: %2$@"
+          }
+        }
+      }
+    },
     "%lld か月の推移: %@" : {
       "comment" : "家計への質問の回答カードの推移の棒を VoiceOver で読むときの文。%lld は月の数、%@ は月と金額の一覧",
       "localizations" : {
@@ -538,50 +549,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Until Apple Intelligence is ready (for example, while its model downloads), entries are read with an on-device dictionary. You can still record as usual. Once it’s ready, AI will read them."
-          }
-        }
-      }
-    },
-    "Apple Pay の支払い" : {
-      "comment" : "ホームの返事の見出し。Apple Pay の支払いから 1 件を記録したとき",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Pay payment"
-          }
-        }
-      }
-    },
-    "Apple Pay の支払いから記録したものを消します" : {
-      "comment" : "Apple Pay の支払いの返事の「取り消す」の VoiceOver の説明",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Deletes the entries recorded from Apple Pay payments"
-          }
-        }
-      }
-    },
-    "Apple Pay の支払いから記録しました。品目はお店の名前です。" : {
-      "comment" : "直すシート（⑥）の上の注記。Apple Pay の支払いから記録したものを開いたとき",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Recorded from an Apple Pay payment. The item is the merchant name."
-          }
-        }
-      }
-    },
-    "Apple Pay の支払い（%lld件）" : {
-      "comment" : "ホームの返事の見出し。Apple Pay の支払いから 2 件以上を記録したとき。%lld は件数",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Pay payments (%lld)"
           }
         }
       }
@@ -2434,13 +2401,13 @@
         }
       }
     },
-    "ホームに出せるのは、新しく記録した方から %lld 件までです。それより前の記録は、月のまとめのカテゴリの一覧と、設定の「記録を書き出す」で見られます。" : {
+    "ホームに出せるのは、新しく記録した方から %lld 件までです。それより前の記録は、左へスワイプしたカレンダーの日ごとの一覧・月のまとめのカテゴリの一覧・設定の「記録を書き出す」で見られます。" : {
       "comment" : "ホームのタイムラインの上の端。記録を読み込む件数の上限に届き、「前の記録を表示」の代わりに出す案内。%lld は上限の件数",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Home shows up to the %lld most recently recorded entries. Find earlier ones in the category lists of the Monthly Summary, or under Export Entries in Settings."
+            "value" : "Home shows up to the %lld most recently recorded entries. Find earlier ones in the calendar (swipe left) by day, in the category lists of the Monthly Summary, or under Export Entries in Settings."
           }
         }
       }
@@ -3090,12 +3057,23 @@
       }
     },
     "使った額 %@" : {
-      "comment" : "ホームの上の帯と、月のまとめのカテゴリの行の予算の VoiceOver の読み上げ。予算の対象の支出。%@ は「¥57,000」のような金額。カレンダーのページの「今日あと」の下（今日の支出）にも使う",
+      "comment" : "ホームの上の帯の予算の VoiceOver の読み上げと、カレンダーの日の VoiceOver の読み上げ（その日に使った額）。%@ は「¥57,000」のような金額",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Spent %@"
+          }
+        }
+      }
+    },
+    "使っていない" : {
+      "comment" : "カレンダーの日の VoiceOver の読み上げ。その日に使った額（支出）が無いとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing spent"
           }
         }
       }
@@ -3206,29 +3184,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Discount %@"
-          }
-        }
-      }
-    },
-    "元になった記録 %lld 件" : {
-      "comment" : "家計への質問の回答カード。答えの数字の元になった記録の件数。%lld は件数",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Based on %lld entry"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Based on %lld entries"
-                }
-              }
-            }
           }
         }
       }
@@ -4190,28 +4145,6 @@
         }
       }
     },
-    "支出 %@" : {
-      "comment" : "カレンダーのページの日の VoiceOver の読み上げ。その日の支出の合計。%@ は「¥1,010」のような金額",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Spent %@"
-          }
-        }
-      }
-    },
-    "支出なし" : {
-      "comment" : "カレンダーの日の VoiceOver の読み上げ。その日の支出が無いとき",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No spending"
-          }
-        }
-      }
-    },
     "支出の合計" : {
       "comment" : "家計への質問の回答カードの見出し",
       "localizations" : {
@@ -4230,17 +4163,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Education"
-          }
-        }
-      }
-    },
-    "数字はアプリが記録から計算しました。" : {
-      "comment" : "家計への質問の回答カード。端末内 AI の一言に、計算した結果に無い数字が入っていて捨てたときに、代わりに出す定型文",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The app calculated these numbers from your records."
           }
         }
       }
@@ -5771,17 +5693,6 @@
         }
       }
     },
-    "読み取り中" : {
-      "comment" : "送信後、解析中の送信ボタンの VoiceOver ラベル",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reading"
-          }
-        }
-      }
-    },
     "読み取れませんでした" : {
       "comment" : "レシートの読み取り結果のシート（⑤）。照合の欄の、レシートの合計が読めなかったときの値",
       "localizations" : {
@@ -5932,6 +5843,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send"
+          }
+        }
+      }
+    },
+    "送信中" : {
+      "comment" : "送った文を読み取っている間の、送信ボタンの VoiceOver の名前（押せない）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending"
           }
         }
       }

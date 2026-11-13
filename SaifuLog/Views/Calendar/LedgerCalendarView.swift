@@ -380,13 +380,13 @@ private enum CalendarDaySpeech {
         return style
     }
 
-    /// 読み上げる中身（今日・使った額）。使っていなければ「支出なし」。
+    /// 読み上げる中身（今日・使った額）。使っていなければ「使っていない」。画面の見出し（「使った額」）と同じ言葉で読む。
     static func value(day: LedgerCalendarMonth.Day, isToday: Bool) -> String {
         var items: [String] = []
         if isToday { items.append(String(localized: "今日")) }
         items.append(day.expense > 0
-            ? String(localized: "支出 \(YenFormatter.string(from: day.expense))")
-            : String(localized: "支出なし"))
+            ? String(localized: "使った額 \(YenFormatter.string(from: day.expense))")
+            : String(localized: "使っていない"))
         return items.formatted(.list(type: .and))
     }
 }
@@ -538,7 +538,7 @@ private struct CalendarDayPanel: View {
                 if day.expense > 0 || day.income == 0 {
                     Text(verbatim: YenFormatter.string(from: day.expense))
                         .foregroundStyle(Theme.ink)
-                        .accessibilityLabel(Text("支出 \(YenFormatter.string(from: day.expense))"))
+                        .accessibilityLabel(Text("使った額 \(YenFormatter.string(from: day.expense))"))
                 }
                 if day.income > 0 {
                     Text(verbatim: YenFormatter.signedString(from: day.income))

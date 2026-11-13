@@ -29,6 +29,8 @@ final class RecurringEditorModel: Identifiable {
     var failure: Failure?
     /// 「やめる」の確認を出しているか。
     var showsDeleteConfirmation = false
+    /// 入れた内容を捨てて閉じるかの確認を出しているか（キャンセルや下へのスワイプで、入れた内容があるとき）。
+    var showsDiscardConfirmation = false
 
     @ObservationIgnored private let store: RecurringEntryStore
     @ObservationIgnored private let original: RecurringDraft?
@@ -40,6 +42,37 @@ final class RecurringEditorModel: Identifiable {
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
     @ObservationIgnored private let didChange: @MainActor () -> Void
+    /// 開いたときの入力欄の中身（閉じるときに、入れた内容があるかを見る）。
+    @ObservationIgnored private var initialFields: Fields?
+
+    /// 入力欄の中身（入れた内容があるかを見るための写し）。
+    private struct Fields: Equatable {
+        let amountText: String
+        let memo: String
+        let isIncome: Bool
+        let category: EntryCategory
+        let dayOfMonth: Int
+        let includesThisMonth: Bool
+    }
+
+    private var fields: Fields {
+        Fields(
+            amountText: amountText, memo: memo, isIncome: isIncome, category: category, dayOfMonth: dayOfMonth,
+            includesThisMonth: includesThisMonth
+        )
+    }
+
+    /// 開いたときから入力欄を変えたか。
+    var hasChanges: Bool {
+        fields != initialFields
+    }
+
+    /// シートを閉じてよいか。入れた内容があれば閉じずに、捨てるかの確認を出す（false を返す）。直すシート（⑥）と同じ。
+    func requestClose() -> Bool {
+        guard hasChanges else { return true }
+        showsDiscardConfirmation = true
+        return false
+    }
 
     /// 作る。
     ///
@@ -71,6 +104,7 @@ final class RecurringEditorModel: Identifiable {
         self.now = now
         self.announce = announce
         self.didChange = didChange
+        initialFields = fields
     }
 
     /// 直す。
@@ -97,6 +131,7 @@ final class RecurringEditorModel: Identifiable {
         self.now = now
         self.announce = announce
         self.didChange = didChange
+        initialFields = fields
     }
 
     // MARK: - 入力の確かめ
@@ -130,9 +165,13 @@ final class RecurringEditorModel: Identifiable {
     // MARK: - 日付
 
     /// 「今月の分も記録する」を出すか（作るときで、今月の記録する日を過ぎていて、今月の分をまだ記録していないとき）。
+    ///
+    /// 記録から作ったとき（`notBefore` がある）も、その記録が先月より前のもので、`notBefore` が今月か前の月なら、今月の分は
+    /// まだ記録していないので選べる（以前は記録から作ると必ず出さず、先月の記録から作ると今月の分を記録できなかった）。
     var showsThisMonthChoice: Bool {
-        mode == .create && notBefore == nil
-            && RecurringSchedule.hasPassedThisMonth(dayOfMonth: dayOfMonth, now: now(), timeZone: timeZone)
+        guard mode == .create else { return false }
+        if let notBefore, notBefore > RecurringMonth(containing: now(), timeZone: timeZone) { return false }
+        return RecurringSchedule.hasPassedThisMonth(dayOfMonth: dayOfMonth, now: now(), timeZone: timeZone)
     }
 
     /// 保存したときの決まり（最初の月と記録を済ませた月を、いまの入力で決めたもの）。

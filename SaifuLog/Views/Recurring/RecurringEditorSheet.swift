@@ -25,7 +25,9 @@ struct RecurringEditorSheet: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("キャンセル", role: .cancel) { dismiss() }
+                        Button("キャンセル", role: .cancel) {
+                            if model.requestClose() { dismiss() }
+                        }
                     }
                 }
                 .alert(
@@ -47,10 +49,19 @@ struct RecurringEditorSheet: View {
                 } message: {
                     Text("次の月から記録しなくなります。これまでに記録したものは残ります。")
                 }
+                .confirmationDialog(
+                    "直した内容を破棄しますか？",
+                    isPresented: $model.showsDiscardConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("破棄して閉じる", role: .destructive) { dismiss() }
+                    Button("直すのを続ける", role: .cancel) {}
+                }
         }
         .presentationDetents([.large])
-        // 入れた内容を、下へのスワイプで黙って捨てない（直すシートと同じ。キャンセルは押せば閉じる）。
-        .interactiveDismissDisabled(model.canSave)
+        // 入れた内容があるときは、下へのスワイプで黙って閉じない。止めたスワイプは確認に回す（直すシートと同じ）。
+        .interactiveDismissDisabled(model.hasChanges)
+        .background(SheetDismissAttemptObserver { model.showsDiscardConfirmation = true })
     }
 
     private var form: some View {

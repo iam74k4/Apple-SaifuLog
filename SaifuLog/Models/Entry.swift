@@ -184,6 +184,7 @@ enum EntrySource: String, Codable, CaseIterable, Sendable {
     case voice
     /// くり返しの記録（毎月、決めた日にアプリが記録した）
     case recurring
-    /// Apple Pay の支払い（ショートカットのオートメーションから受け取り、アプリを開いたときに記録した）
+    /// 前の版で Apple Pay の支払いから記録したもの（ショートカットのオートメーションから受け取っていた）。いまは作らない。
+    /// 保存してある記録を読めるように残し、画面ではふつうの記録と同じに出す。
     case wallet
 }

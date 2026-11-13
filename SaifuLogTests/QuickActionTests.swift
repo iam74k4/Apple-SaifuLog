@@ -91,19 +91,52 @@ struct QuickActionTests {
         #expect(try fixture.entries().map(\.amount).sorted() == [400, 850])
     }
 
-    /// 文の空の記録の頼みは、入力欄にキーボードを出す。ほかの画面を出している間は待つ。
+    /// 文の空の記録の頼みは、入力欄にキーボードを出す。シートを出している間は待つ。
     @Test func emptyRecordWaitsForOtherScreens() async throws {
         let fixture = try Fixture()
-        fixture.model.presentSettings()
+        fixture.model.presentBudgetSetup()
         fixture.model.receive(.record("  "))
 
         #expect(fixture.model.performPendingQuickAction(calendar: TestSupport.calendar) == nil)
         #expect(fixture.model.inputFocusRequest == 0)
 
-        fixture.model.settings = nil
+        fixture.model.budgetSetup = nil
         await fixture.model.performPendingQuickAction(calendar: TestSupport.calendar)?.value
         #expect(fixture.model.inputFocusRequest == 1)
         #expect(try fixture.entries().isEmpty)
+    }
+
+    /// 頼みを受けたら、設定と月のまとめを閉じて会話で行う（閉じないと、返事が画面の下に隠れたまま終わる）。
+    @Test func receivingClosesPushedScreens() async throws {
+        let fixture = try Fixture()
+        fixture.model.presentSettings()
+        fixture.model.presentMonthlyReport(calendar: TestSupport.calendar)
+
+        fixture.model.receive(.record("ランチ 850"))
+
+        #expect(fixture.model.settings == nil)
+        #expect(fixture.model.monthlyReport == nil)
+        await fixture.model.performPendingQuickAction(calendar: TestSupport.calendar)?.value
+        #expect(try fixture.entries().map(\.amount) == [850])
+    }
+
+    /// シートを出している間は記録も質問も待ち、閉じたら行う（シートの下で記録して、返事が見えないまま終わらないように）。
+    /// 設定の上でシートを出しているときは、設定も閉じない（書きかけを黙って捨てない）。
+    @Test func recordWaitsForSheets() async throws {
+        let fixture = try Fixture()
+        fixture.model.presentSettings()
+        let settings = try #require(fixture.model.settings)
+        settings.presentBudgetSetup()
+
+        fixture.model.receive(.record("ランチ 850"))
+
+        #expect(fixture.model.settings === settings)
+        #expect(fixture.model.performPendingQuickAction(calendar: TestSupport.calendar) == nil)
+        #expect(try fixture.entries().isEmpty)
+
+        fixture.model.settings = nil
+        await fixture.model.performPendingQuickAction(calendar: TestSupport.calendar)?.value
+        #expect(try fixture.entries().map(\.amount) == [850])
     }
 }
 

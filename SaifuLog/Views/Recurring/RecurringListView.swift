@@ -10,6 +10,8 @@ struct RecurringListView: View {
     @Bindable var model: RecurringListModel
 
     @Environment(\.categoryCatalog) private var catalog
+    /// 行の頭の印の大きさ（文字の大きさに合わせて大きくする）。
+    @ScaledMetric(relativeTo: .body) private var tileSize = 32
 
     var body: some View {
         List {
@@ -109,22 +111,29 @@ struct RecurringListView: View {
         return row.isIncome ? String(localized: "収入") : catalog.localizedName(for: row.category)
     }
 
-    /// 「毎月25日・住居・次は11月25日」。
+    /// 「毎月25日・住居・次は11月25日」。品目が無ければ、見出しがカテゴリ名か「収入」なので、ここではくり返さない
+    /// （「収入」「毎月25日・収入・…」と 2 回読まれないように）。
     private func detail(_ row: RecurringListModel.Row) -> Text {
-        let kind = row.isIncome ? String(localized: "収入") : catalog.localizedName(for: row.category)
+        let kind: String? = row.memo.isEmpty
+            ? nil : (row.isIncome ? String(localized: "収入") : catalog.localizedName(for: row.category))
         let every = RecurringTexts.spokenEveryMonth(row.dayOfMonth)
-        if let next = row.nextDate {
-            return Text("\(every)・\(kind)・次は\(next.formatted(.dateTime.month().day()))")
+        let next = row.nextDate?.formatted(.dateTime.month().day())
+        switch (kind, next) {
+        case let (kind?, next?): return Text("\(every)・\(kind)・次は\(next)")
+        case let (nil, next?): return Text("\(every)・次は\(next)")
+        case let (kind?, nil): return Text(verbatim: "\(every)・\(kind)")
+        case (nil, nil): return Text(verbatim: every)
         }
-        return Text(verbatim: "\(every)・\(kind)")
     }
 
     private func tile(_ row: RecurringListModel.Row) -> some View {
         Image(systemName: row.isIncome ? "yensign" : catalog.symbolName(for: row.category))
-            .font(.system(size: 14, weight: .semibold))
+            .font(.system(size: tileSize * 0.44, weight: .semibold))
             .foregroundStyle(Theme.onCategory)
-            .frame(width: 32, height: 32)
-            .background(row.isIncome ? Theme.income : catalog.color(for: row.category), in: .rect(cornerRadius: 9))
+            .frame(width: tileSize, height: tileSize)
+            .background(
+                row.isIncome ? Theme.income : catalog.color(for: row.category), in: .rect(cornerRadius: tileSize * 0.28)
+            )
             // 印はダークでもライトの色で塗る（返事の行と同じ。白い記号を読めるように）。
             .environment(\.colorScheme, .light)
             .accessibilityHidden(true)

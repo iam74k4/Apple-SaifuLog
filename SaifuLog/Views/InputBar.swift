@@ -123,7 +123,8 @@ struct InputBar: View {
         // tint は塗りの色になる。主の塗り（`accentFill`）を明示する（AccentColor と同じ値だが、塗りの役目の色として決めておく）。
         .tint(Theme.accentFill)
         .disabled(!canSend)
-        .accessibilityLabel(isSending ? "読み取り中" : "送信")
+        // 押せないのが読み取りの途中だからだと分かるよう、送っている間は名前を変える。
+        .accessibilityLabel(isSending ? "送信中" : "送信")
     }
 
     /// レシートを読み取るボタン。主の塗りは送信にだけ使うので（主の操作を 1 つに見せる）、ガラスの地に墨の記号にする。

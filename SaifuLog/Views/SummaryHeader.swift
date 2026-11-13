@@ -125,6 +125,14 @@ struct SummaryHeader: View {
             title
                 .font(.subheadline)
                 .foregroundStyle(Theme.inkSecondary)
+            if budget?.isOver == true {
+                // 予算を超えたことを色だけで伝えない（広い帯の「¥… オーバー」と同じアイコンを添える。読み上げは数字の要素が
+                // 「… オーバー」と読む）。低い帯は 1 行なので、語は添えずにアイコンだけにする。
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.danger)
+                    .accessibilityHidden(true)
+            }
             Text(verbatim: YenFormatter.string(from: summary.expense))
                 .font(.title3.bold())
                 .monospacedDigit()

@@ -97,12 +97,12 @@ struct SentTextBubble: View {
     /// 文の前に添える記号（入力元ごと）。読み取っている間の吹き出し（`PendingRecordView`）も同じものを添える。
     static func symbol(for source: EntrySource) -> String? {
         switch source {
-        case .text: nil
+        // 前の版の Apple Pay の支払いの記録は、ふつうの記録と同じに出す（打った文が無いので、ふつうは吹き出しを出さない）。
+        case .text, .wallet: nil
         case .voice: "mic.fill"
         case .receipt: "receipt"
-        // くり返しの記録と Apple Pay の支払いは打った文が無いので、ふつうは吹き出しを出さない（元の文が空）。
+        // くり返しの記録は打った文が無いので、ふつうは吹き出しを出さない（元の文が空）。
         case .recurring: "arrow.triangle.2.circlepath"
-        case .wallet: "creditcard"
         }
     }
 
@@ -354,25 +354,23 @@ private struct RecordedReplyHeader: View {
         localized: "くり返しの記録（返事の見出し）", defaultValue: "くり返しの記録",
         comment: "ホームの返事の見出し。くり返しの記録から 1 件を記録したとき"
     )
-    private static let walletText = String(localized: "Apple Pay の支払い")
 
+    /// 見出しの文。前の版の Apple Pay の支払いの記録（`.wallet`）も「記録しました」にする（いまは作らない記録なので、別の見出しを
+    /// 持たない）。
     private var titleText: String {
         switch (source, count > 1) {
         case (.recurring, true): String(localized: "くり返しの記録（\(count)件）")
         case (.recurring, false): Self.recurringText
-        case (.wallet, true): String(localized: "Apple Pay の支払い（\(count)件）")
-        case (.wallet, false): Self.walletText
         case (_, true): String(localized: "記録しました（\(count)件）")
         case (_, false): Self.recordedText
         }
     }
 
-    /// 見出しの前の印（打った記録はチェック、くり返しの記録はくり返しの記号、Apple Pay の支払いはカード）。
+    /// 見出しの前の印（記録はチェック、くり返しの記録はくり返しの記号）。
     private var symbolName: String {
         switch source {
         case .recurring: "arrow.triangle.2.circlepath"
-        case .wallet: "creditcard"
-        case .text, .voice, .receipt: "checkmark"
+        case .text, .voice, .receipt, .wallet: "checkmark"
         }
     }
 
@@ -430,8 +428,10 @@ private struct RecordedReplyHeader: View {
         switch source {
         case .receipt: Text("レシートから記録したものを消します")
         case .recurring: Text("くり返しの記録から記録したものを消します。その月の分はもう記録しません")
-        case .wallet: Text("Apple Pay の支払いから記録したものを消します")
         case .text, .voice: Text("記録を消して、送った文を入力欄に戻します")
+        // 前の版の Apple Pay の支払いの記録は、いまは作らないので「取り消す」を出すことは無い（取り消せるのは直前の送信だけで、
+        // 開き直すと引っ込める）。打った文が無く入力欄にも戻さないので、説明は添えない。
+        case .wallet: Text(verbatim: "")
         }
     }
 }
@@ -861,7 +861,7 @@ struct ReplyRowLayout: Layout {
 /// 2 つの子（前・後ろ）を、1 行に収まれば前を左の端に・後ろを右の端に置き（1 行目の文字の下端をそろえる）、収まらなければ
 /// 後ろを前の下の行に置く。子が 1 つなら左の端に置く。幅を提案されれば、その幅いっぱいを使う。
 ///
-/// 1 行に収まるかは、どちらも折り返さない幅（理想の幅）で並べて入るかで決める（吹き出しの `TitleAmountLayout` と同じ選び方）。
+/// 1 行に収まるかは、どちらも折り返さない幅（理想の幅）で並べて入るかで決める（`IdealRowArrangement`）。
 /// 品目が折り返すほど長いのに金額を横に並べると、金額が品目の 1 行目の右に並び、「…総額」「¥3,000」のように続けて読めて
 /// しまうため。返事の行の品目と金額、見出しの「記録しました」と「取り消す」に使う。
 struct SplitRowLayout: Layout {

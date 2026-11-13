@@ -32,7 +32,9 @@ struct CategoryEditorSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
+                    Button("キャンセル") {
+                        if model.requestClose() { dismiss() }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
@@ -46,7 +48,18 @@ struct CategoryEditorSheet: View {
             } message: {
                 Text("もう一度お試しください。")
             }
+            .confirmationDialog(
+                "直した内容を破棄しますか？",
+                isPresented: $model.showsDiscardConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("破棄して閉じる", role: .destructive) { dismiss() }
+                Button("直すのを続ける", role: .cancel) {}
+            }
         }
+        // 入れた内容があるときは、下へのスワイプで黙って閉じない。止めたスワイプは確認に回す（直すシートと同じ）。
+        .interactiveDismissDisabled(model.hasChanges)
+        .background(SheetDismissAttemptObserver { model.showsDiscardConfirmation = true })
     }
 
     /// 選んでいる色と記号の見本（返事の行の印と同じ形）。

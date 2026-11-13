@@ -664,7 +664,7 @@ private struct TimelineOlderRecords: View {
             .font(.subheadline)
             .frame(minHeight: 44)
         } else {
-            Text("ホームに出せるのは、新しく記録した方から \(HomeModel.timelineMaxLimit) 件までです。それより前の記録は、月のまとめのカテゴリの一覧と、設定の「記録を書き出す」で見られます。")
+            Text("ホームに出せるのは、新しく記録した方から \(HomeModel.timelineMaxLimit) 件までです。それより前の記録は、左へスワイプしたカレンダーの日ごとの一覧・月のまとめのカテゴリの一覧・設定の「記録を書き出す」で見られます。")
             .font(.footnote)
             .foregroundStyle(Theme.inkSecondary)
             .multilineTextAlignment(.center)
