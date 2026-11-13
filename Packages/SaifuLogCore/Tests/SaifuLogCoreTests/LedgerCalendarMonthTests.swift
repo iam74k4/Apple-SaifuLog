@@ -48,14 +48,4 @@ struct LedgerCalendarMonthTests {
         #expect(month.day(containing: Fixture.date(2026, 10, 2, hour: 23), calendar: Fixture.calendar)?.dayOfMonth == 2)
         #expect(month.day(containing: Fixture.date(2026, 11, 2), calendar: Fixture.calendar) == nil)
     }
-
-    /// 予算の日割りは、予算 ÷ 月の日数（切り捨て）。予算が無ければ出さない。
-    @Test func dailyPaceDividesBudgetByDaysInMonth() {
-        let month = LedgerCalendarMonth(records: [TestRecord](), month: Self.month(2026, 10), calendar: Fixture.calendar)
-
-        #expect(month.dailyPace(budget: 310_000) == 10_000)
-        #expect(month.dailyPace(budget: 100_000) == 3_225)
-        #expect(month.dailyPace(budget: nil) == nil)
-        #expect(month.dailyPace(budget: 0) == nil)
-    }
 }

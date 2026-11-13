@@ -1291,51 +1291,6 @@
         }
       }
     },
-    "くり返しの予定" : {
-      "comment" : "カレンダーのページの印の凡例と、文字がとても大きいときの日の一覧の印。くり返しの記録（家賃・給料など）のうち、まだ記録していない今月の予定がある日に付ける",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Upcoming recurring"
-          }
-        }
-      }
-    },
-    "くり返しの予定 %lld 件" : {
-      "comment" : "カレンダーのページの日の VoiceOver の読み上げ。その日の、まだ記録していないくり返しの記録の数。%lld は件数",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld upcoming recurring entry"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld upcoming recurring entries"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "くり返しの予定・%@" : {
-      "comment" : "カレンダーのページの選んだ日の、まだ記録していないくり返しの記録の行の下の文。%@ はカテゴリ名か「収入」",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Upcoming recurring · %@"
-          }
-        }
-      }
-    },
     "くり返しの記録" : {
       "comment" : "設定の行と、その一覧の画面の題名。家賃・サブスク・給料のように毎月同じ記録を、決めた日に自動で記録する",
       "localizations" : {
@@ -1662,17 +1617,6 @@
         }
       }
     },
-    "このペースだと今月の支出" : {
-      "comment" : "カレンダーのページの見通しの行。今日までのペースで使ったときの今月の支出の見込み（くり返しの記録の固定費を足した額）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Projected for this month"
-          }
-        }
-      }
-    },
     "この国や地域の App Store では、いま購入できません。時間をおいて、もう一度お試しください。" : {
       "comment" : "購入に失敗したときのアラートの本文（この地域で買えない）",
       "localizations" : {
@@ -1680,17 +1624,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This item can't be purchased from the App Store in your country or region right now. Please try again later."
-          }
-        }
-      }
-    },
-    "この日に記録" : {
-      "comment" : "カレンダーのページの選んだ日のボタン。会話のページに戻り、入力欄の頭にその日の日付（「10/2 」）を入れてキーボードを出す",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Record on This Day"
           }
         }
       }
@@ -2089,17 +2022,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No learned categories yet. When you choose a category in a reply or change one on the edit screen, it appears here."
-          }
-        }
-      }
-    },
-    "まだ記録していない固定費" : {
-      "comment" : "カレンダーのページの見通しの行。くり返しの記録の支出のうち、今月まだ記録していないものの合計",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fixed costs not yet recorded"
           }
         }
       }
@@ -3227,17 +3149,6 @@
         }
       }
     },
-    "予算を %@ 超える見込み" : {
-      "comment" : "カレンダーのページの見通し。今のペースだと月末に予算を超えるとき、超える額。%@ は「¥12,000」のような金額。注意の色とアイコンを添えて出す",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Projected to go %@ over budget"
-          }
-        }
-      }
-    },
     "予算をなくしました" : {
       "comment" : "予算をなくした後に VoiceOver で読み上げる内容",
       "localizations" : {
@@ -3315,17 +3226,6 @@
         }
       }
     },
-    "予算を決めると、今日あといくら使えるかが出ます。" : {
-      "comment" : "カレンダーのページの見通しの欄で、予算を決めていないときの案内（下に「予算を決める」のボタン）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Set a budget to see how much you can spend today."
-          }
-        }
-      }
-    },
     "予算を決める画面を開きます" : {
       "comment" : "設定の「月の予算」の行の VoiceOver の説明（ヒント）。押すと予算を決める画面をシートで開く",
       "localizations" : {
@@ -3381,17 +3281,6 @@
         }
       }
     },
-    "今日あと" : {
-      "comment" : "カレンダーのページの見通しの見出し。その下に、今日あと使える額（まだ記録していない固定費を先に引いて日割りにした額から、今日の支出を引いたもの）を大きく出す",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Left today"
-          }
-        }
-      }
-    },
     "今日の日付で ¥850 を記録" : {
       "comment" : "ようこその画面。入力の例「ランチ 850」がどう記録されるか。カテゴリは書かない（AI とキーワード辞書で変わりうるため）",
       "localizations" : {
@@ -3399,17 +3288,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Recorded for today, ¥850"
-          }
-        }
-      }
-    },
-    "今日の目安 %@" : {
-      "comment" : "カレンダーのページの「今日あと」の下。今日使える額（今日の支出を引く前）。%@ は「¥4,156」のような金額",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ for today"
           }
         }
       }
@@ -3629,17 +3507,6 @@
         }
       }
     },
-    "今月の支出の見込みは、月の %lld 日目から出します。" : {
-      "comment" : "カレンダーのページの見通し。月の初めは数日の支出で見込みが大きく振れるので、出さない理由を添える。%lld は日数（7）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The projection for this month appears from day %lld."
-          }
-        }
-      }
-    },
     "今月の無料のレシートの読み取りを使い切りました" : {
       "comment" : "ホームのカメラのボタンを押したとき、今月の無料のレシートの読み取り（月 5 回）を使い切っていたときに VoiceOver で読み上げる文。続けてプレミアムのシートを出す",
       "localizations" : {
@@ -3703,17 +3570,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Chat"
-          }
-        }
-      }
-    },
-    "会話に戻り、入力欄にこの日の日付を入れます" : {
-      "comment" : "カレンダーのページの「この日に記録」の VoiceOver のヒント",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Returns to the chat and puts this date in the input field."
           }
         }
       }
@@ -4644,17 +4500,6 @@
         }
       }
     },
-    "固定費を引いた今月あと" : {
-      "comment" : "カレンダーのページの見通しの行。予算から今月の支出と、まだ記録していない固定費を引いた残り",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Left after fixed costs"
-          }
-        }
-      }
-    },
     "墨" : {
       "comment" : "カテゴリを作る・直すシートの色の名前（VoiceOver が読む）",
       "localizations" : {
@@ -5018,6 +4863,17 @@
         }
       }
     },
+    "支出なし" : {
+      "comment" : "カレンダーの日の VoiceOver の読み上げ。その日の支出が無いとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No spending"
+          }
+        }
+      }
+    },
     "支出の合計" : {
       "comment" : "家計への質問の回答カードの見出し",
       "localizations" : {
@@ -5102,17 +4958,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Date"
-          }
-        }
-      }
-    },
-    "日割りの目安より多い" : {
-      "comment" : "カレンダーのページの印の凡例と日の VoiceOver の読み上げ。その日の支出が、月の予算を日数で割った額より多い日（注意の色の点を付ける）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Over the daily budget"
           }
         }
       }
@@ -6364,17 +6209,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Returns to the chat for entries and questions."
-          }
-        }
-      }
-    },
-    "記録なし" : {
-      "comment" : "カレンダーのページの日の VoiceOver の読み上げ。記録もくり返しの予定も無い日",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No entries"
           }
         }
       }

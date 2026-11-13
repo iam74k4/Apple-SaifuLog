@@ -31,14 +31,7 @@ final class HomeModel {
     static let timelineMaxLimit = 300
 
     /// 入力欄の文。
-    var draft = "" {
-        didSet {
-            // 入力欄を空にしたら（送った・消した）、カレンダーで入れた日付も無くなる。
-            if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                calendarDraftPrefix = ""
-            }
-        }
-    }
+    var draft = ""
     /// 送った文を読み取っている間（送信ボタンを押せなくし、読み取り中の印を出す）。
     private(set) var isParsing = false
     /// 記録として送り、読み取っている文。読み取りが終わるまで、タイムラインのいちばん下に送った文の吹き出しと「読み取っています…」
@@ -60,11 +53,6 @@ final class HomeModel {
     var page: Page = .conversation
     /// カレンダーのページ（docs/design.md §9 の ⑩）の状態と操作。
     let calendarPage: LedgerCalendarModel
-    /// カレンダーの「この日に記録」で入力欄の頭に入れた日付（「10/2 」）。次に入れるときに、前の日付だけを差し替えるため。
-    @ObservationIgnored private var calendarDraftPrefix = ""
-    /// 次のページの切り替えで、VoiceOver に画面が替わったことを知らせないか（「この日に記録」で会話へ戻るとき。入力欄へ移す
-    /// フォーカスを、知らせが画面の最初の要素へ動かさないように）。画面が切り替えを受け取ったら戻す（`consumePageChange()`）。
-    @ObservationIgnored private var pageChangeFocusesInput = false
     /// カテゴリを聞き返している記録（`Entry.needsCategoryReview`）。直前の返事の行の下にカテゴリのボタンを出す。保存先から
     /// 読み直すので、開き直した後も聞き返しが残る。
     private(set) var categoryQuestionIDs: Set<PersistentIdentifier> = []
@@ -199,9 +187,7 @@ final class HomeModel {
         self.learnedCategories = learnedCategories ?? LearnedCategoryStore(context: store.context, now: now)
         self.categories = categories ?? CategoryCatalogModel(store: CustomCategoryStore(context: store.context, now: now))
         self.recurring = recurring
-        self.calendarPage = LedgerCalendarModel(
-            store: store, budgetStore: budgetStore, recurring: recurring, now: now, announce: announce
-        )
+        self.calendarPage = LedgerCalendarModel(store: store, now: now, announce: announce)
         self.pendingWrites = pendingWrites
         self.storeHost = storeHost
         self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
@@ -252,38 +238,6 @@ final class HomeModel {
         justRecordedItems = justRecorded.map {
             RecordedItem(id: AnyHashable($0.persistentModelID), summaryText: $0.summaryText(in: categories.catalog))
         }
-    }
-
-    // MARK: - 会話とカレンダー
-
-    /// カレンダーの「この日に記録」。会話のページへ戻り、入力欄の頭にその日の日付（「10/2 」。今日なら無し）を入れてキーボードを
-    /// 出す。送るのは利用者が押したときだけ（ほかの入力と同じ）。
-    ///
-    /// 日付は文として入れ、ひとこと入力の読み取りに任せる（記録の日付を別に持たせない。入力欄の文を見れば、どの日に記録するかが
-    /// 分かり、消せば今日の記録に戻せるため）。打ちかけの文は残し、前に入れた日付だけを差し替える（別の日を選び直して押しても、
-    /// 日付が重ならないように）。
-    func prepareDraft(for day: Date, calendar: Calendar) {
-        let rest = draftAfterCalendarDate.rest
-        calendarDraftPrefix = DateExpression.notation(for: day, now: now(), calendar: calendar).map { "\($0) " } ?? ""
-        draft = calendarDraftPrefix + rest
-        if page != .conversation {
-            pageChangeFocusesInput = true
-            page = .conversation
-        }
-        inputFocusRequest += 1
-    }
-
-    /// 画面がページの切り替えを受け取った。VoiceOver に画面が替わったことを知らせるなら true（入力欄へフォーカスを移す切り替え
-    /// では false）。
-    func consumePageChange() -> Bool {
-        defer { pageChangeFocusesInput = false }
-        return !pageChangeFocusesInput
-    }
-
-    /// 入力欄の文を、カレンダーの「この日に記録」で入れた日付と、その後ろに分ける（日付を入れていなければ、日付は空）。
-    private var draftAfterCalendarDate: (date: String, rest: String) {
-        guard !calendarDraftPrefix.isEmpty, draft.hasPrefix(calendarDraftPrefix) else { return ("", draft) }
-        return (calendarDraftPrefix, String(draft.dropFirst(calendarDraftPrefix.count)))
     }
 
     // MARK: - 送信

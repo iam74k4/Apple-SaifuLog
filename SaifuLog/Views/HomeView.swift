@@ -150,10 +150,9 @@ struct HomeView: View {
                 .onChange(of: calendar) { _, calendar in
                     model.calendarPage.configure(calendar: calendar)
                 }
-                // ページが替わったら、VoiceOver に知らせ、新しいページの最初の要素から読ませる（スワイプでもボタンでも）。「この日に
-                // 記録」で会話へ戻るときは知らせない（入力欄へフォーカスを移すため。`InputBar`）。
+                // ページが替わったら、VoiceOver に知らせ、新しいページの最初の要素から読ませる（スワイプでもボタンでも）。
                 .onChange(of: model.page) {
-                    if model.consumePageChange() { VoiceOver.screenChanged() }
+                    VoiceOver.screenChanged()
                 }
                 // 保存先に書き込まれたら、カテゴリの一覧・カレンダー・聞き返しを読み直す（記録を足した・直した・消したとき）。
                 .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { _ in
@@ -222,12 +221,10 @@ struct HomeView: View {
             LedgerCalendarView(
                 model: model.calendarPage,
                 showConversation: { withAnimation { model.page = .conversation } },
-                recordOnDay: { day in withAnimation { model.prepareDraft(for: day, calendar: calendar) } },
                 edit: { model.presentEdit($0, calendar: calendar) },
                 requestDelete: { model.requestDelete($0) },
                 makeRecurring: { model.presentRecurringCreation(from: $0, calendar: calendar) },
-                openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
-                editBudget: { model.presentBudgetSetup() }
+                openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) }
             )
             .tag(HomeModel.Page.calendar)
         }
