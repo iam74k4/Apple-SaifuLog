@@ -10,7 +10,7 @@ import SaifuLogCore
 // ホームが出たら行う。
 
 /// ひとことを送って記録する（「ランチ 850」）。ふつうの送信と同じく、記録か質問かはアプリが見分け、返事のカードに
-/// 記録した内容と「取り消す」を出す。ショートカットのオートメーション（Apple Pay で払ったときなど）からも使える。
+/// 記録した内容と「取り消す」を出す。ショートカット App からも使える。
 struct RecordEntryIntent: AppIntent {
     static let title: LocalizedStringResource = "ひとことで記録"
     static let description = IntentDescription("「ランチ 850」のようなひとことを送って記録します。アプリを開いて、記録した内容を返事で見せます。")
@@ -78,63 +78,6 @@ struct VoiceEntryIntent: AppIntent {
     func perform() async throws -> some IntentResult {
         QuickActionInbox.shared.post(.voice)
         return .result()
-    }
-}
-
-/// Apple Pay で払ったときのオートメーション（ショートカットの「取引」）から、金額と店名を受け取る。アプリは開かない。
-///
-/// 払った直後は iPhone がロックされていることが多く、記録の保存先（NSFileProtectionComplete）には書けないので、受け取った
-/// 支払いを受け箱（`PaymentInbox`）に置き、次にアプリを開いたときに記録にして返事で見せる（違っていれば取り消せる）。
-/// 金額はウォレットの値をそのまま使う（AI にも文の読み取りにも通さない）。円のほかの通貨は記録しない。
-struct RecordPaymentIntent: AppIntent {
-    static let title: LocalizedStringResource = "支払いを記録"
-    // 題名と説明には「Apple」の語を書かない（App Store Connect がアップロードを ITMS-90626 で弾く。「Apple Pay」も同じ）。
-    // 文言はテストで確かめる（`AppIntentMetadataTests`）。
-    static let description = IntentDescription(
-        "ウォレットで払ったときのオートメーション（ショートカットの「取引」）で使います。金額と店名を受け取り、次にサイフログを開いたときに記録します。"
-    )
-    static let openAppWhenRun = false
-
-    @Parameter(title: "金額")
-    var amount: IntentCurrencyAmount
-
-    @Parameter(title: "店名")
-    var merchant: String?
-
-    static var parameterSummary: some ParameterSummary {
-        Summary("\(\.$merchant) の \(\.$amount) を記録")
-    }
-
-    @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let yen = PaymentCapture.yenAmount(amount.amount, currencyCode: amount.currencyCode) else {
-            throw amount.currencyCode.uppercased() == PaymentCapture.currencyCode ? PaymentCaptureError.invalidAmount : .notYen
-        }
-        do {
-            try PaymentInbox.shared.append(amount: yen, merchant: merchant ?? "", paidAt: .now)
-        } catch {
-            throw PaymentCaptureError.saveFailed
-        }
-        let text = YenFormatter.string(from: yen)
-        return .result(dialog: IntentDialog("\(text) を受け取りました。サイフログを開くと記録します。"))
-    }
-}
-
-/// 支払いを受け取れなかった理由（ショートカットに出す）。
-enum PaymentCaptureError: Error, CustomLocalizedStringResourceConvertible {
-    /// 円のほかの通貨。
-    case notYen
-    /// 1 円未満か、記録できる上限を超える。
-    case invalidAmount
-    /// 受け箱に書けなかった。
-    case saveFailed
-
-    var localizedStringResource: LocalizedStringResource {
-        switch self {
-        case .notYen: "円のほかの通貨の支払いは記録しません。"
-        case .invalidAmount: "記録できない金額です。"
-        case .saveFailed: "支払いを受け取れませんでした。もう一度お試しください。"
-        }
     }
 }
 

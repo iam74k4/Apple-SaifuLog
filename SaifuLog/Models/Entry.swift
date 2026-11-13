@@ -32,18 +32,13 @@ final class Entry {
     /// 元の入力文。直すときや、解析の見直しに使う。くり返しの記録から記録したものは空（打った文が無いので、タイムラインに
     /// 自分の吹き出しを出さない）。
     @Attribute(.allowsCloudEncryption) var originalText: String = ""
-    /// アプリが自動で記録したものの印。くり返しの記録はどの決まりのどの月の分か（`RecurringSchedule.occurrenceKey`）、Apple Pay の
-    /// 支払いはどの支払いか（`PaymentCapture.occurrenceKey`）。打った記録は空。同じものを 2 回記録しないために使い、iCloud で 2 台が
+    /// アプリが自動で記録したものの印。くり返しの記録はどの決まりのどの月の分か（`RecurringSchedule.occurrenceKey`）。前の版で
+    /// 記録した Apple Pay の支払いは「wallet/」で始まる印を持つ。打った記録は空。同じものを 2 回記録しないために使い、iCloud で 2 台が
     /// 同じ月の分を記録したときにも見つけて片づける（`RecurringEntryStore.removeDuplicateOccurrences`）。
     /// 後から足した項目（既定値があるので、足す前の保存先も移行なしで開ける。`ModelContainerFactoryTests`）。
     @Attribute(.allowsCloudEncryption) var recurrenceKey: String = ""
-    /// 確認待ちの記録を、保存先の開き直し・iCloud 同期の後にも結び付ける。古い記録は必要になったときに採番する。
-    @Attribute(.allowsCloudEncryption) var reviewID: String = ""
+    /// カテゴリを聞き返している記録（返事と確認待ちの一覧で選ぶ）。保存先の開き直し・iCloud 同期の後にも聞き返しを残すため、記録に持つ。
     @Attribute(.allowsCloudEncryption) var needsCategoryReview: Bool = false
-    /// 分類が終わる前にアプリを閉じても、次の起動で再開するための印。
-    @Attribute(.allowsCloudEncryption) var needsPaymentClassification: Bool = false
-    /// 重複候補の相手と、確認を作った時点の金額・日付。記録と同じ保存処理で書く。
-    @Attribute(.allowsCloudEncryption) var paymentReviewJSON: String = ""
 
     init(
         amount: Int,
@@ -63,7 +58,6 @@ final class Entry {
         self.createdAt = createdAt
         self.sourceRawValue = source.rawValue
         self.originalText = originalText
-        self.reviewID = UUID().uuidString
     }
 
     var category: EntryCategory {
@@ -152,7 +146,7 @@ extension Entry {
         return descriptor
     }
 
-    /// よく使うひとことの候補（`QuickPhrases`）を作るのに読む記録。`start` より後に記録したもの（レシート・くり返しの記録・Apple Pay の
+    /// よく使うひとことの候補（`QuickPhrases`）を作るのに読む記録。`start` より後に記録したもの（レシート・くり返しの記録・前の版の Apple Pay の
     /// 支払いから記録したものは除く）を、記録した日時の新しいものから `limit` 件。
     ///
     /// レシートの品目は店の略した名前や半角のカナが多く、ひとこと入力で打つ文の候補にならないので除く。くり返しの記録は

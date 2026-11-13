@@ -356,23 +356,10 @@ struct SettingsView: View {
             }
             .accessibilityHint("毎月同じ記録の一覧を開きます")
             .listRowBackground(Theme.surface)
-            NavigationLink {
-                WalletCaptureView(model: model.walletCapture)
-            } label: {
-                Label {
-                    Text(.walletCaptureTitle)
-                        .foregroundStyle(Theme.ink)
-                } icon: {
-                    SettingsRowIcon(symbolName: "creditcard", fill: SettingsRowIcon.charcoal)
-                }
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            }
-            .accessibilityHint("Apple Pay で払ったときに自動で記録する方法を開きます")
-            .listRowBackground(Theme.surface)
         } header: {
-            sectionHeader("自動で記録")
+            sectionHeader("毎月の記録")
         } footer: {
-            sectionFooter("家賃・サブスク・給料のように毎月同じ記録と、Apple Pay の支払いを、アプリが記録してホームの返事でお知らせします。")
+            sectionFooter("家賃・サブスク・給料のように毎月同じ記録を、決めた日に自動で記録します。")
         }
     }
 
@@ -791,8 +778,6 @@ struct SettingsRowIcon: View {
     static let purple = fixed(Palette.category(.entertainment).light)
     static let teal = fixed(Palette.category(.utilities).light)
     static let gray = fixed(Palette.category(.other).light)
-    /// Apple Pay（ウォレット）の行。ウォレットの黒に寄せた墨。
-    static let charcoal = fixed(0x3A3A3C)
     /// 家族と共有の行（柿。作ったカテゴリに選べる色と同じ値）。
     static let orange = fixed(Palette.customCategoryChoices[3].light)
 }

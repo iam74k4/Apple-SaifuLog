@@ -229,7 +229,7 @@ struct PremiumSheet: View {
             VStack(alignment: .leading, spacing: 10) {
                 freeItem(Text("ひとこと入力と AI の読み取り（回数の制限なし）"))
                 freeItem(Text("声の入力と Siri・ショートカット"))
-                freeItem(Text("Apple Pay の支払いとくり返しの記録"))
+                freeItem(Text("くり返しの記録とカテゴリの自動の振り分け"))
                 freeItem(Text("月の予算・月のまとめ・週のふりかえり"))
                 freeItem(Text("iCloud 同期と CSV 書き出し"))
             }

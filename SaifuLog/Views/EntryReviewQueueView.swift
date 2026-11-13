@@ -1,7 +1,7 @@
 import SaifuLogCore
 import SwiftUI
 
-/// 自動記録を止めず、利用者の判断が要る分だけをまとめる。
+/// 記録は止めずに済ませ、カテゴリを選ぶ必要がある記録だけをまとめる（返事を流した後や、開き直した後にも選べるように）。
 struct EntryReviewQueueView: View {
     @Bindable var model: HomeModel
     @Environment(\.dismiss) private var dismiss
@@ -21,7 +21,7 @@ struct EntryReviewQueueView: View {
                         ForEach(model.reviewItems) { item in
                             VStack(alignment: .leading, spacing: 14) {
                                 HStack(alignment: .top, spacing: 12) {
-                                    Image(systemName: item.overlap == nil ? "tag.fill" : "square.on.square")
+                                    Image(systemName: "tag.fill")
                                         .font(.title2).foregroundStyle(catalog.color(for: item.category))
                                         .frame(width: 38, height: 44).accessibilityHidden(true)
                                     VStack(alignment: .leading, spacing: 4) {
@@ -30,24 +30,14 @@ struct EntryReviewQueueView: View {
                                         Text(verbatim: YenFormatter.string(from: item.amount)).font(.title3.bold()).monospacedDigit()
                                     }
                                 }
-                                if let overlap = item.overlap {
-                                    PaymentOverlapView(question: overlap, remove: { model.removeOverlappingPayment(for: item.id) },
-                                                       keep: { model.keepOverlappingPayment(for: item.id) })
-                                }
-                                if item.needsCategory {
-                                    if model.classifyingPaymentIDs.contains(item.id) {
-                                        HStack { ProgressView(); Text("AIがカテゴリを振り分け中") }.font(.subheadline)
-                                    } else {
-                                        Menu {
-                                            ForEach(catalog.all) { category in
-                                                Button { model.chooseReviewCategory(category, for: item.id) } label: { catalog.label(for: category) }
-                                            }
-                                        } label: {
-                                            Label("カテゴリを選ぶ", systemImage: "tag").frame(maxWidth: .infinity, minHeight: 32)
-                                        }
-                                        .buttonStyle(.glass).accessibilityIdentifier("review-category")
+                                Menu {
+                                    ForEach(catalog.all) { category in
+                                        Button { model.chooseReviewCategory(category, for: item.id) } label: { catalog.label(for: category) }
                                     }
+                                } label: {
+                                    Label("カテゴリを選ぶ", systemImage: "tag").frame(maxWidth: .infinity, minHeight: 32)
                                 }
+                                .buttonStyle(.glass).accessibilityIdentifier("review-category")
                             }
                             .padding(16).frame(maxWidth: .infinity, alignment: .leading)
                             .background(Theme.surface, in: .rect(cornerRadius: 20))

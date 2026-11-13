@@ -116,16 +116,6 @@ struct HomeView: View {
                 .sheet(isPresented: $model.showsReviewQueue) {
                     EntryReviewQueueView(model: model)
                 }
-                .sheet(item: $model.walletCapture) { capture in
-                    NavigationStack {
-                        WalletCaptureView(model: capture)
-                            .toolbar {
-                                ToolbarItem(placement: .cancellationAction) {
-                                    Button("閉じる") { model.walletCapture = nil }
-                                }
-                            }
-                    }
-                }
                 // 無料体験が終わった後の最初の起動に、一度だけプレミアム（⑨）を出す（`HomeModel.presentPremiumIfTrialEnded`）。
                 .sheet(item: $model.premiumSheet) { premium in
                     PremiumSheet(model: premium)
@@ -203,12 +193,6 @@ struct HomeView: View {
                     pending: quickActions.pending, isParsing: model.isParsing, hidesContent: appLock?.hidesContent,
                     deliver: deliverQuickActions, contentDidShow: catchUpAfterShowingContent
                 ))
-                // アプリを開いている間に Apple Pay の支払いを受け取ったら、すぐ記録にする。
-                .onReceive(NotificationCenter.default.publisher(for: PaymentInbox.didReceive)) { _ in deliverQuickActions() }
-                .onChange(of: hidesContent) { _, hides in
-                    if hides { model.cancelPaymentClassification() }
-                }
-                .onDisappear { model.cancelPaymentClassification() }
                 // この端末で声の入力を使えるか（マイクのボタンを出すか）を調べる。前面に戻ったときにも調べ直す（下の scenePhase）。
                 .task {
                     await model.voice.refreshAvailability()
@@ -321,7 +305,6 @@ struct HomeView: View {
                     case .active:
                         model.refreshToday()
                         recordDueRecurringEntries()
-                        // 裏にいる間に受け取った Apple Pay の支払いを記録にする（くり返しの記録の後。返事は後のものが残る）。
                         deliverQuickActions()
                         model.refreshQuickPhrases()
                         // 状態が変わらなくても、前面に戻ったときには確かめる（ほかの画面を閉じた後で出せるように）。
@@ -329,7 +312,6 @@ struct HomeView: View {
                         showWeeklyRecapIfDue()
                         Task { await model.voice.refreshAvailability() }
                     case .background:
-                        model.cancelPaymentClassification()
                         // 裏に回ったら、聞き取れた分を入力欄へ入れて止める（裏ではマイクを使い続けない）。
                         model.voice.stop(.background)
                     default:
@@ -434,8 +416,6 @@ struct HomeView: View {
                 // 控えた ID を渡す（ほかの端末で消された記録の値に、描くときに触れないため）。
                 undoableEntryIDs: Set(model.justRecordedIDs),
                 askingCategory: model.categoryQuestionIDs,
-                classifyingCategory: model.classifyingPaymentIDs,
-                paymentOverlaps: model.paymentOverlaps,
                 showMore: { model.showMoreTimeline() },
                 undo: { model.undoLastRecord() },
                 edit: { model.presentEdit($0, calendar: calendar) },
@@ -443,8 +423,6 @@ struct HomeView: View {
                 chooseCategory: { model.chooseCategory($1, for: $0) },
                 createCategory: { model.presentCategoryCreation(for: $0) },
                 makeRecurring: { model.presentRecurringCreation(from: $0, calendar: calendar) },
-                removeOverlap: { model.removeOverlappingPayment(for: $0) },
-                keepOverlap: { model.keepOverlappingPayment(for: $0) },
                 fillDraft: { model.draft = $0 },
                 openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
                 setBudget: { model.presentBudgetSetup() },
@@ -503,8 +481,6 @@ struct HomeView: View {
                     pick: { model.pickQuickPhrase($0) },
                     purchaseCheck: model.draft.isEmpty && !isTyping && !model.isParsing
                         ? { model.presentPurchaseCheck(calendar: calendar) } : nil,
-                    paymentSetup: model.draft.isEmpty && !isTyping && !model.isParsing
-                        ? { model.presentWalletCapture() } : nil,
                     reviewCount: model.reviewLoadFailed ? nil : model.reviewItems.count,
                     review: !model.reviewItems.isEmpty || model.reviewLoadFailed ? { model.showsReviewQueue = true } : nil
                 )
@@ -550,8 +526,6 @@ struct HomeView: View {
             model.receive(action)
         }
         guard scenePhase == .active, !hidesContent else { return }
-        // Apple Pay の支払いの受け箱も、ここで記録にする（ロックを解いた後・読み取りが終わった後にも見るため）。
-        model.importCapturedPayments(calendar: calendar)
         model.performPendingQuickAction(calendar: calendar)
     }
 
@@ -650,14 +624,13 @@ extension HomeModel.StoreFailure {
         case .undo: Text("取り消せませんでした")
         case .delete: Text("削除できませんでした")
         case .categoryChoice: Text("カテゴリを変えられませんでした")
-        case .reviewChoice: Text("確認を保存できませんでした")
         }
     }
 
     var message: Text {
         switch self {
         case .record: Text("保存に失敗しました。もう一度送ってください。")
-        case .undo, .delete, .categoryChoice, .reviewChoice: Text("保存に失敗しました。もう一度お試しください。")
+        case .undo, .delete, .categoryChoice: Text("保存に失敗しました。もう一度お試しください。")
         }
     }
 }
@@ -686,9 +659,6 @@ private struct EntryTimeline: View {
     let undoableEntryIDs: Set<PersistentIdentifier>
     /// カテゴリを聞き返している記録。その記録の行の下にカテゴリのボタンを出す。
     let askingCategory: Set<PersistentIdentifier>
-    let classifyingCategory: Set<PersistentIdentifier>
-    /// Apple Pay の支払いとの重なりを聞き返している記録。その記録の行の下に聞き返しを出す。
-    let paymentOverlaps: [PersistentIdentifier: PaymentOverlapQuestion]
     let showMore: () -> Void
     let undo: () -> Void
     let edit: (Entry) -> Void
@@ -698,10 +668,6 @@ private struct EntryTimeline: View {
     let createCategory: (Entry) -> Void
     /// その記録の中身で、くり返しの記録を作る画面を開く（長押しの「毎月くり返す」）。
     let makeRecurring: (Entry) -> Void
-    /// 重なりの聞き返しの「Apple Pay の記録を消す」。
-    let removeOverlap: (PersistentIdentifier) -> Void
-    /// 重なりの聞き返しの「別の支払い」。
-    let keepOverlap: (PersistentIdentifier) -> Void
     /// 記録が無いときの案内の入力の例を、入力欄に入れる。
     let fillDraft: (String) -> Void
     let openReport: (Date) -> Void
@@ -724,8 +690,6 @@ private struct EntryTimeline: View {
         weeklyRecap: WeeklyRecapModel?,
         undoableEntryIDs: Set<PersistentIdentifier>,
         askingCategory: Set<PersistentIdentifier>,
-        classifyingCategory: Set<PersistentIdentifier>,
-        paymentOverlaps: [PersistentIdentifier: PaymentOverlapQuestion],
         showMore: @escaping () -> Void,
         undo: @escaping () -> Void,
         edit: @escaping (Entry) -> Void,
@@ -733,8 +697,6 @@ private struct EntryTimeline: View {
         chooseCategory: @escaping (Entry, EntryCategory) -> Void,
         createCategory: @escaping (Entry) -> Void,
         makeRecurring: @escaping (Entry) -> Void,
-        removeOverlap: @escaping (PersistentIdentifier) -> Void,
-        keepOverlap: @escaping (PersistentIdentifier) -> Void,
         fillDraft: @escaping (String) -> Void,
         openReport: @escaping (Date) -> Void,
         setBudget: @escaping () -> Void,
@@ -751,8 +713,6 @@ private struct EntryTimeline: View {
         self.weeklyRecap = weeklyRecap
         self.undoableEntryIDs = undoableEntryIDs
         self.askingCategory = askingCategory
-        self.classifyingCategory = classifyingCategory
-        self.paymentOverlaps = paymentOverlaps
         self.showMore = showMore
         self.undo = undo
         self.edit = edit
@@ -760,8 +720,6 @@ private struct EntryTimeline: View {
         self.chooseCategory = chooseCategory
         self.createCategory = createCategory
         self.makeRecurring = makeRecurring
-        self.removeOverlap = removeOverlap
-        self.keepOverlap = keepOverlap
         self.fillDraft = fillDraft
         self.openReport = openReport
         self.setBudget = setBudget
@@ -872,11 +830,9 @@ private struct EntryTimeline: View {
                         let isLatest = canUndo(send)
                         RecordedReplyCard(
                             send: send, today: today, canUndo: isLatest, showsStatus: isLatest,
-                            askingCategory: isLatest ? askingCategory : [], overlaps: isLatest ? paymentOverlaps : [:],
-                            classifyingCategory: classifyingCategory,
+                            askingCategory: isLatest ? askingCategory : [],
                             undo: undo, edit: edit, requestDelete: requestDelete, chooseCategory: chooseCategory,
-                            createCategory: createCategory, makeRecurring: makeRecurring, removeOverlap: removeOverlap,
-                            keepOverlap: keepOverlap
+                            createCategory: createCategory, makeRecurring: makeRecurring
                         )
                         // 送信のいちばん下（返事のカード）の位置を知らせる。
                         .reportsTimelineFrame(.row(send.id))

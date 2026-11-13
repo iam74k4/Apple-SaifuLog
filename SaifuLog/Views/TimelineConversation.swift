@@ -161,9 +161,6 @@ struct RecordedReplyCard: View {
     var showsStatus = false
     /// カテゴリを聞き返している記録（`HomeModel.categoryQuestionIDs`）。その記録の行の下にカテゴリのボタンを出す。
     var askingCategory: Set<PersistentIdentifier> = []
-    /// Apple Pay の支払いとの重なりを聞き返している記録（`HomeModel.paymentOverlaps`）。その記録の行の下に聞き返しを出す。
-    var overlaps: [PersistentIdentifier: PaymentOverlapQuestion] = [:]
-    var classifyingCategory: Set<PersistentIdentifier> = []
     let undo: () -> Void
     let edit: (Entry) -> Void
     /// 削除を求める（確認は呼び出し側で出す）。
@@ -174,24 +171,12 @@ struct RecordedReplyCard: View {
     var createCategory: (Entry) -> Void = { _ in }
     /// その記録の中身で、くり返しの記録を作る画面を開く（長押しの「毎月くり返す」）。
     var makeRecurring: (Entry) -> Void = { _ in }
-    /// 重なりの聞き返しの「Apple Pay の記録を消す」（聞き返しを出している記録の ID を渡す）。
-    var removeOverlap: (PersistentIdentifier) -> Void = { _ in }
-    /// 重なりの聞き返しの「別の支払い」（聞き返しを出している記録の ID を渡す）。
-    var keepOverlap: (PersistentIdentifier) -> Void = { _ in }
 
     @Environment(\.calendar) private var calendar
 
     var body: some View {
         LeadingStack(spacing: 2) {
             RecordedReplyHeader(count: send.entries.count, source: send.source, undo: canUndo ? undo : nil)
-            if send.entries.contains(where: { classifyingCategory.contains($0.persistentModelID) }) {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("AIがカテゴリを振り分け中").font(.caption)
-                }
-                .foregroundStyle(Theme.inkSecondary)
-                .padding(.vertical, 6)
-            }
             // たいていの送信は 1 件なので、1 件のときは行を並べる入れ物（`LeadingStack`・ForEach）を挟まない（行はすべて測るため）。
             // 記録ごとの一言や選択肢を足すときは、行の下（ここと ForEach の中）に並べる。
             if send.entries.count == 1 {
@@ -214,9 +199,8 @@ struct RecordedReplyCard: View {
         .leadingReply()
     }
 
-    /// 記録 1 件の行。Apple Pay の支払いとの重なりやカテゴリを聞き返している記録は、行の下に聞き返しを添える（聞き返すのは
-    /// 直前の送信だけなので、たいていの行は入れ物を挟まない。行はすべて測るため）。重なりを先に聞く（同じ支払いなら、どちらかの
-    /// 記録が消えるため）。
+    /// 記録 1 件の行。カテゴリを聞き返している記録は、行の下に聞き返しを添える（聞き返すのは直前の送信だけなので、たいていの
+    /// 行は入れ物を挟まない。行はすべて測るため）。
     @ViewBuilder
     private func row(_ entry: Entry) -> some View {
         let recorded = RecordedReplyRow(
@@ -224,17 +208,7 @@ struct RecordedReplyCard: View {
             // くり返しの記録から記録したものは、もうくり返しているので出さない。
             makeRecurring: entry.source == .recurring ? nil : { makeRecurring(entry) }
         )
-        let id = entry.persistentModelID
-        let asksCategory = askingCategory.contains(id) && !classifyingCategory.contains(id)
-        if let overlap = overlaps[id] {
-            LeadingStack(spacing: 10) {
-                recorded
-                PaymentOverlapView(question: overlap, remove: { removeOverlap(id) }, keep: { keepOverlap(id) })
-                if asksCategory {
-                    CategoryQuestionView(entry: entry, choose: { chooseCategory(entry, $0) }, create: { createCategory(entry) })
-                }
-            }
-        } else if asksCategory {
+        if askingCategory.contains(entry.persistentModelID) {
             LeadingStack(spacing: 10) {
                 recorded
                 CategoryQuestionView(entry: entry, choose: { chooseCategory(entry, $0) }, create: { createCategory(entry) })
@@ -242,103 +216,6 @@ struct RecordedReplyCard: View {
         } else {
             recorded
         }
-    }
-}
-
-/// 返事の行の下の、Apple Pay の支払いの記録との重なりの聞き返し（`HomeModel.paymentOverlaps`。コアの `PaymentOverlap`）。
-///
-/// 同じ買い物を Apple Pay の支払い（払うと自動で記録される）と、打った文やレシートの両方で記録すると、支出を 2 回数える。
-/// 使った日と金額が同じときだけ聞き、支払いの記録を消すのは「Apple Pay の記録を消す」を選んだときだけにする（同じ日に同じ額を
-/// 別々に払うこともあるため）。消すのは Apple Pay の側（打った記録は品目とカテゴリを選んで書いたもので、レシートは内訳が
-/// あるため）。「別の支払い」を選ぶか、選ばずに次を送れば、どちらの記録も残る。
-struct PaymentOverlapView: View {
-    let question: PaymentOverlapQuestion
-    let remove: () -> Void
-    let keep: () -> Void
-
-    var body: some View {
-        LeadingStack(spacing: 6) {
-            title
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.ink)
-            Text(verbatim: question.counterpart)
-                .font(.subheadline)
-                .foregroundStyle(Theme.ink)
-            hint
-                .font(.caption)
-                .foregroundStyle(Theme.inkSecondary)
-            // 2 つのボタンは 1 行に収まれば横に並べ、収まらなければ（大きな文字）縦に積む。
-            AdaptiveRowLayout(stacksWhenNeeded: true, spacing: 8, stackAlignment: .leading) {
-                chip(label: removeLabel, isPrimary: true, hint: removeHint, action: remove)
-                chip(label: Text("別の支払い"), isPrimary: false, hint: Text("どちらの記録も残します"), action: keep)
-            }
-        }
-        .accessibilityElement(children: .contain)
-    }
-
-    private var title: Text {
-        switch question.kind {
-        case .earlierPayment(let total?): Text("合計 \(YenFormatter.string(from: total)) は Apple Pay の支払いと同じですか？")
-        case .earlierPayment(nil): Text("Apple Pay の支払いと同じですか？")
-        case .earlierRecord: Text("前の記録と同じ支払いですか？")
-        }
-    }
-
-    private var hint: Text {
-        switch question.kind {
-        case .earlierPayment: Text("同じなら、Apple Pay の記録を消すと 2 回数えずに済みます。")
-        case .earlierRecord: Text("同じなら、この Apple Pay の記録を消すと 2 回数えずに済みます。")
-        }
-    }
-
-    private var removeLabel: Text {
-        switch question.kind {
-        case .earlierPayment: Text("Apple Pay の記録を消す")
-        case .earlierRecord: Text("この記録を消す")
-        }
-    }
-
-    private var removeHint: Text {
-        switch question.kind {
-        case .earlierPayment: Text("前に記録した Apple Pay の支払いを消し、いま記録したものを残します")
-        case .earlierRecord: Text("この Apple Pay の支払いの記録を消し、前の記録を残します")
-        }
-    }
-
-    /// 聞き返しのボタン（カテゴリの聞き返しのボタンと同じ形）。消すほうは太字にしてごみ箱の記号を添える（どちらを選ぶと何が
-    /// 起きるかを、形ではなく語と記号で伝え、よく選ぶほうを見つけやすくする。文字の色は本文と同じ墨なので、色では分けない）。
-    /// 大きな文字で 1 行に収まらなければ折り返す（縦に積んでも収まらず「…」で切れ、何が起きるボタンか読めなかったため）。
-    private func chip(label: Text, isPrimary: Bool, hint: Text, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Group {
-                if isPrimary {
-                    Label {
-                        label
-                    } icon: {
-                        Image(systemName: "trash")
-                    }
-                } else {
-                    label
-                }
-            }
-            .font(isPrimary ? .subheadline.weight(.semibold) : .subheadline)
-            .foregroundStyle(Theme.ink)
-            .multilineTextAlignment(.leading)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .frame(minHeight: 36)
-            .background {
-                // 1 行のときは丸い端（高さの半分の角）になり、折り返したときは角の丸い四角になる。
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(Theme.background)
-                    .stroke(Theme.track, lineWidth: 1)
-            }
-            // 見た目は 36pt の高さにし、押せる範囲は上下の余白まで広げて 44pt にする（カテゴリのボタンと同じ）。
-            .padding(.vertical, 4)
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint(hint)
     }
 }
 

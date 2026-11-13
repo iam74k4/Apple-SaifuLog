@@ -9,11 +9,9 @@ import UIKit
 @MainActor
 @Suite(.serialized)
 struct FirstRunPreviewTests {
-    @Test func examplesDoNotStartTrialOrCreateRecords() throws {
+    @Test func purchasePreviewDoesNotStartTrialOrCreateRecords() throws {
         let fixture = try HomeModelTests.Fixture()
-        let onboarding = OnboardingModel(budgetStore: BudgetStore(context: fixture.context), defaults: fixture.defaults,
-                                          makeWalletCapture: { WalletCaptureModel(inbox: fixture.paymentInbox) })
-        onboarding.previewsRecordedPayment = true
+        let onboarding = OnboardingModel(budgetStore: BudgetStore(context: fixture.context), defaults: fixture.defaults)
         let preview = SpendingChoicesPreviewModel()
         preview.count = 0
         let original = try #require(preview.comparison)
@@ -25,22 +23,6 @@ struct FirstRunPreviewTests {
         #expect(try fixture.entries().isEmpty)
         #expect(fixture.purchases.status == .free)
         #expect(!onboarding.isCompleted)
-        #expect(fixture.paymentInbox.pending().isEmpty)
-    }
-
-    @Test func paymentGuideCanBeSkippedAndDoesNotClaimConnection() throws {
-        let fixture = try HomeModelTests.Fixture()
-        let model = OnboardingModel(budgetStore: BudgetStore(context: fixture.context), defaults: fixture.defaults,
-                                     makeWalletCapture: { WalletCaptureModel(inbox: fixture.paymentInbox) })
-        model.showPaymentGuide()
-        #expect(model.hasOpenedPaymentGuide)
-        #expect(model.walletCapture?.lastReceivedAt == nil)
-        #expect(!model.isCompleted)
-        model.walletCapture = nil
-        model.start()
-        #expect(model.showsBudgetSetup)
-        model.skipBudgetSetup()
-        #expect(model.isCompleted)
     }
 
     @Test(arguments: ["ja_JP", "en_US"], [UIContentSizeCategory.large, .accessibilityExtraExtraExtraLarge])

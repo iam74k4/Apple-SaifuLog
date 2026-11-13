@@ -51,11 +51,6 @@ final class HomeModel {
     private(set) var quickPhrases: [QuickPhrase] = []
     /// 送った文を読み取っている間（送信ボタンを押せなくし、読み取り中の印を出す）。
     private(set) var isParsing = false
-    /// 保存済みの支払いのうち、端末内AIがカテゴリを補っている記録。
-    private(set) var classifyingPaymentIDs: Set<PersistentIdentifier> = []
-    @ObservationIgnored private var paymentClassificationTasks: [UUID: Task<Void, Never>] = [:]
-    @ObservationIgnored private var paymentClassificationOwners: [PersistentIdentifier: UUID] = [:]
-    @ObservationIgnored private var attemptedPaymentIDs: Set<PersistentIdentifier> = []
     private(set) var reviewItems: [EntryReviewItem] = []
     private(set) var reviewLoadFailed = false
     var showsReviewQueue = false
@@ -81,11 +76,9 @@ final class HomeModel {
     var ledgerScope: LedgerScope = .personal {
         didSet {
             guard ledgerScope != oldValue else { return }
-            cancelPaymentClassification()
             justRecorded = []
             justRecordedHousehold = []
             categoryQuestionIDs = []
-            paymentOverlaps = [:]
             reviewItems = []
             if ledgerScope == .personal { refreshPendingReviews() }
         }
@@ -102,8 +95,6 @@ final class HomeModel {
     @ObservationIgnored private var pageChangeFocusesInput = false
     /// 保存済みのカテゴリの確認待ち。直前の返事に加え、確認待ちの一覧からも選べる。
     private(set) var categoryQuestionIDs: Set<PersistentIdentifier> = []
-    /// 保存済みの重複候補。次の入力や再起動で消さず、相手の値を照合してから操作する。
-    private(set) var paymentOverlaps: [PersistentIdentifier: PaymentOverlapQuestion] = [:]
     /// 家計の記録の削除の確認を待っているもの。
     var pendingHouseholdDeletion: PendingHouseholdDeletion?
     /// 「家族」のときに、質問や読めない文を送った（家計には記録しない）ことの知らせ。
@@ -130,7 +121,6 @@ final class HomeModel {
     var settings: SettingsModel?
     /// 買い物前後の予算と、いつもの支出の組み替えを試すシート。
     var purchaseCheck: PurchaseCheckModel?
-    var walletCapture: WalletCaptureModel?
     /// 無料体験が終わった後の最初の起動に出す「プレミアム」のシート。出していなければ nil（閉じると画面が nil に戻す）。
     var premiumSheet: PremiumSheetModel?
     /// 先週のふりかえりのカード（タイムラインの中）。出していなければ nil（「閉じる」で nil にする）。
@@ -176,10 +166,6 @@ final class HomeModel {
     @ObservationIgnored private let learnedCategories: LearnedCategoryStore
     /// くり返しの記録。記録する日を過ぎた月の分を記録する。
     @ObservationIgnored private let recurring: RecurringEntryStore
-    /// Apple Pay の支払いの受け箱（ショートカットのオートメーションから受け取ったもの）。アプリを開いたときに記録にする。
-    @ObservationIgnored private let paymentInbox: PaymentInbox
-    /// 重複判定の読み込みに失敗したときは、支払いを受け箱に残して再試行する。
-    @ObservationIgnored var loadPaymentOccurrenceKeys: () throws -> Set<String>
     /// くり返しの記録を記録するときの暦（時間帯と読み上げの日付）。画面から最後に渡された暦（設定の画面から足したときにも使う）。
     @ObservationIgnored private var recurringCalendar: Calendar = .autoupdatingCurrent
     @ObservationIgnored private let pendingWrites: PendingStoreWrites
@@ -210,7 +196,6 @@ final class HomeModel {
     ///   - learnedCategories: 覚えたカテゴリの読み書き（修正の記憶）。渡さなければ記録と同じ保存先を使う。
     ///   - categories: カテゴリの一覧（作ったカテゴリ）。渡さなければ記録と同じ保存先から読む。
     ///   - recurring: くり返しの記録の読み書き。渡さなければ記録と同じ保存先を使う。
-    ///   - paymentInbox: Apple Pay の支払いの受け箱。渡さなければアプリで 1 つのもの。テストで使い捨ての場所のものにする。
     ///   - pendingWrites: 解析を待ってから記録する処理を数える先（`StoreHost.pendingWrites`）。保存先を開き直すとき、
     ///     記録し終えるのを待ってもらうため。
     ///   - purchases: プレミアムの購入と状態。アプリは `SaifuLogApp` の 1 つを渡す。渡さなければ購入の無い状態（テスト用）。
@@ -236,7 +221,6 @@ final class HomeModel {
         learnedCategories: LearnedCategoryStore? = nil,
         categories: CategoryCatalogModel? = nil,
         recurring: RecurringEntryStore? = nil,
-        paymentInbox: PaymentInbox? = nil,
         pendingWrites: PendingStoreWrites = PendingStoreWrites(),
         purchases: PurchaseManager? = nil,
         storeHost: StoreHost? = nil,
@@ -263,10 +247,6 @@ final class HomeModel {
         self.calendarPage = LedgerCalendarModel(
             store: store, budgetStore: budgetStore, recurring: recurring, now: now, announce: announce
         )
-        self.paymentInbox = paymentInbox ?? .shared
-        self.loadPaymentOccurrenceKeys = {
-            Set(try store.context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.recurrenceKey != "" })).map(\.recurrenceKey))
-        }
         self.pendingWrites = pendingWrites
         self.storeHost = storeHost
         self.household = household
@@ -303,7 +283,7 @@ final class HomeModel {
     var isPresentingOtherScreen: Bool {
         budgetSetup != nil || editing != nil || categoryEditor != nil || recurringEditor != nil || monthlyReport != nil
             || settings != nil
-            || premiumSheet != nil || purchaseCheck != nil || walletCapture != nil || showsReviewQueue
+            || premiumSheet != nil || purchaseCheck != nil || showsReviewQueue
             || weeklyRecapDetail != nil || receiptResult != nil || receiptCapture != nil || showsReceiptSourceChoice
     }
 
@@ -527,7 +507,6 @@ final class HomeModel {
                     memo: entry.memo, amount: entry.amount, category: entry.category, isIncome: entry.isIncome, catalog: catalog
                 )
             }
-            _ = earlierPaymentOverlaps(with: recorded, isReceipt: false, calendar: calendar)
             do {
                 try store.insert(recorded)
             } catch {
@@ -540,8 +519,7 @@ final class HomeModel {
             refreshPendingReviews()
             // 返事のカテゴリのボタンは画面に出るだけでは VoiceOver の利用者に伝わらないので、聞き返すときは選べることも読み上げる。
             announceRecorded(
-                recorded, today: sentAt, calendar: calendar, asksCategory: recorded.contains(where: \.needsCategoryReview),
-                asksOverlap: recorded.contains { !$0.paymentReviewJSON.isEmpty }
+                recorded, today: sentAt, calendar: calendar, asksCategory: recorded.contains(where: \.needsCategoryReview)
             )
         }
     }
@@ -740,22 +718,19 @@ final class HomeModel {
     /// 今日でない日付に記録したときは日付も読む（「昨日」の読み違いや、未来の日付に気づけるように）。
     /// 今日かどうかは、記録の日付を決めたのと同じ送った瞬間（`today`）で見る。
     private func announceRecorded(
-        _ recorded: [Entry], today: Date, calendar: Calendar, asksCategory: Bool = false, asksOverlap: Bool = false
+        _ recorded: [Entry], today: Date, calendar: Calendar, asksCategory: Bool = false
     ) {
         announceRecorded(
             recorded.map { (kind: $0.kindText(in: categories.catalog), amount: $0.amount, spentAt: $0.spentAt) },
-            toHousehold: false, today: today, calendar: calendar, asksCategory: asksCategory, asksOverlap: asksOverlap
+            toHousehold: false, today: today, calendar: calendar, asksCategory: asksCategory
         )
     }
 
     /// 記録の読み上げ（自分の記録と家計の記録で共通）。家計に記録したときは、家計に記録したことが分かる文にする
     /// （「自分／家族」を取り違えて記録したことに、読み上げで気づけるように）。
-    ///
-    /// - Parameter asksOverlap: 返事で Apple Pay の支払いとの重なりを聞き返すか（聞き返しのボタンも、画面に出るだけでは
-    ///   VoiceOver の利用者に伝わらないので、選べることを読み上げる）。
     private func announceRecorded(
         _ recorded: [(kind: String, amount: Int, spentAt: Date)], toHousehold: Bool, today: Date, calendar: Calendar,
-        asksCategory: Bool = false, asksOverlap: Bool = false
+        asksCategory: Bool = false
     ) {
         let items = recorded.map { entry in
             var item = "\(entry.kind) \(YenFormatter.string(from: entry.amount))"
@@ -769,10 +744,6 @@ final class HomeModel {
         let list = items.formatted(.list(type: .and))
         if toHousehold {
             announce(String(localized: "家族の家計に記録しました: \(list)"))
-        } else if asksCategory && asksOverlap {
-            announce(String(localized: "記録しました: \(list)。カテゴリと、Apple Pay の支払いと同じかを選べます"))
-        } else if asksOverlap {
-            announce(String(localized: "記録しました: \(list)。Apple Pay の支払いと同じか選べます"))
         } else if asksCategory {
             announce(String(localized: "記録しました: \(list)。カテゴリを選べます"))
         } else {
@@ -899,7 +870,6 @@ final class HomeModel {
         let recordedAt = now()
         let recorded = Entry.records(fromReceipt: submission, now: recordedAt, calendar: calendar)
         guard !recorded.isEmpty else { return .failed }
-        _ = earlierPaymentOverlaps(with: recorded, isReceipt: true, calendar: calendar)
         do {
             try store.insert(recorded)
         } catch {
@@ -913,7 +883,7 @@ final class HomeModel {
         justRecorded = recorded
         refreshPendingReviews()
         receiptResult = nil
-        announceRecorded(recorded, today: recordedAt, calendar: calendar, asksOverlap: recorded.contains { !$0.paymentReviewJSON.isEmpty })
+        announceRecorded(recorded, today: recordedAt, calendar: calendar)
         return .recorded
     }
 
@@ -956,7 +926,7 @@ final class HomeModel {
         // 消した記録の値は、保存した後には読めない。読み上げと入力欄に戻す文は先に取っておく。
         let items = targets.map { "\($0.kindText(in: categories.catalog)) \(YenFormatter.string(from: $0.amount))" }
         let originalText = targets.first?.originalText ?? ""
-        // レシート・くり返しの記録・Apple Pay の支払いは打った文ではないので、入力欄に戻さない。
+        // レシート・くり返しの記録・Apple Pay の支払い（前の版で記録したもの）は打った文ではないので、入力欄に戻さない。
         let restoresDraft = !targets.contains { [.receipt, .recurring, .wallet].contains($0.source) }
         let restoredSource: EntrySource = targets.allSatisfy { $0.source == .voice } ? .voice : .text
         let ids = targets.map(\.persistentModelID)
@@ -1084,7 +1054,6 @@ final class HomeModel {
     /// 直した内容の保存は同期的に書き込む（送信のように、あとで書き込む処理ではない）ので、`pendingWrites` には数えない。
     /// - Parameter calendar: 日付の区切りの基準（画面の暦）。今日より先かの判定と、日付を直したかの判定に使う。
     func presentEdit(_ entry: Entry, calendar: Calendar) {
-        classifyingPaymentIDs.remove(entry.persistentModelID)
         editing = EditEntryModel(
             entry: entry,
             store: store,
@@ -1108,8 +1077,6 @@ final class HomeModel {
         }
         // 直すでカテゴリを選んだ（直すで変えたカテゴリは、そこで覚える）ので、返事で聞き返すのをやめる。
         categoryQuestionIDs.remove(id)
-        // 金額や日を直すと重なりの見立てが変わりうるので、その記録か支払いの重なりの聞き返しもやめる。
-        forgetPaymentOverlaps(involving: id)
         refreshPendingReviews()
     }
 
@@ -1125,7 +1092,6 @@ final class HomeModel {
         let kept = zip(justRecorded, justRecordedIDs).filter { !ids.contains($0.1) }.map(\.0)
         if kept.count != justRecorded.count { justRecorded = kept }
         categoryQuestionIDs.subtract(ids)
-        paymentOverlaps = paymentOverlaps.filter { !ids.contains($0.key) && !ids.contains($0.value.paymentID) }
         refreshPendingReviews()
     }
 
@@ -1136,21 +1102,11 @@ final class HomeModel {
     /// 読み込み済みの記録の値を空にする。Apple の開発者フォーラム thread 762022）。ID だけで確かめる（`EntryStore.exists`）。
     func forgetRecordsDeletedElsewhere() {
         var ids = Set(justRecordedIDs).union(categoryQuestionIDs)
-        for (anchor, question) in paymentOverlaps {
-            ids.insert(anchor)
-            ids.insert(question.paymentID)
-            ids.formUnion(question.recordIDs)
-        }
         if let pendingDeletion { ids.insert(pendingDeletion.id) }
         let gone = ids.filter { !store.exists($0) }
         guard !gone.isEmpty else { return }
         forgetJustRecorded(gone)
         if let pendingDeletion, gone.contains(pendingDeletion.id) { self.pendingDeletion = nil }
-    }
-
-    /// その記録が聞き返しを出している、または消す候補の支払いである重なりの聞き返しをやめる。
-    private func forgetPaymentOverlaps(involving id: PersistentIdentifier) {
-        paymentOverlaps = paymentOverlaps.filter { $0.key != id && $0.value.paymentID != id }
     }
 
     // MARK: - カテゴリの聞き返し
@@ -1164,8 +1120,6 @@ final class HomeModel {
     func chooseCategory(_ category: EntryCategory, for entry: Entry) {
         let id = entry.persistentModelID
         guard categoryQuestionIDs.contains(id) else { return }
-        classifyingPaymentIDs.remove(id)
-        paymentClassificationOwners[id] = nil
         var edits = EntryEdits(entry)
         edits.category = category
         do {
@@ -1250,374 +1204,39 @@ final class HomeModel {
         }
     }
 
-    // MARK: - Apple Pay の支払い
+    // MARK: - 確認待ち
 
-    /// 受け箱の Apple Pay の支払いを記録にし、返事のカード（「Apple Pay の支払い」）と読み上げで知らせる（ホームが出たとき・前面に
-    /// 戻ったとき・アプリを開いている間に支払いを受け取ったとき）。記録したもの（使った日時の古い順）を返す。
-    ///
-    /// 金額はウォレットの値のまま、品目は店名、カテゴリは覚えたカテゴリ・店の名前の辞書・キーワード辞書で決め（`PaymentCapture`）、
-    /// 分からなければ返事で聞き返す（選ぶと店名を覚え、次からそのカテゴリにする）。直前の送信と同じく「取り消す」の対象にする。
-    /// 読み取りの間と「家族」のときは待つ（返事と「取り消す」を、いま見えているタイムラインに出すため）。同じ支払いの記録がもう
-    /// あれば（印が同じ）記録しない。書き込めなければ受け箱に残し、次に開いたときにもう一度記録する。
-    @discardableResult
-    func importCapturedPayments(calendar: Calendar) -> [Entry] {
-        guard !isParsing, !isHouseholdActive else { return [] }
-        defer {
-            refreshPendingReviews()
-            resumePendingPaymentClassification()
-        }
-        guard let payments = try? paymentInbox.readPending() else { return [] }
-        guard !payments.isEmpty else { return [] }
-        guard let existing = try? loadPaymentOccurrenceKeys() else { return [] }
-        let catalog = categories.catalog
-        let memory = (try? learnedCategories.memory()) ?? CategoryMemory()
-        let recordedAt = now()
-        let fresh = payments
-            .filter { !existing.contains(PaymentCapture.occurrenceKey(paymentID: $0.id.uuidString)) }
-            .sorted { $0.paidAt < $1.paidAt }
-        // 記録した日時を 1 ミリ秒ずつずらす（ひとこと入力の複数件と同じ。タイムラインで 1 つの返事にまとまる）。
-        let recorded = fresh.enumerated().map { index, payment in
-            let memo = PaymentCapture.memo(fromMerchant: payment.merchant)
-            let entry = Entry(
-                amount: payment.amount, isIncome: false,
-                category: PaymentCapture.category(forMerchant: memo, amount: payment.amount, memory: memory, catalog: catalog),
-                memo: memo, spentAt: payment.paidAt,
-                createdAt: recordedAt.addingTimeInterval(Double(index) * ParsedEntry.orderingStep), source: .wallet, originalText: ""
-            )
-            entry.recurrenceKey = PaymentCapture.occurrenceKey(paymentID: payment.id.uuidString)
-            entry.needsCategoryReview = memory.asksCategory(
-                memo: entry.memo, amount: entry.amount, category: entry.category, isIncome: false, catalog: catalog
-            )
-            entry.needsPaymentClassification = entry.needsCategoryReview
-            return entry
-        }
-        if !recorded.isEmpty {
-            _ = earlierRecordOverlaps(with: recorded, calendar: calendar)
-            do {
-                try store.insert(recorded)
-            } catch {
-                // 受け箱に残し、次に開いたときにもう一度記録する（受け取った支払いを失わないため）。
-                return []
-            }
-        }
-        // 記録したものと、もう記録してあったものを受け箱から消す（消せなくても、印で 2 回は記録しない）。
-        try? paymentInbox.remove(Set(payments.map(\.id)))
-        guard !recorded.isEmpty else { return [] }
-        justRecorded = recorded
-        receiptQuotaCharge = nil
-        refreshPendingReviews()
-        let items = recorded.map { "\($0.kindText(in: catalog)) \(YenFormatter.string(from: $0.amount))" }
-        let list = items.formatted(.list(type: .and))
-        let message = switch (!recorded.contains(where: \.needsCategoryReview), !recorded.contains { !$0.paymentReviewJSON.isEmpty }) {
-        case (true, true): String(localized: "Apple Pay の支払いを記録しました: \(list)")
-        case (false, true): String(localized: "Apple Pay の支払いを記録しました: \(list)。カテゴリを選べます")
-        case (true, false): String(localized: "Apple Pay の支払いを記録しました: \(list)。前の記録と同じか選べます")
-        case (false, false): String(localized: "Apple Pay の支払いを記録しました: \(list)。カテゴリと、前の記録と同じかを選べます")
-        }
-        announce(message)
-        return recorded
-    }
-
-    /// 金額と日時を先に保存し、分からない店名だけをAIに渡す。後から届く答えで利用者の修正を上書きしない。
-    private func classifyPaymentCategories(_ entries: [Entry], memory: CategoryMemory, catalog: CategoryCatalog) {
-        let parsed = entries.map { ParsedEntry(amount: $0.amount, category: $0.category, memo: $0.memo) }
-        let requests = CategoryRefinement.requests(for: parsed, memory: memory, catalog: catalog)
-        guard !requests.isEmpty, let refiner = makeCategoryRefiner() else { return }
-        let snapshots = requests.map { request in
-            (index: request.index, id: entries[request.index].persistentModelID, edits: EntryEdits(entries[request.index]))
-        }
-        let ids = Set(snapshots.map(\.id))
-        let batch = UUID()
-        attemptedPaymentIDs.formUnion(ids)
-        for id in ids { paymentClassificationOwners[id] = batch }
-        classifyingPaymentIDs.formUnion(ids)
-        pendingWrites.begin()
-        paymentClassificationTasks[batch] = Task {
-            defer {
-                // 取り消した古い処理の終了で、前面に戻って再開した新しい処理の印を消さない。
-                let owned = ids.filter { paymentClassificationOwners[$0] == batch }
-                classifyingPaymentIDs.subtract(owned)
-                for id in owned { paymentClassificationOwners[id] = nil }
-                paymentClassificationTasks[batch] = nil
-                pendingWrites.end()
-                refreshPendingReviews()
-            }
-            guard let refined = try? await refiner.refine(parsed, memory: memory, catalog: catalog),
-                  !Task.isCancelled,
-                  let currentMemory = try? learnedCategories.memory() else { return }
-            var changed = false
-            for snapshot in snapshots {
-                guard paymentClassificationOwners[snapshot.id] == batch,
-                      classifyingPaymentIDs.contains(snapshot.id), refined[snapshot.index].category != .other else { continue }
-                // fetchに失敗した場合や削除された場合は触れない。保持していたEntryの値を読まない。
-                let id = snapshot.id
-                guard let matches = try? store.context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.persistentModelID == id })),
-                      let entry = matches.first, EntryEdits(entry) == snapshot.edits,
-                      entry.needsCategoryReview && entry.needsPaymentClassification,
-                      currentMemory.asksCategory(memo: entry.memo, amount: entry.amount, category: entry.category,
-                                                isIncome: entry.isIncome, catalog: categories.catalog) else { continue }
-                var edits = snapshot.edits
-                edits.category = refined[snapshot.index].category
-                do {
-                    try store.update(entry, with: edits)
-                    categoryQuestionIDs.remove(id)
-                    changed = true
-                } catch {
-                    // 支払い本体は保存済み。分類だけ失敗したら、元のカテゴリと確認を残す。
-                }
-            }
-            if changed {
-                forgetRecordsDeletedElsewhere()
-                snapshotJustRecorded()
-                announce(String(localized: "支払いのカテゴリを自動で振り分けました"))
-            }
-        }
-    }
-
-    /// ロック・背景移行では推論と遅れて届く書き換えを止める。保存済みの支払いは残る。
-    func cancelPaymentClassification() {
-        classifyingPaymentIDs.removeAll()
-        paymentClassificationOwners.removeAll()
-        attemptedPaymentIDs.removeAll()
-        for task in paymentClassificationTasks.values { task.cancel() }
-    }
-
-    func waitForPaymentClassification() async {
-        for task in Array(paymentClassificationTasks.values) { await task.value }
-    }
-
-    /// 保存済みの確認を読み直す。直前の送信・タイムラインの表示件数とは別に持つ。
+    /// 保存済みの確認（カテゴリを聞き返している記録）を読み直す。直前の送信・タイムラインの表示件数とは別に持つ。
     @discardableResult
     func refreshPendingReviews() -> Bool {
         guard !isHouseholdActive else {
             reviewItems = []
             categoryQuestionIDs = []
-            paymentOverlaps = [:]
             return true
         }
         do {
             let entries = try store.context.fetch(FetchDescriptor<Entry>(
-                predicate: #Predicate { $0.needsCategoryReview || $0.paymentReviewJSON != "" },
+                predicate: #Predicate { $0.needsCategoryReview },
                 sortBy: [SortDescriptor(\Entry.createdAt)]
             ))
-            var items: [EntryReviewItem] = []
-            var overlaps: [PersistentIdentifier: PaymentOverlapQuestion] = [:]
-            var categories: Set<PersistentIdentifier> = []
-            for entry in entries {
-                var question: PaymentOverlapQuestion?
-                if !entry.paymentReviewJSON.isEmpty {
-                    guard let evidence = PaymentReviewEvidence(json: entry.paymentReviewJSON) else { throw PendingReviewReadError() }
-                    question = try evidence.resolve(context: store.context, catalog: self.categories.catalog)
-                }
-                let id = entry.persistentModelID
-                if entry.needsCategoryReview { categories.insert(id) }
-                if let question { overlaps[id] = question }
-                if entry.needsCategoryReview || question != nil {
-                    items.append(EntryReviewItem(id: id, memo: entry.memo, amount: entry.amount, category: entry.category,
-                                                 spentAt: entry.spentAt, needsCategory: entry.needsCategoryReview, overlap: question))
-                }
+            categoryQuestionIDs = Set(entries.map(\.persistentModelID))
+            reviewItems = entries.map { entry in
+                EntryReviewItem(id: entry.persistentModelID, memo: entry.memo, amount: entry.amount, category: entry.category,
+                                spentAt: entry.spentAt)
             }
-            categoryQuestionIDs = categories
-            paymentOverlaps = overlaps
-            reviewItems = items
             reviewLoadFailed = false
             return true
         } catch {
-            // 読めなかったときに「確認なし」と見せたり、古い候補を根拠に削除しない。
+            // 読めなかったときに「確認なし」と見せない。
             reviewLoadFailed = true
             return false
         }
-    }
-
-    private func resumePendingPaymentClassification() {
-        guard !isParsing, !isHouseholdActive,
-              let memory = try? learnedCategories.memory(),
-              let entries = try? store.context.fetch(FetchDescriptor<Entry>(
-                predicate: #Predicate { $0.needsPaymentClassification && $0.needsCategoryReview },
-                sortBy: [SortDescriptor(\Entry.createdAt)]
-              )) else { return }
-        let waiting = entries.filter { $0.source == .wallet && !attemptedPaymentIDs.contains($0.persistentModelID) }
-        // 前回の分類中に覚えた利用者の選択を、再開時にも優先する。
-        var unknown: [Entry] = []
-        for entry in waiting {
-            let category = PaymentCapture.category(forMerchant: entry.memo, amount: entry.amount, memory: memory, catalog: categories.catalog)
-            if !memory.asksCategory(memo: entry.memo, amount: entry.amount, category: category, isIncome: false, catalog: categories.catalog) {
-                var edits = EntryEdits(entry)
-                edits.category = category
-                try? store.update(entry, with: edits)
-            } else {
-                unknown.append(entry)
-            }
-        }
-        refreshPendingReviews()
-        classifyPaymentCategories(unknown, memory: memory, catalog: categories.catalog)
     }
 
     func chooseReviewCategory(_ category: EntryCategory, for id: PersistentIdentifier) {
         guard refreshPendingReviews(),
               let entry = try? store.context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.persistentModelID == id })).first else { return }
         chooseCategory(category, for: entry)
-    }
-
-    // MARK: - Apple Pay の支払いとの重なり
-
-    /// いま記録したもの（打った文・声・レシート）に重なる、前に記録した Apple Pay の支払いを探し、聞き返しにする。
-    ///
-    /// 1 件ずつの額で当たれば、その記録の行の下に聞く。合計で当たれば（まとめて払った・レシート）、いちばん後の記録の行の下に、
-    /// 合計の額を添えて聞く（コアの `PaymentOverlap.paymentPairs`）。支払いを読めなければ聞かない（記録は済んでいるため）。
-    private func earlierPaymentOverlaps(
-        with recorded: [Entry], isReceipt: Bool, calendar: Calendar
-    ) -> [PersistentIdentifier: PaymentOverlapQuestion] {
-        let expenses = recorded.filter { !$0.isIncome }
-        let payments = overlapCandidates(spentOnDaysOf: expenses.map(\.spentAt), payments: true, calendar: calendar)
-        guard !payments.isEmpty else { return [:] }
-        let send = PaymentOverlap.sendAmounts(expenses.map(Self.overlapAmount), isReceipt: isReceipt, calendar: calendar)
-        let matches = PaymentOverlap.paymentPairs(for: send, among: payments.map(Self.overlapAmount), calendar: calendar)
-        let paymentsByID = Dictionary(payments.map { ($0.persistentModelID, $0) }, uniquingKeysWith: { first, _ in first })
-        let catalog = categories.catalog
-        var questions: [PersistentIdentifier: PaymentOverlapQuestion] = [:]
-        for pair in matches.pairs {
-            guard let payment = paymentsByID[pair.candidate] else { continue }
-            let total = matches.byTotal ? send.totals.first { $0.id == pair.query }?.amount : nil
-            guard let anchor = expenses.first(where: { $0.persistentModelID == pair.query }) else { continue }
-            let matched = matches.byTotal ? expenses.filter { calendar.isDate($0.spentAt, inSameDayAs: anchor.spentAt) } : [anchor]
-            anchor.paymentReviewJSON = PaymentReviewEvidence(payment: payment, records: matched, earlierPayment: true, total: total).encoded()
-            questions[pair.query] = PaymentOverlapQuestion(
-                kind: .earlierPayment(total: total), paymentID: pair.candidate,
-                counterpart: String(
-                    localized: "\(payment.summaryText(in: catalog))（\(payment.spentAt.formatted(date: .omitted, time: .shortened)) に払った）"
-                )
-            )
-        }
-        return questions
-    }
-
-    /// いま記録した Apple Pay の支払いに重なる、前の記録（打った文・声・レシート）を探し、その支払いの行の下に聞く。
-    ///
-    /// 前の記録は送信ごとに比べる額を作る（打った文と声は 1 件ずつと同じ日の合計、レシートは合計。コアの `PaymentOverlap.sendAmounts`）。
-    private func earlierRecordOverlaps(
-        with payments: [Entry], calendar: Calendar
-    ) -> [PersistentIdentifier: PaymentOverlapQuestion] {
-        let records = overlapCandidates(spentOnDaysOf: payments.map(\.spentAt), payments: false, calendar: calendar)
-        guard !records.isEmpty else { return [:] }
-        let catalog = categories.catalog
-        // 比べる額と、聞き返しに出す相手の文（「コーヒー ¥450」「レシート: 店名 合計 ¥…」）を同じ並びで持つ。
-        var candidates: [PaymentOverlap.Amount<Int>] = []
-        var texts: [String] = []
-        var members: [[Entry]] = []
-        let sends = TimelineSend.groupRanges(
-            of: records.map {
-                TimelineSend.Record(id: $0.persistentModelID, originalText: $0.originalText, source: $0.source, createdAt: $0.createdAt)
-            }
-        )
-        for range in sends {
-            let send = Array(records[range])
-            let isReceipt = send.first?.source == .receipt
-            let amounts = PaymentOverlap.sendAmounts(send.map(Self.overlapAmount), isReceipt: isReceipt, calendar: calendar)
-            for item in amounts.items {
-                guard let entry = send.first(where: { $0.persistentModelID == item.id }) else { continue }
-                candidates.append(PaymentOverlap.Amount(id: texts.count, amount: item.amount, spentAt: item.spentAt))
-                texts.append(entry.summaryText(in: catalog))
-                members.append([entry])
-            }
-            for total in amounts.totals {
-                candidates.append(PaymentOverlap.Amount(id: texts.count, amount: total.amount, spentAt: total.spentAt))
-                members.append(send.filter { calendar.isDate($0.spentAt, inSameDayAs: total.spentAt) })
-                if isReceipt, let summary = send.first?.originalText, !summary.isEmpty {
-                    texts.append(summary)
-                } else {
-                    let items = send.filter { calendar.isDate($0.spentAt, inSameDayAs: total.spentAt) }
-                        .map { $0.memo.isEmpty ? $0.kindText(in: catalog) : $0.memo }
-                    texts.append("\(items.formatted(.list(type: .and))) \(YenFormatter.string(from: total.amount))")
-                }
-            }
-        }
-        let pairs = PaymentOverlap.pairs(payments.map(Self.overlapAmount), among: candidates, calendar: calendar)
-        for pair in pairs {
-            guard let payment = payments.first(where: { $0.persistentModelID == pair.query }) else { continue }
-            payment.paymentReviewJSON = PaymentReviewEvidence(payment: payment, records: members[pair.candidate], earlierPayment: false, total: nil).encoded()
-        }
-        return Dictionary(
-            pairs.map { pair in
-                (pair.query, PaymentOverlapQuestion(kind: .earlierRecord, paymentID: pair.query, counterpart: texts[pair.candidate]))
-            },
-            uniquingKeysWith: { first, _ in first }
-        )
-    }
-
-    /// 重なりを比べる相手を、使った日が `dates` のどれかと同じ日の範囲から読む。`payments` なら Apple Pay の支払いの支出、
-    /// そうでなければ打った文・声・レシートの支出（くり返しの記録は比べない。家賃などで、Apple Pay で払うものではないため）を、
-    /// 記録した日時の順に読む。読めなければ空（聞き返さないだけで、記録は済んでいる）。
-    private func overlapCandidates(spentOnDaysOf dates: [Date], payments: Bool, calendar: Calendar) -> [Entry] {
-        guard let first = dates.min(), let last = dates.max(),
-              let start = calendar.dateInterval(of: .day, for: first)?.start,
-              let end = calendar.dateInterval(of: .day, for: last)?.end
-        else { return [] }
-        let wallet = EntrySource.wallet.rawValue
-        let recurring = EntrySource.recurring.rawValue
-        let predicate: Predicate<Entry> = payments
-            ? #Predicate { $0.spentAt >= start && $0.spentAt < end && $0.isIncome == false && $0.sourceRawValue == wallet }
-            : #Predicate {
-                $0.spentAt >= start && $0.spentAt < end && $0.isIncome == false && $0.sourceRawValue != wallet
-                    && $0.sourceRawValue != recurring
-            }
-        let descriptor = FetchDescriptor(predicate: predicate, sortBy: [SortDescriptor(\Entry.createdAt)])
-        return (try? store.context.fetch(descriptor)) ?? []
-    }
-
-    private static func overlapAmount(_ entry: Entry) -> PaymentOverlap.Amount<PersistentIdentifier> {
-        PaymentOverlap.Amount(id: entry.persistentModelID, amount: entry.amount, spentAt: entry.spentAt)
-    }
-
-    /// 重なりの聞き返しの「Apple Pay の記録を消す」（支払いの行の下では「この記録を消す」）。支払いの記録を消し、2 回数えないようにする。
-    ///
-    /// 前に記録した支払いを消したときは、いまの送信の「取り消す」を引っ込める（取り消すと、いま記録したものも消え、その買い物の
-    /// 記録が 1 つも残らないため。直すを済ませたときと同じ。消したくなったら、長押しの「削除」から消せる）。消せなければ聞き返しを
-    /// 残して知らせる（もう一度選べるように）。
-    func removeOverlappingPayment(for anchor: PersistentIdentifier) {
-        guard refreshPendingReviews() else { return }
-        guard let question = paymentOverlaps[anchor] else { return }
-        let paymentID = question.paymentID
-        // 聞き返しの後に、ほかの端末（iCloud）や長押しで消えていることがあるので、ID で読み直す。
-        guard let payment = try? store.context.fetch(
-            FetchDescriptor<Entry>(predicate: #Predicate { $0.persistentModelID == paymentID })
-        ).first else {
-            forgetPaymentOverlaps(involving: paymentID)
-            return
-        }
-        let summary = payment.summaryText(in: categories.catalog)
-        let wasJustRecorded = justRecordedIDs.contains(paymentID)
-        do {
-            try store.delete([payment])
-        } catch {
-            storeFailure = .delete
-            refreshPendingReviews()
-            return
-        }
-        forgetJustRecorded(paymentID)
-        if !wasJustRecorded {
-            justRecorded = []
-            receiptQuotaCharge = nil
-        }
-        refreshPendingReviews()
-        announce(String(localized: "Apple Pay の記録を消しました: \(summary)"))
-    }
-
-    /// 重なりの聞き返しの「別の支払い」。どちらの記録も残し、聞き返しをやめる。
-    func keepOverlappingPayment(for anchor: PersistentIdentifier) {
-        guard refreshPendingReviews(), paymentOverlaps[anchor] != nil,
-              let entry = try? store.context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.persistentModelID == anchor })).first else { return }
-        entry.paymentReviewJSON = ""
-        do {
-            try store.commit()
-        } catch {
-            _ = try? store.context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.persistentModelID == anchor }))
-            storeFailure = .reviewChoice
-            refreshPendingReviews()
-            return
-        }
-        refreshPendingReviews()
-        announce(String(localized: "どちらの記録も残しました"))
     }
 
     // MARK: - くり返しの記録
@@ -1746,11 +1365,6 @@ final class HomeModel {
     func presentPurchaseCheck(calendar: Calendar) {
         guard !isHouseholdActive, !isParsing, !voice.isActive else { return }
         purchaseCheck = PurchaseCheckModel(context: store.context, purchases: purchases, calendar: calendar, now: now)
-    }
-
-    func presentWalletCapture() {
-        guard !isHouseholdActive, !isParsing, !voice.isActive else { return }
-        walletCapture = WalletCaptureModel(inbox: paymentInbox)
     }
 
     /// 「プレミアム」のシートを出す（無料の質問やレシートの読み取りを使い切ったときの案内から）。
@@ -1924,7 +1538,6 @@ final class HomeModel {
         case delete
         /// 返事で選んだカテゴリを書き込めなかった。
         case categoryChoice
-        case reviewChoice
     }
 }
 
@@ -1937,27 +1550,3 @@ struct RecordedItem: Identifiable {
     /// 「ランチ ¥850」
     let summaryText: String
 }
-
-/// 返事の行の下で聞き返す、Apple Pay の支払いの記録との重なり（`HomeModel.paymentOverlaps`）。
-///
-/// 聞き返しの文は記録から作っておく（聞き返しを出している間に、相手の記録がほかの端末や長押しで消えても、消えた記録の値を
-/// 読まないように）。
-struct PaymentOverlapQuestion: Equatable {
-    enum Kind: Equatable {
-        /// いま記録したもの（打った文・声・レシート）に、前に記録した Apple Pay の支払いが重なっている。合計で当たったときは
-        /// その合計（`total`）。
-        case earlierPayment(total: Int?)
-        /// いま記録した Apple Pay の支払いに、前の記録が重なっている。
-        case earlierRecord
-    }
-
-    let kind: Kind
-    /// 消す候補の Apple Pay の支払いの記録（`earlierRecord` では聞き返しを出している記録そのもの）。
-    let paymentID: PersistentIdentifier
-    /// 重なっている相手の文（`earlierPayment` は支払い「スターバックス ¥450（8:03 に払った）」、`earlierRecord` は前の記録
-    /// 「コーヒー ¥450」）。
-    let counterpart: String
-    var recordIDs: [PersistentIdentifier] = []
-}
-
-private struct PendingReviewReadError: Error {}
