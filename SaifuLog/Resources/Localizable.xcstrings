@@ -6962,16 +6962,6 @@
         }
       }
     },
-    "閉じる" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Close"
-          }
-        }
-      }
-    },
     "閉じる（プレミアムのシート）" : {
       "comment" : "プレミアムのシート（⑨）の左上の、シートを閉じるボタン",
       "localizations" : {
