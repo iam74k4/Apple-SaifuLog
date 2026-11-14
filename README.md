@@ -218,7 +218,7 @@ App Store に出す前の掲載情報とスクリーンショットの下書き�
 | [`review-notes.md`](docs/app-store/review-notes.md) | 審査メモ |
 | [`privacy-answers.md`](docs/app-store/privacy-answers.md) | App のプライバシーの回答（データの収集なし）と、機能ごとの根拠 |
 | [`age-rating.md`](docs/app-store/age-rating.md) | 年齢制限の回答（4+） |
-| `screenshots/ja/`・`screenshots/en/` | 6.9 インチ（1320 × 2868）のスクリーンショット |
+| `screenshots/ja/`・`screenshots/en/` | 6.9 インチ（1320 × 2868）のスクリーンショットを置く場所。前の画像は、やめた機能が写っていたので消しました。審査に出す前に下のコマンドで撮ります |
 
 サポートのページ（問い合わせ先とよくある質問）は [`docs/support.md`](docs/support.md) です。
 
