@@ -30,7 +30,7 @@ struct HomeModelReplyRemarkTests {
         #expect(fixture.model.replyRemark?.text == "今月のカフェは2件目です。")
         #expect(fixture.model.replyRemark?.entryIDs == [latest.persistentModelID])
         let facts = try #require(received.value)
-        #expect(facts.contains("いま記録した支出: カフェラテ ¥480（カフェ）"))
+        #expect(facts.contains("いま記録した支出: 「カフェラテ」 ¥480（カフェ）"))
         #expect(facts.contains("今月のカフェ: ¥880（記録 2件）"))
     }
 
