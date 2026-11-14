@@ -34,6 +34,24 @@ public enum CategoryCorrection {
         return remaining.isEmpty ? sole.category : nil
     }
 
+    /// カテゴリの名前だけの文か（「交通」「日用品。」）。前の記録を指す語や直す語（「それ」「にして」）の無い文。
+    ///
+    /// 名前だけの文も直す文として読む（`category(in:catalog:)`）が、品目とカテゴリの組は覚えない（`HomeModel`）。金額を打ち忘れて
+    /// 送っただけのこともあり、そのまま覚えると、次から同じ品目を違うカテゴリにしてしまうため。覚えるのは「それ交通」
+    /// 「さっきのは交通にして」のように、前の記録を直すと分かる文だけにする。
+    public static func isNameOnly(_ text: String, catalog: CategoryCatalog = .builtIn) -> Bool {
+        let folded = CategoryCatalog.fold(TextNormalizer.normalize(text))
+        guard let sole = soleCategory(in: folded, catalog: catalog) else { return false }
+        var rest = sole.rest
+        for ending in nameOnlyEndings {
+            rest = rest.replacingOccurrences(of: ending, with: "")
+        }
+        return rest.allSatisfy { $0.isWhitespace || fillerCharacters.contains($0) }
+    }
+
+    /// 名前だけの文に付いてよい語尾（「日用品です」も名前だけの文にする）。前の記録を指す語・直す語は入れない。
+    static let nameOnlyEndings = ["でした", "だった", "です", "だよ", "だね"].map(CategoryCatalog.fold).sorted { $0.count > $1.count }
+
     /// そろえた文の「AじゃなくてB」の後ろ（B）。「じゃなくて」などが無ければ、文のまま。
     static func afterNegation(_ folded: String) -> String {
         for marker in negationMarkers.map(CategoryCatalog.fold) {

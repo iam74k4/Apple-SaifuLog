@@ -51,6 +51,21 @@ struct QuickActionTests {
         #expect(fixture.model.pendingQuickAction == nil)
     }
 
+    /// 「ひとことで記録」で頼まれたチャットの操作（「さっきの消して」）は、すぐには行わず確認を出す（声の聞き取りの誤りで、
+    /// 記録のつもりの頼みから直前の記録を黙って消さないため）。
+    @Test func recordRequestConfirmsChatCommand() async throws {
+        let fixture = try Fixture()
+        fixture.model.receive(.record("ランチ 850"))
+        await fixture.model.performPendingQuickAction(calendar: TestSupport.calendar)?.value
+
+        fixture.model.receive(.record("さっきの消して"))
+        await fixture.model.performPendingQuickAction(calendar: TestSupport.calendar)?.value
+
+        #expect(try fixture.entries().map(\.amount) == [850])
+        let pending = try #require(fixture.model.pendingCommand)
+        #expect(pending.command == .removeLast)
+    }
+
     /// 「家計に質問」は、記録か見分けずに質問として答える（金額の入った文も記録しない）。
     @Test func asksAsQuestion() async throws {
         let fixture = try Fixture()

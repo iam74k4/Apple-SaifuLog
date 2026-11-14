@@ -326,6 +326,21 @@ struct HomeModelCategoryTests {
         #expect(try fixture.entries().last?.category == .entertainment)
     }
 
+    /// カテゴリの名前だけの文（「娯楽」）は、直前の記録を直すが、品目とカテゴリの組は覚えない（金額を打ち忘れて送っただけの
+    /// ことがあるため。`CategoryCorrection.isNameOnly`）。
+    @Test func nameOnlyTextRecategorizesWithoutRemembering() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ジム 8000")
+        let entry = try #require(try fixture.entries().first)
+
+        await fixture.send("娯楽")
+
+        #expect(try fixture.entries().count == 1)
+        #expect(entry.category == .entertainment)
+        #expect(try learned(fixture).memory().rules.isEmpty)
+        #expect(fixture.lastQuestionState == .recategorized(item: "ジム", category: "娯楽", remembered: false))
+    }
+
     /// 聞き返していない記録も、チャットで直せる（読み取ったカテゴリが違っていたとき）。
     @Test func recategorizesKnownCategoryFromChat() async throws {
         let fixture = try Fixture()

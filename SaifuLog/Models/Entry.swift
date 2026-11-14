@@ -37,7 +37,7 @@ final class Entry {
     /// 同じ月の分を記録したときにも見つけて片づける（`RecurringEntryStore.removeDuplicateOccurrences`）。
     /// 後から足した項目（既定値があるので、足す前の保存先も移行なしで開ける。`ModelContainerFactoryTests`）。
     @Attribute(.allowsCloudEncryption) var recurrenceKey: String = ""
-    /// カテゴリを聞き返している記録（返事と確認待ちの一覧で選ぶ）。保存先の開き直し・iCloud 同期の後にも聞き返しを残すため、記録に持つ。
+    /// カテゴリを聞き返している記録（返事の行の下のボタンで選ぶ）。保存先の開き直し・iCloud 同期の後にも聞き返しを残すため、記録に持つ。
     @Attribute(.allowsCloudEncryption) var needsCategoryReview: Bool = false
 
     init(

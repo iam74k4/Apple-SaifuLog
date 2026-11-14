@@ -186,15 +186,37 @@ struct HomeModelChatCommandTests {
         #expect(fixture.announcements.last?.hasPrefix(String(localized: "取り消しました: 食費 ¥850")) == true)
     }
 
-    /// 1 回の送信で複数件を記録したら、消す文はその送信の記録をすべて消す（返事の「取り消す」と同じ）。
-    @Test func removesWholeLastSend() async throws {
+    /// 1 回の送信で複数件を記録したら、消す文はその送信の記録をすべて消す（返事の「取り消す」と同じ）。2 件以上を消すときは、
+    /// 決まりで読んだ文でも確かめてから消す（1 文で品目がすべて消え、戻せないため）。
+    @Test func removesWholeLastSendAfterConfirmation() async throws {
         let fixture = try Fixture()
         await fixture.send("スーパー2480、ドラッグ1200")
 
         await fixture.send("今のなし")
 
+        #expect(try fixture.entries().count == 2)
+        let pending = try #require(fixture.model.pendingCommand)
+        #expect(pending.command == .removeLast)
+
+        fixture.model.confirmCommand(pending)
+
         #expect(try fixture.entries().isEmpty)
         #expect(fixture.lastQuestionState == .removed(summary: ["スーパー ¥2,480", "ドラッグ ¥1,200"].formatted(.list(type: .and))))
+    }
+
+    /// AI の答えを待つ間などにほかの画面を開いていたら、確認を出さずにやめ、送った文を入力欄に戻す（開いている画面の上や後に
+    /// 確認を出さないため）。
+    @Test func confirmationIsNotShownOverOtherScreens() async throws {
+        let fixture = try Fixture()
+        await fixture.send("スーパー2480、ドラッグ1200")
+        fixture.model.presentSettings()
+
+        await fixture.send("今のなし")
+
+        #expect(fixture.model.pendingCommand == nil)
+        #expect(try fixture.entries().count == 2)
+        #expect(fixture.lastQuestionState == .commandCancelled)
+        #expect(fixture.model.draft == "今のなし")
     }
 
     /// 直前の記録が無ければ、消す文は何も消さず、直せる記録が無いと案内する。

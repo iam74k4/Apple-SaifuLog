@@ -12,7 +12,7 @@ import UIKit
 ///
 /// 入力欄の左のカメラのボタンから、レシートを撮るか写真から選んで読み取り（④）、読み取り結果（⑤）のシートで確かめて記録する。
 ///
-/// 会話を左へスワイプすると、カレンダーのページ（日ごとの支出・選んだ日の記録・今日あといくら使えるか。`LedgerCalendarView`）が
+/// 会話を左へスワイプすると、カレンダーのページ（月に使った額・日ごとに使った額・選んだ日の記録。`LedgerCalendarView`）が
 /// 出る。帯にカレンダーのボタンは置かない（スワイプで出るページと入口が重なるため）。
 ///
 /// 状態と操作（送信・質問・レシート・取り消し・直す・削除・予算を決める画面と月のまとめと設定の出し入れ・
@@ -144,6 +144,11 @@ struct HomeView: View {
                     pending: quickActions.pending, isParsing: model.isParsing, hidesContent: appLock?.hidesContent,
                     deliver: deliverQuickActions, contentDidShow: catchUpAfterShowingContent
                 ))
+                // 家計の画面を隠しているか（ロックの画面）をモデルに伝える。隠している間は、読み取りが裏で終わっても、くり返しの
+                // 記録を記録せず、返事の一言も読み上げない（`HomeModel.hidesContent`）。
+                .onChange(of: hidesContent, initial: true) { _, hides in
+                    model.hidesContent = hides
+                }
                 // ほかの画面やシートを閉じたら、待っていた Siri・ショートカットの頼みを行う。
                 .onChange(of: model.isPresentingOtherScreen) { _, presenting in
                     if !presenting { deliverQuickActions() }
@@ -167,8 +172,9 @@ struct HomeView: View {
                 .onReceive(StoreChanges.remote) { _ in
                     // ほかの端末で消された記録を、取り消す・聞き返しの対象から外す（消えた記録を指し続けないように）。
                     model.forgetRecordsDeletedElsewhere()
-                    // ほかの端末の記録や予算が届くと、返事の一言が書いた今月の数字と食い違いうるので外す。
-                    model.discardReplyRemark()
+                    // ほかの端末の記録や予算が届いて、返事の一言が書いた今月の数字と食い違ったら外す（この端末の保存でも知らせが
+                    // 届くので、数字が変わったときだけ。`reviewReplyRemarkAfterRemoteChange`）。
+                    model.reviewReplyRemarkAfterRemoteChange(calendar: calendar)
                     model.removeDuplicateRecurringEntries()
                     model.categories.reload()
                     model.calendarPage.reload()

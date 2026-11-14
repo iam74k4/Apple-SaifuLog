@@ -340,6 +340,28 @@ struct MonthlyReportModelTests {
         #expect(fixture.deletedIDs == [id])
     }
 
+    @Test("一覧の長押しの削除は、確認してから消し、数字と一覧を読み直してホームに知らせる")
+    func longPressDeleteAsksThenDeletes() throws {
+        let fixture = try Fixture()
+        let lunch = TestSupport.entry(amount: 850, spentAt: TestSupport.date(2026, 9, 3))
+        try fixture.insert(lunch, TestSupport.entry(amount: 400, category: .cafe, spentAt: TestSupport.date(2026, 9, 4)))
+        let model = fixture.makeModel()
+        let id = lunch.persistentModelID
+
+        model.requestDelete(lunch)
+        let pending = try #require(model.pendingDeletion)
+        // 確認を出しただけでは消さない。
+        #expect(model.report?.expense == 1_250)
+
+        model.delete(pending)
+
+        #expect(model.pendingDeletion == nil)
+        #expect(model.report?.expense == 400)
+        #expect(model.entries(in: .food).isEmpty)
+        #expect(fixture.deletedIDs == [id])
+        #expect(fixture.announcements.last?.hasPrefix("削除しました") == true)
+    }
+
     // MARK: - 予算
 
     @Test("予算を決めていなければ、予算の進みを出さない")

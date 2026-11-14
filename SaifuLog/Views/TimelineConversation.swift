@@ -229,7 +229,8 @@ struct RecordedReplyCard: View {
 /// 返事の行の下の、カテゴリの聞き返し（「その他」になり、品目が辞書にも覚えにも当たらない支出。`CategoryMemory.asksCategory`）。
 ///
 /// 選んだカテゴリにその記録を直し、品目とカテゴリの組を覚えて次から使う（`HomeModel.chooseCategory`）。「その他のまま」も覚える
-/// （同じ品目でもう聞き返さない）。記録は済んでいるので、選ばずに次を送ってもよい（あとから「確認待ち」で選べる）。
+/// （同じ品目でもう聞き返さない）。記録は済んでいるので、選ばずに次を送ってもよい（あとからチャットの「それ日用品」や、記録を
+/// 押して開く ⑥ でも直せる）。
 /// ボタンは横に送れる 1 行に並べる（折り返すと返事のカードが 3 行分ほど高くなり、タイムラインを押し上げるため）。
 struct CategoryQuestionView: View {
     let entry: Entry
@@ -297,7 +298,7 @@ struct CategoryQuestionView: View {
                     .fill(Theme.background)
                     .stroke(Theme.track, lineWidth: 1)
             }
-            // 見た目は 36pt の高さにし、押せる範囲は上下の余白まで広げて 44pt にする（よく使うひとことのボタンと同じ）。
+            // 見た目は 36pt の高さにし、押せる範囲は上下の余白まで広げて 44pt にする。
             .padding(.vertical, 4)
             .contentShape(.rect)
         }

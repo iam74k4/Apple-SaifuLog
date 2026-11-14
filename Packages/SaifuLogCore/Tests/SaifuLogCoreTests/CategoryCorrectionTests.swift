@@ -26,6 +26,23 @@ struct CategoryCorrectionTests {
         #expect(CategoryCorrection.category(in: text, catalog: Self.catalog) == category)
     }
 
+    // 名前だけの文は直すが、品目とカテゴリの組は覚えない（金額を打ち忘れて送っただけのことがあるため。`HomeModel`）。
+    @Test("名前だけの文と、前の記録を指す語・直す語のある文を見分ける", arguments: [
+        ("日用品", true),
+        ("日用品です。", true),
+        ("交通費", true),
+        ("衣服", true),
+        ("それ日用品", false),
+        ("さっきのは日用品にして", false),
+        ("日用品にして", false),
+        ("食費じゃなくて日用品", false),
+        ("ランチ", false),
+        ("", false),
+    ])
+    func detectsNameOnly(text: String, isNameOnly: Bool) {
+        #expect(CategoryCorrection.isNameOnly(text, catalog: Self.catalog) == isNameOnly, "\(text)")
+    }
+
     @Test("ほかの語が残る文・金額のある文・質問の文・名前の無い文は、直す文にしない", arguments: [
         "ランチは食費",
         "今月の食費",

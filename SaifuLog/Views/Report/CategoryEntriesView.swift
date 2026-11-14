@@ -3,8 +3,9 @@ import SwiftUI
 
 /// 月のまとめ（⑦）の内訳の行から進む、その期間のそのカテゴリの支出の記録の一覧。
 ///
-/// 読むための一覧で、ここでは並べ替えも削除もしない。記録を押すと「直す」（⑥）のシートを開き、そこで直したり
-/// 消したりできる（直してカテゴリや期間が変わった記録は、一覧から外れる）。並びは使った日時の新しい順。
+/// 読むための一覧で、並べ替えはしない。記録を押すと「直す」（⑥）のシートを開き、そこで直したり消したりできる（直して
+/// カテゴリや期間が変わった記録は、一覧から外れる）。長押しのメニューと VoiceOver の操作からも直す・削除できる（ホームと
+/// カレンダーの記録と同じ。削除は確認つき）。並びは使った日時の新しい順。
 struct CategoryEntriesView: View {
     @Bindable var model: MonthlyReportModel
     let category: EntryCategory
@@ -26,9 +27,11 @@ struct CategoryEntriesView: View {
                             if entry.persistentModelID != entries.first?.persistentModelID {
                                 Divider()
                             }
-                            CategoryEntryRow(entry: entry, today: model.today, calendar: model.calendar) {
-                                model.presentEdit(entry)
-                            }
+                            CategoryEntryRow(
+                                entry: entry, today: model.today, calendar: model.calendar,
+                                edit: { model.presentEdit(entry) },
+                                requestDelete: { model.requestDelete(entry) }
+                            )
                         }
                     }
                     .padding(.horizontal, 16)
@@ -48,6 +51,26 @@ struct CategoryEntriesView: View {
         .sheet(item: $model.editing) { editing in
             EditEntrySheet(model: editing)
         }
+        // 長押しの「削除」の確認（ホームの記録の削除と同じ文）。
+        .confirmationDialog(
+            "この記録を削除しますか？",
+            isPresented: showsDeletionConfirmation,
+            titleVisibility: .visible,
+            presenting: model.pendingDeletion
+        ) { pending in
+            Button("削除", role: .destructive) { model.delete(pending) }
+        } message: { pending in
+            Text("\(pending.summary)の記録を削除します。この操作は取り消せません。")
+        }
+        .alert("削除できませんでした", isPresented: $model.showsDeleteFailure) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("保存に失敗しました。もう一度お試しください。")
+        }
+    }
+
+    private var showsDeletionConfirmation: Binding<Bool> {
+        Binding(get: { model.pendingDeletion != nil }, set: { if !$0 { model.pendingDeletion = nil } })
     }
 
     /// 期間・そのカテゴリの合計と割合・件数。合計と割合は内訳の行と同じ値（`MonthlyReport` の内訳）を出す。
@@ -83,6 +106,7 @@ private struct CategoryEntryRow: View {
     let today: Date
     let calendar: Calendar
     let edit: () -> Void
+    let requestDelete: () -> Void
 
     @Environment(\.categoryCatalog) private var catalog
 
@@ -105,7 +129,13 @@ private struct CategoryEntryRow: View {
         }
         // 文字の色は行の中で決めているので、tint に染めない形にする（押している間は薄くなる）。
         .buttonStyle(.plain)
+        .contextMenu {
+            Button("直す", systemImage: "pencil", action: edit)
+            Button("削除", systemImage: "trash", role: .destructive, action: requestDelete)
+        }
         .accessibilityHint("記録を直す画面を開きます")
+        // 長押しのメニューは VoiceOver から見つけにくいので、削除を操作の一覧にも出す（ダブルタップは ⑥ を開く）。
+        .accessibilityAction(named: "削除", requestDelete)
     }
 
     private var titleAndDate: some View {

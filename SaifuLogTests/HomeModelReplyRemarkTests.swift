@@ -79,6 +79,41 @@ struct HomeModelReplyRemarkTests {
         #expect(fixture.model.replyRemark == nil)
     }
 
+    /// 今月でない日付の記録（月の初めに送った「8/31 ランチ」など）には書かせない（いま記録した支出が今月の数字に入らず、
+    /// 記録した額と食い違う一言が照合に通ってしまうため）。
+    @Test func noRemarkForOtherMonth() async throws {
+        let fixture = try Fixture()
+        let writer = StubRemarkWriter { _ in "いいペースです。" }
+        fixture.recordRemarkWriter = writer
+
+        await fixture.send("8/31 ランチ 850")
+        await fixture.model.replyRemarkTask?.value
+
+        #expect(try fixture.entries().count == 1)
+        #expect(fixture.model.replyRemark == nil)
+        #expect(writer.calls.count == 0)
+    }
+
+    /// ほかの端末の変更の知らせが届いても、一言の数字が変わっていなければ残す（iCloud と同期する保存先では、この端末自身の
+    /// 保存の後にも知らせが届くため）。数字が変われば外す。
+    @Test func remoteChangeDropsRemarkOnlyWhenNumbersChange() async throws {
+        let fixture = try Fixture()
+        fixture.recordRemarkWriter = StubRemarkWriter { _ in "いいペースです。" }
+        await fixture.send("カフェラテ 480")
+        await fixture.model.replyRemarkTask?.value
+        #expect(fixture.model.replyRemark != nil)
+
+        fixture.model.reviewReplyRemarkAfterRemoteChange(calendar: TestSupport.calendar)
+        #expect(fixture.model.replyRemark != nil)
+
+        // ほかの端末で今月のカフェの記録が足された。
+        try EntryStore(context: fixture.context).insert([
+            TestSupport.entry(amount: 400, category: .cafe, memo: "コーヒー", spentAt: TestSupport.date(2026, 9, 27))
+        ])
+        fixture.model.reviewReplyRemarkAfterRemoteChange(calendar: TestSupport.calendar)
+        #expect(fixture.model.replyRemark == nil)
+    }
+
     /// 照合に通った一言は、記録の読み上げを遮らないよう、控えめに読み上げる（記録の読み上げとは別に）。
     @Test func announcesRemarkAside() async throws {
         let fixture = try Fixture()

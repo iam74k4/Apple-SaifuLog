@@ -31,6 +31,10 @@ final class MonthlyReportModel {
     var selectedCategory: EntryCategory?
     /// 「直す」のシートで直している記録の状態と操作。シートを閉じると画面が nil に戻す。
     var editing: EditEntryModel?
+    /// 記録の一覧の長押しで消そうとしている記録（確認を出している間）。
+    var pendingDeletion: HomeModel.PendingDeletion?
+    /// 消せなかった（保存に失敗した）ことを知らせているか。
+    var showsDeleteFailure = false
     /// 使った額の下に添える AI の一言（AI が使える端末だけ）。
     let remark: RecapRemarkModel
     #if DEBUG
@@ -209,6 +213,38 @@ final class MonthlyReportModel {
             },
             catalog: (try? CustomCategoryStore(context: store.context).catalog()) ?? .builtIn
         )
+    }
+}
+
+extension MonthlyReportModel {
+    /// 一覧の記録の長押しの「削除」。確認を出す（ホームとカレンダーの記録と同じく、長押しでいつでも消せるようにする。
+    /// 前は ⑥ を開かないと消せなかった）。ほかの端末で消されていたら、確認を出さずに読み直す。
+    func requestDelete(_ entry: Entry) {
+        guard store.exists(entry.persistentModelID) else {
+            reload()
+            return
+        }
+        let catalog = (try? CustomCategoryStore(context: store.context).catalog()) ?? .builtIn
+        pendingDeletion = HomeModel.PendingDeletion(
+            entry: entry, id: entry.persistentModelID, summary: entry.summaryText(in: catalog)
+        )
+    }
+
+    /// 確認のあとで記録を削除する。確認の間にほかの端末で消されていたら、消えたものとして扱う（記録の値には触れない）。
+    func delete(_ pending: HomeModel.PendingDeletion) {
+        pendingDeletion = nil
+        if store.exists(pending.id) {
+            do {
+                try store.delete([pending.entry])
+            } catch {
+                showsDeleteFailure = true
+                return
+            }
+        }
+        reload()
+        // ホームの「取り消す」の対象からも外す（⑥ から消したときと同じ）。
+        didDelete(pending.id)
+        announce(String(localized: "削除しました: \(pending.summary)"))
     }
 }
 
