@@ -216,28 +216,26 @@ extension XCUIApplication {
     /// 帯の右上の歯車から設定（⑧）を開く。開かなければ、いま出ている画面の要素の一覧を添えて失敗する（CI のログには
     /// 失敗の時点の画面が残らないので、何が出ていたかを追えるようにする）。
     ///
-    /// CI のシミュレータでは、撮影用のデモの記録で開いたときに、歯車を押しても設定が開かないことや、月のまとめが開くことがあった
-    /// （同じテストがほかの実行では通る。帯の数字と見出しは歯車と重なっておらず、原因は分かっていない。実機で確かめる）。
-    /// そのときは、いまの画面をログに出し、月のまとめが開いていれば戻ってから、3 回まで押し直す。
+    /// 歯車を押して月のまとめが開いたら、押し間違いの不具合として失敗にする（前は帯の数字の的が歯車の真下まで広がっていて、
+    /// CI で歯車を押したのに月のまとめが開いた。帯を左右の列に分けて直した。`SummaryHeader.wideRow`）。CI の遅いシミュレータでは
+    /// 押しても何も開かないことがあったので、ホームのままなら 1 回だけ押し直す（ログに残す）。
     func openSettings(file: StaticString = #filePath, line: UInt = #line) {
         let button = element(AccessibilityID.Home.settingsButton)
         let bar = navigationBars["設定"]
         let report = navigationBars["月のまとめ"]
         XCTAssertTrue(button.waitUntilHittable(timeout: UITestTimeout.launch), "設定のボタンが押せません", file: file, line: line)
-        for attempt in 1...3 {
-            button.tap()
-            if bar.waitForExistence(timeout: UITestTimeout.ui) {
-                return
+        button.tap()
+        if !bar.waitForExistence(timeout: UITestTimeout.ui) {
+            XCTAssertFalse(report.exists, "歯車を押したのに月のまとめが開きました。いまの画面:\n\(debugDescription)", file: file, line: line)
+            if button.isHittableNow {
+                print("歯車を押しても設定が開かなかったので、押し直します。いまの画面:\n\(debugDescription)")
+                button.tap()
             }
-            print("歯車を押しても設定が開きませんでした（\(attempt) 回目）。いまの画面:\n\(debugDescription)")
-            if report.exists {
-                print("月のまとめが開いたので、戻って押し直します。")
-                goBack(file: file, line: line)
-                _ = report.waitForNonExistence(timeout: UITestTimeout.ui)
-            }
-            guard button.waitUntilHittable(timeout: UITestTimeout.ui) else { break }
         }
-        XCTFail("設定が開きません。いまの画面:\n\(debugDescription)", file: file, line: line)
+        guard bar.waitForExistence(timeout: UITestTimeout.ui) else {
+            XCTFail("設定が開きません。いまの画面:\n\(debugDescription)", file: file, line: line)
+            return
+        }
     }
 
     /// ナビゲーションで一つ前の画面へ戻る。

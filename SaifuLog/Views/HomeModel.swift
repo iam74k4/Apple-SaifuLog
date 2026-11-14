@@ -1414,7 +1414,11 @@ final class HomeModel {
     /// - Parameters:
     ///   - calendar: 月の区切りの暦（ホームの画面の暦。帯の今月と同じ月でまとめるため）。
     ///   - month: 開く月に入る日時（質問の回答カードから先月を開くとき）。nil なら今月。
+    ///
+    /// 設定を出している間（戻る動きの途中を含む）は開かない。月のまとめと設定はホームの別々の行き先（`navigationDestination`）で、
+    /// 両方が立つと、違う画面が開いたり二重に積まれたりするため（押した側は、戻りきってから押し直せば開く）。
     func presentMonthlyReport(calendar: Calendar, month: Date? = nil) {
+        guard settings == nil else { return }
         let remark = monthlyRemark ?? RecapRemarkModel(makeWriter: makeRemarkWriter)
         monthlyRemark = remark
         monthlyReport = MonthlyReportModel(
@@ -1435,7 +1439,10 @@ final class HomeModel {
     ///
     /// 設定から開く「予算を決める」も、ホームの帯から開くときと同じ保存先と読み上げを使う。保存先を開いたもの
     /// （`storeHost`）も渡す。渡さないと、設定の「iCloud で同期」の節が黙って消える（テストで確かめている）。
+    ///
+    /// 月のまとめを出している間（戻る動きの途中を含む）は開かない（`presentMonthlyReport` と同じ理由）。
     func presentSettings() {
+        guard monthlyReport == nil else { return }
         settings = SettingsModel(
             context: store.context, budgetStore: budgetStore, categories: categories, storeHost: storeHost,
             now: now, announce: announce,

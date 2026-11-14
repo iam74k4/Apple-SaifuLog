@@ -33,12 +33,11 @@ struct SummaryHeader: View {
     #endif
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        Group {
             if isCompact {
                 compactRow
             } else {
-                titleRow
-                figuresElement(figures)
+                wideRow
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -97,11 +96,22 @@ struct SummaryHeader: View {
         }
     }
 
-    /// 見出しと、右のボタン（設定。社内テスト用のビルドでは診断も）の行。
-    private var titleRow: some View {
-        HStack(spacing: 0) {
-            titleButton
-            Spacer(minLength: 8)
+    /// 広い帯。左の列（見出しと数字。押すと月のまとめ）と、右の列（設定。社内テスト用のビルドでは診断も）に分ける。
+    ///
+    /// 前は見出しの行に見出しと歯車を並べ、その下に帯の幅いっぱいの数字のボタンを置いていた。数字のボタンが歯車の真下まで
+    /// 押せる範囲だったので、歯車の少し下を押すと（月のまとめから戻った直後で、帯の位置がずれている間も）月のまとめが開いた
+    /// （CI の UI テストで、歯車を押したのに月のまとめが開いた）。列を分け、まとめの的が歯車の下へ伸びないようにする。見出しも
+    /// 数字と同じ 1 つの的にする（前は見出しにも別のボタンがあり、同じ入口が歯車のそばに 2 つあった）。
+    private var wideRow: some View {
+        HStack(alignment: .top, spacing: 12) {
+            figuresElement(
+                VStack(alignment: .leading, spacing: 4) {
+                    titleText
+                        // 見出しを右の歯車（44pt の丸）と同じ高さの中の真ん中に置く（前の見出しの行と同じ見た目）。
+                        .frame(minHeight: 44)
+                    figures
+                }
+            )
             trailingButtons
                 .fixedSize(horizontal: true, vertical: false)
         }
@@ -113,7 +123,8 @@ struct SummaryHeader: View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 0) {
                 figuresElement(compactFigures)
-                Spacer(minLength: 8)
+                // 数字の的と歯車の間をあける（押し間違えないように。広い帯と同じ）。
+                Spacer(minLength: 12)
                 trailingButtons
                     .fixedSize(horizontal: true, vertical: false)
             }
@@ -148,30 +159,11 @@ struct SummaryHeader: View {
         }
         .lineLimit(1)
         .minimumScaleFactor(0.7)
-        // 押せる範囲を 44pt の高さ以上にする（見出しの行のボタンと同じ）。
+        // 押せる範囲を 44pt の高さ以上にする（右の歯車と同じ）。
         .frame(minHeight: 44)
     }
 
-    /// 見出し。まとめへ進めるときは、見出しを押しても開く（「›」は押せることの印）。
-    ///
-    /// VoiceOver では読ませない（見出しは数字の要素の名前として読み、押す操作も数字の要素にある。ここでも読むと 2 回になる）。
-    @ViewBuilder
-    private var titleButton: some View {
-        if let openReport {
-            Button(action: openReport) {
-                titleText
-                    // 押せる範囲を 44pt の高さ以上にする。
-                    .frame(minHeight: 44)
-                    .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .accessibilityHidden(true)
-        } else {
-            titleText
-        }
-    }
-
-    /// 見出しの行の右のボタン。設定の歯車で、社内テスト用のビルドでは診断のボタンが前に付く。ガラスのボタンにする（ほかの画面の
+    /// 帯の右のボタン。設定の歯車で、社内テスト用のビルドでは診断のボタンが前に付く。ガラスのボタンにする（ほかの画面の
     /// ナビゲーションバーのボタンと同じ見た目。ホームはナビゲーションバーを隠しているので、帯の中に同じ形で置く）。
     private var trailingButtons: some View {
         GlassEffectContainer(spacing: 8) {

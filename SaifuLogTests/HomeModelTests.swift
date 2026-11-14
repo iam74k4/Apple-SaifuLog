@@ -927,6 +927,23 @@ struct HomeModelTests {
         #expect(!settings.isExporting)
     }
 
+    /// 月のまとめと設定は、片方を出している間（戻る動きの途中を含む）はもう片方を開かない。別々の行き先なので、両方が立つと
+    /// 違う画面が開いたり二重に積まれたりするため。
+    @Test func reportAndSettingsDoNotOpenTogether() throws {
+        let fixture = try Fixture()
+
+        fixture.model.presentMonthlyReport(calendar: TestSupport.calendar)
+        fixture.model.presentSettings()
+        #expect(fixture.model.monthlyReport != nil)
+        #expect(fixture.model.settings == nil)
+
+        fixture.model.monthlyReport = nil
+        fixture.model.presentSettings()
+        fixture.model.presentMonthlyReport(calendar: TestSupport.calendar)
+        #expect(fixture.model.settings != nil)
+        #expect(fixture.model.monthlyReport == nil)
+    }
+
     // MARK: - 月のまとめ
 
     /// 帯の今月の合計を押すと、今月のまとめへ進む（帯と同じ月・同じ合計）。
