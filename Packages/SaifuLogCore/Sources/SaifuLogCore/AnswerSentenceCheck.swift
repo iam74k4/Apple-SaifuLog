@@ -28,6 +28,9 @@ import Foundation
 ///
 /// 予算と比べの向き: 同じように、予算を超えたのに「予算の残りは…」と書いた一言や、前の月より多いのに「先月より減りました」と
 /// 書いた一言も使わない（`trends(in:)`。数字が合っていても、向きを逆に書くと読む人が逆の受け取り方をするため）。
+///
+/// 利用者が書いた語: 結果の文の「」の中（記録の返事の文の品目の名前。`RecordFacts`）からは向きを読まない。一言がその名前を写した
+/// ところも読まない（「プラスチック容器」の「プラス」、「超過料金」の「超過」を、収支や予算の向きにしないため）。
 public enum AnswerSentenceCheck {
     /// 一言として受け入れる長さの上限（文字数）。長い文は一言ではなく、確かめる数字も増えるので使わない。
     public static let maximumLength = 160
@@ -39,8 +42,35 @@ public enum AnswerSentenceCheck {
         let found = numbers(in: trimmed)
         guard found.isReadable else { return false }
         guard found.isAllowed(by: numbers(in: facts)) else { return false }
-        guard directions(in: trimmed).isSubset(of: directions(in: facts)) else { return false }
-        return trends(in: trimmed).isSubset(of: trends(in: facts))
+        // 向きは、利用者が書いた語（結果の文の「」の中）を除いて読む。
+        let phrases = quotedPhrases(in: facts)
+        let sentenceWords = removing(phrases, from: trimmed)
+        let factWords = removing(phrases, from: facts)
+        guard directions(in: sentenceWords).isSubset(of: directions(in: factWords)) else { return false }
+        return trends(in: sentenceWords).isSubset(of: trends(in: factWords))
+    }
+
+    /// 結果の文の「」の中の語（利用者が書いた品目の名前など）。長いものから並べる（短い名前が長い名前の一部のとき、長い方を先に外す）。
+    static func quotedPhrases(in facts: String) -> [String] {
+        let normalized = TextNormalizer.normalize(facts)
+        var phrases: [String] = []
+        var rest = normalized[...]
+        while let open = rest.firstIndex(of: "「"),
+              let close = rest[rest.index(after: open)...].firstIndex(of: "」") {
+            let phrase = String(rest[rest.index(after: open)..<close]).trimmingCharacters(in: .whitespaces)
+            if !phrase.isEmpty { phrases.append(phrase) }
+            rest = rest[rest.index(after: close)...]
+        }
+        return Array(Set(phrases)).sorted { $0.count > $1.count }
+    }
+
+    /// `phrases` と「」を除いた文（そろえた形）。語のあったところは空白にする（前後がつながって新しい語ができないように）。
+    static func removing(_ phrases: [String], from text: String) -> String {
+        var result = TextNormalizer.normalize(text)
+        for phrase in phrases {
+            result = result.replacingOccurrences(of: phrase, with: " ")
+        }
+        return result.replacingOccurrences(of: "「", with: " ").replacingOccurrences(of: "」", with: " ")
     }
 
     /// 数字の種類。
@@ -234,7 +264,10 @@ public enum AnswerSentenceCheck {
     /// 文に書いた予算と比べの向き。結果の文にも同じ読み方を当て、一言の向きが結果の文にあるかを見る。
     ///
     /// 予算の向きは「予算」と一緒に書いたときだけ見る（「残り」だけなら残りの日数のこともあるため）。ただし「オーバー」「超過」は
-    /// それだけで予算を超えた向きとみなす。比べの向きは「より」の後ろ（文の終わりまで）の「多」「増」「上回」と「少な」「減」「下回」の
+    /// それだけで予算を超えた向きとみなす。「上回」「越え」「はみ出」（超えた向き）と「下回」（予算の中の向き）は、「予算」のすぐ後ろ
+    /// （「予算を上回っています」）に書いたときだけ見る（離れて書いた「先月を上回るペース」は、前の期間との比べのことがあるため）。
+    /// 予算の残りが分からないことを言う文（「予算の残りは分かりません」）からは、予算の向きを読まない（その文の「残り」で、予算の中に
+    /// 収まっている一言を通さないため）。比べの向きは「より」の後ろ（文の終わりまで）の「多」「増」「上回」と「少な」「減」「下回」の
     /// 先に出た方と、「増え」「増加」「減っ」「減り」「減少」の語で決める。「収入が支出より」「支出が収入より」は収支の向き
     /// （`directions(in:)`）で見るので、ここでは見ない。
     static func trends(in text: String) -> Set<Trend> {
@@ -242,13 +275,15 @@ public enum AnswerSentenceCheck {
         let joined = String(chars)
         var result: Set<Trend> = []
 
-        let mentionsBudget = joined.contains("予算")
-        if ["オーバー", "超過"].contains(where: { joined.contains($0) })
-            || (mentionsBudget && ["超え", "こえ"].contains(where: { joined.contains($0) })) {
+        let budgetText = budgetSentences(in: joined)
+        let mentionsBudget = budgetText.contains("予算")
+        if ["オーバー", "超過"].contains(where: { budgetText.contains($0) })
+            || (mentionsBudget && ["超え", "こえ"].contains(where: { budgetText.contains($0) }))
+            || budgetIsFollowed(by: ["上回", "上まわ", "越え", "超え", "はみ出", "オーバー"], in: budgetText) {
             result.insert(.overBudget)
         }
-        // 「上回」「下回」は予算の向きに数えない（「予算の目安を上回るペース」は、予算の中でも書くため）。
-        if mentionsBudget, ["残り", "のこり", "以内", "予算内", "収ま", "おさま"].contains(where: { joined.contains($0) }) {
+        if mentionsBudget, ["残り", "のこり", "以内", "予算内", "収ま", "おさま"].contains(where: { budgetText.contains($0) })
+            || budgetIsFollowed(by: ["下回", "下まわ"], in: budgetText) {
             result.insert(.withinBudget)
         }
 
@@ -270,6 +305,31 @@ public enum AnswerSentenceCheck {
             }
         }
         return result
+    }
+
+    /// 予算の向きを読む文（「。」と改行で区切った文のうち、予算の残りが分からないことを言う文を除いたもの）。
+    private static func budgetSentences(in joined: String) -> String {
+        joined.split(whereSeparator: { $0 == "。" || $0 == "\n" })
+            .filter { sentence in !budgetUnknownWords.contains { sentence.contains($0) } }
+            .joined(separator: "。")
+    }
+
+    /// 予算の残りが分からないこと・予算が無いことを言う語。
+    private static let budgetUnknownWords = ["分かりません", "わかりません", "分からない", "わからない", "決まっていない", "決める前"]
+
+    /// 「予算」のすぐ後ろ（助詞を挟んでもよい）が `stems` のどれかで始まるか（「予算を上回って」「予算をはみ出し」）。
+    private static func budgetIsFollowed(by stems: [String], in text: String) -> Bool {
+        var searchStart = text.startIndex
+        while let range = text.range(of: "予算", range: searchStart..<text.endIndex) {
+            var tail = text[range.upperBound...].drop { $0 == " " }
+            for particle in ["から", "より", "を", "は", "も", "が"] where tail.hasPrefix(particle) {
+                tail = tail.dropFirst(particle.count).drop { $0 == " " }
+                break
+            }
+            if stems.contains(where: { tail.hasPrefix($0) }) { return true }
+            searchStart = range.upperBound
+        }
+        return false
     }
 
     // MARK: - 漢数字

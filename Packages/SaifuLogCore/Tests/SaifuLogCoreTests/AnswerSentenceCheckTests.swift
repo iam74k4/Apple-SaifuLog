@@ -157,6 +157,50 @@ struct AnswerSentenceCheckTests {
         #expect(AnswerSentenceCheck.accepts("今月の支出は¥2,630です。残りの日も楽しんで。", facts: over.replacingOccurrences(of: "5,150", with: "2,630")))
     }
 
+    // 以前は「上回る」「下回る」を予算の向きに数えず、予算の中なのに「予算を上回っています」と書いた一言を通していた。
+    @Test("予算のすぐ後ろの「上回る」「越える」「はみ出す」は超えた向き、「下回る」は予算の中の向き")
+    func budgetVerbs() {
+        let over = "今月の支出の合計: ¥5,150（支出の記録 4件）\n月の予算: ¥5,000 を ¥150 超えている"
+        let within = "今月の支出の合計: ¥2,630（支出の記録 4件）\n月の予算: ¥100,000 のうち ¥2,630 を使い、残りは ¥97,370"
+        for sentence in ["予算を上回っています。", "予算を越えてしまいました。", "予算をはみ出しています。"] {
+            #expect(AnswerSentenceCheck.accepts(sentence, facts: over), "\(sentence)")
+            #expect(!AnswerSentenceCheck.accepts(sentence, facts: within), "\(sentence)")
+        }
+        #expect(AnswerSentenceCheck.accepts("予算を下回っています。", facts: within))
+        #expect(!AnswerSentenceCheck.accepts("予算を下回っています。", facts: over))
+    }
+
+    // 以前は「予算の残りは分かりません」の「予算」と「残り」から予算の中の向きを読み、その月の答えに「予算内に収まっています」を通していた。
+    @Test("予算の残りが分からない文からは、予算の向きを読まない")
+    func unknownBudgetHasNoTrend() {
+        let facts = "結果: ¥42,000\nこの月は、いまの予算を決める前の月なので、予算の残りは分かりません"
+        #expect(!AnswerSentenceCheck.accepts("予算内に収まっています。", facts: facts))
+        #expect(!AnswerSentenceCheck.accepts("予算の残りはまだあります。", facts: facts))
+        #expect(AnswerSentenceCheck.accepts("この月は¥42,000使いました。", facts: facts))
+    }
+
+    // 以前は記録の返事の文の品目の語から向きを読んでいた（「プラスチック容器」のプラスで「黒字です」、「超過料金」の超過で「予算オーバー」を通した）。
+    @Test("記録の返事の文の品目（「」の中）からは向きを読まず、一言が品目の名前を写しても向きにしない")
+    func itemNamesHaveNoDirection() throws {
+        let within = try #require(RecordFacts.text(
+            recorded: [
+                RecordFacts.Item(item: "プラスチック容器", amount: 300, category: .daily),
+                RecordFacts.Item(item: "超過料金", amount: 200, category: .other),
+            ],
+            monthRecords: [
+                LedgerRecordValue(amount: 300, category: .daily, spentAt: Fixture.date(2026, 9, 28, hour: 9)),
+                LedgerRecordValue(amount: 200, category: .other, spentAt: Fixture.date(2026, 9, 28, hour: 9)),
+            ],
+            budget: 100_000, now: Fixture.now, calendar: Fixture.calendar
+        ))
+        #expect(within.contains("「プラスチック容器」 ¥300（日用品）"))
+        #expect(!AnswerSentenceCheck.accepts("今月は黒字です。", facts: within))
+        #expect(!AnswerSentenceCheck.accepts("今月は予算オーバーです。", facts: within))
+        // 品目の名前を写した一言は使う（名前の中の語を向きにしない）。
+        #expect(AnswerSentenceCheck.accepts("プラスチック容器を記録しました。", facts: within))
+        #expect(AnswerSentenceCheck.accepts("「超過料金」も記録しました。", facts: within))
+    }
+
     @Test("前の期間より多いなら、少ない・減ったと書いた一言は使わない（逆も）")
     func comparisonTrend() {
         let more = "結果: ¥3,200\n前の期間との比べ: 先月の同じ日まで（¥2,400）より ¥800 多い"

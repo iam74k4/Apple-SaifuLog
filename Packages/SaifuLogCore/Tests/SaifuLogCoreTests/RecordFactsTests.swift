@@ -27,11 +27,20 @@ struct RecordFactsTests {
         ))
 
         #expect(text == """
-            いま記録した支出: カフェラテ ¥480（カフェ）
+            いま記録した支出: 「カフェラテ」 ¥480（カフェ）
             今月のカフェ: ¥1,430（記録 3件）
             今月の支出の合計: ¥2,630（支出の記録 4件）
             月の予算: ¥100,000 のうち ¥2,630 を使い、残りは ¥97,370
             """)
+    }
+
+    @Test("品目は「」で囲み、品目の中の「」は外す（照合で、利用者が書いた語から向きを読まないため）")
+    func quotesItems() throws {
+        let text = try #require(RecordFacts.text(
+            recorded: [RecordFacts.Item(item: "「特売」の卵", amount: 250, category: .food)],
+            monthRecords: [Self.record(250, .food)], budget: nil, now: Fixture.now, calendar: Fixture.calendar
+        ))
+        #expect(text.hasPrefix("いま記録した支出: 「特売の卵」 ¥250（食費）"))
     }
 
     @Test("予算を超えていれば超えた額。予算が無ければ書かない。その他のカテゴリの合計は書かない。品目が無ければカテゴリの名前")

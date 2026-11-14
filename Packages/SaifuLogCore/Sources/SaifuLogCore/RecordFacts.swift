@@ -6,6 +6,8 @@ import Foundation
 /// この文に書いた数字だけ（`AnswerSentenceCheck`。月のまとめの一言・質問の一言と同じ照合）。金額は画面と同じ「¥1,280」の形
 /// （`YenFormatter`）で書く。
 ///
+/// 品目は「」で囲む（利用者が打った語なので、照合で向きを読まない。`AnswerSentenceCheck` の「利用者が書いた語」）。
+///
 /// 書くこと: いま記録した支出（品目・金額・カテゴリ。3 件まで）、いま記録した支出のうち「その他」でない最初のカテゴリの今月の
 /// 合計と件数（「その他」は書かない。何に使ったかが分からず、一言の材料にならないため）、今月の支出の合計と件数、予算を決めていれば予算の残り
 /// （超えていれば超えた額）。収入は書かない（記録の返事は「使ったお金」についての一言にするため）。
@@ -46,7 +48,11 @@ public enum RecordFacts {
         let summary = LedgerSummary(records: monthRecords, interval: month, calendar: calendar)
         let items = recorded.prefix(maximumItems).map { item in
             let name = catalog.name(of: item.category)
-            let title = item.item.isEmpty ? name : item.item
+            // 品目は「」で囲む（「プラスチック容器」の「プラス」を、照合で黒字の向きと読まないため）。品目の中の「」は外す
+            // （囲みが崩れて、品目の後ろの文まで利用者の語として読み飛ばさないように）。
+            let quotedItem = item.item.replacingOccurrences(of: "「", with: "").replacingOccurrences(of: "」", with: "")
+                .trimmingCharacters(in: .whitespaces)
+            let title = quotedItem.isEmpty ? name : "「\(quotedItem)」"
             return "\(title) \(yen(item.amount))（\(name)）"
         }
         var lines = ["いま記録した支出: " + items.joined(separator: "、")]
