@@ -194,8 +194,15 @@ jobs:
       - name: 失敗したテストのまとめ
         if: ${{ failure() }}
         run: |
+          # 保存先を開けないときのテストが出す CoreData の「error:」は数が多いので拾わない（拾うのは、落ちたテストの行の「: error: -[」と、
+          # コンパイルの失敗の「ファイル:行:列: error:」）。
           for log in build/logs/*.log; do
             [ -f "$log" ] || continue
             echo "== $log"
-            grep -E "✘|error:|Expectation failed|Caught error" "$log" | head -300 || true
+            grep -E ": error: -\[|:[0-9]+:[0-9]+: error:|✘|Expectation failed|Caught error" "$log" | head -300 || true
           done
+          # UI テストの失敗の文に添えた画面の要素の一覧（「いまの画面:」）は次の行から続くので、続きも出す。
+          if [ -f build/logs/ui-test.log ]; then
+            echo "== build/logs/ui-test.log（失敗の時点の画面）"
+            grep -A 60 "いまの画面:" build/logs/ui-test.log | head -600 || true
+          fi

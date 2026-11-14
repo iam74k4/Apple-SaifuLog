@@ -105,8 +105,10 @@ extension XCUIApplication {
                 return
             }
         }
+        // CI の遅いシミュレータでは、初めてキーボードを出した後しばらくアプリが落ち着かず、確定した文が送信のボタンに届くまで
+        // 10 秒ほどかかったことがあった。
         XCTAssertTrue(
-            sendButton.waitUntilEnabled(timeout: 5),
+            sendButton.waitUntilEnabled(timeout: UITestTimeout.ui),
             "送信のボタンが押せません: \(text)（入力欄の値: \(String(describing: inputField.value))）", file: file, line: line
         )
         sendButton.tap()
@@ -253,12 +255,26 @@ extension XCUIApplication {
     func goBack(file: StaticString = #filePath, line: UInt = #line) {
         let bar = navigationBars.firstMatch
         XCTAssertTrue(bar.waitForExistence(timeout: UITestTimeout.ui), "ナビゲーションバーがありません", file: file, line: line)
-        let back = bar.buttons["BackButton"]
-        if back.exists {
-            back.tap()
-        } else {
-            bar.buttons.element(boundBy: 0).tap()
+        // 戻った先で探す画面のバーは、名前（題名）で見分ける。題名の無いバーは見分けられないので、押すだけにする。
+        let title = bar.identifier
+        let current = navigationBars[title]
+        // CI の遅いシミュレータで、戻るを押しても前の画面に戻らないことがあった（いちばん大きな文字の設定から戻ったのに帯の数字が
+        // 押せないまま 2 回続けて落ちた）。バーが消えなければ、戻るがまだ押せるときだけ押し直す（2 回まで。ログに残す）。
+        for attempt in 0..<3 {
+            let back = bar.buttons["BackButton"]
+            let button = back.exists ? back : bar.buttons.element(boundBy: 0)
+            if attempt > 0 {
+                // 戻るが押せないのは、戻っている途中のことがある。そのときは消えるのを待つ。
+                guard button.isHittableNow else {
+                    if current.waitForNonExistence(timeout: UITestTimeout.ui) { return }
+                    break
+                }
+                print("戻るを押しても「\(title)」から戻らなかったので、押し直します（\(attempt) 回目）。いまの画面:\n\(debugDescription)")
+            }
+            button.tap()
+            if title.isEmpty || current.waitForNonExistence(timeout: 8) { return }
         }
+        XCTFail("「\(title)」から前の画面に戻れません。いまの画面:\n\(debugDescription)", file: file, line: line)
     }
 
     /// 会話を左へスワイプして、カレンダーのページを出す。
