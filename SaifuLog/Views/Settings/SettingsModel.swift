@@ -3,10 +3,12 @@ import Observation
 import SaifuLogCore
 import SwiftData
 
-/// 「設定」（⑧）の状態と操作。月の予算を開く、カテゴリ、くり返しの記録、iCloud で同期、記録の CSV 書き出し、このアプリについて。
+/// 「設定」（⑧）の状態と操作。月の予算を開く、カテゴリ、くり返しの記録、iCloud で同期、記録の CSV 書き出しと読み込み、
+/// このアプリについて。
 ///
 /// 画面（`SettingsView`）から切り離し、保存先・時計・書き出し先を差し替えて SaifuLogTests で確かめられるようにしている。
-/// CSV の中身はコア（`LedgerCSVWriter`）、ファイルの作成は `LedgerExporter` が受け持つ。
+/// CSV の中身はコア（`LedgerCSVWriter`・`LedgerCSVReader`）、ファイルの作成は `LedgerExporter`、ファイルを読んで入れる記録を
+/// 決めるのは `LedgerImporter` が受け持つ。
 ///
 /// iCloud 同期は、オンにする前に iCloud のアカウントを確かめ（使えなければ案内だけ）、説明を読んでもらってから
 /// `StoreHost.setICloudSyncEnabled(_:)` に頼む（保存先を開き直すので、この画面ごと作り直される）。オフにするときも説明を出す。
@@ -24,6 +26,14 @@ final class SettingsModel {
     private(set) var sharedFile: ExportedFile?
     /// 書き出せなかった・書き出す記録が無かった（アラートを出す）。
     var exportAlert: ExportAlert?
+    /// CSV を読むファイルを選ぶ画面を出しているか。
+    var showsImporter = false
+    /// 選んだ CSV を読み、入れる記録を決めている途中（ボタンを押せなくし、進行中の印を出す）。
+    private(set) var isImporting = false
+    /// 読み込む前の確かめ（入れる件数・飛ばす件数・読めなかった行の数）。出していなければ nil。
+    var importPreview: LedgerImporter.Preview?
+    /// 読み込みの結果と、読み込めなかったときのアラート。
+    var importAlert: ImportAlert?
     /// 「予算を決める」のシートの状態と操作。シートを出していなければ nil（シートを閉じると画面が nil に戻す）。
     var budgetSetup: BudgetSetupModel?
     /// いまの月の予算。決めていないか、読めなければ nil。
@@ -57,6 +67,8 @@ final class SettingsModel {
             || iCloudSyncConfirmation != nil || sharedFile != nil || isExporting
             || categoryList.pendingDeletion != nil || recurringList.pendingDeletion != nil
             || learnedCategories.showsForgetAllConfirmation
+            // CSV の読み込みも、ファイルを選んでいる・読んでいる・件数を確かめている間は閉じない（読み込みが黙って止まるため）。
+            || showsImporter || isImporting || importPreview != nil
     }
 
     /// 「覚えたカテゴリ」（修正の記憶の一覧）の状態と操作。「カテゴリ」の画面から進み、行には覚えた言葉の数を出す。
@@ -69,8 +81,12 @@ final class SettingsModel {
     let recurringList: RecurringListModel
 
     @ObservationIgnored private var exportTask: Task<Void, Never>?
+    @ObservationIgnored private var importTask: Task<Void, Never>?
     @ObservationIgnored private let budgetStore: BudgetStore
+    @ObservationIgnored private let entryStore: EntryStore
+    @ObservationIgnored private let categories: CategoryCatalogModel
     @ObservationIgnored private let exporter: LedgerExporter
+    @ObservationIgnored private let importer: LedgerImporter
     @ObservationIgnored private let csvLanguage: LedgerCSVWriter.Language
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
@@ -85,8 +101,10 @@ final class SettingsModel {
     ///   - storeHost: 保存先を開いたもの。「iCloud で同期」の切り替えを頼む。渡さなければ iCloud の節を出さない。
     ///   - accountStatus: iCloud のアカウントの状態の問い合わせ。テストでは CloudKit に問い合わせない値に差し替える
     ///     （iCloud の entitlement の無いテストのプロセスで `CKContainer` を作ると落ちるため）。
+    ///   - entryStore: CSV から読み込んだ記録の保存。渡さなければ `context` を使う。テストで保存の失敗を起こす。
     ///   - exporter: 記録をファイルに書き出す。渡さなければ `context` と同じ保存先から、アプリの一時ディレクトリへ書き出す。
     ///     テストで書き出し先を使い捨ての場所にし、書き出しがメインスレッドの外で進むかを確かめる。
+    ///   - importer: CSV を読み、入れる記録を決める。渡さなければ `context` と同じ保存先の記録と比べる。
     ///   - csvLanguage: CSV の見出しと値の言語。アプリの表示の言語に合わせる。
     ///   - bundleInfo: 版とビルド番号を読む Info.plist の中身。テストで決める。
     ///   - now: 書き出す期間の基準とファイル名の日付。テストで固定の日時にする。
@@ -98,7 +116,9 @@ final class SettingsModel {
         categories: CategoryCatalogModel? = nil,
         storeHost: StoreHost? = nil,
         accountStatus: @escaping @MainActor () async -> ICloudAccountStatus = { await ICloudAccountStatus.current() },
+        entryStore: EntryStore? = nil,
         exporter: LedgerExporter? = nil,
+        importer: LedgerImporter? = nil,
         csvLanguage: LedgerCSVWriter.Language = LedgerCSVWriter.Language(localization: Bundle.main.preferredLocalizations.first),
         bundleInfo: [String: Any] = Bundle.main.infoDictionary ?? [:],
         now: @escaping () -> Date = { .now },
@@ -106,18 +126,20 @@ final class SettingsModel {
         recurringDidChange: @escaping @MainActor () -> Void = {}
     ) {
         self.budgetStore = budgetStore ?? BudgetStore(context: context)
+        self.entryStore = entryStore ?? EntryStore(context: context)
         self.storeHost = storeHost
         self.learnedCategories = LearnedCategoriesModel(store: LearnedCategoryStore(context: context, now: now), announce: announce)
         let categoryStore = CustomCategoryStore(context: context, now: now)
-        self.categoryList = CategoryListModel(
-            store: categoryStore, categories: categories ?? CategoryCatalogModel(store: categoryStore), announce: announce
-        )
+        let categories = categories ?? CategoryCatalogModel(store: categoryStore)
+        self.categories = categories
+        self.categoryList = CategoryListModel(store: categoryStore, categories: categories, announce: announce)
         self.recurringList = RecurringListModel(
             store: RecurringEntryStore(context: context, now: now), now: now, announce: announce, didChange: recurringDidChange
         )
         self.accountStatus = accountStatus
         self.isICloudSyncEnabled = storeHost?.cloudKitDatabase.isSyncEnabled ?? false
         self.exporter = exporter ?? LedgerExporter(container: context.container)
+        self.importer = importer ?? LedgerImporter(container: context.container)
         self.csvLanguage = csvLanguage
         self.versionText = Self.versionText(info: bundleInfo)
         self.now = now
@@ -251,12 +273,14 @@ final class SettingsModel {
         if !sheetWasShown { exportAlert = .failed }
     }
 
-    /// 設定の画面を閉じた（ホームが `settings` を nil に戻した・作り直した）。途中の書き出しとアカウントの確かめをやめる。
+    /// 設定の画面を閉じた（ホームが `settings` を nil に戻した・作り直した）。途中の書き出し・読み込みとアカウントの確かめを
+    /// やめる。
     ///
     /// 画面の onDisappear でやめると、設定から「カテゴリ」などへ進んだだけでも書き出しが止まり、戻ると何も起きていない
     /// ように見えるため、閉じたときだけにする。
     func close() {
         cancelExport()
+        cancelImportReading()
         cancelICloudAccountCheck()
     }
 
@@ -264,6 +288,94 @@ final class SettingsModel {
     func cancelExport() {
         exportTask?.cancel()
         exportTask = nil
+    }
+
+    // MARK: - 読み込み
+
+    /// 「CSV から読み込む」を押した。ファイルを選ぶ画面を出す。読んでいる途中や、件数を確かめている間は受け付けない。
+    func requestImport() {
+        guard !isImporting, importPreview == nil else { return }
+        showsImporter = true
+    }
+
+    /// ファイルを選ぶ画面で選んだ（か、選べなかった）。選んだファイルを読み、入れる記録を決めて、件数を確かめてもらう
+    /// （`importPreview`）。入れる記録が無ければ、その理由を知らせる。読み終えるのを待つ Task を返す（テストで使う）。
+    ///
+    /// この時点ではまだ保存先に書き込まない。どの記録をいくつ入れるかを見てから、利用者が「読み込む」を押したときだけ書き込む
+    /// （`confirmImport`）。思っていたファイルと違ったときに、記録を黙って増やさないため。
+    /// - Parameters:
+    ///   - result: 選んだファイル。
+    ///   - calendar: 日付と時刻を読む暦（画面の暦。書き出しと同じ時間帯で読む）。
+    @discardableResult
+    func importFile(_ result: Result<URL, any Error>, calendar: Calendar) -> Task<Void, Never>? {
+        showsImporter = false
+        guard !isImporting, importPreview == nil else { return nil }
+        let url: URL
+        switch result {
+        case .success(let picked):
+            url = picked
+        case .failure:
+            importAlert = .unreadable
+            return nil
+        }
+        isImporting = true
+        let importer = importer
+        let timeZone = calendar.timeZone
+        let catalog = categories.catalog
+        let task = Task {
+            defer { isImporting = false }
+            do {
+                let preview = try await importer.preview(fileAt: url, timeZone: timeZone, catalog: catalog)
+                // 読んでいる間に設定を閉じていたら、確かめを出さない。
+                guard !Task.isCancelled else { return }
+                if preview.importCount > 0 {
+                    importPreview = preview
+                } else {
+                    importAlert = .nothingToImport(duplicates: preview.duplicateCount, unreadable: preview.unreadableCount)
+                }
+            } catch is CancellationError {
+                // 設定を閉じて取り消した。知らせることは無い。
+            } catch let error as LedgerCSVReader.ReadError {
+                guard !Task.isCancelled else { return }
+                switch error {
+                case .unrecognizedHeader: importAlert = .notSaifuLogCSV
+                case .tooLarge: importAlert = .tooLarge
+                case .unreadableText: importAlert = .unreadable
+                }
+            } catch {
+                if !Task.isCancelled { importAlert = .unreadable }
+            }
+        }
+        importTask = task
+        return task
+    }
+
+    /// 確かめで「読み込む」を押した。決めた記録を保存先に入れる。書き込めなければ何も入れずに知らせる（`EntryStore` が巻き戻す）。
+    ///
+    /// 何を入れるかは、確かめに出していた中身を受け取る（ボタンを押すとアラートを閉じる側が先に `importPreview` を nil にする
+    /// ことがあるため）。記録は 1 回でまとめて書き込む（途中まで入った状態を残さないため）。
+    func confirmImport(_ preview: LedgerImporter.Preview) {
+        importPreview = nil
+        let entries = LedgerImporter.entries(from: preview.rows)
+        guard !entries.isEmpty else { return }
+        do {
+            try entryStore.insert(entries)
+        } catch {
+            importAlert = .saveFailed
+            return
+        }
+        importAlert = .imported(count: entries.count)
+    }
+
+    /// 確かめで「キャンセル」を押した。何も入れない。
+    func cancelImport() {
+        importPreview = nil
+    }
+
+    /// 途中の読み込みをやめる（設定を閉じたとき）。まだ何も書き込んでいないので、やめるだけでよい。
+    func cancelImportReading() {
+        importTask?.cancel()
+        importTask = nil
     }
 
     // MARK: - このアプリについて
@@ -290,6 +402,24 @@ final class SettingsModel {
         let url: URL
         let recordCount: Int
         var id: URL { url }
+    }
+
+    /// 読み込みの結果と、読み込めなかったときのアラート。
+    enum ImportAlert: Identifiable, Hashable {
+        /// 記録を入れた（入れた件数）。
+        case imported(count: Int)
+        /// 入れる記録が無かった（すべてすでにある記録と同じか、読めない行だった）。
+        case nothingToImport(duplicates: Int, unreadable: Int)
+        /// このアプリで書き出した CSV ではない（見出しの行が違う）。
+        case notSaifuLogCSV
+        /// ファイルが大きすぎる（行の上限を超えている）。
+        case tooLarge
+        /// ファイルを読めなかった（文字として読めない・開けない）。
+        case unreadable
+        /// 記録を保存先に書き込めなかった（何も入れていない）。
+        case saveFailed
+
+        var id: Self { self }
     }
 
     /// 書き出しのアラート。

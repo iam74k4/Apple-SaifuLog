@@ -397,7 +397,7 @@ quits while the share sheet is open, it is deleted the next time you open Settin
 
 ### CSV Import
 
-Only when you tap Import from CSV in Settings and choose a file in the iOS file picker, the app reads that file on your own iPhone. It
+Only when you tap Import CSV File in Settings and choose a file in the iOS file picker, the app reads that file on your own iPhone. It
 reads CSV files in the format the app exports. After you confirm the number of entries, the entries it read (date, time, expense or
 income, category, item, amount, and the text you entered) are saved in the same place as your records described above. **The file and
 its contents are never sent anywhere,** and nothing is sent to the developer. The app doesn't keep the file; it lets go of it after

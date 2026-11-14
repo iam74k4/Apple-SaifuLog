@@ -125,6 +125,7 @@ final class ScreensUITests: XCTestCase {
             AccessibilityID.Settings.iCloudSync,
             AccessibilityID.Settings.appLock,
             AccessibilityID.Settings.export,
+            AccessibilityID.Settings.importCSV,
             AccessibilityID.Settings.help,
             AccessibilityID.Settings.privacyPolicy,
         ] {

@@ -187,4 +187,7 @@ enum EntrySource: String, Codable, CaseIterable, Sendable {
     /// 前の版で Apple Pay の支払いから記録したもの（ショートカットのオートメーションから受け取っていた）。いまは作らない。
     /// 保存してある記録を読めるように残し、画面ではふつうの記録と同じに出す。
     case wallet
+    /// 設定の「CSV から読み込む」で、書き出した CSV から戻した記録。元の入力元は CSV に無いので、まとめてこれにする。
+    /// これより前の版のアプリ（iCloud で同期したほかの端末）は知らない値を `.text` として読む（`Entry.source`）。
+    case imported
 }

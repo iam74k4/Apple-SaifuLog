@@ -69,6 +69,7 @@ enum AccessibilityID {
         static let iCloudSync = "settings.iCloudSync"
         static let appLock = "settings.appLock"
         static let export = "settings.export"
+        static let importCSV = "settings.importCSV"
         static let help = "settings.help"
         static let privacyPolicy = "settings.privacyPolicy"
     }

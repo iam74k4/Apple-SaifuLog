@@ -323,6 +323,52 @@
         }
       }
     },
+    "%lld 件の記録を読み込みますか？" : {
+      "comment" : "設定で CSV ファイルを選んだ後の、読み込む前の確かめのアラートの見出し。%lld は入れる記録の件数（1 以上）",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Import %lld Entry?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Import %lld Entries?"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld 件の記録を足しました。" : {
+      "comment" : "CSV ファイルから記録を入れた後のアラートの本文。%lld は入れた記録の件数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Added %lld entry."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Added %lld entries."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld 件（くり返しの記録）" : {
       "comment" : "設定の「くり返しの記録」の行の右に出す、くり返しの記録の数。%lld は数",
       "localizations" : {
@@ -564,6 +610,17 @@
         }
       }
     },
+    "CSV から読み込む" : {
+      "comment" : "設定の「記録を読み込む」のボタン。ファイルを選ぶ画面を出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import CSV File"
+          }
+        }
+      }
+    },
     "CSV ファイルを書き出す" : {
       "comment" : "設定の「記録を書き出す」のボタン。選んだ期間の記録を CSV ファイルにして共有の画面を出す",
       "localizations" : {
@@ -648,6 +705,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lock with Touch ID"
+          }
+        }
+      }
+    },
+    "UTF-8 か Shift_JIS で保存した CSV ファイルを選んでください。" : {
+      "comment" : "ファイルを読めなかったときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a CSV file saved as UTF-8 or Shift_JIS."
           }
         }
       }
@@ -1285,6 +1353,28 @@
         }
       }
     },
+    "このアプリで書き出した CSV ファイルから、記録を戻します（機種変更のときなど）。ファイルはこの iPhone の中で読み、すでにある同じ記録は 2 回入れません。" : {
+      "comment" : "設定の「記録を読み込む」の節の注記",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restores entries from a CSV file exported by this app (for example, when you switch to a new iPhone). The file is read on this iPhone, and entries that are already here aren’t added twice."
+          }
+        }
+      }
+    },
+    "このアプリで書き出した CSV ファイルを選んで、記録に戻します" : {
+      "comment" : "設定の「CSV から読み込む」のボタンの VoiceOver のヒント",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a CSV file exported by this app to restore its entries"
+          }
+        }
+      }
+    },
     "このアプリについて" : {
       "comment" : "設定の節の見出し。プライバシーポリシー・ライセンス・バージョンの行",
       "localizations" : {
@@ -1292,6 +1382,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "About"
+          }
+        }
+      }
+    },
+    "このアプリの CSV ではありません" : {
+      "comment" : "選んだファイルの見出しの行が、このアプリの書き出しと違ったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not a SaifuLog CSV File"
           }
         }
       }
@@ -1382,6 +1483,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This build of the app can’t use iCloud because it’s an unsigned development build."
+          }
+        }
+      }
+    },
+    "このファイルは、すでにある記録と同じもの（%lld 件）と、読めない行（%lld 件）だけでした。" : {
+      "comment" : "入れる記録が無かったときのアラートの本文。1 つ目の %lld はすでに同じ記録がある行の数、2 つ目は読めなかった行の数",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file only had entries that are already here (%1$lld) and rows that couldn’t be read (%2$lld)."
           }
         }
       }
@@ -1547,6 +1659,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Smooth out wrinkles and folds, and avoid shadows."
+          }
+        }
+      }
+    },
+    "すでにある同じ記録 %lld 件と、読めなかった行 %lld 件は入れません。" : {
+      "comment" : "読み込む前の確かめのアラートの本文。1 つ目の %lld はすでに同じ記録があるので飛ばす行の数、2 つ目は読めなかった行の数",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entries already here: %1$lld. Rows that couldn’t be read: %2$lld. These won’t be added."
           }
         }
       }
@@ -2368,6 +2491,28 @@
         }
       }
     },
+    "ファイルが大きすぎます" : {
+      "comment" : "選んだ CSV ファイルが大きすぎて読めなかったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File Too Large"
+          }
+        }
+      }
+    },
+    "ファイルを読めませんでした" : {
+      "comment" : "選んだファイルを開けない・文字として読めなかったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Read the File"
+          }
+        }
+      }
+    },
     "プライバシーポリシー" : {
       "comment" : "設定の「このアプリについて」の行。押すと Safari でプライバシーポリシー（GitHub）を開く",
       "localizations" : {
@@ -2606,6 +2751,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Unlock"
+          }
+        }
+      }
+    },
+    "一度に読み込めるのは %lld 件までです。" : {
+      "comment" : "CSV ファイルが大きすぎたときのアラートの本文。%lld は一度に読み込める記録の行の上限",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can import up to %lld entries at a time."
           }
         }
       }
@@ -5489,6 +5645,17 @@
         }
       }
     },
+    "記録は何も足していません。もう一度お試しください。" : {
+      "comment" : "CSV ファイルから読んだ記録を書き込めなかったときのアラートの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No entries were added. Please try again."
+          }
+        }
+      }
+    },
     "記録は消えません。次からは、同じ言葉の前の記録でいつも使うカテゴリか、AI とキーワード辞書でカテゴリを決めます。" : {
       "comment" : "設定の「覚えたカテゴリ」の「すべて忘れる」の確認の本文",
       "localizations" : {
@@ -5529,6 +5696,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Record or ask"
+          }
+        }
+      }
+    },
+    "記録を入れられませんでした" : {
+      "comment" : "CSV ファイルから読んだ記録を保存先に書き込めなかったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Add Entries"
           }
         }
       }
@@ -5610,6 +5788,17 @@
         }
       }
     },
+    "記録を読み込む" : {
+      "comment" : "設定の節の見出し。このアプリで書き出した CSV ファイルから記録を戻す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import Entries"
+          }
+        }
+      }
+    },
     "記録を読み込めませんでした" : {
       "comment" : "月のまとめで、保存先から記録を読めなかったときの見出し。下に「もう一度試す」のボタンを出す",
       "localizations" : {
@@ -5650,6 +5839,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Settings"
+          }
+        }
+      }
+    },
+    "設定の「CSV ファイルを書き出す」で作ったファイルを選んでください。列を変えたファイルは読めません。" : {
+      "comment" : "このアプリの CSV ではなかったときのアラートの本文。「CSV ファイルを書き出す」は設定の書き出しのボタンの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a file made with Export CSV File in Settings. Files with changed columns can’t be read."
           }
         }
       }
@@ -5737,6 +5937,28 @@
         }
       }
     },
+    "読み込みました" : {
+      "comment" : "CSV ファイルから記録を入れた後のアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported"
+          }
+        }
+      }
+    },
+    "読み込む" : {
+      "comment" : "読み込む前の確かめのアラートの、記録を入れるボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import"
+          }
+        }
+      }
+    },
     "読み込めませんでした" : {
       "comment" : "設定の「覚えたカテゴリ」を読み込めなかったときのアラートの題名",
       "localizations" : {
@@ -5744,6 +5966,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t Load"
+          }
+        }
+      }
+    },
+    "読み込める記録がありません" : {
+      "comment" : "選んだ CSV ファイルに、入れる記録が無かったときのアラートの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing to Import"
+          }
+        }
+      }
+    },
+    "読み込んだ記録は、ホームとカレンダーの使った日のところに入ります。" : {
+      "comment" : "読み込む前の確かめのアラートの本文（すでにある記録と同じものも、読めない行も無いとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported entries appear on the days they were spent, on Home and in the calendar."
+          }
+        }
+      }
+    },
+    "読み込んでいます…" : {
+      "comment" : "設定の読み込みのボタン。選んだ CSV ファイルを読んでいる間に出す（進行中の印を添える）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importing…"
           }
         }
       }

@@ -1,5 +1,6 @@
 import SaifuLogCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// ⑧ 設定。必要なときだけ開く画面。ホームの帯の右上の歯車から横に進む。
 ///
@@ -31,6 +32,7 @@ struct SettingsView: View {
                 lockSection(appLock)
             }
             exportSection
+            importSection
             aboutSection
         }
         // リストの地は画面の背景にし、行は面の色にする（ほかの画面と同じ地にそろえる）。
@@ -91,6 +93,31 @@ struct SettingsView: View {
             Button("OK", role: .cancel) {}
         } message: { status in
             Text(verbatim: status.guidanceText ?? "")
+        }
+        // CSV から読み込むファイルを選ぶ。選べるのは CSV と、拡張子が .txt などになった文字のファイル（保存し直すと変わることが
+        // あるため）。中身がこのアプリの書き出しの形かは、読んでから確かめる（`LedgerCSVReader`）。
+        .fileImporter(isPresented: $model.showsImporter, allowedContentTypes: [.commaSeparatedText, .plainText]) { result in
+            model.importFile(result, calendar: calendar)
+        }
+        // 読み込む前に、入れる件数と飛ばす件数を見てもらう（思っていたファイルと違ったときに、記録を黙って増やさないため）。
+        .alert(
+            importConfirmationTitle,
+            isPresented: showsImportConfirmation,
+            presenting: model.importPreview
+        ) { preview in
+            Button("読み込む") { model.confirmImport(preview) }
+            Button("キャンセル", role: .cancel) { model.cancelImport() }
+        } message: { preview in
+            importConfirmationMessage(preview)
+        }
+        .alert(
+            importAlertTitle,
+            isPresented: showsImportAlert,
+            presenting: model.importAlert
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { alert in
+            importAlertMessage(alert)
         }
         // 書き出したファイルを共有のシートで渡し、閉じたらファイルを消す。
         .background(
@@ -462,6 +489,94 @@ struct SettingsView: View {
 
     private var showsExportAlert: Binding<Bool> {
         Binding(get: { model.exportAlert != nil }, set: { if !$0 { model.exportAlert = nil } })
+    }
+
+    // MARK: - 読み込み
+
+    /// 書き出した CSV から記録を戻す（機種変更のときや、iCloud 同期を使わずに別の端末へ移すとき）。書き出しの節とは分ける
+    /// （書き出しは 1 行のメニューで期間を選ぶ操作、読み込みはファイルを選ぶ操作で、行の押し方が違うため）。
+    private var importSection: some View {
+        Section {
+            Button {
+                model.requestImport()
+            } label: {
+                HStack(spacing: 12) {
+                    Label {
+                        if model.isImporting {
+                            Text("読み込んでいます…")
+                        } else {
+                            Text("CSV から読み込む")
+                        }
+                    } icon: {
+                        SettingsRowIcon(symbolName: "square.and.arrow.down", fill: SettingsRowIcon.gray)
+                    }
+                    Spacer(minLength: 0)
+                    if model.isImporting {
+                        ProgressView()
+                            .accessibilityHidden(true)
+                    }
+                }
+                .frame(minHeight: 44)
+                .contentShape(.rect)
+            }
+            .disabled(model.isImporting || model.importPreview != nil)
+            .accessibilityHint("このアプリで書き出した CSV ファイルを選んで、記録に戻します")
+            .accessibilityIdentifier(AccessibilityID.Settings.importCSV)
+            .listRowBackground(Theme.surface)
+        } header: {
+            sectionHeader("記録を読み込む")
+        } footer: {
+            sectionFooter(
+                "このアプリで書き出した CSV ファイルから、記録を戻します（機種変更のときなど）。ファイルはこの iPhone の中で読み、すでにある同じ記録は 2 回入れません。"
+            )
+        }
+    }
+
+    private var importConfirmationTitle: Text {
+        model.importPreview.map { Text("\($0.importCount) 件の記録を読み込みますか？") } ?? Text(verbatim: "")
+    }
+
+    private func importConfirmationMessage(_ preview: LedgerImporter.Preview) -> Text {
+        if preview.duplicateCount == 0 && preview.unreadableCount == 0 {
+            return Text("読み込んだ記録は、ホームとカレンダーの使った日のところに入ります。")
+        }
+        return Text("すでにある同じ記録 \(preview.duplicateCount) 件と、読めなかった行 \(preview.unreadableCount) 件は入れません。")
+    }
+
+    private var importAlertTitle: Text {
+        switch model.importAlert {
+        case .imported: Text("読み込みました")
+        case .nothingToImport: Text("読み込める記録がありません")
+        case .notSaifuLogCSV: Text("このアプリの CSV ではありません")
+        case .tooLarge: Text("ファイルが大きすぎます")
+        case .unreadable, nil: Text("ファイルを読めませんでした")
+        case .saveFailed: Text("記録を入れられませんでした")
+        }
+    }
+
+    private func importAlertMessage(_ alert: SettingsModel.ImportAlert) -> Text {
+        switch alert {
+        case .imported(let count):
+            Text("\(count) 件の記録を足しました。")
+        case .nothingToImport(let duplicates, let unreadable):
+            Text("このファイルは、すでにある記録と同じもの（\(duplicates) 件）と、読めない行（\(unreadable) 件）だけでした。")
+        case .notSaifuLogCSV:
+            Text("設定の「CSV ファイルを書き出す」で作ったファイルを選んでください。列を変えたファイルは読めません。")
+        case .tooLarge:
+            Text("一度に読み込めるのは \(LedgerCSVReader.maximumRows) 件までです。")
+        case .unreadable:
+            Text("UTF-8 か Shift_JIS で保存した CSV ファイルを選んでください。")
+        case .saveFailed:
+            Text("記録は何も足していません。もう一度お試しください。")
+        }
+    }
+
+    private var showsImportConfirmation: Binding<Bool> {
+        Binding(get: { model.importPreview != nil }, set: { if !$0 { model.importPreview = nil } })
+    }
+
+    private var showsImportAlert: Binding<Bool> {
+        Binding(get: { model.importAlert != nil }, set: { if !$0 { model.importAlert = nil } })
     }
 
     // MARK: - このアプリについて

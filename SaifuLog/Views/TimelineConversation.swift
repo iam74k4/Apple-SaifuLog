@@ -101,6 +101,8 @@ struct SentTextBubble: View {
         case .text, .wallet: nil
         case .voice: "mic.fill"
         case .receipt: "receipt"
+        // CSV から読み込んだ記録の送った文（元は打った文かレシートの要約）。読み込んだものと分かるようにする。
+        case .imported: "square.and.arrow.down"
         // くり返しの記録は打った文が無いので、ふつうは吹き出しを出さない（元の文が空）。
         case .recurring: "arrow.triangle.2.circlepath"
         }
@@ -373,7 +375,7 @@ private struct RecordedReplyHeader: View {
     private var symbolName: String {
         switch source {
         case .recurring: "arrow.triangle.2.circlepath"
-        case .text, .voice, .receipt, .wallet: "checkmark"
+        case .text, .voice, .receipt, .wallet, .imported: "checkmark"
         }
     }
 
@@ -435,7 +437,8 @@ private struct RecordedReplyHeader: View {
         case .text, .voice: Text("記録を消して、送った文を入力欄に戻します")
         // 前の版の Apple Pay の支払いの記録は、いまは作らないので「取り消す」を出すことは無い（取り消せるのは直前の送信だけで、
         // 開き直すと引っ込める）。打った文が無く入力欄にも戻さないので、説明は添えない。
-        case .wallet: Text(verbatim: "")
+        // CSV から読み込んだ記録も、直前の送信にならないので「取り消す」を出すことは無い。
+        case .wallet, .imported: Text(verbatim: "")
         }
     }
 }

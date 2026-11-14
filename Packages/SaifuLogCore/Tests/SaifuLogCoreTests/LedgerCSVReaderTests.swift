@@ -5,8 +5,8 @@ import Testing
 @Suite("CSV の読み込み")
 struct LedgerCSVReaderTests {
     static let tokyo = TimeZone(identifier: "Asia/Tokyo")!
-    static let clothes = CustomCategoryInfo(id: "clothes", name: "衣服", symbolName: "tshirt", colorIndex: 0)
-    static let catalog = CategoryCatalog(customs: [clothes])
+    static let hobby = CustomCategoryInfo(id: "hobby", name: "推し活", symbolName: "heart", colorIndex: 0)
+    static let catalog = CategoryCatalog(customs: [hobby])
 
     static func read(_ text: String, catalog: CategoryCatalog = .builtIn) throws -> LedgerCSVReader.Result {
         try LedgerCSVReader.read(text: text, timeZone: tokyo, catalog: catalog)
@@ -33,7 +33,7 @@ struct LedgerCSVReaderTests {
             CSVRecord(amount: 250_000, isIncome: true, category: .other, memo: "給料", originalText: "給料 25万"),
             // 品目にカンマ・改行・ダブルクォート、送った文に数式の頭の文字。
             CSVRecord(amount: 1_280, category: .daily, memo: "洗剤, \"特売\"\nほか", originalText: "=HYPERLINK(\"x\")"),
-            CSVRecord(amount: 3_990, category: Self.clothes.category, memo: "シャツ", originalText: "シャツ 3990"),
+            CSVRecord(amount: 3_990, category: Self.hobby.category, memo: "グッズ", originalText: "グッズ 3990"),
             // くり返しの記録は送った文が空。
             CSVRecord(amount: 80_000, category: .utilities, memo: "家賃", originalText: ""),
         ]
@@ -98,7 +98,7 @@ struct LedgerCSVReaderTests {
         let text = """
             Date,Time,Type,Category,Item,Amount,What you sent\r
             2026-09-28,12:00,Expense,Café,Latte,480,Latte 480\r
-            2026-09-28,12:01,Expense,衣服,Shirt,3990,Shirt 3990\r
+            2026-09-28,12:01,Expense,推し活,Goods,3990,Goods 3990\r
             2026-09-28,12:02,Expense,消したカテゴリ,Gift,2000,Gift 2000\r
             2026-09-28,12:03,支出,日用品,洗剤,300,洗剤 300\r
 
@@ -107,12 +107,12 @@ struct LedgerCSVReaderTests {
         let result = try Self.read(text, catalog: Self.catalog)
 
         #expect(result.language == .english)
-        #expect(result.rows.map(\.category) == [.cafe, Self.clothes.category, .other, .daily])
+        #expect(result.rows.map(\.category) == [.cafe, Self.hobby.category, .other, .daily])
     }
 
     @Test("作ったカテゴリが一覧に無ければ（ほかの端末で作った・消した）、その名前は「その他」にする")
     func unknownCustomCategoryReadsAsOther() throws {
-        let text = "日付,時刻,種類,カテゴリ,品目,金額,送った文\r\n2026-09-28,12:00,支出,衣服,シャツ,3990,シャツ 3990\r\n"
+        let text = "日付,時刻,種類,カテゴリ,品目,金額,送った文\r\n2026-09-28,12:00,支出,推し活,グッズ,3990,グッズ 3990\r\n"
 
         #expect(try Self.read(text).rows.map(\.category) == [.other])
     }

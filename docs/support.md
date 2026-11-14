@@ -110,7 +110,7 @@ Use either of these:
 - Sync with iCloud: turn it on on your old iPhone and let it finish syncing, then turn it on on the new iPhone with the same Apple
   Account.
 - A CSV file: on your old iPhone, export All from Export Entries in Settings and save the file (for example, in Files). On the new
-  iPhone, choose the file with Import from CSV in Settings. Entries that are already there aren't added twice.
+  iPhone, choose the file with Import CSV File in Settings. Entries that are already there aren't added twice.
 
 Restoring a full iPhone backup (iCloud Backup or a backup on your computer) also restores your entries.
 
