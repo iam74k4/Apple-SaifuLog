@@ -36,6 +36,10 @@ enum AccessibilityID {
         }
         /// 聞き返しの「カテゴリを作る」。
         static let createCategory = "reply.createCategory"
+        /// 返事の下の、チャットでの直し方のヒント。
+        static let correctionHint = "reply.correctionHint"
+        /// 返事の下の、カレンダーのページのヒント（押すとカレンダー）。
+        static let calendarHint = "reply.calendarHint"
         /// チャットの操作や読めなかった文への知らせの見出し（「金額を直しました」など）。
         static let noticeTitle = "reply.noticeTitle"
         /// 質問の答えの数字と見出しの要素。

@@ -173,7 +173,9 @@ final class UITestMode {
             makeRecordRemarkWriter: { nil },
             receiptReader: ReceiptReader(recognize: { _ in receiptLines }, makeRefiner: { nil }),
             canUseDocumentCamera: false,
-            now: makeClock()
+            now: makeClock(),
+            // 返事の下のヒントも、ふだんと同じく出す（設定は UI テストの領域。起動のたびに空から始める）。
+            hints: ReplyHints(defaults: defaults)
         )
     }
 

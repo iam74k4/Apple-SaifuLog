@@ -44,7 +44,8 @@ struct HomeModelTests {
 
         /// - Parameters:
         ///   - canUseDocumentCamera: 書類カメラを使えるか（シミュレータには無いので、決めて渡す）。
-        init(canUseDocumentCamera: Bool = true) throws {
+        ///   - showsHints: 返事の下のヒント（`ReplyHints`）を出すか。出す回数はこのテストの UserDefaults の領域に覚える。
+        init(canUseDocumentCamera: Bool = true, showsHints: Bool = false) throws {
             context = try TestSupport.makeContext()
             defaults = try #require(UserDefaults(suiteName: suiteName))
             var store = EntryStore(context: context)
@@ -68,7 +69,8 @@ struct HomeModelTests {
                 canUseDocumentCamera: canUseDocumentCamera,
                 now: { [unowned self] in now },
                 announce: { [unowned self] in announcements.append($0) },
-                announceAside: { [unowned self] in asideAnnouncements.append($0) }
+                announceAside: { [unowned self] in asideAnnouncements.append($0) },
+                hints: showsHints ? ReplyHints(defaults: defaults) : nil
             )
         }
 

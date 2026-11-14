@@ -276,6 +276,7 @@ struct HomeView: View {
                 canUndoLatest: model.canUndo,
                 askingCategory: model.categoryQuestionIDs,
                 replyRemark: model.replyRemark,
+                replyHint: model.replyHint,
                 showMore: { model.showMoreTimeline() },
                 undo: { model.undoLastRecord() },
                 edit: { model.presentEdit($0, calendar: calendar) },
@@ -286,7 +287,8 @@ struct HomeView: View {
                 fillDraft: { model.fillDraft($0) },
                 openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
                 setBudget: { model.presentBudgetSetup() },
-                askFollowUp: { model.askFollowUp($0, calendar: calendar) }
+                askFollowUp: { model.askFollowUp($0, calendar: calendar) },
+                openCalendar: { withAnimation { model.page = .calendar } }
             )
     }
 
@@ -460,6 +462,10 @@ private struct EntryTimeline: View {
     let setBudget: () -> Void
     /// 回答カードの「続けて聞く質問」を送る（いちばん新しい答えにだけ出す）。
     let askFollowUp: (QuestionFollowUp) -> Void
+    /// 直前の記録の返事の下に出すヒント（`HomeModel.replyHint`）。
+    let replyHint: ReplyHints.Hint?
+    /// カレンダーのページを出す（カレンダーのヒントを押したとき）。
+    let openCalendar: () -> Void
 
     @Environment(\.calendar) private var calendar
     @Query private var recentEntries: [Entry]
@@ -474,6 +480,7 @@ private struct EntryTimeline: View {
         canUndoLatest: Bool,
         askingCategory: Set<PersistentIdentifier>,
         replyRemark: HomeModel.ReplyRemark?,
+        replyHint: ReplyHints.Hint? = nil,
         showMore: @escaping () -> Void,
         undo: @escaping () -> Void,
         edit: @escaping (Entry) -> Void,
@@ -484,7 +491,8 @@ private struct EntryTimeline: View {
         fillDraft: @escaping (String) -> Void,
         openReport: @escaping (Date) -> Void,
         setBudget: @escaping () -> Void,
-        askFollowUp: @escaping (QuestionFollowUp) -> Void
+        askFollowUp: @escaping (QuestionFollowUp) -> Void,
+        openCalendar: @escaping () -> Void = {}
     ) {
         self.limit = limit
         self.canShowMore = canShowMore
@@ -506,6 +514,8 @@ private struct EntryTimeline: View {
         self.openReport = openReport
         self.setBudget = setBudget
         self.askFollowUp = askFollowUp
+        self.replyHint = replyHint
+        self.openCalendar = openCalendar
         _recentEntries = Query(Entry.timelineDescriptor(limit: limit))
     }
 
@@ -603,8 +613,9 @@ private struct EntryTimeline: View {
                             send: send, today: today, canUndo: isLatest && canUndoLatest, showsStatus: isLatest,
                             askingCategory: isLatest ? askingCategory : [],
                             remark: isLatest ? remark(for: send) : nil,
+                            hint: isLatest ? replyHint : nil,
                             undo: undo, edit: edit, requestDelete: requestDelete, chooseCategory: chooseCategory,
-                            createCategory: createCategory, makeRecurring: makeRecurring
+                            createCategory: createCategory, makeRecurring: makeRecurring, openCalendar: openCalendar
                         )
                         // 送信のいちばん下（返事のカード）の位置を知らせる。
                         .reportsTimelineFrame(.row(send.id))

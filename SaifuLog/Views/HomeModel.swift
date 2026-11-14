@@ -59,6 +59,8 @@ final class HomeModel {
             // 別の送信の記録に替わったら（記録した・引っ込めた）、引っ込めた「取り消す」を戻す。消えた記録を外しただけなら、そのまま。
             if justRecorded.isEmpty || justRecorded.contains(where: { entry in !oldValue.contains { $0 === entry } }) {
                 undoWithdrawn = false
+                // ヒントは直前の送信の返事に出したもの。送信が替わったら外す（記録した送信なら、記録したところで出し直す）。
+                replyHint = nil
             }
             snapshotJustRecorded()
         }
@@ -74,7 +76,14 @@ final class HomeModel {
     private var justRecordedItems: [RecordedItem] = []
     /// いま出しているホームのページ。開いたときは会話（記録が先）。左右のスワイプのほか、カレンダーの「会話」のボタンと、
     /// VoiceOver の帯の操作「カレンダー」で切り替える。
-    var page: Page = .conversation
+    var page: Page = .conversation {
+        didSet {
+            // カレンダーのページを開いたら、入口を知っているので、カレンダーのヒントはもう出さない（`ReplyHints`）。
+            guard page == .calendar else { return }
+            hints?.markCalendarOpened()
+            if replyHint == .calendar { replyHint = nil }
+        }
+    }
     /// カレンダーのページ（docs/design.md §9 の ⑩）の状態と操作。
     let calendarPage: LedgerCalendarModel
     /// カテゴリを聞き返している記録（`Entry.needsCategoryReview`）。直前の返事の行の下にカテゴリのボタンを出す。保存先から
@@ -194,6 +203,7 @@ final class HomeModel {
     ///   - now: 記録の日時と「今日」の基準。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     ///   - announceAside: VoiceOver に、いまの読み上げを遮らずに読み上げさせる（記録の返事の一言）。テストで読み上げる文を集める。
+    ///   - hints: 返事の下のヒント（直し方・カレンダー）を出した回数を覚えるもの。nil ならヒントを出さない（テストの既定）。
     init(
         store: EntryStore,
         budgetStore: BudgetStore? = nil,
@@ -212,7 +222,8 @@ final class HomeModel {
         canUseDocumentCamera: Bool = DocumentCameraView.isSupported,
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
-        announceAside: @escaping @MainActor (String) -> Void = { VoiceOver.announceAside($0) }
+        announceAside: @escaping @MainActor (String) -> Void = { VoiceOver.announceAside($0) },
+        hints: ReplyHints? = nil
     ) {
         let budgetStore = budgetStore ?? BudgetStore(context: store.context)
         let recurring = recurring ?? RecurringEntryStore(context: store.context, now: now)
@@ -235,14 +246,16 @@ final class HomeModel {
         self.now = now
         self.announce = announce
         self.announceAside = announceAside
+        self.hints = hints
         self.today = now()
         refreshCategoryQuestions()
     }
 
     convenience init(
-        context: ModelContext, pendingWrites: PendingStoreWrites = PendingStoreWrites(), storeHost: StoreHost? = nil
+        context: ModelContext, pendingWrites: PendingStoreWrites = PendingStoreWrites(), storeHost: StoreHost? = nil,
+        hints: ReplyHints? = nil
     ) {
-        self.init(store: EntryStore(context: context), pendingWrites: pendingWrites, storeHost: storeHost)
+        self.init(store: EntryStore(context: context), pendingWrites: pendingWrites, storeHost: storeHost, hints: hints)
     }
 
     /// ホームの上にほかの画面・シート・確認・知らせを出しているか（出している間は、Siri・ショートカットの頼みと、AI が選んだ
@@ -315,6 +328,11 @@ final class HomeModel {
 
     /// いま出している一言。無ければ nil（AI が使えない端末・照合に通らない・まだ書いている間）。
     private(set) var replyRemark: ReplyRemark?
+    /// 直前の記録の返事の下に出すヒント（直し方・カレンダー。`ReplyHints`）。無ければ nil。
+    private(set) var replyHint: ReplyHints.Hint?
+    /// ヒントを出した回数と、もう要らないことを覚えるもの。無ければヒントを出さない（テストと撮影用のデモ。アプリは
+    /// `UserDefaults.standard` の `ReplyHints` を渡す）。
+    @ObservationIgnored private var hints: ReplyHints?
     /// 一言を書かせている処理（テストで待つ）。
     @ObservationIgnored private(set) var replyRemarkTask: Task<Void, Never>?
 
@@ -364,6 +382,12 @@ final class HomeModel {
     func discardReplyRemark() {
         replyRemarkTask?.cancel()
         replyRemark = nil
+    }
+
+    /// 記録を直せた（チャットか直す画面で）。直し方を知っているので、直し方のヒントを外し、もう出さない（`ReplyHints`）。
+    private func noteCorrected() {
+        hints?.markCorrected()
+        if replyHint == .correction { replyHint = nil }
     }
 
     /// ほかの端末の変更が届いたときに、出している一言の数字が変わっていれば外す（`StoreChanges.remote`）。
@@ -673,6 +697,7 @@ final class HomeModel {
                 recorded, today: sentAt, calendar: calendar, asksCategory: recorded.contains(where: \.needsCategoryReview)
             )
             requestReplyRemark(for: recorded, sentAt: sentAt, calendar: calendar)
+            replyHint = hints?.nextHint()
         }
     }
 
@@ -877,6 +902,7 @@ final class HomeModel {
         refreshCategoryQuestions()
         receiptResult = nil
         announceRecorded(recorded, today: recordedAt, calendar: calendar)
+        replyHint = hints?.nextHint()
         return .recorded
     }
 
@@ -999,6 +1025,8 @@ final class HomeModel {
     /// 取り消すと、直す前の送った文を入力欄に戻すことになり、直した内容と食い違うため（送り直すと、直す前の読み方で
     /// 記録し直すことになる）。直した後も消したければ、長押しの「削除」か、直すシートの「この記録を削除」から消せる。
     private func finishEditing(_ entry: Entry) {
+        // 直す画面で直せた（直し方を知っている）ので、直し方のヒントはもう出さない。
+        noteCorrected()
         let id = entry.persistentModelID
         if justRecordedIDs.contains(id) {
             justRecorded = []
@@ -1265,6 +1293,8 @@ final class HomeModel {
         // 一言はカテゴリを変える前の数字で書いたので外す。
         discardReplyRemark()
         let name = categories.catalog.localizedName(for: category)
+        // チャットで直せた（直し方を知っている）ので、直し方のヒントはもう出さない。
+        noteCorrected()
         reply(.recategorized(item: item, category: name, remembered: remembered))
         announce(
             remembered
@@ -1299,6 +1329,8 @@ final class HomeModel {
         }
         // 一言は直す前の金額で書いたので外す。
         discardReplyRemark()
+        // チャットで直せた（直し方を知っている）ので、直し方のヒントはもう出さない。
+        noteCorrected()
         reply(.amountChanged(item: item, from: previous, to: amount))
         announce(String(localized: "金額を\(YenFormatter.string(from: amount))に直しました"))
     }
@@ -1319,6 +1351,8 @@ final class HomeModel {
             return
         }
         forgetJustRecorded(Set(ids))
+        // チャットで直せた（直し方を知っている）ので、直し方のヒントはもう出さない。
+        noteCorrected()
         reply(.removed(summary: summary))
         announce(String(localized: "削除しました: \(items.formatted(.list(type: .and)))"))
     }

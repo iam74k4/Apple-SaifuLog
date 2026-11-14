@@ -14,6 +14,10 @@ struct AppSettingsTests {
         #expect(AppSettings.hasCompletedOnboarding.key == "hasCompletedOnboarding")
         #expect(AppSettings.iCloudSyncEnabled.key == "iCloudSyncEnabled")
         #expect(AppSettings.appLockEnabled.key == "appLock.enabled")
+        #expect(AppSettings.correctionHintShownCount.key == "replyHint.correction.shownCount")
+        #expect(AppSettings.hasCorrectedEntry.key == "replyHint.correction.done")
+        #expect(AppSettings.calendarHintShownCount.key == "replyHint.calendar.shownCount")
+        #expect(AppSettings.hasOpenedCalendar.key == "replyHint.calendar.done")
     }
 
     /// 初回の案内はまだ終えていない、iCloud 同期はオフ（利用者が選んだときだけ同期する）、が既定。

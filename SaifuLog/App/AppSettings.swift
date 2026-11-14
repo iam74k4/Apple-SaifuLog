@@ -29,6 +29,14 @@ enum AppSettings {
     /// アプリのロック（設定の「Face ID でロック」）がオンか。この版より前の置き場所。いまは `LaunchSettingsStore` のファイルに
     /// 置き、ファイルがまだ無いときに値を移すためだけに読む（`iCloudSyncEnabled` と同じ理由）。
     static let appLockEnabled = AppSetting(key: "appLock.enabled", defaultValue: false)
+    /// 記録の返事の下に、チャットでの直し方のヒントを出した回数（`ReplyHints`）。
+    static let correctionHintShownCount = AppSetting(key: "replyHint.correction.shownCount", defaultValue: 0)
+    /// チャットか直す画面で一度でも記録を直したか（直し方を知っているので、もうヒントを出さない）。
+    static let hasCorrectedEntry = AppSetting(key: "replyHint.correction.done", defaultValue: false)
+    /// 記録の返事の下に、カレンダーのページのヒントを出した回数。
+    static let calendarHintShownCount = AppSetting(key: "replyHint.calendar.shownCount", defaultValue: 0)
+    /// カレンダーのページを一度でも開いたか（入口を知っているので、もうヒントを出さない）。
+    static let hasOpenedCalendar = AppSetting(key: "replyHint.calendar.done", defaultValue: false)
 
     /// すべての設定のキー。重なりが無いことをテストで確かめる。
     ///
@@ -37,6 +45,7 @@ enum AppSettings {
     static var allKeys: [String] {
         [
             hasCompletedOnboarding.key, iCloudSyncEnabled.key, appLockEnabled.key,
+            correctionHintShownCount.key, hasCorrectedEntry.key, calendarHintShownCount.key, hasOpenedCalendar.key,
         ]
     }
 }
@@ -55,6 +64,14 @@ extension UserDefaults {
     }
 
     func set(_ value: Bool, for setting: AppSetting<Bool>) {
+        set(value, forKey: setting.key)
+    }
+
+    func integer(for setting: AppSetting<Int>) -> Int {
+        object(forKey: setting.key) as? Int ?? setting.defaultValue
+    }
+
+    func set(_ value: Int, for setting: AppSetting<Int>) {
         set(value, forKey: setting.key)
     }
 }

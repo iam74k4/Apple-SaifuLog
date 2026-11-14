@@ -89,7 +89,10 @@ struct AppRootView: View {
         if OnboardingModel.needsOnboarding(context: container.mainContext) {
             onboarding = OnboardingModel()
         }
-        let home = HomeModel(context: container.mainContext, pendingWrites: storeHost.pendingWrites, storeHost: storeHost)
+        let home = HomeModel(
+            context: container.mainContext, pendingWrites: storeHost.pendingWrites, storeHost: storeHost,
+            hints: ReplyHints(defaults: .standard)
+        )
         // iCloud 同期を切り替えて開き直したときは、切り替えた設定の画面を開いた状態から始める（どうなったかをその画面で見せる）。
         home.restoreSettingsAfterStoreSwitch()
         self.home = home

@@ -166,6 +166,8 @@ struct RecordedReplyCard: View {
     var askingCategory: Set<PersistentIdentifier> = []
     /// 返事に添える端末内 AI の一言（直前の送信だけ。`HomeModel.replyRemark`）。無ければ出さない。
     var remark: String?
+    /// 返事の下に出すヒント（直前の送信だけ。`HomeModel.replyHint`）。無ければ出さない。
+    var hint: ReplyHints.Hint?
     let undo: () -> Void
     let edit: (Entry) -> Void
     /// 削除を求める（確認は呼び出し側で出す）。
@@ -176,6 +178,8 @@ struct RecordedReplyCard: View {
     var createCategory: (Entry) -> Void = { _ in }
     /// その記録の中身で、くり返しの記録を作る画面を開く（長押しの「毎月くり返す」）。
     var makeRecurring: (Entry) -> Void = { _ in }
+    /// カレンダーのページを出す（カレンダーのヒントを押したとき）。
+    var openCalendar: () -> Void = {}
 
     @Environment(\.calendar) private var calendar
 
@@ -201,6 +205,10 @@ struct RecordedReplyCard: View {
                     .padding(.top, 10)
             } else if showsStatus {
                 ReplyStatusLine(today: today, calendar: calendar, entries: send.entries)
+            }
+            if let hint {
+                ReplyHintLine(hint: hint, openCalendar: openCalendar)
+                    .padding(.top, 10)
             }
         }
         // 見出しは 44pt の高さの真ん中に文字があるので、上の余白を詰めて、下の余白とつり合わせる。
@@ -699,6 +707,45 @@ private struct ReplyStatusLine: View {
                 }
             }
             .accessibilityLabel(Text(verbatim: sentence.text))
+    }
+}
+
+/// 直前の記録の返事の下に 1 行だけ出すヒント（`ReplyHints`）。直し方は文だけ、カレンダーは押すとカレンダーのページを出す
+/// （スワイプのほかの入口にもなる）。ヒントだと分かるよう、電球の印を添え、本文より控えめにする。
+struct ReplyHintLine: View {
+    let hint: ReplyHints.Hint
+    let openCalendar: () -> Void
+
+    var body: some View {
+        switch hint {
+        case .correction:
+            label(Text("違っていたら「それ日用品」「さっきのを900に直して」と送れば直せます"), systemImage: "lightbulb")
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text("ヒント: 違っていたら「それ日用品」「さっきのを900に直して」と送れば直せます"))
+                .accessibilityIdentifier(AccessibilityID.Reply.correctionHint)
+        case .calendar:
+            Button(action: openCalendar) {
+                label(Text("左へスワイプすると、日ごとに使った額のカレンダーが見られます"), systemImage: "calendar")
+                    .frame(minHeight: 44, alignment: .leading)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("ヒント: 左へスワイプすると、日ごとに使った額のカレンダーが見られます"))
+            .accessibilityHint(Text("カレンダーを開きます"))
+            .accessibilityIdentifier(AccessibilityID.Reply.calendarHint)
+        }
+    }
+
+    private func label(_ text: Text, systemImage: String) -> some View {
+        Label {
+            text
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: systemImage)
+                .accessibilityHidden(true)
+        }
+        .font(.footnote)
+        .foregroundStyle(Theme.inkSecondary)
     }
 }
 

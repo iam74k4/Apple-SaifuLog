@@ -3443,6 +3443,61 @@
         }
       }
     },
+    "違っていたら「それ日用品」「さっきのを900に直して」と送れば直せます" : {
+      "comment" : "ホームの記録の返事の下に、最初の数回だけ出すヒント（チャットでの直し方）。例の文はアプリが日本語で読むので、英語でも日本語のまま書く",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If something’s wrong, send “それ日用品” or “さっきのを900に直して” to fix it"
+          }
+        }
+      }
+    },
+    "ヒント: 違っていたら「それ日用品」「さっきのを900に直して」と送れば直せます" : {
+      "comment" : "上のヒントの VoiceOver の読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tip: If something’s wrong, send “それ日用品” or “さっきのを900に直して” to fix it"
+          }
+        }
+      }
+    },
+    "左へスワイプすると、日ごとに使った額のカレンダーが見られます" : {
+      "comment" : "ホームの記録の返事の下に、直し方のヒントの後に数回だけ出すヒント。押すとカレンダーのページを出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swipe left to see a calendar of what you spent each day"
+          }
+        }
+      }
+    },
+    "ヒント: 左へスワイプすると、日ごとに使った額のカレンダーが見られます" : {
+      "comment" : "上のヒントの VoiceOver の読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tip: Swipe left to see a calendar of what you spent each day"
+          }
+        }
+      }
+    },
+    "カレンダーを開きます" : {
+      "comment" : "カレンダーのヒントの VoiceOver のヒント",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the calendar"
+          }
+        }
+      }
+    },
     "入力した内容を破棄しますか？" : {
       "comment" : "カテゴリを作るシートとくり返しの記録を足すシートを、入力した内容を保存せずに閉じようとしたとき（キャンセル・下へのスワイプ）の確認の見出し",
       "localizations" : {
