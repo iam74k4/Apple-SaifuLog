@@ -226,7 +226,7 @@ struct CategoryMemoryTests {
     @Test("知らないカテゴリの行と空の言葉の行は読み飛ばし、残す行にも選ばない")
     func resolveSkipsUnknownRows() {
         let rows = [
-            Row("ユニクロ", rawCategory: "clothing", at: Self.later),
+            Row("ユニクロ", rawCategory: "pets", at: Self.later),
             Row("ユニクロ", .other, at: Self.earlier),
             Row(" ", .food),
         ]

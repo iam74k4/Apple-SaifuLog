@@ -196,8 +196,8 @@ struct CategoryCatalogTests {
         ))
         #expect(question.category == .custom("c1"))
         #expect(question.metric == .categoryExpense)
-        // 一覧を渡さなければ、作ったカテゴリの名前は読まない。
-        #expect(QuestionParser.read("今月の衣服いくら?", now: Fixture.now, calendar: Fixture.calendar).category == nil)
+        // 一覧を渡さなければ、作ったカテゴリの名前は読まず、組み込みの「衣服・美容」の語として読む。
+        #expect(QuestionParser.read("今月の衣服いくら?", now: Fixture.now, calendar: Fixture.calendar).category == .clothing)
     }
 
     @Test("期間の語に作ったカテゴリの名前が続く文は、金額が無ければ質問")
