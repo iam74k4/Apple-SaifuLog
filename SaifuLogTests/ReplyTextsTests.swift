@@ -63,6 +63,16 @@ struct ReplyTextsTests {
         return try #require(BudgetStatus(budget: amount, spent: spent, now: TestSupport.now, month: month, calendar: TestSupport.calendar))
     }
 
+    @Test("送った支出のカテゴリの今月の件数と合計は「カフェは今月 3 件・¥1,350」（どの端末でも出す、コードが数えた一行）")
+    func categoryTally() throws {
+        let sentence = ReplyTexts.categoryTally(categoryName: "カフェ", count: 3, total: 1_350)
+
+        #expect(sentence.text == "カフェは今月 3 件・¥1,350")
+        #expect(sentence.figures == ["¥1,350"])
+        #expect(!sentence.isWarning)
+        #expect(try Self.english("%@は今月 %lld 件・%@", "Café", 3, "¥1,350") == "Café: 3 this month, ¥1,350")
+    }
+
     @Test("予算を決めていれば、帯と同じ残りと 1 日あたりの額で「今月あと ¥…（1日あたり ¥…）」")
     func statusWithBudget() throws {
         let sentence = try #require(ReplyTexts.status(

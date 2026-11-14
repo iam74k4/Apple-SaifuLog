@@ -198,7 +198,7 @@ struct RecordedReplyCard: View {
                     // 行どうしの間（12pt）と同じだけ空ける（見出しと行の間の 2pt に足す）。
                     .padding(.top, 10)
             } else if showsStatus {
-                ReplyStatusLine(today: today, calendar: calendar, isIncomeOnly: send.entries.allSatisfy(\.isIncome))
+                ReplyStatusLine(today: today, calendar: calendar, entries: send.entries)
             }
         }
         // 見出しは 44pt の高さの真ん中に文字があるので、上の余白を詰めて、下の余白とつり合わせる。
@@ -612,8 +612,10 @@ struct RecordedReplyRow<Record: LedgerEntryDisplaying>: View {
     }
 }
 
-/// 直前の送信の返事の最後の一行。今月の状況を、ホームの帯と同じ数字で言う（「今月あと ¥…（1日あたり ¥…）」「今月の予算を ¥… 超えて
-/// います」、収入だけの送信は「今月の収入 ¥…」。予算を決めていなければ出さない。`ReplyTexts.status`）。
+/// 直前の送信の返事の最後の行。送った支出のカテゴリの今月の件数と合計（「カフェは今月 3 件・¥1,350」。`ReplyTexts.categoryTally`）と、
+/// 今月の状況を、ホームの帯と同じ数字で言う（「今月あと ¥…（1日あたり ¥…）」「今月の予算を ¥… 超えています」、収入だけの送信は
+/// 「今月の収入 ¥…」。予算を決めていなければ出さない。`ReplyTexts.status`）。カテゴリの行は、今月に使った「その他」でない支出が
+/// あるときだけ（前の月の日付の記録や「その他」には出さない）。どちらもコードが数えた数字で、AI の無い端末でも出す。
 ///
 /// 数字は帯と同じ読み込みと計算（今月の記録と予算の @Query と `MonthSummaryHeader.figures`）で、記録を直す・消す・予算を変える・
 /// iCloud で取り込むと、その場で変わる（送ったときの数字の写しではない）。そのため出すのは直前の送信の返事だけにする（「取り消す」と
@@ -621,52 +623,79 @@ struct RecordedReplyRow<Record: LedgerEntryDisplaying>: View {
 /// 数字を残すこともできない。直前の返事にあれば、送った直後に目を向ける場所で「あといくら使えるか」が分かる。
 private struct ReplyStatusLine: View {
     let today: Date
-    let isIncomeOnly: Bool
+    /// 直前の送信の記録。
+    let entries: [Entry]
 
     @Environment(\.calendar) private var calendar
+    @Environment(\.categoryCatalog) private var catalog
     @ScaledMetric(relativeTo: .subheadline) private var iconWidth = 16
     @Query private var records: [Entry]
     @Query private var budgets: [Budget]
 
-    init(today: Date, calendar: Calendar, isIncomeOnly: Bool) {
+    init(today: Date, calendar: Calendar, entries: [Entry]) {
         self.today = today
-        self.isIncomeOnly = isIncomeOnly
+        self.entries = entries
         _records = Query(Entry.monthDescriptor(containing: today, calendar: calendar))
     }
 
     var body: some View {
         let figures = MonthSummaryHeader.figures(records: records, budgets: budgets, today: today, calendar: calendar)
-        if let sentence = ReplyTexts.status(summary: figures.summary, budget: figures.budget, isIncomeOnly: isIncomeOnly) {
-            line(sentence)
+        let isIncomeOnly = entries.allSatisfy(\.isIncome)
+        let sentences = [
+            tally,
+            ReplyTexts.status(summary: figures.summary, budget: figures.budget, isIncomeOnly: isIncomeOnly),
+        ].compactMap { $0 }
+        if !sentences.isEmpty {
+            lines(sentences)
                 // 行どうしの間（12pt）と同じだけ空ける（見出しと行の間の 2pt に足す）。出さないときに間だけが残らないよう、中で空ける。
                 .padding(.top, 10)
         }
     }
 
-    private func line(_ sentence: ReplySentence) -> some View {
+    /// 送った支出のうち、今月に使った「その他」でない最初のカテゴリの、今月の件数と合計。数字は帯と同じ今月の記録から数える。
+    private var tally: ReplySentence? {
+        guard let month = ReportPeriod.thisMonth.interval(now: today, calendar: calendar),
+              let category = entries.first(where: {
+                  !$0.isIncome && $0.category != .other && $0.spentAt >= month.start && $0.spentAt < month.end
+              })?.category
+        else { return nil }
+        let summary = LedgerSummary(records: records, interval: month, calendar: calendar)
+        guard let total = summary.expenseByCategory[category], let count = summary.expenseCountByCategory[category] else { return nil }
+        return ReplyTexts.categoryTally(categoryName: catalog.localizedName(for: category), count: count, total: total)
+    }
+
+    private func lines(_ sentences: [ReplySentence]) -> some View {
         LeadingStack(spacing: 10) {
             // 記録の行と分けて、返事の終わりに添えた一行だと分かるようにする（カードの枠と同じ色の細い線）。
             Rectangle()
                 .fill(Theme.track)
                 .frame(height: 1)
                 .accessibilityHidden(true)
-            Text(sentence.attributed(figureColor: sentence.isWarning ? Theme.danger : Theme.ink))
-                .font(.subheadline)
-                .monospacedDigit()
-                .foregroundStyle(Theme.inkSecondary)
-                // 予算を超えたときは、色だけでなくアイコンも添える（帯の「¥… オーバー」と同じ）。印は HStack ではなく文字に重ねる。
-                .padding(.leading, sentence.isWarning ? iconWidth + 4 : 0)
-                .overlay(alignment: Alignment(horizontal: .leading, vertical: .firstTextBaseline)) {
-                    if sentence.isWarning {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.subheadline)
-                            .foregroundStyle(Theme.danger)
-                            .frame(width: iconWidth)
-                            .accessibilityHidden(true)
-                    }
+            LeadingStack(spacing: 4) {
+                ForEach(sentences, id: \.text) { sentence in
+                    line(sentence)
                 }
-                .accessibilityLabel(Text(verbatim: sentence.text))
+            }
         }
+    }
+
+    private func line(_ sentence: ReplySentence) -> some View {
+        Text(sentence.attributed(figureColor: sentence.isWarning ? Theme.danger : Theme.ink))
+            .font(.subheadline)
+            .monospacedDigit()
+            .foregroundStyle(Theme.inkSecondary)
+            // 予算を超えたときは、色だけでなくアイコンも添える（帯の「¥… オーバー」と同じ）。印は HStack ではなく文字に重ねる。
+            .padding(.leading, sentence.isWarning ? iconWidth + 4 : 0)
+            .overlay(alignment: Alignment(horizontal: .leading, vertical: .firstTextBaseline)) {
+                if sentence.isWarning {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.danger)
+                        .frame(width: iconWidth)
+                        .accessibilityHidden(true)
+                }
+            }
+            .accessibilityLabel(Text(verbatim: sentence.text))
     }
 }
 

@@ -37,6 +37,22 @@ enum ReplyTexts {
         }
     }
 
+    /// 直前の送信の支出のカテゴリの、今月の件数と合計（「カフェは今月 3 件・¥1,350」）。
+    ///
+    /// コードが数えた数字なので、Apple Intelligence の無い端末でも出す（AI の一言は同じ数字から書かせ、照合に通ったときだけ
+    /// この一行と今月の状況の一行の代わりに出す。`HomeModel.replyRemark`）。前は予算を決めていない端末では、返事が「記録しました」と
+    /// 行だけになり、記録したことのほかに何も返らなかった（AI の無い端末は多い）。
+    static func categoryTally(categoryName: String, count: Int, total: Int) -> ReplySentence {
+        let amount = YenFormatter.string(from: total)
+        return ReplySentence(
+            text: String(
+                localized: "\(categoryName)は今月 \(count) 件・\(amount)",
+                comment: "ホームの返事のカードの最後の一行（直前の送信の支出）。%1$@ はカテゴリの名前（「カフェ」）、%2$lld はそのカテゴリの今月の記録の件数（いま記録したものを含む）、%3$@ はその合計（「¥1,350」）"
+            ),
+            figures: [amount]
+        )
+    }
+
     /// 直前の送信の返事の最後に添える、今月の状況の一行。ホームの帯と同じ数字（`MonthSummaryHeader.figures`）から作る（1 日あたりの
     /// 額は帯には出さず、月のまとめと同じ `BudgetStatus` の数字）。
     ///
