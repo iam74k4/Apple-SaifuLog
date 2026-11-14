@@ -68,7 +68,7 @@ final class LargeTextUITests: XCTestCase {
         XCTAssertTrue(app.element(AccessibilityID.Settings.budget).waitUntilHittable())
         app.goBack()
 
-        XCTAssertTrue(app.monthFigures.waitUntilHittable())
+        XCTAssertTrue(app.monthFigures.waitUntilHittable(), "帯の数字が押せません。いまの画面:\n\(app.debugDescription)")
         app.monthFigures.tap()
         let reportBar = app.navigationBars["月のまとめ"]
         XCTAssertTrue(reportBar.waitForExistence(timeout: UITestTimeout.ui))

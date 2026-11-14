@@ -92,8 +92,19 @@ extension XCUIApplication {
     }
 
     /// 入力欄に打って送る。
+    ///
+    /// 日本語のキーボード（かな漢字変換）で打った文が確定していないことがあった（入力欄には文が見えるが、アプリの文にはまだ
+    /// 入っておらず、送信のボタンが押せない）。そのときは改行で確定させる（確定していれば、改行で送られる。そのときは押さない）。
     func send(_ text: String, file: StaticString = #filePath, line: UInt = #line) {
         type(text, into: AccessibilityID.Home.inputField, file: file, line: line)
+        if !sendButton.waitUntilEnabled(timeout: 3) {
+            print("送信のボタンが押せないので、改行で打った文を確定させます: \(text)")
+            inputField.typeText("\n")
+            if inputField.wait(until: NSPredicate(format: "value != %@", text), timeout: 3) {
+                // 改行で送られた（入力欄が空いた）。
+                return
+            }
+        }
         XCTAssertTrue(
             sendButton.waitUntilEnabled(timeout: 5),
             "送信のボタンが押せません: \(text)（入力欄の値: \(String(describing: inputField.value))）", file: file, line: line

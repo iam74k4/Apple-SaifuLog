@@ -105,7 +105,11 @@ jobs:
       # アプリのビルドが落ちていても結果に意味がある。
       - name: コアのテスト
         if: ${{ !cancelled() }}
-        run: make test
+        # 出力をファイルにも残す（最後の「失敗したテストのまとめ」が読む）。pipefail で、tee を挟んでもテストの失敗で止まる。
+        run: |
+          set -o pipefail
+          mkdir -p build/logs
+          make test 2>&1 | tee build/logs/core-test.log
 
       # アプリのテスト（SaifuLogTests）と、スキームのテストに入っている全ターゲットをコンパイルする。
       # 上の make build はスキームの build アクション（SaifuLog だけ）なので、テストのターゲットが
@@ -119,7 +123,10 @@ jobs:
       # scripts/pick-simulator.sh が選ぶ（make test-app の TEST_DESTINATION の既定）。
       - name: アプリのテスト
         if: ${{ !cancelled() }}
-        run: make test-app
+        run: |
+          set -o pipefail
+          mkdir -p build/logs
+          make test-app 2>&1 | tee build/logs/app-test.log
 
       # 画面を操作する UI テスト（SaifuLogUITests。XCUITest）。初回の案内・記録と取り消し・カテゴリの聞き返し・チャットの操作・
       # 質問・直す・削除・カレンダー・月のまとめ・設定・書き出し・レシート・アクセシビリティの検査・大きな文字を、画面を押して
@@ -128,7 +135,10 @@ jobs:
       # UITestMode。端末内 AI の有無に左右されない）。宛先は上のアプリのテストと同じ（いちばん新しい iOS の iPhone）。
       - name: UI テスト
         if: ${{ !cancelled() }}
-        run: make test-ui
+        run: |
+          set -o pipefail
+          mkdir -p build/logs
+          make test-ui 2>&1 | tee build/logs/ui-test.log
 
       # 上のテストで起動したシミュレータ（いちばん新しい iOS）を止める。UI テストの後に動かしたままだと、次の iOS 26 の
       # シミュレータの起動に 10 分以上かかり、xcodebuild がそのシミュレータを見つけられずに止まったことがある（ランナーの
@@ -147,7 +157,10 @@ jobs:
 
       - name: iOS 26 でアプリの互換性を確認
         if: ${{ !cancelled() && steps.ios26-simulator.outcome == 'success' }}
-        run: make test-app-ios26
+        run: |
+          set -o pipefail
+          mkdir -p build/logs
+          make test-app-ios26 2>&1 | tee build/logs/app-test-ios26.log
 
       # Config/Base.xcconfig と CHANGELOG.md が食い違ったまま main へ進むと、
       # App Store のリリースノートが別バージョンのものになる。
@@ -175,3 +188,14 @@ jobs:
       - name: 提出用のアーカイブまで通す
         if: ${{ !cancelled() }}
         run: make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999
+
+      # 落ちたテストの行だけを、ジョブの最後にまとめて出す。テストの出力は長く（UI テストは数万行）、ログを API で読むと末尾の
+      # 数千行しか返らず、先に走るコアのテストやアプリのテストの失敗の行が読めないことがあったため。読むだけで、何も変えない。
+      - name: 失敗したテストのまとめ
+        if: ${{ failure() }}
+        run: |
+          for log in build/logs/*.log; do
+            [ -f "$log" ] || continue
+            echo "== $log"
+            grep -E "✘|error:|Expectation failed|Caught error" "$log" | head -300 || true
+          done
