@@ -255,7 +255,8 @@ struct HomeView: View {
                 header
                     // 合計は画面の上に常に出ている帯なので、文字の大きさに上限を設ける。最大の文字サイズの
                     // ままだと、下の入力欄と合わせて画面の半分以上を占め、タイムラインがほとんど見えなくなるため。
-                    // 上限は入力欄（`InputBar`）と同じ AX1（前は AX5 で帯（上の安全領域を含む）が画面の 3 分の 1 を超えた）。
+                    // 上限は入力欄のボタンの記号（`InputBar` のカメラと送信）と同じ AX1（前は AX5 で帯（上の安全領域を含む）が画面の
+                    // 3 分の 1 を超えた）。
                     .dynamicTypeSize(...DynamicTypeSize.accessibility1)
             }
             .safeAreaBar(edge: .bottom, spacing: 0) {
@@ -282,7 +283,7 @@ struct HomeView: View {
                 chooseCategory: { model.chooseCategory($1, for: $0) },
                 createCategory: { model.presentCategoryCreation(for: $0) },
                 makeRecurring: { model.presentRecurringCreation(from: $0, calendar: calendar) },
-                fillDraft: { model.draft = $0 },
+                fillDraft: { model.fillDraft($0) },
                 openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
                 setBudget: { model.presentBudgetSetup() },
                 askFollowUp: { model.askFollowUp($0, calendar: calendar) }

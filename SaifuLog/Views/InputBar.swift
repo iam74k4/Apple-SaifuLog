@@ -114,6 +114,8 @@ struct InputBar: View {
                 } else {
                     Image(systemName: "arrow.up")
                         .font(.body.weight(.bold))
+                        // アクセシビリティサイズの文字では 44pt の丸からはみ出すので、大きさに上限を設ける（レシートのボタンと同じ）。
+                        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
                 }
             }
             .frame(width: 44, height: 44)

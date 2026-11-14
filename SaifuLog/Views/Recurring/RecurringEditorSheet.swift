@@ -50,12 +50,15 @@ struct RecurringEditorSheet: View {
                     Text("次の月から記録しなくなります。これまでに記録したものは残ります。")
                 }
                 .confirmationDialog(
-                    "直した内容を破棄しますか？",
+                    // 作るときは「直した」ではなく「入力した」と言う。
+                    model.mode == .create ? Text("入力した内容を破棄しますか？") : Text("直した内容を破棄しますか？"),
                     isPresented: $model.showsDiscardConfirmation,
                     titleVisibility: .visible
                 ) {
                     Button("破棄して閉じる", role: .destructive) { dismiss() }
-                    Button("直すのを続ける", role: .cancel) {}
+                    Button(role: .cancel) {} label: {
+                        model.mode == .create ? Text("入力を続ける") : Text("直すのを続ける")
+                    }
                 }
         }
         .presentationDetents([.large])

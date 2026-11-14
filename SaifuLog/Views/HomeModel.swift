@@ -32,6 +32,13 @@ final class HomeModel {
 
     /// 入力欄の文。
     var draft = ""
+
+    /// 記録の無いホームの入力の例を押した。例の文を入力欄に入れ、入力欄にフォーカスを移す（VoiceOver のフォーカスも。文が入った
+    /// ことと、そのまま送れることが分かるように。前は文が入るだけで、VoiceOver では何が起きたか分からなかった）。
+    func fillDraft(_ text: String) {
+        draft = text
+        inputFocusRequest += 1
+    }
     /// 送った文を読み取っている間（送信ボタンを押せなくし、読み取り中の印を出す）。
     private(set) var isParsing = false {
         didSet {
@@ -1313,7 +1320,7 @@ final class HomeModel {
         }
         forgetJustRecorded(Set(ids))
         reply(.removed(summary: summary))
-        announce(String(localized: "取り消しました: \(items.formatted(.list(type: .and)))"))
+        announce(String(localized: "削除しました: \(items.formatted(.list(type: .and)))"))
     }
 
     /// 月の全体の予算をチャットの文で決める（「今月の予算を5万にして」。② 予算を決めると同じ保存）。返事を出す。

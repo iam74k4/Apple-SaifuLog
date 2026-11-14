@@ -83,7 +83,7 @@ final class HomeFlowUITests: XCTestCase {
         app.send("コーヒー 400")
         XCTAssertTrue(app.replyRow(containing: "コーヒー").waitForExistence(timeout: UITestTimeout.ui))
         app.send("さっきの消して")
-        XCTAssertTrue(app.element(labeled: "取り消しました").waitForExistence(timeout: UITestTimeout.ui))
+        XCTAssertTrue(app.element(labeled: "削除しました").waitForExistence(timeout: UITestTimeout.ui))
         XCTAssertTrue(app.replyRow(containing: "コーヒー").waitForNonExistence(timeout: UITestTimeout.ui))
         XCTAssertTrue(app.replyRow(containing: "ランチ").exists)
 

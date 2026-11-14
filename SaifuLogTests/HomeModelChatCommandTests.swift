@@ -183,7 +183,7 @@ struct HomeModelChatCommandTests {
         #expect(try fixture.entries().isEmpty)
         #expect(fixture.lastQuestionState == .removed(summary: "ランチ ¥850"))
         #expect(fixture.model.draft.isEmpty)
-        #expect(fixture.announcements.last?.hasPrefix(String(localized: "取り消しました: 食費 ¥850")) == true)
+        #expect(fixture.announcements.last?.hasPrefix(String(localized: "削除しました: 食費 ¥850")) == true)
     }
 
     /// 1 回の送信で複数件を記録したら、消す文はその送信の記録をすべて消す（返事の「取り消す」と同じ）。2 件以上を消すときは、

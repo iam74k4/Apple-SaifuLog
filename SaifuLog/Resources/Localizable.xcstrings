@@ -56,13 +56,13 @@
         }
       }
     },
-    "%@ を消しました。" : {
+    "%@ を削除しました。" : {
       "comment" : "チャットの文で直前の記録を消した後の返事のカードの本文。%@ は「ランチ ¥850」のような記録の要約",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Removed %@."
+            "value" : "Deleted %@."
           }
         }
       }
@@ -1491,7 +1491,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Delete This Record"
+            "value" : "Delete This Entry"
           }
         }
       }
@@ -1502,7 +1502,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Delete this record?"
+            "value" : "Delete this entry?"
           }
         }
       }
@@ -1708,7 +1708,7 @@
       }
     },
     "ひとことを書いています…" : {
-      "comment" : "先週のふりかえりのカードと月のまとめ。端末内 AI が一言を書いている間の表示",
+      "comment" : "月のまとめ。端末内 AI が一言を書いている間の表示",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2825,7 +2825,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This date is in the future. If this isn’t a planned record, check the date."
+            "value" : "This date is in the future. If this isn’t a planned entry, check the date."
           }
         }
       }
@@ -2852,13 +2852,13 @@
         }
       }
     },
-    "今月から %@ にしました。帯に今月あといくら使えるかと 1 日あたりを出します。" : {
+    "今月から %@ にしました。ホームの上に、今月あといくら使えるかを出します。" : {
       "comment" : "チャットの文で月の予算を決めた後の返事のカードの本文。%@ は予算の金額",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Set to %@ from this month. The top bar shows how much is left this month and per day."
+            "value" : "Set to %@ from this month. The top of Home shows how much is left this month."
           }
         }
       }
@@ -3276,8 +3276,30 @@
         }
       }
     },
+    "入力した内容を破棄しますか？" : {
+      "comment" : "カテゴリを作るシートとくり返しの記録を足すシートを、入力した内容を保存せずに閉じようとしたとき（キャンセル・下へのスワイプ）の確認の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard what you entered?"
+          }
+        }
+      }
+    },
+    "入力を続ける" : {
+      "comment" : "カテゴリを作るシートとくり返しの記録を足すシートの破棄の確認のボタン。シートに戻る",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Editing"
+          }
+        }
+      }
+    },
     "入力欄に入れます" : {
-      "comment" : "ホームの入力欄の上の、よく使うひとことのボタンの VoiceOver の説明",
+      "comment" : "記録の無いホームの、入力の例のボタンの VoiceOver の説明（押すと例の文が入力欄に入る）",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3403,7 +3425,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Show earlier records"
+            "value" : "Show earlier entries"
           }
         }
       }
@@ -3551,13 +3573,13 @@
         }
       }
     },
-    "取り消しました" : {
+    "削除しました" : {
       "comment" : "チャットの文で直前の記録を消した後の返事のカードの見出し",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Removed"
+            "value" : "Deleted"
           }
         }
       }
@@ -4894,7 +4916,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Undo last record"
+            "value" : "Undo last entry"
           }
         }
       }
@@ -5379,7 +5401,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Record count"
+            "value" : "Entry count"
           }
         }
       }
@@ -5517,12 +5539,12 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Removes the records and puts your text back in the input field."
+            "value" : "Removes the entries and puts your text back in the input field."
           }
         }
       }
     },
-    "記録を消しますか？" : {
+    "記録を削除しますか？" : {
       "comment" : "端末内 AI が選んだチャットの操作（直前の送信の記録を消す）の確認のアラートと返事のカードの見出し",
       "localizations" : {
         "en" : {
@@ -5539,7 +5561,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Edit Record"
+            "value" : "Edit Entry"
           }
         }
       }
@@ -5550,7 +5572,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens the record for editing."
+            "value" : "Opens the entry for editing."
           }
         }
       }

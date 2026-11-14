@@ -93,7 +93,7 @@ private struct QuestionReplyCard: View {
                     : "「\(item)」を \(YenFormatter.string(from: from)) から \(YenFormatter.string(from: to)) にしました。"
             )
         case .removed(let summary):
-            NoticeContent(title: "取り消しました", message: "\(summary) を消しました。")
+            NoticeContent(title: "削除しました", message: "\(summary) を削除しました。")
         case .commandAsked(let question):
             NoticeContent(title: question.title, message: question.detail)
         case .commandCancelled:
@@ -111,7 +111,7 @@ private struct QuestionReplyCard: View {
         case .budgetSet(let amount):
             NoticeContent(
                 title: "月の予算を決めました",
-                message: "今月から \(YenFormatter.string(from: amount)) にしました。帯に今月あといくら使えるかと 1 日あたりを出します。"
+                message: "今月から \(YenFormatter.string(from: amount)) にしました。ホームの上に、今月あといくら使えるかを出します。"
             )
         case .recategorized(let item, let category, let remembered):
             NoticeContent(
@@ -505,7 +505,7 @@ extension CommandQuestion {
         switch self {
         case .recategorize: "カテゴリを変えますか？"
         case .changeAmount: "金額を直しますか？"
-        case .remove: "記録を消しますか？"
+        case .remove: "記録を削除しますか？"
         case .setMonthlyBudget: "月の予算を決めますか？"
         }
     }
