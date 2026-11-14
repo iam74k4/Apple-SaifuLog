@@ -15,7 +15,7 @@ App Store Connect の「英語（米国）」のローカライズに入れる�
 | アプリ名 | 30 文字 | 8 文字 |
 | サブタイトル | 30 文字 | 18 文字 |
 | プロモーション用テキスト | 170 文字 | 152 文字 |
-| 説明 | 4,000 文字 | 3,452 文字（改行を含む） |
+| 説明 | 4,000 文字 | 3,564 文字（改行を含む） |
 | キーワード | 100 バイト | 89 バイト |
 | 著作権 | — | 14 文字 |
 
@@ -58,9 +58,9 @@ ONE-LINE ENTRY
 • Send “ランチ 850,” “昨日 焼肉12000 4人で割り勘” (yesterday, yakiniku ¥12,000 split four ways), or “給料 25万,” and SaifuLog records the date, category, and amount. Multiple entries, dates, and discounts work too.
 • On iPhone models that support Apple Intelligence, on-device AI reads your text; otherwise a keyword dictionary does, so you can always record.
 • Splits, totals, and what’s left are calculated by the app, not by the AI.
-• Edit or Undo right after each entry; touch and hold to delete.
-• If a category is unclear, the reply asks and remembers. Create your own categories such as rent or clothing.
-• On iPhone models that support Apple Intelligence, replies include a short on-device AI note about your month (numbers calculated by the app).
+• Undo right after each entry; tap any entry to edit it, or touch and hold to delete.
+• If a category is unclear, the reply asks and remembers. Housing and clothing categories are built in, and you can create your own.
+• Replies show how many times and how much you spent in that category this month. With Apple Intelligence, on-device AI writes a short note from the same numbers.
 
 CATEGORIES AND CHAT FIXES
 • Categories come from what you wrote, chose, or logged before, and store names like “ローソン.”
@@ -85,7 +85,7 @@ BUDGET, CALENDAR, AND SUMMARY
 • The monthly summary shows what you spent, what’s left of your budget, spending by category, and, for past months, the change from the month before. With Apple Intelligence, it adds a short AI note.
 
 EXPORT, SYNC, AND PRIVACY
-• Export your records as a CSV file.
+• Export your records as a CSV file, and import it again, for example on a new iPhone.
 • Sync with iCloud keeps records and budgets the same on your devices (off by default). The developer can’t see your iCloud data.
 • Lock the app with Face ID, Touch ID, or your passcode.
 • No analytics, no ads, no tracking. The developer receives no data from the app.
@@ -123,8 +123,8 @@ expense,spending,tracker,receipt,money,yen,japanese,chat,private,cash,diary,spli
 ## スクリーンショット
 
 `docs/app-store/screenshots/en/` の 6.9 インチ（1320 × 2868）の画像。順と使い道は日本語と同じ（`01`〜`04` をストアに。
-`05-calendar.png` はまだ入れない）。日本語と同じく、いまの画像は声の入力・週のふりかえり・プレミアムを
-やめる前に撮ったもので、撮り直すまで App Store Connect に入れない（[`metadata.ja.md`](metadata.ja.md) の「スクリーンショット」）。
+`05-calendar.png` はまだ入れない）。日本語と同じく、前の画像はやめた機能が写っていたので消し、いまはフォルダが空。撮って確かめてから
+App Store Connect に入れる（[`metadata.ja.md`](metadata.ja.md) の「スクリーンショット」）。
 
 英語の画面でも、記録の品目・質問・レシートの品名は日本語で写る（アプリは日本語の入力を読むため。説明の最初に書いている）。
 英語の画面では、記録の返事・質問の答え・月のまとめの **AI の一言を写していない**（端末内 AI は一言を日本語で書くので、英語の画面に
