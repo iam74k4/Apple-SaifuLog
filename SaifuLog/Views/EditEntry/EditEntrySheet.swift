@@ -146,7 +146,8 @@ struct EditEntrySheet: View {
                 }
                 .keyboardType(.numberPad)
                 .focused($focusedField, equals: .amount)
-                .onChange(of: model.amountText) { model.normalizeAmountText() }
+                // 打っている間は区切りを入れず、入力欄を離れたときにそろえる（`formatsAmountAfterEditing` の説明）。
+                .formatsAmountAfterEditing(isEditing: focusedField == .amount, normalize: model.normalizeAmountText)
                 .accessibilityHint(model.amountIssue?.message ?? Text(verbatim: ""))
                 .accessibilityIdentifier(AccessibilityID.EditEntry.amountField)
             }

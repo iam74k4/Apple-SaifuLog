@@ -436,6 +436,8 @@ private struct ReceiptLineRow: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.categoryCatalog) private var catalog
+    /// 金額の欄にフォーカスがあるか（離れたときに見せる形にそろえる）。
+    @FocusState private var isEditingAmount: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -495,7 +497,10 @@ private struct ReceiptLineRow: View {
             }
             .keyboardType(.numberPad)
             .monospacedDigit()
-            .onChange(of: line.amountText) { normalizeAmount() }
+            .focused($isEditingAmount)
+            // 打っている間は区切りを入れず、入力欄を離れたときにそろえる（`formatsAmountAfterEditing` の説明。この欄は品目の
+            // 配列ごと描き直すので、打つたびにそろえると桁が落ちやすかった）。
+            .formatsAmountAfterEditing(isEditing: isEditingAmount, normalize: normalizeAmount)
         }
         .font(.headline)
         .padding(.horizontal, 12)

@@ -213,7 +213,8 @@ final class ReceiptResultModel: Identifiable {
         announce(isIncluded ? String(localized: "戻しました: \(name)") : String(localized: "外しました: \(name)"))
     }
 
-    /// 金額の入力欄の文字を見せる形（「1,280」）にそろえる。入力欄が変わるたびに呼ぶ。
+    /// 金額の入力欄の文字を見せる形（「1,280」）にそろえる。入力欄を離れたときに呼ぶ（打っている間にそろえると、速く打った
+    /// 桁が落ちるため。`formatsAmountAfterEditing`）。
     func normalizeAmountText(for id: Line.ID) {
         guard let index = lines.firstIndex(where: { $0.id == id }) else { return }
         let formatted = EntryAmountInput.formatted(lines[index].amountText)

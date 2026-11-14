@@ -49,10 +49,20 @@ final class BudgetSetupModel: Identifiable {
         totalAmount > 0
     }
 
-    /// 入力欄の文字を見せる形（「150,000」）にそろえる。入力欄が変わるたびに呼ぶ。
+    /// 入力欄の文字を見せる形（「150,000」）にそろえる。入力欄を離れたときに呼ぶ（打っている間にそろえると、速く打った
+    /// 桁が落ちるため。`formatsAmountAfterEditing`）。
     func normalizeTotalText() {
         let formatted = BudgetAmountInput.formatted(totalText)
         if formatted != totalText { totalText = formatted }
+    }
+
+    /// 打っている間に呼ぶ。入力できる桁数（`BudgetAmountInput.maximumDigits`）を超えたときだけ切ってそろえる。
+    ///
+    /// 予算の額は桁数で切って読むので、超えたまま保存すると、打った額と違う額を黙って保存してしまうため。超えないうちは
+    /// 書き換えない（書き換えると、速く打った次の桁が落ちる）。
+    func limitTotalText() {
+        let digitCount = totalText.unicodeScalars.filter { (0x30...0x39).contains($0.value) || (0xFF10...0xFF19).contains($0.value) }.count
+        if digitCount > BudgetAmountInput.maximumDigits { normalizeTotalText() }
     }
 
     /// すぐに選べる額を選ぶ。

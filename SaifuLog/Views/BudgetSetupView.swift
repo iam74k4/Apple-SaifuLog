@@ -81,7 +81,10 @@ struct BudgetSetupView: View {
                 }
                 .keyboardType(.numberPad)
                 .focused($focusedField, equals: .total)
-                .onChange(of: model.totalText) { model.normalizeTotalText() }
+                // 打っている間は区切りを入れず、入力欄を離れたときにそろえる（`formatsAmountAfterEditing` の説明）。桁数を超えた
+                // ときだけ、打っている間にも切る（切った額で黙って保存しないように）。
+                .onChange(of: model.totalText) { model.limitTotalText() }
+                .formatsAmountAfterEditing(isEditing: focusedField == .total, normalize: model.normalizeTotalText)
                 .accessibilityIdentifier(AccessibilityID.Budget.amountField)
             }
             .font(.largeTitle.bold())

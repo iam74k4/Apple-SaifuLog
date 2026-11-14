@@ -171,7 +171,8 @@ final class EditEntryModel: Identifiable {
         return CategoryMemory.key(for: item) == nil ? nil : item
     }
 
-    /// 金額の入力欄の文字を見せる形（「1,280」）にそろえる。入力欄が変わるたびに呼ぶ。
+    /// 金額の入力欄の文字を見せる形（「1,280」）にそろえる。入力欄を離れたときに呼ぶ（打っている間にそろえると、速く打った
+    /// 桁が落ちるため。`formatsAmountAfterEditing`）。
     func normalizeAmountText() {
         let formatted = EntryAmountInput.formatted(amountText)
         if formatted != amountText { amountText = formatted }

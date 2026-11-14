@@ -45,9 +45,10 @@ final class RecurringEditorModel: Identifiable {
     /// 開いたときの入力欄の中身（閉じるときに、入れた内容があるかを見る）。
     @ObservationIgnored private var initialFields: Fields?
 
-    /// 入力欄の中身（入れた内容があるかを見るための写し）。
+    /// 入力欄の中身（入れた内容があるかを見るための写し）。金額は読み取った額で比べる（打っている間は区切りを入れないので、
+    /// 「80000」と開いたときの「80,000」を別の内容と数えないように。`formatsAmountAfterEditing`）。
     private struct Fields: Equatable {
-        let amountText: String
+        let amount: Int?
         let memo: String
         let isIncome: Bool
         let category: EntryCategory
@@ -57,7 +58,8 @@ final class RecurringEditorModel: Identifiable {
 
     private var fields: Fields {
         Fields(
-            amountText: amountText, memo: memo, isIncome: isIncome, category: category, dayOfMonth: dayOfMonth,
+            amount: EntryAmountInput.amount(from: amountText), memo: memo, isIncome: isIncome, category: category,
+            dayOfMonth: dayOfMonth,
             includesThisMonth: includesThisMonth
         )
     }
@@ -156,7 +158,7 @@ final class RecurringEditorModel: Identifiable {
         )
     }
 
-    /// 金額の入力欄を見せる形にそろえる（3 桁ごとのカンマ）。
+    /// 金額の入力欄を見せる形にそろえる（3 桁ごとのカンマ）。入力欄を離れたときに呼ぶ（`formatsAmountAfterEditing`）。
     func normalizeAmountText() {
         let formatted = EntryAmountInput.formatted(amountText)
         if formatted != amountText { amountText = formatted }

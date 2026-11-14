@@ -125,7 +125,7 @@ final class HomeFlowUITests: XCTestCase {
 
         let amount = app.element(AccessibilityID.EditEntry.amountField)
         XCTAssertTrue(amount.waitUntilHittable())
-        app.replaceText(in: AccessibilityID.EditEntry.amountField, with: "1200", shows: "1,200")
+        app.replaceText(in: AccessibilityID.EditEntry.amountField, with: "1200")
         let save = app.element(AccessibilityID.EditEntry.saveButton)
         XCTAssertTrue(save.waitUntilEnabled())
         save.tap()
