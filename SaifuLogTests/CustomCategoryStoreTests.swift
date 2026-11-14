@@ -39,15 +39,15 @@ struct CustomCategoryStoreTests {
     @Test func createAppendsInOrder() throws {
         let fixture = try Fixture()
 
-        let clothes = try fixture.store.create(name: " 衣服 ", symbolName: "tshirt", colorIndex: 2)
-        let housing = try fixture.store.create(name: "住居", symbolName: "house", colorIndex: 0)
+        let clothes = try fixture.store.create(name: " 推し活 ", symbolName: "tshirt", colorIndex: 2)
+        let housing = try fixture.store.create(name: "ペット", symbolName: "house", colorIndex: 0)
 
         #expect(clothes == .custom("id-1"))
         #expect(housing == .custom("id-2"))
         let catalog = try fixture.store.catalog()
         #expect(catalog.customs == [
-            CustomCategoryInfo(id: "id-1", name: "衣服", symbolName: "tshirt", colorIndex: 2),
-            CustomCategoryInfo(id: "id-2", name: "住居", symbolName: "house", colorIndex: 0),
+            CustomCategoryInfo(id: "id-1", name: "推し活", symbolName: "tshirt", colorIndex: 2),
+            CustomCategoryInfo(id: "id-2", name: "ペット", symbolName: "house", colorIndex: 0),
         ])
         #expect(catalog.all.suffix(3) == [clothes, housing, .other])
     }
@@ -82,7 +82,7 @@ struct CustomCategoryStoreTests {
         let fixture = try Fixture()
         fixture.failsSave = true
 
-        #expect(throws: TestError.self) { try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0) }
+        #expect(throws: TestError.self) { try fixture.store.create(name: "推し活", symbolName: "tshirt", colorIndex: 0) }
         #expect(try fixture.store.catalog().customs.isEmpty)
     }
 
@@ -91,19 +91,19 @@ struct CustomCategoryStoreTests {
     /// 名前・記号・色を変えても、記録は ID を指したまま（書き換えない）で、新しい名前で読める。自分の名前のままでも保存できる。
     @Test func updateKeepsEntriesPointingToCategory() throws {
         let fixture = try Fixture()
-        let clothes = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
+        let clothes = try fixture.store.create(name: "推し活", symbolName: "tshirt", colorIndex: 0)
         let entry = TestSupport.entry(amount: 3000, category: clothes)
         fixture.context.insert(entry)
         try fixture.context.save()
         fixture.now = TestSupport.now.addingTimeInterval(60)
 
-        try fixture.store.update(clothes, name: "服", symbolName: "bag", colorIndex: 4)
-        try fixture.store.update(clothes, name: "服", symbolName: "bag", colorIndex: 5)
+        try fixture.store.update(clothes, name: "推し", symbolName: "bag", colorIndex: 4)
+        try fixture.store.update(clothes, name: "推し", symbolName: "bag", colorIndex: 5)
 
         let catalog = try fixture.store.catalog()
-        #expect(catalog.info(for: clothes) == CustomCategoryInfo(id: "id-1", name: "服", symbolName: "bag", colorIndex: 5))
+        #expect(catalog.info(for: clothes) == CustomCategoryInfo(id: "id-1", name: "推し", symbolName: "bag", colorIndex: 5))
         #expect(entry.category == clothes)
-        #expect(catalog.name(of: entry.category) == "服")
+        #expect(catalog.name(of: entry.category) == "推し")
         let row = try #require(try fixture.context.fetch(FetchDescriptor<CustomCategory>()).first)
         #expect(row.updatedAt == fixture.now)
     }
@@ -111,27 +111,27 @@ struct CustomCategoryStoreTests {
     /// ほかのカテゴリと同じ名前には直さない。消えたカテゴリは直せない。
     @Test func updateRejectsDuplicateAndMissing() throws {
         let fixture = try Fixture()
-        let clothes = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
-        _ = try fixture.store.create(name: "住居", symbolName: "house", colorIndex: 0)
+        let clothes = try fixture.store.create(name: "推し活", symbolName: "tshirt", colorIndex: 0)
+        _ = try fixture.store.create(name: "ペット", symbolName: "house", colorIndex: 0)
 
-        #expect(throws: CategoryNameIssue.duplicate) { try fixture.store.update(clothes, name: "住居", symbolName: "tag", colorIndex: 0) }
+        #expect(throws: CategoryNameIssue.duplicate) { try fixture.store.update(clothes, name: "ペット", symbolName: "tag", colorIndex: 0) }
         #expect(throws: CustomCategoryError.notFound) { try fixture.store.update(.custom("gone"), name: "旅行", symbolName: "tag", colorIndex: 0) }
-        #expect(try fixture.store.catalog().name(of: clothes) == "衣服")
+        #expect(try fixture.store.catalog().name(of: clothes) == "推し活")
     }
 
     /// 一覧を読み直す前でも、保存できなかった名前・記号・色が画面に残らない。
     @Test func updateFailureRestoresLoadedRows() throws {
         let fixture = try Fixture()
-        let clothes = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
+        let clothes = try fixture.store.create(name: "推し活", symbolName: "tshirt", colorIndex: 0)
         let row = try #require(try fixture.context.fetch(FetchDescriptor<CustomCategory>()).first)
         fixture.now = TestSupport.now.addingTimeInterval(60)
         fixture.failsSave = true
 
         #expect(throws: TestError.self) {
-            try fixture.store.update(clothes, name: "服", symbolName: "bag", colorIndex: 4)
+            try fixture.store.update(clothes, name: "推し", symbolName: "bag", colorIndex: 4)
         }
 
-        #expect(row.info == CustomCategoryInfo(id: "id-1", name: "衣服", symbolName: "tshirt", colorIndex: 0))
+        #expect(row.info == CustomCategoryInfo(id: "id-1", name: "推し活", symbolName: "tshirt", colorIndex: 0))
         #expect(row.updatedAt == TestSupport.now)
         #expect(!fixture.context.hasChanges)
     }
@@ -140,9 +140,9 @@ struct CustomCategoryStoreTests {
 
     @Test func reorderChangesOrder() throws {
         let fixture = try Fixture()
-        let first = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
-        let second = try fixture.store.create(name: "住居", symbolName: "house", colorIndex: 0)
-        let third = try fixture.store.create(name: "美容", symbolName: "scissors", colorIndex: 0)
+        let first = try fixture.store.create(name: "推し活", symbolName: "tshirt", colorIndex: 0)
+        let second = try fixture.store.create(name: "ペット", symbolName: "house", colorIndex: 0)
+        let third = try fixture.store.create(name: "子ども", symbolName: "scissors", colorIndex: 0)
 
         try fixture.store.reorder([third, first, second])
 
@@ -154,8 +154,8 @@ struct CustomCategoryStoreTests {
 
     @Test func reorderFailureRestoresLoadedRows() throws {
         let fixture = try Fixture()
-        let clothes = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
-        let housing = try fixture.store.create(name: "住居", symbolName: "house", colorIndex: 0)
+        let clothes = try fixture.store.create(name: "推し活", symbolName: "tshirt", colorIndex: 0)
+        let housing = try fixture.store.create(name: "ペット", symbolName: "house", colorIndex: 0)
         let rows = try fixture.context.fetch(FetchDescriptor<CustomCategory>(sortBy: [SortDescriptor(\.sortOrder)]))
         fixture.now = TestSupport.now.addingTimeInterval(60)
         fixture.failsSave = true
@@ -172,8 +172,8 @@ struct CustomCategoryStoreTests {
     /// 削除すると、そのカテゴリの記録は「その他」になり、覚えたカテゴリからも外れる。ほかのカテゴリの記録・覚えには触れない。
     @Test func deleteMovesEntriesToOtherAndClearsMemory() throws {
         let fixture = try Fixture()
-        let clothes = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
-        let housing = try fixture.store.create(name: "住居", symbolName: "house", colorIndex: 0)
+        let clothes = try fixture.store.create(name: "推し活", symbolName: "tshirt", colorIndex: 0)
+        let housing = try fixture.store.create(name: "ペット", symbolName: "house", colorIndex: 0)
         let clothesEntry = TestSupport.entry(amount: 3000, category: clothes)
         let housingEntry = TestSupport.entry(amount: 80000, category: housing)
         let foodEntry = TestSupport.entry(amount: 850, category: .food)
@@ -207,11 +207,11 @@ struct CustomCategoryStoreTests {
             ? ModelContainerFactory.makeContainer(url: url, cloudKitDatabase: .none)
             : ModelContainerFactory.makeInMemoryContainer()
         let fixture = try Fixture(context: container.mainContext)
-        let clothes = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
+        let clothes = try fixture.store.create(name: "推し活", symbolName: "tshirt", colorIndex: 0)
         let entry = TestSupport.entry(amount: 3000, category: clothes)
         let learned = LearnedCategory(phrase: "ユニクロ", category: clothes, updatedAt: TestSupport.now)
         let recurring = RecurringEntry(
-            recurrenceID: "clothes", draft: RecurringDraft(amount: 3000, memo: "衣服", isIncome: false, category: clothes, dayOfMonth: 1),
+            recurrenceID: "clothes", draft: RecurringDraft(amount: 3000, memo: "推し活", isIncome: false, category: clothes, dayOfMonth: 1),
             startMonth: RecurringMonth(year: 2026, month: 10), createdAt: TestSupport.now
         )
         fixture.context.insert(entry)
@@ -251,8 +251,8 @@ struct CustomCategoryStoreTests {
     /// 同じ ID の行が重なったら（ほかの端末で同時に直したなど）、書き込んだ日時の新しい行を採る。ID の空の行は無視する。
     @Test func catalogResolvesDuplicateRowsByLatestUpdate() throws {
         let fixture = try Fixture()
-        let older = CustomCategory(categoryID: "same", name: "服", symbolName: "tag", colorIndex: 0, sortOrder: 0, createdAt: TestSupport.now)
-        let newer = CustomCategory(categoryID: "same", name: "衣服", symbolName: "tshirt", colorIndex: 3, sortOrder: 0, createdAt: TestSupport.now)
+        let older = CustomCategory(categoryID: "same", name: "推し", symbolName: "tag", colorIndex: 0, sortOrder: 0, createdAt: TestSupport.now)
+        let newer = CustomCategory(categoryID: "same", name: "推し活", symbolName: "tshirt", colorIndex: 3, sortOrder: 0, createdAt: TestSupport.now)
         newer.updatedAt = TestSupport.now.addingTimeInterval(60)
         let empty = CustomCategory(categoryID: "", name: "空", symbolName: "tag", colorIndex: 0, sortOrder: 0, createdAt: TestSupport.now)
         fixture.context.insert(older)
@@ -260,12 +260,12 @@ struct CustomCategoryStoreTests {
         fixture.context.insert(empty)
         try fixture.context.save()
 
-        #expect(try fixture.store.catalog().customs == [CustomCategoryInfo(id: "same", name: "衣服", symbolName: "tshirt", colorIndex: 3)])
+        #expect(try fixture.store.catalog().customs == [CustomCategoryInfo(id: "same", name: "推し活", symbolName: "tshirt", colorIndex: 3)])
 
         // 直すと重なった行の両方を書き換える（どちらを読んでも同じ名前になるように）。
-        try fixture.store.update(.custom("same"), name: "洋服", symbolName: "tshirt", colorIndex: 3)
-        #expect(older.name == "洋服")
-        #expect(newer.name == "洋服")
+        try fixture.store.update(.custom("same"), name: "雑費", symbolName: "tshirt", colorIndex: 3)
+        #expect(older.name == "雑費")
+        #expect(newer.name == "雑費")
     }
 
     /// 一覧に無い（ほかの端末で消した）カテゴリを指す記録は、名前を「その他」として読む。

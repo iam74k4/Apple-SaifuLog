@@ -1205,7 +1205,7 @@ struct HomeModelTests {
     /// 記録か質問か決められない文も、記録も答えもしないので、前の記録の「取り消す」と聞き返しを引っ込めない。
     @Test func unclearTextKeepsPreviousUndo() async throws {
         let fixture = try Fixture()
-        await fixture.send("ユニクロ 3990")
+        await fixture.send("メルカリ 3990")
         let recorded = try #require(try fixture.entries().first)
         #expect(fixture.model.categoryQuestionIDs == [recorded.persistentModelID])
 

@@ -72,6 +72,17 @@ struct CategoryCorrectionTests {
 
     @Test("作ったカテゴリが一覧に無ければ、その名前では直さない")
     func needsCustomInCatalog() {
-        #expect(CategoryCorrection.category(in: "それ衣服") == nil)
+        #expect(CategoryCorrection.category(in: "それ推し活") == nil)
+    }
+
+    @Test("後から足した住居と衣服・美容にも、名前と言い換えで直せる（作ったカテゴリが無ければ組み込みのほう）", arguments: [
+        ("それ住居", EntryCategory.housing),
+        ("さっきのは家賃にして", .housing),
+        ("それ衣服", .clothing),
+        ("今のは美容だよ", .clothing),
+        ("衣服・美容", .clothing),
+    ])
+    func readsNewBuiltIns(text: String, category: EntryCategory) {
+        #expect(CategoryCorrection.category(in: text) == category, "\(text)")
     }
 }

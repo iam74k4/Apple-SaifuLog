@@ -185,18 +185,18 @@ struct CategoryMemoryTests {
     func asksOnlyWhenUnknown() {
         let memory = CategoryMemory.resolve([Row("家賃", .other), Row("ジム", .entertainment)])
 
-        #expect(memory.asksCategory(memo: "ユニクロ", amount: 3_990, category: .other, isIncome: false))
+        #expect(memory.asksCategory(memo: "メルカリ", amount: 3_990, category: .other, isIncome: false))
         // 金額だけの記録も、その記録のカテゴリは選べるので聞き返す。
         #expect(memory.asksCategory(memo: "", amount: 3_990, category: .other, isIncome: false))
         // その他以外に読めた記録・収入は聞き返さない。
-        #expect(!memory.asksCategory(memo: "ユニクロ", amount: 3_990, category: .daily, isIncome: false))
+        #expect(!memory.asksCategory(memo: "メルカリ", amount: 3_990, category: .daily, isIncome: false))
         #expect(!memory.asksCategory(memo: "臨時収入", amount: 3_000, category: .other, isIncome: true))
         // 覚えた言葉（「その他のまま」を選んだ言葉も）は聞き返さない。
         #expect(!memory.asksCategory(memo: "家賃", amount: 80_000, category: .other, isIncome: false))
-        // 辞書の「その他」の語とカテゴリの名前は、その他と読んだ理由があるので聞き返さない。
+        // 辞書の語（「洋服」は衣服・美容の語）とカテゴリの名前は、読んだ理由があるので聞き返さない。
         #expect(!memory.asksCategory(memo: "洋服", amount: 4_000, category: .other, isIncome: false))
         #expect(!memory.asksCategory(memo: "その他", amount: 500, category: .other, isIncome: false))
-        // 英語の品目も同じ。辞書の「その他」の語（"clothes"）は聞き返さず、どこにも当たらない語は聞き返す。
+        // 英語の品目も同じ。辞書の語（"clothes"）は聞き返さず、どこにも当たらない語は聞き返す。
         #expect(!memory.asksCategory(memo: "clothes", amount: 4_000, category: .other, isIncome: false))
         #expect(memory.asksCategory(memo: "widget", amount: 4_000, category: .other, isIncome: false))
     }

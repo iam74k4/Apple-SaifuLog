@@ -20,7 +20,7 @@ struct HomeModelCategoryTests {
     @Test func asksCategoryForUnknownItem() async throws {
         let fixture = try Fixture()
 
-        await fixture.send("ユニクロ 3990")
+        await fixture.send("メルカリ 3990")
 
         let entry = try #require(try fixture.entries().first)
         #expect(entry.category == .other)
@@ -55,16 +55,16 @@ struct HomeModelCategoryTests {
     /// AI の答えは覚えない（覚えるのは利用者が選んだカテゴリだけ）。
     @Test func refinesUnknownItemWithAI() async throws {
         let fixture = try Fixture()
-        let classifier = StubClassifier(answers: ["ユニクロ": "日用品"])
+        let classifier = StubClassifier(answers: ["メルカリ": "日用品"])
         fixture.categoryRefiner = CategoryRefiner(classifier: classifier, onFallback: nil)
 
-        await fixture.send("ユニクロ 3990")
+        await fixture.send("メルカリ 3990")
 
         let entry = try #require(try fixture.entries().first)
         #expect(entry.category == .daily)
         #expect(fixture.model.categoryQuestionIDs.isEmpty)
         #expect(fixture.announcements.last?.contains("カテゴリを選べます") == false)
-        #expect(classifier.askedItems == ["ユニクロ"])
+        #expect(classifier.askedItems == ["メルカリ"])
         #expect(try learned(fixture).memory().rules.isEmpty)
     }
 
@@ -89,14 +89,14 @@ struct HomeModelCategoryTests {
         let fixture = try Fixture()
         fixture.categoryRefiner = CategoryRefiner(classifier: StubClassifier(fails: fails), onFallback: nil)
 
-        await fixture.send("ユニクロ 3990")
+        await fixture.send("メルカリ 3990")
 
         let entry = try #require(try fixture.entries().first)
         #expect(entry.category == .other)
         #expect(fixture.model.categoryQuestionIDs == [entry.persistentModelID])
     }
 
-    /// 辞書に当たった品目と、辞書の「その他」の語（洋服など）と、収入は聞き返さない。
+    /// 辞書に当たった品目（「洋服」は衣服・美容の語）と、収入は聞き返さない。
     @Test func doesNotAskWhenCategoryIsKnown() async throws {
         let fixture = try Fixture()
 
@@ -113,7 +113,7 @@ struct HomeModelCategoryTests {
     @Test func asksOnlyUnknownEntriesOfSend() async throws {
         let fixture = try Fixture()
 
-        await fixture.send("スーパー2480、ユニクロ3990")
+        await fixture.send("スーパー2480、メルカリ3990")
 
         let entries = try fixture.entries()
         #expect(entries.map(\.category) == [.food, .other])
@@ -145,21 +145,22 @@ struct HomeModelCategoryTests {
     /// 「その他のまま」も覚え、同じ品目でもう聞き返さない（記録は書き換えない）。
     @Test func keepingOtherIsRememberedAndStopsAsking() async throws {
         let fixture = try Fixture()
-        await fixture.send("家賃 80000")
+        // 辞書に当たらない品目で確かめる（「家賃」は住居の語になったので使わない）。
+        await fixture.send("町内会費 3000")
         let entry = try #require(try fixture.entries().first)
 
         fixture.model.chooseCategory(.other, for: entry)
 
         #expect(entry.category == .other)
-        #expect(try learned(fixture).memory().rules == ["家賃": .other])
-        await fixture.send("家賃 80000")
+        #expect(try learned(fixture).memory().rules == ["町内会費": .other])
+        await fixture.send("町内会費 3000")
         #expect(fixture.model.categoryQuestionIDs.isEmpty)
     }
 
     /// 次の文を送っても、未解決のカテゴリは確認待ちから選べる。
     @Test func sendingNextKeepsPendingCategory() async throws {
         let fixture = try Fixture()
-        await fixture.send("ユニクロ 3990")
+        await fixture.send("メルカリ 3990")
         let entry = try #require(try fixture.entries().first)
 
         await fixture.send("ランチ 850")
@@ -173,7 +174,7 @@ struct HomeModelCategoryTests {
     /// 取り消したら、聞き返しも消す（消えた記録を選ばないように）。
     @Test func undoClearsQuestion() async throws {
         let fixture = try Fixture()
-        await fixture.send("ユニクロ 3990")
+        await fixture.send("メルカリ 3990")
 
         fixture.model.undoLastRecord()
 
@@ -184,7 +185,7 @@ struct HomeModelCategoryTests {
     /// 記録のカテゴリを書き込めなければ、聞き返しを残して知らせる（もう一度選べるように）。覚えもしない。
     @Test func choosingCategoryFailureKeepsQuestion() async throws {
         let fixture = try Fixture()
-        await fixture.send("ユニクロ 3990")
+        await fixture.send("メルカリ 3990")
         let entry = try #require(try fixture.entries().first)
         fixture.failsSave = true
 
@@ -200,17 +201,17 @@ struct HomeModelCategoryTests {
     /// 直す（⑥）でカテゴリを選んだら、返事の聞き返しは引っ込める（直すで変えたカテゴリは、そこで覚える）。
     @Test func editingClearsQuestionAndRemembers() async throws {
         let fixture = try Fixture()
-        await fixture.send("ユニクロ 3990")
+        await fixture.send("メルカリ 3990")
         let entry = try #require(try fixture.entries().first)
         fixture.model.presentEdit(entry, calendar: TestSupport.calendar)
         let editing = try #require(fixture.model.editing)
 
         editing.category = .daily
-        #expect(editing.learningItem == "ユニクロ")
+        #expect(editing.learningItem == "メルカリ")
         #expect(editing.save())
 
         #expect(fixture.model.categoryQuestionIDs.isEmpty)
-        #expect(try learned(fixture).memory().rules == ["ユニクロ": .daily])
+        #expect(try learned(fixture).memory().rules == ["メルカリ": .daily])
     }
 
     // MARK: - 修正の記憶

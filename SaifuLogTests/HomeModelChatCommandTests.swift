@@ -110,7 +110,7 @@ struct HomeModelChatCommandTests {
     /// 金額を直しても、カテゴリの聞き返しは残す（カテゴリはまだ決まっていないため）。
     @Test func changingAmountKeepsCategoryQuestion() async throws {
         let fixture = try Fixture()
-        await fixture.send("ユニクロ 3990")
+        await fixture.send("メルカリ 3990")
         let entry = try #require(try fixture.entries().first)
 
         await fixture.send("さっきのを4990に直して")

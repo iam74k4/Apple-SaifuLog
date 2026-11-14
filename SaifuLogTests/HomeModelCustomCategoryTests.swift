@@ -20,34 +20,34 @@ struct HomeModelCustomCategoryTests {
     /// 文に作ったカテゴリの名前があれば、そのカテゴリで記録し、聞き返さない。返事と読み上げにも作ったカテゴリの名前を出す。
     @Test func recordsCustomCategoryNamedInText() async throws {
         let fixture = try Fixture()
-        let clothes = try create("衣服", in: fixture)
+        let clothes = try create("推し活", in: fixture)
 
-        await fixture.send("衣服 3000")
+        await fixture.send("推し活 3000")
 
         let entry = try #require(try fixture.entries().first)
         #expect(entry.category == clothes)
         #expect(fixture.model.categoryQuestionIDs.isEmpty)
-        #expect(entry.kindText(in: fixture.model.categories.catalog) == "衣服")
+        #expect(entry.kindText(in: fixture.model.categories.catalog) == "推し活")
     }
 
     /// 聞き返しの「カテゴリを作る」で作ると、聞き返した記録をそのカテゴリにし、品目を覚えて次から使う。
     @Test func creatingCategoryFromQuestionAssignsAndRemembers() async throws {
         let fixture = try Fixture()
-        await fixture.send("ユニクロ 3990")
+        await fixture.send("メルカリ 3990")
         let entry = try #require(try fixture.entries().first)
 
         fixture.model.presentCategoryCreation(for: entry)
         let editor = try #require(fixture.model.categoryEditor)
-        editor.name = "衣服"
+        editor.name = "推し活"
         #expect(editor.save())
 
         let clothes = try #require(fixture.model.categories.catalog.customs.first?.category)
         #expect(entry.category == clothes)
         #expect(fixture.model.categoryQuestionIDs.isEmpty)
-        #expect(try LearnedCategoryStore(context: fixture.context).memory().rules == ["ユニクロ": clothes])
-        #expect(fixture.announcements.last?.contains("次から「ユニクロ」は衣服にします") == true)
+        #expect(try LearnedCategoryStore(context: fixture.context).memory().rules == ["メルカリ": clothes])
+        #expect(fixture.announcements.last?.contains("次から「メルカリ」は推し活にします") == true)
 
-        await fixture.send("ユニクロ 1990")
+        await fixture.send("メルカリ 1990")
         #expect(try fixture.entries().last?.category == clothes)
         #expect(fixture.model.categoryQuestionIDs.isEmpty)
     }
@@ -66,9 +66,9 @@ struct HomeModelCustomCategoryTests {
     /// 覚えたカテゴリが一覧に無い（ほかの端末で消した・まだ届いていない）ときは使わず、いつもどおり聞き返す。
     @Test func learnedMissingCustomCategoryIsIgnored() async throws {
         let fixture = try Fixture()
-        try LearnedCategoryStore(context: fixture.context, now: { TestSupport.now }).remember(item: "ユニクロ", category: .custom("gone"))
+        try LearnedCategoryStore(context: fixture.context, now: { TestSupport.now }).remember(item: "メルカリ", category: .custom("gone"))
 
-        await fixture.send("ユニクロ 3990")
+        await fixture.send("メルカリ 3990")
 
         let entry = try #require(try fixture.entries().first)
         #expect(entry.category == .other)
@@ -78,13 +78,13 @@ struct HomeModelCustomCategoryTests {
     /// 作ったカテゴリの名前で聞かれたら、そのカテゴリの支出で答える（記録と取り違えない）。
     @Test func answersQuestionAboutCustomCategory() async throws {
         let fixture = try Fixture()
-        let clothes = try create("衣服", in: fixture)
+        let clothes = try create("推し活", in: fixture)
         try fixture.insert(
             TestSupport.entry(amount: 3000, category: clothes, memo: "シャツ"),
             TestSupport.entry(amount: 850, category: .food)
         )
 
-        await fixture.send("今月の衣服いくら?")
+        await fixture.send("今月の推し活いくら?")
 
         guard case .answered(let answer, _) = fixture.lastQuestionState else {
             Issue.record("答えのカードが出なかった")
@@ -98,22 +98,22 @@ struct HomeModelCustomCategoryTests {
     /// AI が使える端末では、名前を書かなくても、作ったカテゴリに当たる品目をそのカテゴリにする。作ったカテゴリを選択肢に渡す。
     @Test func aiChoosesCustomCategory() async throws {
         let fixture = try Fixture()
-        let clothes = try create("衣服", in: fixture)
-        let classifier = ChoiceRecorder(answer: "衣服")
+        let clothes = try create("推し活", in: fixture)
+        let classifier = ChoiceRecorder(answer: "推し活")
         fixture.categoryRefiner = CategoryRefiner(classifier: classifier, onFallback: nil)
 
-        await fixture.send("Tシャツ 2000")
+        await fixture.send("アクスタ 2000")
 
         let entry = try #require(try fixture.entries().first)
         #expect(entry.category == clothes)
         #expect(fixture.model.categoryQuestionIDs.isEmpty)
-        #expect(classifier.choices.first?.contains("衣服") == true)
+        #expect(classifier.choices.first?.contains("推し活") == true)
     }
 
     /// 作ったカテゴリを選択肢に入れても、読み取ったカテゴリを組み込みのカテゴリの答えで変えない。
     @Test func aiBuiltInAnswerDoesNotOverrideParsedCategory() async throws {
         let fixture = try Fixture()
-        _ = try create("衣服", in: fixture)
+        _ = try create("推し活", in: fixture)
         fixture.categoryRefiner = CategoryRefiner(classifier: ChoiceRecorder(answer: "娯楽"), onFallback: nil)
 
         await fixture.send("ランチ 850")
@@ -124,10 +124,10 @@ struct HomeModelCustomCategoryTests {
     /// チャットの文で、作ったカテゴリに直せる。
     @Test func recategorizesToCustomCategoryFromChat() async throws {
         let fixture = try Fixture()
-        let clothes = try create("衣服", in: fixture)
-        await fixture.send("ユニクロ 3990")
+        let clothes = try create("推し活", in: fixture)
+        await fixture.send("メルカリ 3990")
 
-        await fixture.send("それ衣服")
+        await fixture.send("それ推し活")
 
         #expect(try fixture.entries().map(\.category) == [clothes])
     }

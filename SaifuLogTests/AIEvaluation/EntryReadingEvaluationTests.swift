@@ -33,6 +33,8 @@ extension AIEvaluationTests {
             ("おととい 映画 1900", [Expected(amount: 1_900, category: .entertainment, daysAgo: 2)]),
             ("病院 1500", [Expected(amount: 1_500, category: .medical)]),
             ("シャンプー 600", [Expected(amount: 600, category: .daily)]),
+            ("家賃 80000", [Expected(amount: 80_000, category: .housing)]),
+            ("美容院 4500", [Expected(amount: 4_500, category: .clothing)]),
         ]
 
         @Test("金額・日付・割り勘・収入・件の数を読み、上限の時間に収まる。入力に無い金額は作らない")

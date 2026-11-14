@@ -117,7 +117,7 @@ struct CategoryRefinementTests {
         #expect(requests == [
             .init(index: 0, item: "Tシャツ", acceptsBuiltIn: false),
             .init(index: 1, item: "ジンギスカン"),
-            // 辞書の「その他」の語で「その他」にした品目は聞き返さないが、作ったカテゴリに当たるかは聞く。
+            // 辞書の語に当たる（「洋服」は衣服・美容の語）のに「その他」のままの品目は聞き返さないが、作ったカテゴリに当たるかは聞く。
             .init(index: 3, item: "洋服", acceptsBuiltIn: false),
         ])
     }
@@ -153,7 +153,9 @@ struct CategoryRefinementTests {
 
     @Test("選択肢は組み込みの表示名と作ったカテゴリの名前（その他が最後）")
     func choicesIncludeCustomCategories() {
-        #expect(CategoryRefinement.choices(in: Self.customCatalog) == ["食費", "日用品", "交通", "カフェ", "娯楽", "光熱・通信", "医療", "衣服", "その他"])
+        #expect(CategoryRefinement.choices(in: Self.customCatalog) == [
+            "食費", "日用品", "交通", "カフェ", "娯楽", "光熱・通信", "医療", "住居", "衣服・美容", "衣服", "その他",
+        ])
     }
 
     @Test("選択肢の同じ名前は 1 つにする（前の版で組み込みと同じ名前のカテゴリを作れたため）")

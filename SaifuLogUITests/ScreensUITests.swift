@@ -88,13 +88,13 @@ final class ScreensUITests: XCTestCase {
         create.tap()
         let name = app.element(AccessibilityID.Categories.nameField)
         XCTAssertTrue(name.waitUntilHittable())
-        app.type("衣服", into: AccessibilityID.Categories.nameField)
+        app.type("推し活", into: AccessibilityID.Categories.nameField)
         let categorySave = app.element(AccessibilityID.Categories.saveButton)
         XCTAssertTrue(categorySave.waitUntilEnabled())
         categorySave.tap()
         XCTAssertTrue(name.waitForNonExistence(timeout: UITestTimeout.ui))
-        // 一覧の注記にも「衣服」の語があるので、行（ボタン）で探す。
-        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "衣服")).firstMatch.waitForExistence(timeout: UITestTimeout.ui))
+        // 作ったカテゴリは一覧の行（ボタン）で探す（作るシートの候補にも同じ名前があるが、保存するとシートは閉じる）。
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "推し活")).firstMatch.waitForExistence(timeout: UITestTimeout.ui))
         app.goBack()
         XCTAssertTrue(app.navigationBars["設定"].waitForExistence(timeout: UITestTimeout.ui))
 

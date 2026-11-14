@@ -89,6 +89,9 @@ struct CategoryResolverTests {
         #expect(ReceiptStoreDictionary.chainCategory(forTypedItem: "まいばすけっと") == .food)
         #expect(ReceiptStoreDictionary.chainCategory(forTypedItem: "マツキヨで買い物") == .daily)
         #expect(ReceiptStoreDictionary.chainCategory(forTypedItem: "ローソン") == .food)
+        #expect(ReceiptStoreDictionary.chainCategory(forTypedItem: "しまむらで靴下") == .clothing)
+        // 何でも売っている店（通販・フリマ）は、店の名前からは決めない（聞き返す）。
+        #expect(ReceiptStoreDictionary.chainCategory(forTypedItem: "メルカリ") == nil)
     }
 
     @Test("読み取りで「その他」になった品目は、店の名前の辞書で振り分ける")
@@ -115,7 +118,7 @@ struct CategoryResolverTests {
         #expect(resolved.map(\.asksCategory) == [true, true])
     }
 
-    @Test("聞き返すのは、決まらずに「その他」のままで、辞書の「その他」の語にも当たらない支出")
+    @Test("聞き返すのは、決まらずに「その他」のままで、辞書の語にも当たらない支出（「洋服」は衣服・美容の語）")
     func asksOnlyUnresolvedUnknownItems() {
         let memory = CategoryMemory.resolve([CategoryMemoryTests.Row("家賃", .other)])
         let entries = [

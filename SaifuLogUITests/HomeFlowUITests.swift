@@ -51,12 +51,12 @@ final class HomeFlowUITests: XCTestCase {
     func testUnknownItemAsksCategoryAndChatRecategorizes() {
         let app = launchApp()
 
-        app.send("ユニクロ 3990")
+        app.send("メルカリ 3990")
         let daily = app.element(AccessibilityID.Reply.categoryChoice("daily"))
         XCTAssertTrue(daily.waitUntilHittable())
         daily.tap()
         XCTAssertTrue(daily.waitForNonExistence(timeout: UITestTimeout.ui))
-        XCTAssertTrue(app.replyRow(containing: "ユニクロ").waitForLabel(containing: "日用品"))
+        XCTAssertTrue(app.replyRow(containing: "メルカリ").waitForLabel(containing: "日用品"))
 
         app.send("ジム 8000")
         XCTAssertTrue(app.element(AccessibilityID.Reply.categoryChoice("entertainment")).waitForExistence(timeout: UITestTimeout.ui))
