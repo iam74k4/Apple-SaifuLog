@@ -15,7 +15,7 @@ App Store Connect の「英語（米国）」のローカライズに入れる�
 | アプリ名 | 30 文字 | 8 文字 |
 | サブタイトル | 30 文字 | 18 文字 |
 | プロモーション用テキスト | 170 文字 | 152 文字 |
-| 説明 | 4,000 文字 | 3,564 文字（改行を含む） |
+| 説明 | 4,000 文字 | 3,820 文字（改行を含む） |
 | キーワード | 100 バイト | 89 バイト |
 | 著作権 | — | 14 文字 |
 
@@ -72,6 +72,9 @@ AUTOMATIC MONTHLY ENTRIES
 
 SIRI AND SHORTCUTS
 • Say “Record in SaifuLog” or “Ask SaifuLog” to Siri. Both also work from Shortcuts and the Action button.
+
+WIDGETS
+• See what you've spent this month and what's left of your budget on the Home Screen and Lock Screen. Lock Screen widgets hide the amounts while your iPhone is locked, and no widget shows amounts while app lock is on. Tap to open the entry field.
 
 RECEIPTS
 • Photograph a receipt or pick a screenshot. SaifuLog reads the store, date, items, and total, sorts items into categories, and checks the total. Images are never saved or sent.

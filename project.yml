@@ -37,6 +37,8 @@ targets:
         buildPhase: none
     dependencies:
       - package: SaifuLogCore
+      # ホーム画面・ロック画面のウィジェット（下の SaifuLogWidgets）をアプリに入れる。
+      - target: SaifuLogWidgets
     # エンタイトルメント。ファイルは make generate がここの properties から書き出す（直接書き換えても消える）。
     #
     # default-data-protection: アプリが作るファイル（SwiftData の保存先 default.store と -wal / -shm を含む）の
@@ -54,6 +56,10 @@ targets:
     # ためのものではない（通知の許可は求めない）。ここは development のままでよい。App Store 向けの書き出しで、
     # 配布用のプロファイルの production に替わる（make export-ipa が production になっているかを照合する）。
     #
+    # application-groups: ウィジェット（別のプロセス）に今月の数字を渡す共有の領域。グループの ID は Config/Base.xcconfig の
+    # APP_GROUP_ID（ウィジェットの拡張にも同じものを付ける）。置くのは月・使った額・予算だけのファイルで、保存先（記録）は
+    # 置かない（docs/design.md §5-4・§9）。
+    #
     # エンタイトルメントは署名ありのアーカイブにしか焼かれない。release.yml は開発用の証明書を取り込んで
     # 署名ありでアーカイブする（build.yml と make ci は署名なし）。ここに足したものが提出物に載っているかは
     # make export-ipa の照合（CI は release.yml の mode=export）で確かめる（docs/release-flow.md の
@@ -67,6 +73,8 @@ targets:
         com.apple.developer.icloud-services:
           - CloudKit
         aps-environment: development
+        com.apple.security.application-groups:
+          - $(APP_GROUP_ID)
     # FoundationModels / SwiftData は import するだけで自動でリンクされるので、sdk: の指定は要らない。
     settings:
       base:
@@ -93,6 +101,8 @@ targets:
         # - UIBackgroundModes の remote-notification（INFOPLIST_KEY_UIBackgroundModes は Xcode 27 でも Info.plist に入らなかった）。
         #   iCloud 同期（SwiftData + CloudKit）が、ほかの端末での変更の知らせ（サイレントプッシュ）を、アプリが裏にいる間にも
         #   受け取って取り込むため。同期がオフのときは何も届かない（CloudKit の購読を作らない）。
+        # - CFBundleURLTypes の saifulog: ウィジェットを押したときに入力欄を開く URL（SaifuLog/Widgets/WidgetLink.swift）。
+        # - SaifuLogAppGroup: ウィジェットに数字を渡す App Group の ID（APP_GROUP_ID。コードに ID を書かないため）。
         INFOPLIST_FILE: SaifuLog/Info.plist
         # 独自の暗号化は使っていない（使うとしても OS 標準のものだけ）。宣言しておくと、
         # 提出のたびに App Store Connect で輸出規制の質問に答えずに済む。
@@ -111,6 +121,40 @@ targets:
         SAIFULOG_INTERNAL_BUILD: NO
         SAIFULOG_INTERNAL_CONDITIONS_YES: INTERNAL_DIAGNOSTICS
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) $(SAIFULOG_INTERNAL_CONDITIONS_$(SAIFULOG_INTERNAL_BUILD))
+
+  # ホーム画面・ロック画面のウィジェット（WidgetKit の拡張）。今月使った額と予算の残りだけを出す（docs/design.md §9）。
+  # 保存先（SwiftData）は開かない。アプリが App Group の共有の領域に書いた数字のファイル（SaifuLog/Widgets/WidgetSnapshotFile.swift。
+  # アプリと同じファイルを入れる）を読むだけ。押したときの URL（WidgetLink.swift）も同じファイルを入れて合わせる。
+  # アプリの依存（dependencies）にしてあるので、アプリをビルドすると一緒にビルドされ、アプリの PlugIns に入る。
+  SaifuLogWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: SaifuLogWidgets
+        excludes:
+          - "Info.plist"
+      - path: SaifuLogWidgets/Info.plist
+        buildPhase: none
+      - path: SaifuLog/Widgets/WidgetSnapshotFile.swift
+      - path: SaifuLog/Widgets/WidgetLink.swift
+    dependencies:
+      - package: SaifuLogCore
+    entitlements:
+      path: SaifuLogWidgets/SaifuLogWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - $(APP_GROUP_ID)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).Widgets
+        PRODUCT_NAME: SaifuLogWidgets
+        GENERATE_INFOPLIST_FILE: YES
+        # NSExtension（WidgetKit の拡張であること）と SaifuLogAppGroup は、ビルドの設定で書けないのでファイルに置く。
+        INFOPLIST_FILE: SaifuLogWidgets/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: サイフログ
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+        SKIP_INSTALL: YES
 
   # アプリ側（SaifuLog/）のテスト。SwiftData の保存と読み込みの条件、保存の失敗の扱いなど、
   # コアに置けない（SwiftData に依存する）部分を確かめる。シミュレータで動かすので make test（swift test）とは

@@ -10,6 +10,9 @@ struct SaifuLogApp: App {
     @State private var storeHost: StoreHost
     /// アプリのロック（設定の「Face ID でロック」）。アプリで 1 つ。保存先を開く前（再試行の画面を含む）から効かせる。
     @State private var appLock: AppLock
+    /// ホームの帯の数字をウィジェットに渡すもの。撮影用のデモと UI テストでは作らない（架空の記録の数字で、端末のウィジェットを
+    /// 書き換えないため）。
+    @State private var widgetPublisher: WidgetPublisher? = nil
 
     init() {
         #if DEBUG
@@ -33,6 +36,7 @@ struct SaifuLogApp: App {
         let settings = LaunchSettingsStore()
         _storeHost = State(initialValue: StoreHost(settings: settings))
         _appLock = State(initialValue: AppLock(settings: settings))
+        _widgetPublisher = State(initialValue: WidgetPublisher())
     }
 
     var body: some Scene {
@@ -43,6 +47,14 @@ struct SaifuLogApp: App {
             }
             // 設定の「Face ID でロック」の行が読み書きする。
             .environment(appLock)
+            // ホームの帯が、数字をウィジェットに渡す。
+            .environment(\.widgetPublisher, widgetPublisher)
+            // ウィジェットを押して開いたら、会話の入力欄を開く（`WidgetLink`）。
+            .onOpenURL { url in
+                if WidgetLink.isRecord(url) {
+                    QuickActionInbox.shared.post(.record(""))
+                }
+            }
             // ロック中と前面を離れている間は、ロックの画面をすべての画面より上に出す。
             .appLock(appLock)
             #if DEBUG

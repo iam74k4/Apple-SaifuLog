@@ -4,7 +4,7 @@
 端末内の AI（Apple の Foundation Models）で行い、家計のデータを端末の外に出さない。
 
 ## 現在の到達点
-- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・チャットで頼む操作（直す・消す・予算）・記録の返事の AI の一言・カテゴリの振り分けと聞き返しと修正の記憶・家計への質問・レシートの読み取り・月の予算・カレンダー・月のまとめ・設定と CSV 書き出し・iCloud 同期（自分の端末どうし）・アプリのロック・初回の案内の試作**まで。すべての機能を無料で、回数の制限なく使える（プレミアムと課金はやめた）。
+- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・チャットで頼む操作（直す・消す・予算）・記録の返事の AI の一言・カテゴリの振り分けと聞き返しと修正の記憶・家計への質問・レシートの読み取り・月の予算・カレンダー・月のまとめ・設定と CSV 書き出し・iCloud 同期（自分の端末どうし）・アプリのロック・ウィジェット・初回の案内の試作**まで。すべての機能を無料で、回数の制限なく使える（プレミアムと課金はやめた）。
   - 試作済み: 一行の読み取り（端末内 AI、使えない端末ではキーワード辞書）、タイムライン（会話の形。1 回の送信で記録したものを
     送信にまとめ（コアの `TimelineSend`。送信は保存せず、元の文・入力元が同じで記録した日時が 0.1 秒以内に続く記録をまとめる）、送った文を
     右寄せの自分の吹き出し（灰色。レシートは印つき。前の版で声で入れた記録はマイクの印）に、記録をアプリの返事のカード（「記録しました」・記録ごとの行。
@@ -182,7 +182,18 @@
     やめた）と App Shortcuts（言い方の英語は `Resources/AppShortcuts.xcstrings`）。どれもアプリを開いてから行う（`openAppWhenRun`）。頼みは
     `QuickActionInbox` に置き、ホームが出たら `HomeModel.performPendingQuickAction` が行う（読み取りの間・ロック中は待つ）。
     署名の無いビルドではショートカットから実行できないので、シミュレータでは ad hoc 署名で確かめる。操作の題名と説明に「Apple」の語を
-    書かない（「Apple Pay」も。App Store Connect が ITMS-90626 でアップロードを弾く。`AppIntentMetadataTests`）。ウィジェットは未決（§13））。
+    書かない（「Apple Pay」も。App Store Connect が ITMS-90626 でアップロードを弾く。`AppIntentMetadataTests`）。コントロールセンターの
+    操作（ControlWidget）は作らない）。
+    ウィジェット（2026-11-14。拡張は `SaifuLogWidgets/`（WidgetKit）。ホーム画面の小とロック画面の長方形・丸・1 行。出すのはホームの帯と
+    同じ今月使った額と、予算を決めていれば「あと ¥…」か「¥… オーバー」とバーだけ。拡張は保存先を開かず、アプリの帯
+    （`MonthSummaryHeader`）が数字の変わるたびに、月・使った額・予算だけ（コアの `WidgetSnapshot`）を App Group の共有の領域の JSON の
+    ファイルに書く（`SaifuLog/Widgets/` の `WidgetSnapshotFile`（拡張にも入れる）・`WidgetPublisher`。前と同じなら書かない。保護は最初の
+    ロック解除の後は読める。UserDefaults の共有の領域は使わない）。グループの ID は Info.plist の `SaifuLogAppGroup`（`APP_GROUP_ID`）。
+    月が替わると、開かなくても使った額は 0 から（予定に次の月の始まりの分を並べる）。ロック画面の金額は `privacySensitive` で端末の
+    ロック中に隠し、アプリのロックがオンの間は数字を渡さず「ロック中」だけ。押すと「saifulog://record」（`WidgetLink`）で Siri の頼みと
+    同じ受け箱に入力欄を開く頼みを置く。撮影用のデモと UI テストでは数字を渡さない。文字列は拡張の `SaifuLogWidgets/Localizable.xcstrings`
+    （`make check-strings` が両方を確かめる）。`make archive` が拡張が入っているか・版がアプリと同じかを確かめる（`RELEASE_WIDGET_CHECK`）。
+    拡張の App ID と App Group の登録（所有者の作業）と、実機での確認はまだ。`docs/design.md` §9 のウィジェットの決め事）。
     アプリのロック（⑧ の「セキュリティ」の「Face ID でロック」。既定はオフ。起動と裏から戻ったときに `deviceOwnerAuthentication` を求め、
     前面を離れたら隠す。オンにするときもオフにするときも認証する。状態は `AppLock`（`SaifuLogApp` で 1 つ、環境で設定へ渡す）、ロックの画面は
     シートやアラートより上の別の窓（`AppLockOverlay` の `AppLockWindow`。VoiceOver もその窓の中だけにとどめる）。設定は UserDefaults では
@@ -196,7 +207,7 @@
     当てる（`StoreFileProtection`。-shm は記録の中身を含まず、落ちるおそれがあるので当てない）。実機での確認はまだ。
     release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
     main で `mode=export` の照合が通るかの確認はまだ。`docs/design.md` §5-4）。
-  - **未実装:** 金額が読めないときの聞き返し・ほかのアプリの CSV（PayPay など）の読み込み・ウィジェット（未決。`docs/design.md` §13）。
+  - **未実装:** 金額が読めないときの聞き返し・ほかのアプリの CSV（PayPay など）の読み込み。
   - **やめたもの（2026-11-13）:** Apple Pay の支払いの自動記録・買う前チェック・家族との家計の共有（試作）・確認待ちの一覧・
     よく使うひとこと・独自の声の入力（キーボードの音声入力で足りる）・週のふりかえり・カテゴリ別の予算・プレミアムと課金と無料の回数の制限（すべて無料にした）・週の始まりの設定・
     ライセンスの行・初回の案内の予算の画面・月のまとめの 1 日あたりの平均と今日までの目安。Siri の操作は 2 つにした
@@ -333,10 +344,12 @@ docs: add privacy policy
   `com.iam74k4.SaifuLog` は作者のチームで登録済みで、チームだけ替えると自動署名が失敗する。
 - エンタイトルメントは `project.yml` の `targets.SaifuLog.entitlements.properties` に書く。
   `SaifuLog/SaifuLog.entitlements` は `make generate` が書き出す生成物（直接書き換えても消える）だが、
-  コミットはする。いまは次の 4 つ: データ保護（`com.apple.developer.default-data-protection = NSFileProtectionComplete`）、
+  コミットはする。いまは次の 5 つ: データ保護（`com.apple.developer.default-data-protection = NSFileProtectionComplete`）、
   iCloud（`com.apple.developer.icloud-services = CloudKit` と `com.apple.developer.icloud-container-identifiers =
   $(ICLOUD_CONTAINER_ID)`。`Config/Base.xcconfig` で `iCloud.com.iam74k4.SaifuLog`）、`aps-environment = development`
-  （App Store 向けの書き出しで production に替わる）。Info.plist の `UIBackgroundModes` の remote-notification は、ビルドの設定で
+  （App Store 向けの書き出しで production に替わる）、App Group（`com.apple.security.application-groups = $(APP_GROUP_ID)`。
+  `group.com.iam74k4.SaifuLog`。ウィジェットに数字を渡す）。ウィジェットの拡張は `targets.SaifuLogWidgets.entitlements` に
+  App Group だけ（`SaifuLogWidgets/SaifuLogWidgets.entitlements`。同じく生成物だがコミットする）。Info.plist の `UIBackgroundModes` の remote-notification は、ビルドの設定で
   書けないので `SaifuLog/Info.plist` に置く（どのビルドも同じファイル）。
   エンタイトルメントは署名ありのアーカイブにしか焼かれない。release.yml は開発用の証明書（Environment `release` の
   Secrets `APPLE_DEV_CERT_P12_BASE64` / `APPLE_DEV_CERT_P12_PASSWORD`）で署名してアーカイブする。build.yml と
@@ -363,7 +376,10 @@ docs: add privacy policy
   Foundation Models を使う部分（`AI/`）、Siri とショートカット（`Intents/`）、レシートの文字認識（`Receipt/`）、
   `Resources/`（Assets、String Catalog など）、
   実機での確認に使う診断画面（`Diagnostics/`）、App Store のスクリーンショットの撮影用のデモ（`ScreenshotDemo/`。DEBUG だけ）、
-  UI テストで起動したときの状態（`UITestMode/`。DEBUG だけ）、UI テストが要素を探す名前（`App/AccessibilityID.swift`）。
+  UI テストで起動したときの状態（`UITestMode/`。DEBUG だけ）、UI テストが要素を探す名前（`App/AccessibilityID.swift`）、
+  ウィジェットに数字を渡す部分（`Widgets/`。`WidgetSnapshotFile.swift` と `WidgetLink.swift` は拡張にも入れる）。
+- `SaifuLogWidgets/` — ウィジェットの拡張（WidgetKit）。保存先（SwiftData）を開かない。Info.plist（`NSExtension` と
+  `SaifuLogAppGroup`）・String Catalog・プライバシーマニフェストを持つ。
 - 診断画面（`SaifuLog/Diagnostics/`）は、社内テスト用のビルド（Swift の条件 `INTERNAL_DIAGNOSTICS`。
   `make archive INTERNAL_BUILD=YES`）と DEBUG のビルドにだけ入れる。コードは必ず `#if DEBUG || INTERNAL_DIAGNOSTICS` で
   囲い（入口のボタンや `HomeView` のシートも）、App Store へ出すビルドに入れない（`make archive` がアプリの中の印

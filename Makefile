@@ -180,10 +180,14 @@ print-ios26-os:
 # ビルドの中では確かめられない（Xcode は足りないキーを、カタログを開いたときにしか足さない）ので、make build が
 # 書き出した Debug の .stringsdata（コードの中の訳す文字列の一覧）を使う。make build の後に走らせる（build.yml も同じ順）。
 # Debug を使うのは、診断画面（DEBUG と社内テスト用のビルドだけ）の文字列も数えるため。
+# アプリとウィジェットの拡張は、それぞれの String Catalog を持つ（拡張はアプリのカタログを読めないため）。
 check-strings:
 	python3 scripts/check-strings.py \
 		--catalog SaifuLog/Resources/Localizable.xcstrings \
 		--stringsdata-dir $(DERIVED_DATA)/Build/Intermediates.noindex/SaifuLog.build/Debug-iphonesimulator/SaifuLog.build/Objects-normal
+	python3 scripts/check-strings.py \
+		--catalog SaifuLogWidgets/Localizable.xcstrings \
+		--stringsdata-dir $(DERIVED_DATA)/Build/Intermediates.noindex/SaifuLog.build/Debug-iphonesimulator/SaifuLogWidgets.build/Objects-normal
 
 # 必須チェック build（.github/workflows/build.yml）と同じ確認を手元で通す。make build が
 # 通っても、CI はテスト（コア・アプリ。アプリは iOS 26 でも。画面を操作する UI テストも）・版の検査・提出用のアーカイブまで

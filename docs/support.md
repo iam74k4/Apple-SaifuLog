@@ -36,6 +36,12 @@
 **日ごとにいくら使ったかを見たいです。**
 ホームの会話を左へスワイプすると、カレンダーが出ます。日を押すと、その日の記録が出ます。
 
+**ウィジェットで今月の額を見たいです。**
+ホーム画面かロック画面を長押しして「編集」（ロック画面は「カスタマイズ」）から、サイフログの「今月使った額」を足してください。
+今月使った額と、予算を決めていれば残りの額が出ます。ロック画面では、iPhone のロック中は金額を隠します。アプリのロック
+（設定の「Face ID でロック」）をオンにしている間は、どのウィジェットにも金額を出しません。数字は、サイフログを開いて記録したり
+予算を変えたりしたときに新しくなります。ウィジェットを押すと、記録の入力欄が開きます。
+
 **カメラを許可しなかったので、レシートを撮れません。**
 iPhone の「設定」→「サイフログ」で、カメラの許可を変えられます。写真から選ぶときは、写真のライブラリの許可は要りません。
 
@@ -94,6 +100,12 @@ and puts your text back in the entry field.
 
 **How do I see how much I spent each day?**
 Swipe left on the home conversation to show the calendar. Tap a day to see its entries.
+
+**I want to see this month's spending in a widget.**
+Touch and hold the Home Screen and tap Edit (or touch and hold the Lock Screen and tap Customize), then add SaifuLog's “Spent This
+Month” widget. It shows what you've spent this month and, if you've set a budget, what's left. Lock Screen widgets hide the amounts
+while your iPhone is locked. While app lock (Lock with Face ID in Settings) is on, no widget shows amounts. The figures update when
+you open SaifuLog and record something or change your budget. Tapping the widget opens the entry field.
 
 **I didn't allow the camera, so I can't photograph receipts.**
 You can change camera access in the iPhone Settings app under SaifuLog. Choosing a photo doesn't require photo library access.

@@ -118,7 +118,8 @@ App Store 向けの署名は export の段階で Xcode が用意する（自動�
 | もの | どこで | 補足 |
 |---|---|---|
 | Apple Developer Program | developer.apple.com | チーム ID は `NL9ZXK2SGR` |
-| **Bundle ID の登録** | Certificates, Identifiers & Profiles → Identifiers → **+** → App IDs | `com.iam74k4.SaifuLog`（Explicit）。Capability の **Data Protection** をオンにして **Complete Protection** を選ぶ（エンタイトルメント `default-data-protection` と揃える）。**iCloud**（CloudKit。コンテナ `iCloud.com.iam74k4.SaifuLog` を割り当てる）と **Push Notifications** もオンにする（iCloud 同期。下の「[Capability（iCloud など）を足すとき](#capabilityicloud-などを足すとき)」）。済み |
+| **Bundle ID の登録** | Certificates, Identifiers & Profiles → Identifiers → **+** → App IDs | `com.iam74k4.SaifuLog`（Explicit）。Capability の **Data Protection** をオンにして **Complete Protection** を選ぶ（エンタイトルメント `default-data-protection` と揃える）。**iCloud**（CloudKit。コンテナ `iCloud.com.iam74k4.SaifuLog` を割り当てる）と **Push Notifications** もオンにする（iCloud 同期。下の「[Capability（iCloud など）を足すとき](#capabilityicloud-などを足すとき)」）。済み。**App Groups** もオンにして `group.com.iam74k4.SaifuLog` を割り当てる（ウィジェットに数字を渡す。2026-11-14 に足した。**まだ**） |
+| **ウィジェットの拡張の Bundle ID** | Identifiers → **+** → App IDs（グループは Identifiers → **+** → App Groups） | 先に App Group `group.com.iam74k4.SaifuLog` を登録し、`com.iam74k4.SaifuLog.Widgets`（Explicit）を作って **App Groups** をオンにし、同じグループを割り当てる。拡張は保存先を開かないので、Data Protection・iCloud・Push は要らない。**まだ** |
 | **アプリレコード** | App Store Connect → アプリ → **+** → 新規 App | プラットフォーム iOS、プライマリ言語は日本語、Bundle ID は上のもの、SKU は任意（例 `saifulog-ios`） |
 | **端末の登録（1 台以上）** | Certificates, Identifiers & Profiles → Devices | アーカイブは開発用のプロファイルで署名するので、チームに登録した端末が 1 台も無いとプロファイルを作れない。手元の Xcode でその iPhone に一度ビルドすれば自動で登録される |
 | **開発用の証明書（.p12）** | Xcode → 設定 → Accounts → Manage Certificates… | アーカイブの署名に使う Apple Development の証明書。書き出し方と年に一度の更新は「[署名ありのアーカイブ](#署名ありのアーカイブ)」 |
@@ -130,6 +131,8 @@ Bundle ID を先に登録するのは、CI の export が**自動署名でもア
 アプリ ID の Capability を変えないので、先にオンにしておく（アプリは
 `project.yml` のエンタイトルメントで保存先を NSFileProtectionComplete にしている。`docs/design.md` §5-4）。iCloud と
 Push Notifications も同じ理由で先にオンにしておく（エンタイトルメントに iCloud のコンテナと `aps-environment` がある）。
+ウィジェットの拡張（`SaifuLogWidgets`）の App ID と App Group も同じ理由で先に作る（アプリと拡張の両方のエンタイトルメントに
+`com.apple.security.application-groups` がある）。作っていないと、release.yml のアーカイブか書き出しで、拡張のプロファイルを作れずに止まる。
 
 ### 2. App Store Connect API キーを作る
 
@@ -836,9 +839,12 @@ release.yml はアーカイブを開発用の証明書で署名して作る（�
 | `com.apple.developer.icloud-services` | `CloudKit` | iCloud 同期（`docs/design.md` §5-3） |
 | `com.apple.developer.icloud-container-identifiers` | `$(ICLOUD_CONTAINER_ID)`（`Config/Base.xcconfig`。`iCloud.com.iam74k4.SaifuLog`） | 同期に使う CloudKit のコンテナ。署名のときに Xcode が値に置き換える |
 | `aps-environment` | `development` | ほかの端末の変更の知らせ（CloudKit のサイレントプッシュ）。App Store 向けの書き出しで、配布用のプロファイルの `production` に替わる |
+| `com.apple.security.application-groups` | `$(APP_GROUP_ID)`（`Config/Base.xcconfig`。`group.com.iam74k4.SaifuLog`） | ウィジェットに今月の数字を渡す共有の領域（`docs/design.md` §9 のウィジェットの決め事）。ウィジェットの拡張（`SaifuLogWidgets/SaifuLogWidgets.entitlements`）にも同じものを付ける |
 
 あわせて Info.plist の `UIBackgroundModes` に `remote-notification`（`SaifuLog/Info.plist`。ビルドの設定で書けないキーだけを置く
 ファイル）を入れている。アプリが裏にいる間も、知らせを受けて取り込むため。
+ウィジェットの拡張はアプリの `PlugIns/SaifuLogWidgets.appex` に入る。`make archive` が、入っているか・WidgetKit の拡張か・版とビルド番号が
+アプリと同じかを確かめる（`release.mk` の `RELEASE_WIDGET_CHECK`）。
 
 iCloud（CloudKit）、App Groups、プッシュ通知などを足すときは、次の順で進める。
 

@@ -315,6 +315,10 @@ struct MonthSummaryHeader: View {
     private let isCompact: Bool
     @Query private var records: [Entry]
     @Query private var budgets: [Budget]
+    /// ウィジェットに数字を渡すもの（アプリで 1 つ。撮影用のデモと UI テストでは nil）。
+    @Environment(\.widgetPublisher) private var widgetPublisher
+    /// アプリのロック。オンの間はウィジェットに数字を渡さない。
+    @Environment(AppLock.self) private var appLock: AppLock?
 
     init(
         today: Date,
@@ -343,6 +347,23 @@ struct MonthSummaryHeader: View {
             openCalendar: openCalendar,
             isCompact: isCompact
         )
+        // 帯と同じ数字をウィジェットに渡す（数字が変わったときと、出たとき）。
+        .onChange(
+            of: Self.widgetSnapshot(figures: figures, today: today, calendar: calendar, hidesFigures: appLock?.isEnabled == true),
+            initial: true
+        ) { _, snapshot in
+            if let snapshot { widgetPublisher?.publish(snapshot) }
+        }
+    }
+
+    /// ウィジェットに渡す数字（帯と同じ今月使った額と全体の予算）。アプリのロックがオンなら数字を渡さない（ロックで家計を隠して
+    /// いるのに、ホーム画面に金額が出ないように）。
+    static func widgetSnapshot(
+        figures: (summary: MonthlySummary, budget: BudgetStatus?), today: Date, calendar: Calendar, hidesFigures: Bool
+    ) -> WidgetSnapshot? {
+        if hidesFigures { return .hidden }
+        guard let month = ReportPeriod.thisMonth.interval(now: today, calendar: calendar) else { return nil }
+        return .figures(spent: figures.summary.expense, budget: figures.budget?.budget, month: month)
     }
 
     /// 帯に出す今月の合計と予算の進み。

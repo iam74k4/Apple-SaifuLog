@@ -95,6 +95,8 @@ RELEASE_ENTITLEMENTS_CHECK ?= error
 #   App Store 向けの書き出しで production に替わる。development のまま出すと、配信したアプリに知らせが届かない
 # - icloud-services / icloud-container-identifiers: iCloud 同期（CloudKit）とそのコンテナ。コンテナは Config/Base.xcconfig の
 #   ICLOUD_CONTAINER_ID（iCloud.$(APP_BUNDLE_ID)）と同じ決まり。決まりを変えるときはここも直す
+# - application-groups: ウィジェットに今月の数字を渡す共有の領域。Config/Base.xcconfig の APP_GROUP_ID（group.$(APP_BUNDLE_ID)）と
+#   同じ決まり
 #
 # Capability を足したら、キーはエンタイトルメントのファイルから自動で照合されるが、値を確かめたいものはここにも足す
 # （docs/release-flow.md の「Capability（iCloud など）を足すとき」）。
@@ -102,7 +104,8 @@ RELEASE_ENTITLEMENT_VALUES ?= \
 	com.apple.developer.default-data-protection=NSFileProtectionComplete \
 	aps-environment=production \
 	com.apple.developer.icloud-services=CloudKit \
-	com.apple.developer.icloud-container-identifiers=iCloud.@BUNDLE_ID@
+	com.apple.developer.icloud-container-identifiers=iCloud.@BUNDLE_ID@ \
+	com.apple.security.application-groups=group.@BUNDLE_ID@
 
 # 社内テスト用のビルドにするか（YES / NO）。YES にすると、アプリのターゲットに Swift の条件 INTERNAL_DIAGNOSTICS が付き
 # （project.yml の SAIFULOG_INTERNAL_BUILD）、実機での確認に使う診断画面（SaifuLog/Diagnostics）が入る。
@@ -164,6 +167,32 @@ RELEASE_BACKGROUND_MODES_CHECK = \
 		echo "error: アプリの Info.plist の UIBackgroundModes に remote-notification がありません。SaifuLog/Info.plist に入っているかを確かめてください（iCloud 同期が、ほかの端末の変更の知らせを受け取れなくなる）。"; \
 		exit 1; \
 	fi
+
+# アーカイブのアプリにウィジェットの拡張（SaifuLogWidgets.appex）が入っていて、WidgetKit の拡張であることと、版とビルド番号が
+# アプリと同じことを確かめるシェルの文（archive のレシピで使う）。拡張の版がアプリと食い違うと App Store Connect がアップロードを
+# 弾き、拡張が入っていないとウィジェットが出ないまま審査に出てしまうため。
+RELEASE_WIDGET_CHECK = \
+	app=$$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:ApplicationPath" "$(RELEASE_ARCHIVE)/Info.plist" 2>/dev/null); \
+	appplist="$(RELEASE_ARCHIVE)/Products/$$app/Info.plist"; \
+	plist="$(RELEASE_ARCHIVE)/Products/$$app/PlugIns/SaifuLogWidgets.appex/Info.plist"; \
+	if [ ! -f "$$plist" ]; then \
+		echo "error: アプリにウィジェットの拡張（PlugIns/SaifuLogWidgets.appex）が入っていません。project.yml のアプリの dependencies に SaifuLogWidgets があるかを確かめてください。"; \
+		exit 1; \
+	fi; \
+	point=$$(/usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPointIdentifier" "$$plist" 2>/dev/null); \
+	if [ "$$point" != com.apple.widgetkit-extension ]; then \
+		echo "error: ウィジェットの拡張の NSExtensionPointIdentifier が com.apple.widgetkit-extension ではありません（いま: $$point）。SaifuLogWidgets/Info.plist を確かめてください。"; \
+		exit 1; \
+	fi; \
+	for key in CFBundleShortVersionString CFBundleVersion; do \
+		a=$$(/usr/libexec/PlistBuddy -c "Print :$$key" "$$appplist" 2>/dev/null); \
+		w=$$(/usr/libexec/PlistBuddy -c "Print :$$key" "$$plist" 2>/dev/null); \
+		if [ "$$a" != "$$w" ]; then \
+			echo "error: ウィジェットの拡張の $$key（$$w）がアプリ（$$a）と違います。拡張も Config/Base.xcconfig の MARKETING_VERSION と CURRENT_PROJECT_VERSION を使っているかを確かめてください。"; \
+			exit 1; \
+		fi; \
+	done; \
+	echo "OK: ウィジェットの拡張が入っています（版とビルド番号はアプリと同じ）。"
 
 # 撮影用のデモ（App Store のスクリーンショットを撮るための、DEBUG のビルドだけの仕組み）が入ったアプリにだけある文字列。
 # SaifuLog/ScreenshotDemo/ScreenshotDemo.swift の marker と同じ値にする（変えるときは両方。scripts/app-store-screenshots.sh は
@@ -300,6 +329,8 @@ archive: release-args check-version release-auth generate
 	@$(RELEASE_INTERNAL_CHECK)
 	@# iCloud 同期の知らせを受け取る設定（remote-notification）が入っているかを確かめる。
 	@$(RELEASE_BACKGROUND_MODES_CHECK)
+	@# ウィジェットの拡張が入っていて、版とビルド番号がアプリと同じかを確かめる。
+	@$(RELEASE_WIDGET_CHECK)
 	@# 撮影用のデモ（DEBUG のビルドだけ）は、どのアーカイブにも入っていないことを確かめる。
 	@$(RELEASE_SCREENSHOT_DEMO_CHECK)
 

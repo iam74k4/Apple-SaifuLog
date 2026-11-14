@@ -141,6 +141,15 @@ Siri とショートカットの仕組み（Apple）を通って本アプリに�
 本アプリは、渡された文を入力欄に打った文と同じく扱い（記録や質問になった文は、上の「入力した家計の記録」と同じく保存します）、開発者や第三者へ
 送信することはありません。操作はどれも本アプリを開いてから行い、記録した内容はアプリの中の返事で確かめられます。
 
+### ウィジェット
+
+ホーム画面・ロック画面のウィジェットに出すため、本アプリは今月使った額・月の予算・数えた月だけを、お使いの iPhone の中の
+本アプリとそのウィジェットだけが読める共有の領域（App Group）の小さなファイルに保存します。記録の品目・メモ・カテゴリ・入力した文は
+保存しません。ウィジェットが iPhone のロック中にも描けるよう、このファイルは iPhone を起動して最初にロックを解いた後から読める保護で
+保存します（記録そのものは、上の「入力した家計の記録」のとおりロック中は読めない保護のままです）。ロック画面のウィジェットは、
+iPhone のロック中は金額を隠します。アプリのロックをオンにしている間は、このファイルに金額を保存せず、ウィジェットにも金額を出しません。
+このファイルを外部に送信することはありません。ウィジェットを置かなくても、ファイルは作られます（中身は上の数字だけです）。
+
 ### CSV 書き出し
 
 設定の画面で利用者が「CSV ファイルを書き出す」を押したときだけ、選んだ期間（今月・先月・今年・すべて）の
@@ -380,6 +389,16 @@ speak or enter is passed to the app through Siri and Shortcuts (Apple). How your
 privacy policy and your Siri settings. The app treats the text it receives the same way as text typed in the input field (text that becomes a record
 or a question is handled as described in Your Records above), and never sends it to the developer or to any third party. Every action opens the app
 first, so you can check what was recorded in the app's reply.
+
+### Widgets
+
+To show them in Home Screen and Lock Screen widgets, the app saves only what you've spent this month, your monthly budget, and which
+month they're for in a small file in a shared area (an App Group) on your iPhone that only the app and its widgets can read. It does
+not save the items, notes, categories, or text of your records there. So widgets can be drawn while your iPhone is locked, this file
+is protected so that it can be read after you first unlock your iPhone following a restart (your records themselves stay unreadable
+while the device is locked, as described in Your Records above). Lock Screen widgets hide the amounts while your iPhone is locked.
+While app lock is on, the app saves no amounts in this file and widgets show no amounts. This file is never sent off your device. The
+file is created even if you don't add a widget (it contains only the figures above).
 
 ### CSV Export
 

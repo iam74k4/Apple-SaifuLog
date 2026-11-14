@@ -27,6 +27,7 @@ HOW TO TRY IT
 - Receipts: tap the camera button on the left of the field, then "Take Photo" or "Choose from Photos". Any photo or screenshot of a receipt works.
 - The gear at the top right opens Settings (monthly budget, categories and learned categories, recurring entries, Sync with iCloud, Face ID lock, CSV export and import, help, privacy policy). Tapping the numbers at the top of the home screen opens the Monthly Summary. Swiping the home screen to the left shows the calendar.
 - Siri and Shortcuts: the app provides two App Shortcuts, shown in the Shortcuts app and Spotlight as "Record in one line" and "Ask About Spending" (say "Record in SaifuLog" or "Ask SaifuLog" to Siri); each opens the app.
+- Widgets: add "Spent This Month" from the Home Screen or Lock Screen widget gallery. It shows the same figures as the top of the home screen (spent this month, and what's left of the budget if one is set). Open the app once after installing so the widget has figures. Tapping the widget opens the entry field.
 
 APPLE INTELLIGENCE
 AI features use Apple's on-device Foundation Models and work only on devices that support Apple Intelligence, with it turned on and its model downloaded. On other devices (including many review devices), the app reads entries and questions with a built-in keyword dictionary, so all of the examples above work without AI. Only these extras need AI: sorting items the dictionary does not know, reading chat fixes written in other ways than the examples, the short notes added to replies, answers, and the Monthly Summary, and tidying receipt item names and categories.
@@ -54,6 +55,7 @@ The app is free. Every feature works without usage limits, and there are no in-a
 - レシート: 入力欄の左のカメラのボタン →「撮る」か「写真から選ぶ」。レシートの写真やスクリーンショットなら、どれでも試せます。
 - 右上の歯車で設定（月の予算・カテゴリと覚えたカテゴリ・くり返しの記録・iCloud で同期・Face ID でロック・CSV の書き出しと読み込み・ヘルプ・プライバシーポリシー）。ホーム画面の上の数字を押すと月のまとめが開きます。ホーム画面を左へスワイプするとカレンダーが出ます。
 - Siri・ショートカット: 2 つの App Shortcuts があり、ショートカット App と Spotlight には「ひとことで記録」「家計に質問」と出ます（Siri には「サイフログで記録」「サイフログに質問」と話します）。どちらもアプリを開きます。
+- ウィジェット: ホーム画面かロック画面のウィジェットの一覧から「今月使った額」を足します。ホーム画面の上と同じ数字（今月使った額と、予算を決めていれば残り）が出ます。入れた後に一度アプリを開くと数字が出ます。ウィジェットを押すと入力欄が開きます。
 
 Apple Intelligence
 AI の機能は Apple の端末内の Foundation Models を使い、Apple Intelligence に対応した端末で、Apple Intelligence がオンでモデルのダウンロードが済んでいるときだけ動きます。それ以外の端末（審査の端末の多く）では、内蔵のキーワード辞書で記録と質問を読むので、上の例はどれも AI なしで動きます。AI が要るのは、辞書に無い品目のカテゴリの振り分け、例と違う書き方のチャットでの直しの読み取り、記録の返事・質問の答え・月のまとめに添える一言、レシートの品名とカテゴリの整えだけです。
