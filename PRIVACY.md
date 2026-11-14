@@ -2,7 +2,7 @@
 
 **SaifuLog（サイフログ）**
 
-最終更新日 / Last updated: 2026-11-13
+最終更新日 / Last updated: 2026-11-14
 
 施行日 / Effective date: 初回リリース時に確定します / To be set at the first release
 
@@ -79,7 +79,8 @@ Apple Intelligence を使えない端末では、端末内のキーワード辞�
 ひとこと入力で記録した直後に、Apple Intelligence を使える端末では、いま記録した支出（品目・金額・カテゴリ）、そのカテゴリの今月の
 合計と件数、今月の支出の合計と件数、予算の残りを本アプリがお使いの iPhone の中で計算して文にし、その文を Foundation Models に渡して
 一言を書かせます。この処理もお使いの iPhone の上で行い、**記録や計算した数字、一言を外部へ送信することはありません。** 一言は保存せず、
-アプリを起動している間だけアプリのメモリの中に置きます。
+アプリを起動している間だけアプリのメモリの中に置きます。どの端末でも、同じ計算で作った一行（そのカテゴリの今月の件数と合計、
+予算の残り）を返事に出します。これも本アプリがお使いの iPhone の中で計算したもので、外部へ送信することはありません。
 
 ### 月のまとめ
 
@@ -95,7 +96,7 @@ iPhone の上で行います。**記録や計算した数字、一言を外部�
 覚えた言葉とカテゴリは、上の「入力した家計の記録」と同じ場所（お使いの iPhone の中の本アプリ専用の保存先。「iCloud で同期」を
 オンにしているときは、記録と同じく暗号化フィールドとして利用者自身の iCloud にも）に保存し、**開発者や第三者へ送信することは
 ありません。** 端末内 AI に渡すこともありません（読み取った後に、本アプリが覚えたカテゴリへ置き換えます）。
-覚えたものは、設定の「覚えたカテゴリ」でいつでも確かめ、カテゴリを変えたり、1 つずつ、またはすべて忘れさせたりできます。
+覚えたものは、設定の「カテゴリ」の中の「覚えたカテゴリ」でいつでも確かめ、カテゴリを変えたり、1 つずつ、またはすべて忘れさせたりできます。
 
 カテゴリを選ぶ必要がある記録には、カテゴリを聞き返している印を記録と一緒に保存します（「iCloud で同期」をオンにしているときは、記録と一緒に
 同期します）。カテゴリを選ぶか、記録を削除すると消えます。
@@ -150,6 +151,14 @@ iOS の共有の画面に渡され、**利用者が選んだ共有先（アプ�
 共有先に渡したファイルの取り扱いは、その共有先（アプリやサービス）に従います。家計の記録を含むため、
 渡す先はご注意ください。書き出しのためにアプリの中に一時的に作ったファイルは、共有の画面を閉じると削除します
 （共有の途中でアプリが終了したときは、次に設定の画面を開いたときに削除します）。
+
+### CSV の読み込み
+
+設定の画面で利用者が「CSV から読み込む」を押し、iOS のファイルの選択の画面で選んだファイルだけを、お使いの iPhone の中で読みます。
+読めるのは本アプリが書き出した形の CSV ファイルです。読んだ記録（日付・時刻・支出か収入か・カテゴリ・品目・金額・入力した文章）は、
+件数を確かめていただいた後に、上の「入力した家計の記録」と同じ場所に保存します。**選んだファイルとその中身を外部へ送信することは
+ありません。** 開発者へ送信することもありません。本アプリは選んだファイルをアプリの中に残さず、読み終えたら手放します（元のファイルは
+選んだ場所にそのまま残ります）。
 
 ### iCloud での同期（任意）
 
@@ -301,7 +310,9 @@ Right after you record something with a one-line entry, on devices that can use 
 iPhone the spending you just recorded (item, amount, category), this month's total and count for that category, this month's total
 spending and count, and what is left of your budget, puts them into a text, and passes that text to Apple's Foundation Models framework
 to write a short note; this also happens on your own iPhone. **Your records, the calculated numbers, and the note are never sent
-anywhere.** The note is not saved; it is kept only in the app's memory while the app is running.
+anywhere.** The note is not saved; it is kept only in the app's memory while the app is running. On every device, the reply also shows a
+line made by the same calculation (this month's count and total for that category, and what is left of your budget). The app calculates it
+on your own iPhone and never sends it anywhere.
 
 ### The Monthly Summary
 
@@ -319,7 +330,7 @@ category you chose, and records entries with the same words in that category fro
 in the same place as your records described above (in an area reserved for this app on your iPhone, and, when Sync with iCloud is
 on, also in your own iCloud as encrypted fields, like your records). **They are never sent to the developer or to any third party.**
 They are not passed to the on-device AI either (the app replaces the category with the learned one after reading).
-You can review them at any time in Learned Categories in Settings, change their categories, and forget them one by one or all at once.
+You can review them at any time in Learned Categories under Categories in Settings, change their categories, and forget them one by one or all at once.
 
 An entry that needs a category is saved with a mark showing that the app is asking for its category alongside the record (synced with the record when Sync with iCloud is
 on). The mark is removed when you choose a category or delete the entry.
@@ -383,6 +394,14 @@ Once you hand the file to a destination, it is handled according to that app or 
 file contains your financial records, so please choose the destination with care. The
 temporary file the app creates for the export is deleted when the share sheet closes (if the app
 quits while the share sheet is open, it is deleted the next time you open Settings).
+
+### CSV Import
+
+Only when you tap Import from CSV in Settings and choose a file in the iOS file picker, the app reads that file on your own iPhone. It
+reads CSV files in the format the app exports. After you confirm the number of entries, the entries it read (date, time, expense or
+income, category, item, amount, and the text you entered) are saved in the same place as your records described above. **The file and
+its contents are never sent anywhere,** and nothing is sent to the developer. The app doesn't keep the file; it lets go of it after
+reading (the original file stays where you chose it).
 
 ### Sync with iCloud (Optional)
 
