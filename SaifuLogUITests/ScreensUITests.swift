@@ -44,12 +44,9 @@ final class ScreensUITests: XCTestCase {
     func testMonthlyReportOpensFromBandAndGoesBack() {
         let app = launchApp(AppLaunch(seed: .demo))
 
-        let figures = app.monthFigures
-        XCTAssertTrue(figures.waitUntilHittable(timeout: UITestTimeout.launch))
-        figures.tap()
+        app.openMonthlyReport()
 
         let bar = app.navigationBars["月のまとめ"]
-        XCTAssertTrue(bar.waitForExistence(timeout: UITestTimeout.ui))
         app.goBack()
         XCTAssertTrue(bar.waitForNonExistence(timeout: UITestTimeout.ui))
         XCTAssertTrue(app.inputField.waitUntilHittable())

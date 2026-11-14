@@ -251,6 +251,28 @@ extension XCUIApplication {
         }
     }
 
+    /// 帯の数字（見出しと今月使った額）を押して、月のまとめ（⑦）を開く。開かなければ、いま出ている画面の要素の一覧を添えて失敗する。
+    ///
+    /// いちばん大きな文字で会話が帯の下までスクロールしていると、帯の数字はあるのに押せない（hittable でない）と読まれることが
+    /// あった（CI で 2 回続けて。帯の下に会話の文が重なっていた）。押せるかの判定は、画面のその点にある要素をアクセシビリティから
+    /// 問い合わせて決まり、帯の下に重なった会話の文が返ることがあるため。そのときは数字の真ん中を押し（指で押すときと同じく、
+    /// 画面に見えている帯が受ける）、月のまとめが開くことで届くことを確かめる。押せないと読まれたことはログに残す。
+    func openMonthlyReport(file: StaticString = #filePath, line: UInt = #line) {
+        let figures = monthFigures
+        let report = navigationBars["月のまとめ"]
+        XCTAssertTrue(figures.waitForExistence(timeout: UITestTimeout.launch), "帯の数字がありません", file: file, line: line)
+        if figures.waitUntilHittable(timeout: 5) {
+            figures.tap()
+        } else {
+            print("帯の数字が押せないと読まれたので、数字の真ん中を押します。いまの画面:\n\(debugDescription)")
+            figures.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+        XCTAssertTrue(
+            report.waitForExistence(timeout: UITestTimeout.ui), "帯の数字を押しても月のまとめが開きません。いまの画面:\n\(debugDescription)",
+            file: file, line: line
+        )
+    }
+
     /// ナビゲーションで一つ前の画面へ戻る。
     func goBack(file: StaticString = #filePath, line: UInt = #line) {
         let bar = navigationBars.firstMatch

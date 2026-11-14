@@ -32,9 +32,8 @@ final class AccessibilityUITests: XCTestCase {
         XCTAssertTrue(amount.waitForNonExistence(timeout: UITestTimeout.ui))
 
         // 月のまとめ。
-        app.monthFigures.tap()
+        app.openMonthlyReport()
         let reportBar = app.navigationBars["月のまとめ"]
-        XCTAssertTrue(reportBar.waitForExistence(timeout: UITestTimeout.ui))
         try app.auditAccessibility()
         app.goBack()
         XCTAssertTrue(reportBar.waitForNonExistence(timeout: UITestTimeout.ui))
@@ -68,10 +67,8 @@ final class LargeTextUITests: XCTestCase {
         XCTAssertTrue(app.element(AccessibilityID.Settings.budget).waitUntilHittable())
         app.goBack()
 
-        XCTAssertTrue(app.monthFigures.waitUntilHittable(), "帯の数字が押せません。いまの画面:\n\(app.debugDescription)")
-        app.monthFigures.tap()
+        app.openMonthlyReport()
         let reportBar = app.navigationBars["月のまとめ"]
-        XCTAssertTrue(reportBar.waitForExistence(timeout: UITestTimeout.ui))
         app.goBack()
         XCTAssertTrue(reportBar.waitForNonExistence(timeout: UITestTimeout.ui))
 
