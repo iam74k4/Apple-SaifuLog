@@ -78,6 +78,19 @@ struct CategoryResolverTests {
         #expect(resolved.map(\.source) == [.unresolved, .unresolved, .store])
     }
 
+    // 以前は仮名のチェーンの名前を文字の並びだけで当て、「ライオンキング」を「イオン」として食費にしていた。
+    @Test("打った品目の仮名のチェーンの名前は、語の途中には当てない（「で」の前は語の終わり）")
+    func storeDictionaryMatchesWholeKanaNames() {
+        #expect(ReceiptStoreDictionary.chainCategory(forTypedItem: "ライオンキング") == nil)
+        #expect(ReceiptStoreDictionary.chainCategory(forTypedItem: "ジョナサンへのプレゼント") == nil)
+        #expect(ReceiptStoreDictionary.chainCategory(forTypedItem: "イオンモールの駐車場") == nil)
+        #expect(ReceiptStoreDictionary.chainCategory(forTypedItem: "ジョナサンで夕食") == .food)
+        #expect(ReceiptStoreDictionary.chainCategory(forTypedItem: "昨日イオン") == .food)
+        #expect(ReceiptStoreDictionary.chainCategory(forTypedItem: "まいばすけっと") == .food)
+        #expect(ReceiptStoreDictionary.chainCategory(forTypedItem: "マツキヨで買い物") == .daily)
+        #expect(ReceiptStoreDictionary.chainCategory(forTypedItem: "ローソン") == .food)
+    }
+
     @Test("読み取りで「その他」になった品目は、店の名前の辞書で振り分ける")
     func storeDictionaryForOther() {
         let resolved = CategoryResolver.resolve(
