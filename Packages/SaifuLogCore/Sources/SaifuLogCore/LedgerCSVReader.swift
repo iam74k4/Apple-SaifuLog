@@ -59,7 +59,7 @@ public enum LedgerCSVReader {
     }
 
     /// 行を読めなかった理由。
-    public enum IssueReason: Sendable, Hashable {
+    public enum IssueReason: Error, Sendable, Hashable {
         /// 列の数が見出しと違う。
         case columnCount
         /// 日付か時刻が読めない（無い日付も）。
