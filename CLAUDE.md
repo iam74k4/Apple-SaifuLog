@@ -168,7 +168,7 @@
     並びは `CustomCategory`（暗号化フィールド）と `CustomCategoryStore`。一覧はコアの `CategoryCatalog` で、ホームが `CategoryCatalogModel` を
     1 つ持ち、画面へは環境の `categoryCatalog` で渡す（名前・色・記号は `CategoryCatalog` の拡張から引き、`EntryCategory.displayName` を
     直接出さない）。作ったカテゴリは文の中の名前（「衣服 3000」）・覚えたカテゴリ・過去の記録・AI の聞き直し（選択肢に作ったカテゴリの
-    名前を入れる）・返事の聞き返しの「カテゴリを作る」・チャットの直し・⑥・⑤ で付く（ひとこと入力の読み取りの選択肢は組み込みの 8 種のまま）。削除すると記録は「その他」にし、覚えたカテゴリからも外す。⑧ の「カテゴリ」（`Views/Categories/` の `CategoryListView`・`CategoryListModel`、作る・直すシートは
+    名前を入れる）・返事の聞き返しの「カテゴリを作る」・チャットの直し・⑥・⑤ で付く（ひとこと入力の読み取りの選択肢は組み込みの 10 種のまま。住居と衣服・美容は 2026-11-14 に足した。家賃・洋服・美容院が「その他」になり聞き返されたため）。削除すると記録は「その他」にし、覚えたカテゴリからも外す。⑧ の「カテゴリ」（`Views/Categories/` の `CategoryListView`・`CategoryListModel`、作る・直すシートは
     `CategoryEditorSheet`・`CategoryEditorModel`）。`docs/design.md` §8）。
     くり返しの記録（家賃・サブスク・給料のように毎月同じ記録。決めた日（1〜31。無い日は月末）を過ぎて最初に開いたとき（ホームが出た・前面に戻った・
     日付が変わった・足したり直したりした）に `HomeModel.recordDueRecurringEntries` が記録し、返事のカード（「くり返しの記録」。自分の吹き出しは出さない。
