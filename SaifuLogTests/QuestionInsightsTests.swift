@@ -49,7 +49,7 @@ struct QuestionInsightsTests {
 
         await fixture.send("今月カフェいくら?")
 
-        guard case .answered(let answer, _, _) = fixture.lastQuestionState else {
+        guard case .answered(let answer, _) = fixture.lastQuestionState else {
             Issue.record("答えのカードが出なかった")
             return
         }
@@ -64,7 +64,7 @@ struct QuestionInsightsTests {
         let fixture = try Fixture()
         try fixture.insert(TestSupport.entry(amount: 5_400, category: .cafe, memo: "カフェ", spentAt: TestSupport.date(2026, 8, 10)))
         await fixture.send("今月カフェいくら?")
-        guard case .answered(let answer, _, _) = fixture.lastQuestionState else {
+        guard case .answered(let answer, _) = fixture.lastQuestionState else {
             Issue.record("答えのカードが出なかった")
             return
         }
@@ -75,7 +75,7 @@ struct QuestionInsightsTests {
 
         #expect(fixture.model.draft == "打ちかけ")
         #expect(fixture.model.questions.last?.text == "先月のカフェはいくら?")
-        guard case .answered(let next, _, _) = fixture.lastQuestionState else {
+        guard case .answered(let next, _) = fixture.lastQuestionState else {
             Issue.record("続けて聞いた質問に答えなかった")
             return
         }
@@ -87,7 +87,7 @@ struct QuestionInsightsTests {
     @Test func askFollowUpWaitsForParsing() async throws {
         let fixture = try Fixture()
         await fixture.send("今月の内訳は?")
-        guard case .answered(let answer, _, _) = fixture.lastQuestionState, let followUp = answer.followUps.first else {
+        guard case .answered(let answer, _) = fixture.lastQuestionState, let followUp = answer.followUps.first else {
             Issue.record("続けて聞く質問が無かった")
             return
         }

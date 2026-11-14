@@ -33,8 +33,6 @@ final class EditEntryModel: Identifiable {
     let source: EntrySource
     /// 削除の確認に出す「ランチ ¥850」。開いた時点の値で作る（直しかけの値ではなく、保存されている記録を指すため）。
     let deletionSummary: String
-    /// 家族と共有している家計の記録か（削除の確認に、家族の端末からも消えることを添える）。
-    let isShared: Bool
 
     @ObservationIgnored private let target: Target
     @ObservationIgnored private let original: EntryEdits
@@ -91,7 +89,7 @@ final class EditEntryModel: Identifiable {
         )
     }
 
-    /// 直す記録を、保存先を問わずに受け取る（家計の記録を直すときに使う。`HouseholdHost.editTarget`）。
+    /// 直す記録を、開いた時点の値と書き込み方で受け取る。
     init(
         target: Target,
         catalog: CategoryCatalog = .builtIn,
@@ -114,7 +112,6 @@ final class EditEntryModel: Identifiable {
         self.originalText = target.originalText
         self.source = target.source
         self.deletionSummary = target.deletionSummary
-        self.isShared = target.isShared
     }
 
     // MARK: - 入力の確かめ
@@ -174,7 +171,8 @@ final class EditEntryModel: Identifiable {
         return CategoryMemory.key(for: item) == nil ? nil : item
     }
 
-    /// 金額の入力欄の文字を見せる形（「1,280」）にそろえる。入力欄が変わるたびに呼ぶ。
+    /// 金額の入力欄の文字を見せる形（「1,280」）にそろえる。入力欄を離れたときに呼ぶ（打っている間にそろえると、速く打った
+    /// 桁が落ちるため。`formatsAmountAfterEditing`）。
     func normalizeAmountText() {
         let formatted = EntryAmountInput.formatted(amountText)
         if formatted != amountText { amountText = formatted }
@@ -248,21 +246,18 @@ final class EditEntryModel: Identifiable {
 
     // MARK: - 型
 
-    /// 直す記録と、その保存先への書き込み（自分の記録か家計の記録か）。
+    /// 直す記録と、その保存先への書き込み。
     ///
-    /// シートは記録のモデルを直接持たず、開いた時点の値と書き込み方だけを受け取る。自分の記録（`EntryStore`）と家計の記録
-    /// （`HouseholdHost`。書き込んだら同期にも知らせる）で、同じシートを使うため。
+    /// シートは記録のモデルを直接持たず、開いた時点の値と書き込み方だけを受け取る（テストで書き込み方を差し替えられるように）。
     struct Target {
         /// 開いた時点の値。
         let original: EntryEdits
-        /// 送った文（家計の記録には無いので空）。
+        /// 送った文。
         let originalText: String
         let source: EntrySource
         /// 削除の確認に出す「ランチ ¥850」。
         let deletionSummary: String
-        /// 家族と共有している家計の記録か（削除すると家族の端末からも消えるので、確認でそう伝える）。自分の記録は false。
-        var isShared = false
-        /// 直したカテゴリを覚えるか（修正の記憶。自分の記録だけ）。覚えるなら、シートでそのことを知らせる（`learningItem`）。
+        /// 直したカテゴリを覚えるか（修正の記憶）。覚えるなら、シートでそのことを知らせる（`learningItem`）。
         var learnsCategory = false
         /// 直した値を書き込む。書き込めなければ直す前の値に戻して throw する。
         let update: @MainActor (EntryEdits) throws -> Void

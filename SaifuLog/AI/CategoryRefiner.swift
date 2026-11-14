@@ -1,8 +1,8 @@
 import Foundation
 import SaifuLogCore
 
-/// 辞書でも覚えたカテゴリでも決まらず「その他」になった品目のカテゴリを、返事で聞き返す前に端末内 AI に聞き直す
-/// （コアの `CategoryRefinement`。docs/design.md §3-2）。
+/// 手元の手がかりで決まらず「その他」になった品目のカテゴリを、返事で聞き返す前に端末内 AI に聞き直す。作ったカテゴリが
+/// あれば、作ったカテゴリに当たるかも聞く（コアの `CategoryRefinement`。docs/design.md §3-2）。
 ///
 /// AI が使える端末でだけ作る（`forDevice()`）。AI が使えない端末では作らず、これまでどおり返事で聞き返す。AI の失敗と時間切れは
 /// 利用者に知らせず、`AIFallbackLog` に残す（返事で聞き返すだけ）。
@@ -24,9 +24,9 @@ struct CategoryRefiner: Sendable {
     }
 
     /// 聞き直して当てる。聞き直す記録が無ければ、AI を呼ばずにそのまま返す。呼び出した Task が取り消されたら投げる。
-    func refine(_ entries: [ParsedEntry], memory: CategoryMemory, catalog: CategoryCatalog) async throws -> [ParsedEntry] {
+    func refine(_ resolutions: [CategoryResolver.Resolution], catalog: CategoryCatalog) async throws -> [ParsedEntry] {
         try await CategoryRefinement.refine(
-            entries, memory: memory, catalog: catalog, classifier: classifier, timeout: timeout, onFallback: onFallback
+            resolutions, catalog: catalog, classifier: classifier, timeout: timeout, onFallback: onFallback
         )
     }
 }

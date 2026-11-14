@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  ウィジェットの拡張のプライバシーマニフェスト。アプリ（SaifuLog/Resources/PrivacyInfo.xcprivacy）と同じく、トラッキングはせず、
+  データを集めない。拡張はアプリが App Group の共有の領域に書いた今月の数字のファイルを読むだけで、UserDefaults も、
+  理由の申告が要るほかの API も使わない（docs/design.md §11）。使うようになったら、ここと PRIVACY.md を先に直す。
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array/>
+</dict>
+</plist>

@@ -1,11 +1,7 @@
 import SwiftUI
 
 /// ホームの下の入力欄。記録も家計への質問も、ここに打つ（見分けは `HomeModel` がコアに任せる）。
-/// 左のカメラのボタンから、レシートを読み取って記録できる。右のマイクのボタンから、話した内容を入力欄に入れられる
-/// （入力欄が空のときは、送信ボタンの位置にマイクを出す。空の入力は送れないので、その位置を声の入力の入口に使う）。
-///
-/// マイクのボタンは、日本語の書き起こしを使える端末でだけ出す（押しても何も起きないボタンは置かない）。
-/// 声の入力の間は、入力欄の代わりに書き起こしの表示（`VoiceInputPanel`）を出す。
+/// 左のカメラのボタンから、レシートを読み取って記録できる。声で入れたいときは、キーボードの音声入力を使う。
 struct InputBar: View {
     @Binding var text: String
     let isSending: Bool
@@ -24,12 +20,8 @@ struct InputBar: View {
     var recorded: [RecordedItem] = []
     /// 「直す」のシートを出す。
     var edit: (RecordedItem) -> Void = { _ in }
-    /// 声の入力。渡さなければマイクのボタンを出さない。
-    var voice: VoiceInputModel?
-    /// 家族の家計に記録しているか（ホームの帯の「家族」）。入力欄の名前と例で、家計に記録することを示す。
-    var targetsHousehold = false
-    /// 入力欄にキーボードを出す頼みの数（Siri・ショートカットの「入力欄を開く」・カレンダーの「この日に記録」）。増えるたびに
-    /// フォーカスを入れる。
+    /// 入力欄にキーボードを出す頼みの数（Siri・ショートカットで文の無い頼みを受けたとき・記録の無いホームの例を押したとき）。
+    /// 増えるたびにフォーカスを入れる。
     var focusRequest = 0
     /// 入力欄のあるページ（ホームの会話）を出しているか。カレンダーのページへ移ったらキーボードを閉じる（見えない入力欄に
     /// キーボードを残して、カレンダーを隠さないように）。
@@ -56,29 +48,11 @@ struct InputBar: View {
         canSend ? Theme.onAccent : Theme.inkSecondary
     }
 
-    /// マイクのボタンを出すか（日本語の書き起こしを使える端末だけ）。
-    private var showsMicrophone: Bool {
-        voice?.isAvailable == true
-    }
-
-    /// 送信ボタンを出すか。マイクを出す端末では、入力欄が空の間はマイクに譲る（読み取り中の印は出したままにする）。
-    private var showsSendButton: Bool {
-        !showsMicrophone || isSending || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
     var body: some View {
-        Group {
-            if let voice, voice.isActive {
-                VoiceInputPanel(model: voice, prefix: text)
-            } else {
-                textInput
+        textInput
+            .onChange(of: isFocused) { _, focused in
+                focusChanged(focused)
             }
-        }
-        // 入力欄の外に付ける。声の入力の間は入力欄ごと書き起こしの表示に替わり、入力欄に付けた onChange は呼ばれないため
-        // （フォーカスが外れたことを知らせないと、声の入力の後もホームの帯が低いまま残る）。
-        .onChange(of: isFocused) { _, focused in
-            focusChanged(focused)
-        }
     }
 
     private var textInput: some View {
@@ -106,8 +80,9 @@ struct InputBar: View {
                 // Return で送るとキーボードが閉じる。続けて記録できるよう、入力欄にとどまる。
                 isFocused = true
             }
-            // 記録も質問も同じ入力欄に打つ（記録か質問かはアプリが見分ける）。家族の家計のときは記録だけ。
+            // 記録も質問も同じ入力欄に打つ（記録か質問かはアプリが見分ける）。
             .accessibilityLabel(fieldLabel)
+            .accessibilityIdentifier(AccessibilityID.Home.inputField)
             // 送信の後、VoiceOver のフォーカスは入力欄に戻る。タイムラインの返事のカードまで移らずに直す・取り消すができるように
             // する（読み上げで読み違いに気づいたら、その場で直せるように）。複数件なら 1 件ずつ出す。
             .accessibilityActions {
@@ -126,12 +101,7 @@ struct InputBar: View {
             .simultaneousGesture(TapGesture().onEnded { isFocused = true })
             .glassEffect(.regular, in: .rect(cornerRadius: 22))
 
-            if let voice, showsMicrophone {
-                VoiceMicButton(isEnabled: voice.canStart) { voice.toggle() }
-            }
-            if showsSendButton {
-                sendButton
-            }
+            sendButton
         }
     }
 
@@ -144,6 +114,8 @@ struct InputBar: View {
                 } else {
                     Image(systemName: "arrow.up")
                         .font(.body.weight(.bold))
+                        // アクセシビリティサイズの文字では 44pt の丸からはみ出すので、大きさに上限を設ける（レシートのボタンと同じ）。
+                        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
                 }
             }
             .frame(width: 44, height: 44)
@@ -154,7 +126,9 @@ struct InputBar: View {
         // tint は塗りの色になる。主の塗り（`accentFill`）を明示する（AccentColor と同じ値だが、塗りの役目の色として決めておく）。
         .tint(Theme.accentFill)
         .disabled(!canSend)
-        .accessibilityLabel(isSending ? "読み取り中" : "送信")
+        // 押せないのが読み取りの途中だからだと分かるよう、送っている間は名前を変える。
+        .accessibilityLabel(isSending ? "送信中" : "送信")
+        .accessibilityIdentifier(AccessibilityID.Home.sendButton)
     }
 
     /// レシートを読み取るボタン。主の塗りは送信にだけ使うので（主の操作を 1 つに見せる）、ガラスの地に墨の記号にする。
@@ -170,6 +144,7 @@ struct InputBar: View {
         .buttonStyle(.glass)
         .buttonBorderShape(.circle)
         .accessibilityLabel("レシートを読み取る")
+        .accessibilityIdentifier(AccessibilityID.Home.receiptButton)
         // iOS 26 では、付けたボタンを指す吹き出しの形で出る。
         .confirmationDialog("レシートを読み取る", isPresented: showsReceiptChoice, titleVisibility: .visible) {
             if canUseDocumentCamera {
@@ -188,14 +163,10 @@ struct InputBar: View {
     /// 前提にしているため）。
     ///
     /// 色は補足の文字と同じにする。システムの既定の薄い灰色は、ガラスの地の上で 3:1 に届かないため。
-    /// 字は本文より一回り小さく（subheadline）する。入力欄はカメラとマイクのボタンに挟まれて狭く、本文の大きさでは標準の文字でも
+    /// 字は本文より一回り小さく（subheadline）する。入力欄はカメラと送信のボタンに挟まれて狭く、本文の大きさでは標準の文字でも
     /// 「記録も質問も、ひとことで」が「…」で切れたため（iPhone 17 Pro のシミュレータ）。打った文は本文の大きさのまま。
     private var prompt: Text {
-        let text = if targetsHousehold {
-            // 「自分／家族」を取り違えて記録しないよう、家計に記録することを例の文でも示す。アクセシビリティサイズでも
-            // 「家族」の印だけは残す（例だけにすると、「自分」のときと見分けがつかないため）。
-            dynamicTypeSize.isAccessibilitySize ? Text("家族: ランチ 850") : Text("家族に記録（ランチ 850）")
-        } else if dynamicTypeSize.isAccessibilitySize {
+        let text = if dynamicTypeSize.isAccessibilitySize {
             Text(verbatim: "ランチ 850")
         } else {
             Text("記録も質問も、ひとことで")
@@ -205,7 +176,7 @@ struct InputBar: View {
 
     /// 入力欄の名前（VoiceOver が読む）。
     private var fieldLabel: Text {
-        targetsHousehold ? Text("家族の家計に記録") : Text("記録や質問")
+        Text("記録や質問")
     }
 }
 

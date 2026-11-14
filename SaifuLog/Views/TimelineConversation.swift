@@ -97,12 +97,14 @@ struct SentTextBubble: View {
     /// 文の前に添える記号（入力元ごと）。読み取っている間の吹き出し（`PendingRecordView`）も同じものを添える。
     static func symbol(for source: EntrySource) -> String? {
         switch source {
-        case .text: nil
+        // 前の版の Apple Pay の支払いの記録は、ふつうの記録と同じに出す（打った文が無いので、ふつうは吹き出しを出さない）。
+        case .text, .wallet: nil
         case .voice: "mic.fill"
         case .receipt: "receipt"
-        // くり返しの記録と Apple Pay の支払いは打った文が無いので、ふつうは吹き出しを出さない（元の文が空）。
+        // CSV から読み込んだ記録の送った文（元は打った文かレシートの要約）。読み込んだものと分かるようにする。
+        case .imported: "square.and.arrow.down"
+        // くり返しの記録は打った文が無いので、ふつうは吹き出しを出さない（元の文が空）。
         case .recurring: "arrow.triangle.2.circlepath"
-        case .wallet: "creditcard"
         }
     }
 
@@ -141,13 +143,14 @@ struct PendingRecordView: View {
 
 // MARK: - アプリの返事
 
-/// 送信へのアプリの返事（記録したもの）のカード。左に寄せる（右の自分の吹き出しと見分けるため）。質問の回答カード・先週の
-/// ふりかえりのカードと同じ見た目（`replyCardSurface`）。
+/// 送信へのアプリの返事（記録したもの）のカード。左に寄せる（右の自分の吹き出しと見分けるため）。質問の回答カードと
+/// 同じ見た目（`replyCardSurface`）。
 ///
 /// 見出しに「記録しました」（2 件以上なら件数も）を出し、直前の送信なら右に「取り消す」を出す。「取り消す」は時間では
 /// 引っ込めない（次の文を送る・取り消す・その記録を直す・記録先を切り替える・開き直すまで。`HomeModel.canUndo`）。記録ごとに
 /// 1 行（`RecordedReplyRow`）を並べ、行を押すと ⑥ 直すを開く。割り勘などの説明の文は、その記録の行の下に添える（`RecordedReplyRow`）。
-/// 直前の送信の返事には、最後に今月の状況の一行（`ReplyStatusLine`）を添える（「取り消す」と同じ間だけ）。
+/// 直前の送信の返事には、最後に端末内 AI の一言（`ReplyRemarkLine`）か、無ければ今月の状況の一行（`ReplyStatusLine`）を添える
+/// （「取り消す」と同じ間だけ）。
 ///
 /// 記録ごとの縦の並びにしてあるので、あとで記録ごとの選択肢（カテゴリを選ぶボタンなど）を行の下に足せる。
 struct RecordedReplyCard: View {
@@ -161,9 +164,10 @@ struct RecordedReplyCard: View {
     var showsStatus = false
     /// カテゴリを聞き返している記録（`HomeModel.categoryQuestionIDs`）。その記録の行の下にカテゴリのボタンを出す。
     var askingCategory: Set<PersistentIdentifier> = []
-    /// Apple Pay の支払いとの重なりを聞き返している記録（`HomeModel.paymentOverlaps`）。その記録の行の下に聞き返しを出す。
-    var overlaps: [PersistentIdentifier: PaymentOverlapQuestion] = [:]
-    var classifyingCategory: Set<PersistentIdentifier> = []
+    /// 返事に添える端末内 AI の一言（直前の送信だけ。`HomeModel.replyRemark`）。無ければ出さない。
+    var remark: String?
+    /// 返事の下に出すヒント（直前の送信だけ。`HomeModel.replyHint`）。無ければ出さない。
+    var hint: ReplyHints.Hint?
     let undo: () -> Void
     let edit: (Entry) -> Void
     /// 削除を求める（確認は呼び出し側で出す）。
@@ -174,24 +178,14 @@ struct RecordedReplyCard: View {
     var createCategory: (Entry) -> Void = { _ in }
     /// その記録の中身で、くり返しの記録を作る画面を開く（長押しの「毎月くり返す」）。
     var makeRecurring: (Entry) -> Void = { _ in }
-    /// 重なりの聞き返しの「Apple Pay の記録を消す」（聞き返しを出している記録の ID を渡す）。
-    var removeOverlap: (PersistentIdentifier) -> Void = { _ in }
-    /// 重なりの聞き返しの「別の支払い」（聞き返しを出している記録の ID を渡す）。
-    var keepOverlap: (PersistentIdentifier) -> Void = { _ in }
+    /// カレンダーのページを出す（カレンダーのヒントを押したとき）。
+    var openCalendar: () -> Void = {}
 
     @Environment(\.calendar) private var calendar
 
     var body: some View {
         LeadingStack(spacing: 2) {
             RecordedReplyHeader(count: send.entries.count, source: send.source, undo: canUndo ? undo : nil)
-            if send.entries.contains(where: { classifyingCategory.contains($0.persistentModelID) }) {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("AIがカテゴリを振り分け中").font(.caption)
-                }
-                .foregroundStyle(Theme.inkSecondary)
-                .padding(.vertical, 6)
-            }
             // たいていの送信は 1 件なので、1 件のときは行を並べる入れ物（`LeadingStack`・ForEach）を挟まない（行はすべて測るため）。
             // 記録ごとの一言や選択肢を足すときは、行の下（ここと ForEach の中）に並べる。
             if send.entries.count == 1 {
@@ -203,9 +197,17 @@ struct RecordedReplyCard: View {
                     }
                 }
             }
-            if showsStatus {
-                ReplyStatusLine(today: today, calendar: calendar, isIncomeOnly: send.entries.allSatisfy(\.isIncome))
+            // 一言は今月の状況の一行と同じ数字（予算の残りなど）から書くので、一言があれば一行は出さない（同じことを 2 度言わない）。
+            // 一言は遅れて届くので、一行のあった場所に置き換える。
+            if let remark {
+                ReplyRemarkLine(text: remark)
                     // 行どうしの間（12pt）と同じだけ空ける（見出しと行の間の 2pt に足す）。
+                    .padding(.top, 10)
+            } else if showsStatus {
+                ReplyStatusLine(today: today, calendar: calendar, entries: send.entries)
+            }
+            if let hint {
+                ReplyHintLine(hint: hint, openCalendar: openCalendar)
                     .padding(.top, 10)
             }
         }
@@ -214,9 +216,8 @@ struct RecordedReplyCard: View {
         .leadingReply()
     }
 
-    /// 記録 1 件の行。Apple Pay の支払いとの重なりやカテゴリを聞き返している記録は、行の下に聞き返しを添える（聞き返すのは
-    /// 直前の送信だけなので、たいていの行は入れ物を挟まない。行はすべて測るため）。重なりを先に聞く（同じ支払いなら、どちらかの
-    /// 記録が消えるため）。
+    /// 記録 1 件の行。カテゴリを聞き返している記録は、行の下に聞き返しを添える（聞き返すのは直前の送信だけなので、たいていの
+    /// 行は入れ物を挟まない。行はすべて測るため）。
     @ViewBuilder
     private func row(_ entry: Entry) -> some View {
         let recorded = RecordedReplyRow(
@@ -224,17 +225,7 @@ struct RecordedReplyCard: View {
             // くり返しの記録から記録したものは、もうくり返しているので出さない。
             makeRecurring: entry.source == .recurring ? nil : { makeRecurring(entry) }
         )
-        let id = entry.persistentModelID
-        let asksCategory = askingCategory.contains(id) && !classifyingCategory.contains(id)
-        if let overlap = overlaps[id] {
-            LeadingStack(spacing: 10) {
-                recorded
-                PaymentOverlapView(question: overlap, remove: { removeOverlap(id) }, keep: { keepOverlap(id) })
-                if asksCategory {
-                    CategoryQuestionView(entry: entry, choose: { chooseCategory(entry, $0) }, create: { createCategory(entry) })
-                }
-            }
-        } else if asksCategory {
+        if askingCategory.contains(entry.persistentModelID) {
             LeadingStack(spacing: 10) {
                 recorded
                 CategoryQuestionView(entry: entry, choose: { chooseCategory(entry, $0) }, create: { createCategory(entry) })
@@ -245,107 +236,11 @@ struct RecordedReplyCard: View {
     }
 }
 
-/// 返事の行の下の、Apple Pay の支払いの記録との重なりの聞き返し（`HomeModel.paymentOverlaps`。コアの `PaymentOverlap`）。
-///
-/// 同じ買い物を Apple Pay の支払い（払うと自動で記録される）と、打った文やレシートの両方で記録すると、支出を 2 回数える。
-/// 使った日と金額が同じときだけ聞き、支払いの記録を消すのは「Apple Pay の記録を消す」を選んだときだけにする（同じ日に同じ額を
-/// 別々に払うこともあるため）。消すのは Apple Pay の側（打った記録は品目とカテゴリを選んで書いたもので、レシートは内訳が
-/// あるため）。「別の支払い」を選ぶか、選ばずに次を送れば、どちらの記録も残る。
-struct PaymentOverlapView: View {
-    let question: PaymentOverlapQuestion
-    let remove: () -> Void
-    let keep: () -> Void
-
-    var body: some View {
-        LeadingStack(spacing: 6) {
-            title
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.ink)
-            Text(verbatim: question.counterpart)
-                .font(.subheadline)
-                .foregroundStyle(Theme.ink)
-            hint
-                .font(.caption)
-                .foregroundStyle(Theme.inkSecondary)
-            // 2 つのボタンは 1 行に収まれば横に並べ、収まらなければ（大きな文字）縦に積む。
-            AdaptiveRowLayout(stacksWhenNeeded: true, spacing: 8, stackAlignment: .leading) {
-                chip(label: removeLabel, isPrimary: true, hint: removeHint, action: remove)
-                chip(label: Text("別の支払い"), isPrimary: false, hint: Text("どちらの記録も残します"), action: keep)
-            }
-        }
-        .accessibilityElement(children: .contain)
-    }
-
-    private var title: Text {
-        switch question.kind {
-        case .earlierPayment(let total?): Text("合計 \(YenFormatter.string(from: total)) は Apple Pay の支払いと同じですか？")
-        case .earlierPayment(nil): Text("Apple Pay の支払いと同じですか？")
-        case .earlierRecord: Text("前の記録と同じ支払いですか？")
-        }
-    }
-
-    private var hint: Text {
-        switch question.kind {
-        case .earlierPayment: Text("同じなら、Apple Pay の記録を消すと 2 回数えずに済みます。")
-        case .earlierRecord: Text("同じなら、この Apple Pay の記録を消すと 2 回数えずに済みます。")
-        }
-    }
-
-    private var removeLabel: Text {
-        switch question.kind {
-        case .earlierPayment: Text("Apple Pay の記録を消す")
-        case .earlierRecord: Text("この記録を消す")
-        }
-    }
-
-    private var removeHint: Text {
-        switch question.kind {
-        case .earlierPayment: Text("前に記録した Apple Pay の支払いを消し、いま記録したものを残します")
-        case .earlierRecord: Text("この Apple Pay の支払いの記録を消し、前の記録を残します")
-        }
-    }
-
-    /// 聞き返しのボタン（カテゴリの聞き返しのボタンと同じ形）。消すほうは太字にしてごみ箱の記号を添える（どちらを選ぶと何が
-    /// 起きるかを、形ではなく語と記号で伝え、よく選ぶほうを見つけやすくする。文字の色は本文と同じ墨なので、色では分けない）。
-    /// 大きな文字で 1 行に収まらなければ折り返す（縦に積んでも収まらず「…」で切れ、何が起きるボタンか読めなかったため）。
-    private func chip(label: Text, isPrimary: Bool, hint: Text, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Group {
-                if isPrimary {
-                    Label {
-                        label
-                    } icon: {
-                        Image(systemName: "trash")
-                    }
-                } else {
-                    label
-                }
-            }
-            .font(isPrimary ? .subheadline.weight(.semibold) : .subheadline)
-            .foregroundStyle(Theme.ink)
-            .multilineTextAlignment(.leading)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .frame(minHeight: 36)
-            .background {
-                // 1 行のときは丸い端（高さの半分の角）になり、折り返したときは角の丸い四角になる。
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(Theme.background)
-                    .stroke(Theme.track, lineWidth: 1)
-            }
-            // 見た目は 36pt の高さにし、押せる範囲は上下の余白まで広げて 44pt にする（カテゴリのボタンと同じ）。
-            .padding(.vertical, 4)
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint(hint)
-    }
-}
-
 /// 返事の行の下の、カテゴリの聞き返し（「その他」になり、品目が辞書にも覚えにも当たらない支出。`CategoryMemory.asksCategory`）。
 ///
 /// 選んだカテゴリにその記録を直し、品目とカテゴリの組を覚えて次から使う（`HomeModel.chooseCategory`）。「その他のまま」も覚える
-/// （同じ品目でもう聞き返さない）。記録は済んでいるので、選ばずに次を送ってもよい（あとから「確認待ち」で選べる）。
+/// （同じ品目でもう聞き返さない）。記録は済んでいるので、選ばずに次を送ってもよい（あとからチャットの「それ日用品」や、記録を
+/// 押して開く ⑥ でも直せる）。
 /// ボタンは横に送れる 1 行に並べる（折り返すと返事のカードが 3 行分ほど高くなり、タイムラインを押し上げるため）。
 struct CategoryQuestionView: View {
     let entry: Entry
@@ -413,12 +308,13 @@ struct CategoryQuestionView: View {
                     .fill(Theme.background)
                     .stroke(Theme.track, lineWidth: 1)
             }
-            // 見た目は 36pt の高さにし、押せる範囲は上下の余白まで広げて 44pt にする（よく使うひとことのボタンと同じ）。
+            // 見た目は 36pt の高さにし、押せる範囲は上下の余白まで広げて 44pt にする。
             .padding(.vertical, 4)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .accessibilityHint(category == .other ? Text("この記録をその他のままにします") : Text("この記録のカテゴリにします"))
+        .accessibilityIdentifier(AccessibilityID.Reply.categoryChoice(category.id))
     }
 
     /// 「＋ カテゴリを作る」。ほかのボタンと形をそろえ、文字は強調の色にする（押すと画面が開くことを見分けられるように）。
@@ -445,6 +341,7 @@ struct CategoryQuestionView: View {
         }
         .buttonStyle(.plain)
         .accessibilityHint("新しいカテゴリを作って、この記録のカテゴリにします")
+        .accessibilityIdentifier(AccessibilityID.Reply.createCategory)
     }
 }
 
@@ -470,25 +367,23 @@ private struct RecordedReplyHeader: View {
         localized: "くり返しの記録（返事の見出し）", defaultValue: "くり返しの記録",
         comment: "ホームの返事の見出し。くり返しの記録から 1 件を記録したとき"
     )
-    private static let walletText = String(localized: "Apple Pay の支払い")
 
+    /// 見出しの文。前の版の Apple Pay の支払いの記録（`.wallet`）も「記録しました」にする（いまは作らない記録なので、別の見出しを
+    /// 持たない）。
     private var titleText: String {
         switch (source, count > 1) {
         case (.recurring, true): String(localized: "くり返しの記録（\(count)件）")
         case (.recurring, false): Self.recurringText
-        case (.wallet, true): String(localized: "Apple Pay の支払い（\(count)件）")
-        case (.wallet, false): Self.walletText
         case (_, true): String(localized: "記録しました（\(count)件）")
         case (_, false): Self.recordedText
         }
     }
 
-    /// 見出しの前の印（打った記録はチェック、くり返しの記録はくり返しの記号、Apple Pay の支払いはカード）。
+    /// 見出しの前の印（記録はチェック、くり返しの記録はくり返しの記号）。
     private var symbolName: String {
         switch source {
         case .recurring: "arrow.triangle.2.circlepath"
-        case .wallet: "creditcard"
-        case .text, .voice, .receipt: "checkmark"
+        case .text, .voice, .receipt, .wallet, .imported: "checkmark"
         }
     }
 
@@ -540,14 +435,18 @@ private struct RecordedReplyHeader: View {
                 .contentShape(.rect)
         }
         .accessibilityHint(undoHint)
+        .accessibilityIdentifier(AccessibilityID.Reply.undoButton)
     }
 
     private var undoHint: Text {
         switch source {
         case .receipt: Text("レシートから記録したものを消します")
         case .recurring: Text("くり返しの記録から記録したものを消します。その月の分はもう記録しません")
-        case .wallet: Text("Apple Pay の支払いから記録したものを消します")
         case .text, .voice: Text("記録を消して、送った文を入力欄に戻します")
+        // 前の版の Apple Pay の支払いの記録は、いまは作らないので「取り消す」を出すことは無い（取り消せるのは直前の送信だけで、
+        // 開き直すと引っ込める）。打った文が無く入力欄にも戻さないので、説明は添えない。
+        // CSV から読み込んだ記録も、直前の送信にならないので「取り消す」を出すことは無い。
+        case .wallet, .imported: Text(verbatim: "")
         }
     }
 }
@@ -613,6 +512,7 @@ struct RecordedReplyRow<Record: LedgerEntryDisplaying>: View {
             }
         }
         .accessibilityAction(named: "削除", requestDelete)
+        .accessibilityIdentifier(AccessibilityID.Reply.row)
     }
 
     /// 見出しにする品目と、行の下に添える説明の文（解析が説明を書き足していない記録・メモや金額を直した記録は nil）。
@@ -723,8 +623,10 @@ struct RecordedReplyRow<Record: LedgerEntryDisplaying>: View {
     }
 }
 
-/// 直前の送信の返事の最後の一行。今月の状況を、ホームの帯と同じ数字で言う（「今月あと ¥…（1日あたり ¥…）」「今月の予算を ¥… 超えて
-/// います」「今月の支出 ¥…」、収入だけの送信は「今月の収入 ¥…」。`ReplyTexts.status`）。
+/// 直前の送信の返事の最後の行。送った支出のカテゴリの今月の件数と合計（「カフェは今月 3 件・¥1,350」。`ReplyTexts.categoryTally`）と、
+/// 今月の状況を、ホームの帯と同じ数字で言う（「今月あと ¥…（1日あたり ¥…）」「今月の予算を ¥… 超えています」、収入だけの送信は
+/// 「今月の収入 ¥…」。予算を決めていなければ出さない。`ReplyTexts.status`）。カテゴリの行は、今月に使った「その他」でない支出が
+/// あるときだけ（前の月の日付の記録や「その他」には出さない）。どちらもコードが数えた数字で、AI の無い端末でも出す。
 ///
 /// 数字は帯と同じ読み込みと計算（今月の記録と予算の @Query と `MonthSummaryHeader.figures`）で、記録を直す・消す・予算を変える・
 /// iCloud で取り込むと、その場で変わる（送ったときの数字の写しではない）。そのため出すのは直前の送信の返事だけにする（「取り消す」と
@@ -732,45 +634,138 @@ struct RecordedReplyRow<Record: LedgerEntryDisplaying>: View {
 /// 数字を残すこともできない。直前の返事にあれば、送った直後に目を向ける場所で「あといくら使えるか」が分かる。
 private struct ReplyStatusLine: View {
     let today: Date
-    let isIncomeOnly: Bool
+    /// 直前の送信の記録。
+    let entries: [Entry]
 
     @Environment(\.calendar) private var calendar
+    @Environment(\.categoryCatalog) private var catalog
     @ScaledMetric(relativeTo: .subheadline) private var iconWidth = 16
     @Query private var records: [Entry]
     @Query private var budgets: [Budget]
 
-    init(today: Date, calendar: Calendar, isIncomeOnly: Bool) {
+    init(today: Date, calendar: Calendar, entries: [Entry]) {
         self.today = today
-        self.isIncomeOnly = isIncomeOnly
+        self.entries = entries
         _records = Query(Entry.monthDescriptor(containing: today, calendar: calendar))
     }
 
     var body: some View {
         let figures = MonthSummaryHeader.figures(records: records, budgets: budgets, today: today, calendar: calendar)
-        let sentence = ReplyTexts.status(summary: figures.summary, budget: figures.budget, isIncomeOnly: isIncomeOnly)
+        let isIncomeOnly = entries.allSatisfy(\.isIncome)
+        let sentences = [
+            tally,
+            ReplyTexts.status(summary: figures.summary, budget: figures.budget, isIncomeOnly: isIncomeOnly),
+        ].compactMap { $0 }
+        if !sentences.isEmpty {
+            lines(sentences)
+                // 行どうしの間（12pt）と同じだけ空ける（見出しと行の間の 2pt に足す）。出さないときに間だけが残らないよう、中で空ける。
+                .padding(.top, 10)
+        }
+    }
+
+    /// 送った支出のうち、今月に使った「その他」でない最初のカテゴリの、今月の件数と合計。数字は帯と同じ今月の記録から数える。
+    private var tally: ReplySentence? {
+        guard let month = ReportPeriod.thisMonth.interval(now: today, calendar: calendar),
+              let category = entries.first(where: {
+                  !$0.isIncome && $0.category != .other && $0.spentAt >= month.start && $0.spentAt < month.end
+              })?.category
+        else { return nil }
+        let summary = LedgerSummary(records: records, interval: month, calendar: calendar)
+        guard let total = summary.expenseByCategory[category], let count = summary.expenseCountByCategory[category] else { return nil }
+        return ReplyTexts.categoryTally(categoryName: catalog.localizedName(for: category), count: count, total: total)
+    }
+
+    private func lines(_ sentences: [ReplySentence]) -> some View {
         LeadingStack(spacing: 10) {
             // 記録の行と分けて、返事の終わりに添えた一行だと分かるようにする（カードの枠と同じ色の細い線）。
             Rectangle()
                 .fill(Theme.track)
                 .frame(height: 1)
                 .accessibilityHidden(true)
-            Text(sentence.attributed(figureColor: sentence.isWarning ? Theme.danger : Theme.ink))
-                .font(.subheadline)
-                .monospacedDigit()
-                .foregroundStyle(Theme.inkSecondary)
-                // 予算を超えたときは、色だけでなくアイコンも添える（帯の「¥… オーバー」と同じ）。印は HStack ではなく文字に重ねる。
-                .padding(.leading, sentence.isWarning ? iconWidth + 4 : 0)
-                .overlay(alignment: Alignment(horizontal: .leading, vertical: .firstTextBaseline)) {
-                    if sentence.isWarning {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.subheadline)
-                            .foregroundStyle(Theme.danger)
-                            .frame(width: iconWidth)
-                            .accessibilityHidden(true)
-                    }
+            LeadingStack(spacing: 4) {
+                ForEach(sentences, id: \.text) { sentence in
+                    line(sentence)
                 }
-                .accessibilityLabel(Text(verbatim: sentence.text))
+            }
         }
+    }
+
+    private func line(_ sentence: ReplySentence) -> some View {
+        Text(sentence.attributed(figureColor: sentence.isWarning ? Theme.danger : Theme.ink))
+            .font(.subheadline)
+            .monospacedDigit()
+            .foregroundStyle(Theme.inkSecondary)
+            // 予算を超えたときは、色だけでなくアイコンも添える（帯の「¥… オーバー」と同じ）。印は HStack ではなく文字に重ねる。
+            .padding(.leading, sentence.isWarning ? iconWidth + 4 : 0)
+            .overlay(alignment: Alignment(horizontal: .leading, vertical: .firstTextBaseline)) {
+                if sentence.isWarning {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.danger)
+                        .frame(width: iconWidth)
+                        .accessibilityHidden(true)
+                }
+            }
+            .accessibilityLabel(Text(verbatim: sentence.text))
+    }
+}
+
+/// 直前の記録の返事の下に 1 行だけ出すヒント（`ReplyHints`）。直し方は文だけ、カレンダーは押すとカレンダーのページを出す
+/// （スワイプのほかの入口にもなる）。ヒントだと分かるよう、電球の印を添え、本文より控えめにする。
+struct ReplyHintLine: View {
+    let hint: ReplyHints.Hint
+    let openCalendar: () -> Void
+
+    var body: some View {
+        switch hint {
+        case .correction:
+            label(Text("違っていたら「それ日用品」「さっきのを900に直して」と送れば直せます"), systemImage: "lightbulb")
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text("ヒント: 違っていたら「それ日用品」「さっきのを900に直して」と送れば直せます"))
+                .accessibilityIdentifier(AccessibilityID.Reply.correctionHint)
+        case .calendar:
+            Button(action: openCalendar) {
+                label(Text("左へスワイプすると、日ごとに使った額のカレンダーが見られます"), systemImage: "calendar")
+                    .frame(minHeight: 44, alignment: .leading)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("ヒント: 左へスワイプすると、日ごとに使った額のカレンダーが見られます"))
+            .accessibilityHint(Text("カレンダーを開きます"))
+            .accessibilityIdentifier(AccessibilityID.Reply.calendarHint)
+        }
+    }
+
+    private func label(_ text: Text, systemImage: String) -> some View {
+        Label {
+            text
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: systemImage)
+                .accessibilityHidden(true)
+        }
+        .font(.footnote)
+        .foregroundStyle(Theme.inkSecondary)
+    }
+}
+
+/// 返事の最後に添える、端末内 AI の一言（Apple Intelligence）。数字はコアが計算した文だけから書かせ、照合に通ったものだけを出す
+/// （`HomeModel.replyRemark`）。AI が書いたことが分かるよう、きらめきの印を添える。
+struct ReplyRemarkLine: View {
+    let text: String
+
+    var body: some View {
+        Label {
+            Text(verbatim: text)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: "sparkles")
+                .accessibilityHidden(true)
+        }
+        .font(.subheadline)
+        .foregroundStyle(Theme.inkSecondary)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("AI の一言: \(text)"))
     }
 }
 
@@ -819,7 +814,7 @@ struct TimelineDayHeader: View {
 // MARK: - 見た目
 
 extension View {
-    /// アプリからの返事のカード（記録しました・質問の回答・先週のふりかえり）の面。面の色の角丸に、細い枠を付ける。
+    /// アプリからの返事のカード（記録しました・質問の回答）の面。面の色の角丸に、細い枠を付ける。
     /// 幅は置いた場所いっぱいに広げ、中身は左に寄せる。
     ///
     /// - Parameter topPadding: 上の余白。見出しが 44pt の高さを持つカード（記録しました）は詰める。
@@ -950,7 +945,7 @@ struct ReplyRowLayout: Layout {
 /// 2 つの子（前・後ろ）を、1 行に収まれば前を左の端に・後ろを右の端に置き（1 行目の文字の下端をそろえる）、収まらなければ
 /// 後ろを前の下の行に置く。子が 1 つなら左の端に置く。幅を提案されれば、その幅いっぱいを使う。
 ///
-/// 1 行に収まるかは、どちらも折り返さない幅（理想の幅）で並べて入るかで決める（吹き出しの `TitleAmountLayout` と同じ選び方）。
+/// 1 行に収まるかは、どちらも折り返さない幅（理想の幅）で並べて入るかで決める（`IdealRowArrangement`）。
 /// 品目が折り返すほど長いのに金額を横に並べると、金額が品目の 1 行目の右に並び、「…総額」「¥3,000」のように続けて読めて
 /// しまうため。返事の行の品目と金額、見出しの「記録しました」と「取り消す」に使う。
 struct SplitRowLayout: Layout {

@@ -11,6 +11,15 @@ enum VoiceOver {
         AccessibilityNotification.Announcement(message).post()
     }
 
+    /// いまの読み上げを遮らずに読み上げる（優先度を下げ、いま読んでいるものの後に読ませる）。操作の結果ではない添え書き
+    /// （記録の返事の AI の一言）に使う。結果の読み上げ（`announce`）や、打ち始めた入力欄の読み上げに割り込まないため。
+    @MainActor
+    static func announceAside(_ text: String) {
+        var message = AttributedString(text)
+        message.accessibilitySpeechAnnouncementPriority = .low
+        AccessibilityNotification.Announcement(message).post()
+    }
+
     /// 読み上げて、読み終えるまで待つ。VoiceOver が動いていなければ読み上げずにすぐ戻る。
     ///
     /// 声の入力を始める前に使う。読み上げの途中でマイクを開くと、読み上げの声を書き起こして入力欄に入れてしまうため。

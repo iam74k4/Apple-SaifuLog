@@ -3,12 +3,12 @@ import Observation
 import SaifuLogCore
 import SwiftData
 
-/// 「設定」（⑧）の状態と操作。プレミアム（⑨ を開く・購入の復元）、月の予算を開く、週の始まり、iCloud で同期、
-/// 家族と共有（家計の共有が有効なビルドだけ）、記録の CSV 書き出し、このアプリについて。
+/// 「設定」（⑧）の状態と操作。月の予算を開く、カテゴリ、くり返しの記録、iCloud で同期、記録の CSV 書き出しと読み込み、
+/// このアプリについて。
 ///
-/// 画面（`SettingsView`）から切り離し、保存先・設定の置き場所・時計・書き出し先を差し替えて SaifuLogTests で
-/// 確かめられるようにしている。CSV の中身はコア（`LedgerCSVWriter`）、ファイルの作成は `LedgerExporter` が受け持つ。
-/// 購入と復元そのものは、アプリで 1 つの `PurchaseManager` が受け持つ。
+/// 画面（`SettingsView`）から切り離し、保存先・時計・書き出し先を差し替えて SaifuLogTests で確かめられるようにしている。
+/// CSV の中身はコア（`LedgerCSVWriter`・`LedgerCSVReader`）、ファイルの作成は `LedgerExporter`、ファイルを読んで入れる記録を
+/// 決めるのは `LedgerImporter` が受け持つ。
 ///
 /// iCloud 同期は、オンにする前に iCloud のアカウントを確かめ（使えなければ案内だけ）、説明を読んでもらってから
 /// `StoreHost.setICloudSyncEnabled(_:)` に頼む（保存先を開き直すので、この画面ごと作り直される）。オフにするときも説明を出す。
@@ -17,31 +17,27 @@ import SwiftData
 final class SettingsModel {
     /// プライバシーポリシー（リポジトリの main の PRIVACY.md。Safari で開く）。
     static let privacyPolicyURL = URL(string: "https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md")!
-    /// ライセンス（リポジトリの main の LICENSE。Safari で開く）。
-    static let licenseURL = URL(string: "https://github.com/iam74k4/Apple-SaifuLog/blob/main/LICENSE")!
     /// ヘルプ・お問い合わせ（リポジトリの main の docs/support.md。App Store Connect のサポート URL と同じページ。Safari で開く）。
     static let supportURL = URL(string: "https://github.com/iam74k4/Apple-SaifuLog/blob/main/docs/support.md")!
 
-    /// 書き出す期間。開くたびに今月から始める（前に選んだ期間を覚えておくほどの設定ではないため）。
-    var exportPeriod: LedgerExportPeriod = .thisMonth
     /// 書き出しの途中（ボタンを押せなくし、進行中の印を出す）。
     private(set) var isExporting = false
     /// 共有に出しているファイル。共有のシートを閉じると `finishSharing()` で消して nil に戻す。
     private(set) var sharedFile: ExportedFile?
     /// 書き出せなかった・書き出す記録が無かった（アラートを出す）。
     var exportAlert: ExportAlert?
+    /// CSV を読むファイルを選ぶ画面を出しているか。
+    var showsImporter = false
+    /// 選んだ CSV を読み、入れる記録を決めている途中（ボタンを押せなくし、進行中の印を出す）。
+    private(set) var isImporting = false
+    /// 読み込む前の確かめ（入れる件数・飛ばす件数・読めなかった行の数）。出していなければ nil。
+    var importPreview: LedgerImporter.Preview?
+    /// 読み込みの結果と、読み込めなかったときのアラート。
+    var importAlert: ImportAlert?
     /// 「予算を決める」のシートの状態と操作。シートを出していなければ nil（シートを閉じると画面が nil に戻す）。
     var budgetSetup: BudgetSetupModel?
-    /// 「プレミアム」のシートの状態と操作。シートを出していなければ nil（シートを閉じると画面が nil に戻す）。
-    var premiumSheet: PremiumSheetModel?
-    /// 購入の復元の結果（アラートを出す）。
-    var purchaseAlert: PurchaseAlert?
-    /// プレミアムの購入と状態（アプリで 1 つ）。
-    let purchases: PurchaseManager
     /// いまの月の予算。決めていないか、読めなければ nil。
     private(set) var totalBudget: Int?
-    /// 端末の設定（地域と iOS の設定）の週の始まり（1 = 日曜）。「端末の設定に合わせる」の選択肢に曜日を添える。
-    let systemFirstWeekday: Int
     /// このアプリについての版とビルド番号（「0.1.0 (12)」）。
     let versionText: String
 
@@ -60,13 +56,22 @@ final class SettingsModel {
     var iCloudSyncConfirmation: ICloudSyncChange?
     /// オンにしようとしたら iCloud を使えなかった（案内のアラートを出す）。
     var iCloudAccountAlert: ICloudAccountStatus?
+    /// 切り替えようとしたら設定を書けなかった（切り替えていない。アラートを出す）。
+    var showsICloudSyncSaveFailure = false
 
-    // MARK: 家族と共有
+    /// 設定やその先の画面の上に、書きかけや途中の操作を持つシート・確認を出しているか（Siri の頼みを受けたときに、設定を
+    /// 閉じてよいかを決める。`HomeModel.receive`）。書き出しの途中と、カテゴリ・くり返しの記録を消す確認・覚えたカテゴリを
+    /// すべて忘れる確認も数える（閉じると、書き出しを黙ってやめ、確かめている途中の操作が消えるため。`close`）。
+    var isPresentingSheet: Bool {
+        budgetSetup != nil || categoryList.editor != nil || recurringList.editor != nil
+            || iCloudSyncConfirmation != nil || sharedFile != nil || isExporting
+            || categoryList.pendingDeletion != nil || recurringList.pendingDeletion != nil
+            || learnedCategories.showsForgetAllConfirmation
+            // CSV の読み込みも、ファイルを選んでいる・読んでいる・件数を確かめている間は閉じない（読み込みが黙って止まるため）。
+            || showsImporter || isImporting || importPreview != nil
+    }
 
-    /// 「家族と共有」の節の状態と操作。家計の共有が有効で、家計の保存先を開けたときだけある（無ければ節を出さない）。
-    let household: HouseholdSettingsModel?
-
-    /// 「覚えたカテゴリ」（修正の記憶の一覧）の状態と操作。行には覚えた言葉の数を出す。
+    /// 「覚えたカテゴリ」（修正の記憶の一覧）の状態と操作。「カテゴリ」の画面から進み、行には覚えた言葉の数を出す。
     let learnedCategories: LearnedCategoriesModel
 
     /// 「カテゴリ」（組み込みと作ったカテゴリの一覧。作る・直す・並べ替える・削除する）の状態と操作。
@@ -75,26 +80,13 @@ final class SettingsModel {
     /// 「くり返しの記録」（毎月同じ記録の一覧。足す・直す・やめる）の状態と操作。
     let recurringList: RecurringListModel
 
-    /// 「Apple Pay の支払い」（オートメーションの作り方と、受け取った支払いの数）。
-    let walletCapture = WalletCaptureModel()
-
-    /// 「家族と共有」の節を出すか。
-    var showsHousehold: Bool { household != nil }
-
-    /// 週の始まり。変えるとすぐ設定に書く（画面の根元が `@AppStorage` で読み、画面の暦に当てはめる）。
-    var weekStart: WeekStart {
-        get { storedWeekStart }
-        set {
-            storedWeekStart = newValue
-            defaults.set(newValue, for: AppSettings.weekStart)
-        }
-    }
-
-    private var storedWeekStart: WeekStart
     @ObservationIgnored private var exportTask: Task<Void, Never>?
+    @ObservationIgnored private var importTask: Task<Void, Never>?
     @ObservationIgnored private let budgetStore: BudgetStore
-    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let entryStore: EntryStore
+    @ObservationIgnored private let categories: CategoryCatalogModel
     @ObservationIgnored private let exporter: LedgerExporter
+    @ObservationIgnored private let importer: LedgerImporter
     @ObservationIgnored private let csvLanguage: LedgerCSVWriter.Language
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
@@ -106,17 +98,14 @@ final class SettingsModel {
     ///   - budgetStore: 予算の読み書き。渡さなければ `context` を使う。
     ///   - categories: いまのカテゴリの一覧。アプリはホームと同じもの（作ったカテゴリをホームにもすぐ出すため）を渡す。
     ///     渡さなければ `context` から読む。
-    ///   - purchases: プレミアムの購入と状態。アプリはホームから同じもの（`SaifuLogApp` の 1 つ）を渡す。渡さなければ
-    ///     購入の無い状態（テストとプレビュー用）。
     ///   - storeHost: 保存先を開いたもの。「iCloud で同期」の切り替えを頼む。渡さなければ iCloud の節を出さない。
-    ///   - householdHost: 家計の共有を受け持つもの。有効で家計の保存先を開けているときだけ「家族と共有」の節を出す。
     ///   - accountStatus: iCloud のアカウントの状態の問い合わせ。テストでは CloudKit に問い合わせない値に差し替える
     ///     （iCloud の entitlement の無いテストのプロセスで `CKContainer` を作ると落ちるため）。
-    ///   - defaults: 設定の置き場所。アプリは `UserDefaults.standard`（`AppSettings` の決まり）、テストは使い捨ての領域。
+    ///   - entryStore: CSV から読み込んだ記録の保存。渡さなければ `context` を使う。テストで保存の失敗を起こす。
     ///   - exporter: 記録をファイルに書き出す。渡さなければ `context` と同じ保存先から、アプリの一時ディレクトリへ書き出す。
     ///     テストで書き出し先を使い捨ての場所にし、書き出しがメインスレッドの外で進むかを確かめる。
+    ///   - importer: CSV を読み、入れる記録を決める。渡さなければ `context` と同じ保存先の記録と比べる。
     ///   - csvLanguage: CSV の見出しと値の言語。アプリの表示の言語に合わせる。
-    ///   - systemFirstWeekday: 端末の設定の週の始まり。テストで決める。
     ///   - bundleInfo: 版とビルド番号を読む Info.plist の中身。テストで決める。
     ///   - now: 書き出す期間の基準とファイル名の日付。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる（予算を決める画面に渡す）。
@@ -125,52 +114,40 @@ final class SettingsModel {
         context: ModelContext,
         budgetStore: BudgetStore? = nil,
         categories: CategoryCatalogModel? = nil,
-        purchases: PurchaseManager? = nil,
         storeHost: StoreHost? = nil,
-        householdHost: HouseholdHost? = nil,
         accountStatus: @escaping @MainActor () async -> ICloudAccountStatus = { await ICloudAccountStatus.current() },
-        defaults: UserDefaults = .standard,
+        entryStore: EntryStore? = nil,
         exporter: LedgerExporter? = nil,
+        importer: LedgerImporter? = nil,
         csvLanguage: LedgerCSVWriter.Language = LedgerCSVWriter.Language(localization: Bundle.main.preferredLocalizations.first),
-        systemFirstWeekday: Int = Calendar.autoupdatingCurrent.firstWeekday,
         bundleInfo: [String: Any] = Bundle.main.infoDictionary ?? [:],
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
         recurringDidChange: @escaping @MainActor () -> Void = {}
     ) {
         self.budgetStore = budgetStore ?? BudgetStore(context: context)
-        self.purchases = purchases ?? PurchaseManager(loadPurchases: { [] })
+        self.entryStore = entryStore ?? EntryStore(context: context)
         self.storeHost = storeHost
-        self.household = householdHost.flatMap { $0.isAvailable ? HouseholdSettingsModel(host: $0) : nil }
         self.learnedCategories = LearnedCategoriesModel(store: LearnedCategoryStore(context: context, now: now), announce: announce)
         let categoryStore = CustomCategoryStore(context: context, now: now)
-        self.categoryList = CategoryListModel(
-            store: categoryStore, categories: categories ?? CategoryCatalogModel(store: categoryStore), announce: announce
-        )
+        let categories = categories ?? CategoryCatalogModel(store: categoryStore)
+        self.categories = categories
+        self.categoryList = CategoryListModel(store: categoryStore, categories: categories, announce: announce)
         self.recurringList = RecurringListModel(
             store: RecurringEntryStore(context: context, now: now), now: now, announce: announce, didChange: recurringDidChange
         )
         self.accountStatus = accountStatus
         self.isICloudSyncEnabled = storeHost?.cloudKitDatabase.isSyncEnabled ?? false
-        self.defaults = defaults
         self.exporter = exporter ?? LedgerExporter(container: context.container)
+        self.importer = importer ?? LedgerImporter(container: context.container)
         self.csvLanguage = csvLanguage
-        self.systemFirstWeekday = systemFirstWeekday
         self.versionText = Self.versionText(info: bundleInfo)
         self.now = now
         self.announce = announce
-        self.storedWeekStart = defaults.value(for: AppSettings.weekStart)
         // 前に書き出して残ったファイル（共有の途中でアプリが終了したときなど）を片づける。設定を開いた時点では、
         // 共有のシートは出ていない（共有のシートは設定の画面の上にしか出ない）ので、消しても共有を妨げない。
         self.exporter.removeAll()
         reloadBudget()
-    }
-
-    // MARK: - 週の始まり
-
-    /// 週の始まりを当てはめた暦（画面の根元が当てはめるものと同じ）。`ReportPeriod` の今週・先週の区切りに使われる。
-    func calendar(applyingTo systemCalendar: Calendar) -> Calendar {
-        weekStart.applied(to: systemCalendar)
     }
 
     // MARK: - iCloud 同期
@@ -207,7 +184,10 @@ final class SettingsModel {
     /// `iCloudSyncConfirmation` を nil にすることがあるため）。
     func confirmICloudSync(_ change: ICloudSyncChange) {
         iCloudSyncConfirmation = nil
-        storeHost?.setICloudSyncEnabled(change == .enable)
+        // 設定を書けなければ切り替わらない（トグルは元のまま）。黙っていると押しても何も起きないように見えるので知らせる。
+        if storeHost?.setICloudSyncEnabled(change == .enable) == false {
+            showsICloudSyncSaveFailure = true
+        }
     }
 
     /// 同期がオンのとき、iCloud のアカウントがいまも使えるかを確かめる（設定の画面を開いたとき）。
@@ -219,7 +199,7 @@ final class SettingsModel {
         iCloudAccountStatus = await accountStatus()
     }
 
-    /// 設定の画面を離れたら、途中のアカウントの確かめをやめる（戻った後で説明やアラートを出さない）。
+    /// 設定の画面を閉じたら、途中のアカウントの確かめをやめる（閉じた後で説明やアラートを出さない）。
     func cancelICloudAccountCheck() {
         accountCheckTask?.cancel()
         accountCheckTask = nil
@@ -228,29 +208,9 @@ final class SettingsModel {
 
     // MARK: - 予算
 
-    /// 「予算を決める」のシートを出す（ホームの帯のボタンと同じ画面）。カテゴリ別の予算はプレミアムと体験中だけ出す。
+    /// 「予算を決める」のシートを出す（ホームの帯のボタンと同じ画面）。
     func presentBudgetSetup() {
-        budgetSetup = BudgetSetupModel(
-            store: budgetStore, showsCategoryBudgets: purchases.status.unlocksPremium, catalog: categoryList.catalog,
-            announce: announce
-        )
-    }
-
-    // MARK: - プレミアム
-
-    /// 「プレミアム」のシート（⑨）を出す。
-    func presentPremium() {
-        premiumSheet = PremiumSheetModel(purchases: purchases, announce: announce)
-    }
-
-    /// 購入の復元。終わるのを待つ Task を返す（テストで使う）。購入や復元の途中は受け付けない（nil を返す）。
-    @discardableResult
-    func restorePurchases() -> Task<Void, Never>? {
-        guard !purchases.isPurchasing, !purchases.isRestoring else { return nil }
-        return Task {
-            let outcome = await purchases.restore()
-            purchaseAlert = PurchaseAlert(outcome)
-        }
+        budgetSetup = BudgetSetupModel(store: budgetStore, announce: announce)
     }
 
     /// いまの予算を読み直す（予算を決める画面を閉じたとき）。
@@ -262,15 +222,16 @@ final class SettingsModel {
 
     /// 選んだ期間の記録を CSV ファイルにし、共有のシートに渡す（`sharedFile`）。書き終えるのを待つ Task を返す（テストで使う）。
     ///
-    /// 利用者がボタンを押したときだけ書き出す。どこへ渡すかは利用者が共有のシートで選び、アプリからは送らない。
+    /// 利用者が期間を選んだときだけ書き出す。どこへ渡すかは利用者が共有のシートで選び、アプリからは送らない。
     /// 書き出しの途中や、共有のシートを出している間は受け付けない（nil を返す）。
-    /// - Parameter calendar: 期間を区切る暦（画面の暦。ホームの今月と同じ月で区切るため）。
+    /// - Parameters:
+    ///   - period: 書き出す期間（書き出しのメニューで選んだもの）。
+    ///   - calendar: 期間を区切る暦（画面の暦。ホームの今月と同じ月で区切るため）。
     @discardableResult
-    func export(calendar: Calendar) -> Task<Void, Never>? {
+    func export(period: LedgerExportPeriod = .thisMonth, calendar: Calendar) -> Task<Void, Never>? {
         guard !isExporting, sharedFile == nil else { return nil }
         isExporting = true
         let exporter = exporter
-        let period = exportPeriod
         let exportedAt = now()
         let language = csvLanguage
         let task = Task {
@@ -312,10 +273,109 @@ final class SettingsModel {
         if !sheetWasShown { exportAlert = .failed }
     }
 
-    /// 設定の画面を離れたら、途中の書き出しをやめる（書き終えていたファイルは、書き出しの Task が消す）。
+    /// 設定の画面を閉じた（ホームが `settings` を nil に戻した・作り直した）。途中の書き出し・読み込みとアカウントの確かめを
+    /// やめる。
+    ///
+    /// 画面の onDisappear でやめると、設定から「カテゴリ」などへ進んだだけでも書き出しが止まり、戻ると何も起きていない
+    /// ように見えるため、閉じたときだけにする。
+    func close() {
+        cancelExport()
+        cancelImportReading()
+        cancelICloudAccountCheck()
+    }
+
+    /// 途中の書き出しをやめる（書き終えていたファイルは、書き出しの Task が消す）。
     func cancelExport() {
         exportTask?.cancel()
         exportTask = nil
+    }
+
+    // MARK: - 読み込み
+
+    /// 「CSV から読み込む」を押した。ファイルを選ぶ画面を出す。読んでいる途中や、件数を確かめている間は受け付けない。
+    func requestImport() {
+        guard !isImporting, importPreview == nil else { return }
+        showsImporter = true
+    }
+
+    /// ファイルを選ぶ画面で選んだ（か、選べなかった）。選んだファイルを読み、入れる記録を決めて、件数を確かめてもらう
+    /// （`importPreview`）。入れる記録が無ければ、その理由を知らせる。読み終えるのを待つ Task を返す（テストで使う）。
+    ///
+    /// この時点ではまだ保存先に書き込まない。どの記録をいくつ入れるかを見てから、利用者が「読み込む」を押したときだけ書き込む
+    /// （`confirmImport`）。思っていたファイルと違ったときに、記録を黙って増やさないため。
+    /// - Parameters:
+    ///   - result: 選んだファイル。
+    ///   - calendar: 日付と時刻を読む暦（画面の暦。書き出しと同じ時間帯で読む）。
+    @discardableResult
+    func importFile(_ result: Result<URL, any Error>, calendar: Calendar) -> Task<Void, Never>? {
+        showsImporter = false
+        guard !isImporting, importPreview == nil else { return nil }
+        let url: URL
+        switch result {
+        case .success(let picked):
+            url = picked
+        case .failure:
+            importAlert = .unreadable
+            return nil
+        }
+        isImporting = true
+        let importer = importer
+        let timeZone = calendar.timeZone
+        let catalog = categories.catalog
+        let task = Task {
+            defer { isImporting = false }
+            do {
+                let preview = try await importer.preview(fileAt: url, timeZone: timeZone, catalog: catalog)
+                // 読んでいる間に設定を閉じていたら、確かめを出さない。
+                guard !Task.isCancelled else { return }
+                if preview.importCount > 0 {
+                    importPreview = preview
+                } else {
+                    importAlert = .nothingToImport(duplicates: preview.duplicateCount, unreadable: preview.unreadableCount)
+                }
+            } catch is CancellationError {
+                // 設定を閉じて取り消した。知らせることは無い。
+            } catch let error as LedgerCSVReader.ReadError {
+                guard !Task.isCancelled else { return }
+                switch error {
+                case .unrecognizedHeader: importAlert = .notSaifuLogCSV
+                case .tooLarge: importAlert = .tooLarge
+                case .unreadableText: importAlert = .unreadable
+                }
+            } catch {
+                if !Task.isCancelled { importAlert = .unreadable }
+            }
+        }
+        importTask = task
+        return task
+    }
+
+    /// 確かめで「読み込む」を押した。決めた記録を保存先に入れる。書き込めなければ何も入れずに知らせる（`EntryStore` が巻き戻す）。
+    ///
+    /// 何を入れるかは、確かめに出していた中身を受け取る（ボタンを押すとアラートを閉じる側が先に `importPreview` を nil にする
+    /// ことがあるため）。記録は 1 回でまとめて書き込む（途中まで入った状態を残さないため）。
+    func confirmImport(_ preview: LedgerImporter.Preview) {
+        importPreview = nil
+        let entries = LedgerImporter.entries(from: preview.rows)
+        guard !entries.isEmpty else { return }
+        do {
+            try entryStore.insert(entries)
+        } catch {
+            importAlert = .saveFailed
+            return
+        }
+        importAlert = .imported(count: entries.count)
+    }
+
+    /// 確かめで「キャンセル」を押した。何も入れない。
+    func cancelImport() {
+        importPreview = nil
+    }
+
+    /// 途中の読み込みをやめる（設定を閉じたとき）。まだ何も書き込んでいないので、やめるだけでよい。
+    func cancelImportReading() {
+        importTask?.cancel()
+        importTask = nil
     }
 
     // MARK: - このアプリについて
@@ -325,14 +385,6 @@ final class SettingsModel {
         let version = info["CFBundleShortVersionString"] as? String ?? "-"
         let build = info["CFBundleVersion"] as? String ?? "-"
         return "\(version) (\(build))"
-    }
-
-    /// 曜日の名前（1 = 日曜）。アプリの表示の言語（日本語か英語）で書く。
-    static func weekdayName(_ weekday: Int, localization: String? = Bundle.main.preferredLocalizations.first) -> String {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.locale = Locale(identifier: localization ?? "ja")
-        let symbols = calendar.standaloneWeekdaySymbols
-        return symbols.indices.contains(weekday - 1) ? symbols[weekday - 1] : ""
     }
 
     // MARK: - 型
@@ -350,6 +402,24 @@ final class SettingsModel {
         let url: URL
         let recordCount: Int
         var id: URL { url }
+    }
+
+    /// 読み込みの結果と、読み込めなかったときのアラート。
+    enum ImportAlert: Identifiable, Hashable {
+        /// 記録を入れた（入れた件数）。
+        case imported(count: Int)
+        /// 入れる記録が無かった（すべてすでにある記録と同じか、読めない行だった）。
+        case nothingToImport(duplicates: Int, unreadable: Int)
+        /// このアプリで書き出した CSV ではない（見出しの行が違う）。
+        case notSaifuLogCSV
+        /// ファイルが大きすぎる（行の上限を超えている）。
+        case tooLarge
+        /// ファイルを読めなかった（文字として読めない・開けない）。
+        case unreadable
+        /// 記録を保存先に書き込めなかった（何も入れていない）。
+        case saveFailed
+
+        var id: Self { self }
     }
 
     /// 書き出しのアラート。

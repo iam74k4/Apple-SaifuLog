@@ -37,7 +37,7 @@ struct ScreenshotDemoAnswerer: QuestionAnswering {
     }
 }
 
-/// ふりかえり（先週のふりかえり・月のまとめ）の AI の一言の代わり。数字の文（`RecapFacts`）から、支出のいちばん多いカテゴリを
+/// 月のまとめの AI の一言の代わり。数字の文（`RecapFacts`）から、支出のいちばん多いカテゴリを
 /// 読んで、数字を書かない励ましの一文にする（端末内 AI への指示「励ましか気づきを一文か二文で」に沿う形）。
 struct ScreenshotDemoRemarkWriter: RecapRemarkWriting {
     func remark(from facts: String) async throws -> String {
@@ -46,9 +46,6 @@ struct ScreenshotDemoRemarkWriter: RecapRemarkWriting {
 
     static func remark(from facts: String) -> String {
         guard let top = topCategory(in: facts) else { return "記録を続けられていて、いい調子です。" }
-        if facts.hasPrefix("期間: 先週") {
-            return "先週いちばん多かったのは\(top)でした。こまめに記録できていて、いい調子です。"
-        }
         if facts.hasPrefix("期間: 今月") {
             return "今月は\(top)がいちばん多くなっています。記録を続けられていて、いい調子です。"
         }
@@ -60,6 +57,25 @@ struct ScreenshotDemoRemarkWriter: RecapRemarkWriting {
         let label = "支出の多いカテゴリ: "
         guard let line = facts.split(separator: "\n").first(where: { $0.hasPrefix(label) }) else { return nil }
         return line.dropFirst(label.count).split(separator: " ").first.map(String.init)
+    }
+}
+
+/// 記録の返事の一言の代わり（端末で変わらないよう、数字の文から決まった一言を作る。数字は文のものだけを使い、照合に通る）。
+struct ScreenshotDemoRecordRemarkWriter: RecapRemarkWriting {
+    func remark(from facts: String) async throws -> String {
+        Self.remark(from: facts)
+    }
+
+    static func remark(from facts: String) -> String {
+        // 「今月のカフェ: ¥3,520（記録 8件）」から、カテゴリの名前と件数を取る。
+        guard let line = facts.split(separator: "\n").first(where: { $0.hasPrefix("今月の") && $0.contains("（記録 ") }),
+              let colon = line.firstIndex(of: ":"),
+              let open = line.range(of: "（記録 "), let close = line.range(of: "件）") else {
+            return "いいペースで記録できています。"
+        }
+        let name = line[line.index(line.startIndex, offsetBy: 3)..<colon]
+        let count = line[open.upperBound..<close.lowerBound]
+        return "今月の\(name)は\(count)件目です。いいペースで記録できています。"
     }
 }
 
@@ -110,57 +126,6 @@ enum ScreenshotDemoReceipt {
             preconditionFailure("1 画素の画像を作れませんでした")
         }
         return ReceiptImage(cgImage: cgImage)
-    }
-}
-
-/// 声の書き起こしの代わり。聞き始めると、確定した文（「ドラッグストア」）と途中の文（「1280円」）を流し、止めるまで聞いている
-/// 表示のままにする（シミュレータではマイクの声を流せず、書き起こしのモデルも無いため）。
-@MainActor
-final class ScreenshotDemoTranscriber: VoiceTranscribing {
-    private var continuation: AsyncStream<VoiceEvent>.Continuation?
-
-    func availability() async -> VoiceAvailability {
-        VoiceAvailability(route: .speechTranscriber, model: .installed)
-    }
-
-    func installModel(progress: @escaping @MainActor (Double) -> Void) async throws {}
-
-    func start() async throws -> AsyncStream<VoiceEvent> {
-        let (stream, continuation) = AsyncStream.makeStream(of: VoiceEvent.self)
-        self.continuation = continuation
-        continuation.yield(.level(0.6))
-        continuation.yield(.segment(.init(text: "ドラッグストア", start: 0, end: 1.2, finalizedThrough: 1.2)))
-        continuation.yield(.segment(.init(text: "1280円", start: 1.2, end: 2.0, finalizedThrough: 1.2)))
-        return stream
-    }
-
-    func stop() {
-        finish()
-    }
-
-    func cancel() {
-        finish()
-    }
-
-    private func finish() {
-        continuation?.finish()
-        continuation = nil
-    }
-}
-
-/// マイクの許可（デモでは許可済み。iOS の確認を出さない）。
-struct ScreenshotDemoMicrophone: MicrophoneAuthorizing {
-    var permission: MicrophonePermission { .granted }
-
-    func requestPermission() async -> Bool {
-        true
-    }
-}
-
-/// 回線の種類（デモではモデルをダウンロードしないので使わない）。
-struct ScreenshotDemoNetwork: NetworkCostChecking {
-    func isExpensive() async -> Bool {
-        false
     }
 }
 #endif

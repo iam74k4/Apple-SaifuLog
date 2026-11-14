@@ -78,7 +78,7 @@ struct BudgetStoreTests {
         let rows = try Self.rows(context)
         #expect(rows.map(\.scopeRawValue) == ["food", "total"])
         #expect(rows.map(\.amount) == [40_000, 160_000])
-        #expect(try Self.makeStore(context: context).plan() == BudgetPlan(total: 160_000, byCategory: [.food: 40_000]))
+        #expect(try Self.makeStore(context: context).plan() == BudgetPlan(total: 160_000))
     }
 
     /// 予算をなくすときは行を消さずに 0 を書く（CloudKit で削除が伝わるのが遅れても、あとの「設定なし」が勝つように）。
@@ -103,13 +103,15 @@ struct BudgetStoreTests {
         #expect(try Self.rows(context).first { $0.scopeRawValue == "cafe" }?.amount == 0)
     }
 
-    @Test func setAmountsWritesTotalAndCategoriesTogether() throws {
+    /// 前の版で決めたカテゴリの予算の行が残っていても（iCloud で届いても）、予算は全体の予算だけで読む。
+    @Test func oldCategoryRowsAreIgnored() throws {
         let context = try TestSupport.makeContext()
         let store = Self.makeStore(context: context)
 
         try store.setAmounts([.total: 150_000, .category(.food): 40_000, .category(.cafe): 5_000])
 
-        #expect(try store.plan() == BudgetPlan(total: 150_000, byCategory: [.food: 40_000, .cafe: 5_000]))
+        #expect(try store.plan() == BudgetPlan(total: 150_000))
+        #expect(try Self.rows(context).count == 3)
     }
 
     /// 保存に失敗したら throw し、書き換えかけた額を残さない（画面に出ている予算と保存先が食い違わないように）。
@@ -168,7 +170,7 @@ struct BudgetStoreTests {
 struct MonthSummaryFiguresTests {
     static func figures(
         context: ModelContext, today: Date
-    ) throws -> (summary: MonthlySummary, budget: BudgetStatus?, pace: SummaryHeader.Pace?) {
+    ) throws -> (summary: MonthlySummary, budget: BudgetStatus?) {
         let records = try context.fetch(Entry.monthDescriptor(containing: today, calendar: TestSupport.calendar))
         let budgets = try context.fetch(FetchDescriptor<Budget>())
         return MonthSummaryHeader.figures(records: records, budgets: budgets, today: today, calendar: TestSupport.calendar)
@@ -197,8 +199,6 @@ struct MonthSummaryFiguresTests {
         #expect(budget.remaining == 93_000)
         #expect(budget.remainingDays == 3)
         #expect(budget.dailyAllowance == 31_000)
-        // 今日までの目安は月のまとめと同じ（予算を 30 日で日割りした 28 日分）。今日までに使った額はそれより 83,000 円少ない。
-        #expect(figures.pace == SummaryHeader.Pace(amount: 140_000, beyond: -83_000))
     }
 
     @Test func noBudgetShowsOnlyTotals() throws {
@@ -211,7 +211,6 @@ struct MonthSummaryFiguresTests {
 
         #expect(figures.summary.expense == 850)
         #expect(figures.budget == nil)
-        #expect(figures.pace == nil)
     }
 
     /// 月が変わったら、前の月の支出を持ち越さない（残りの日数も新しい月で数える）。

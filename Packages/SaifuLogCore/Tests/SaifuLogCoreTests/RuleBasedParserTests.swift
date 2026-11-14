@@ -143,12 +143,12 @@ struct RuleBasedParserTests {
     }
 
     @Test("今月に無い日・その年に無い日は、今日の記録にしてメモに残す", arguments: [
-        ("31日 家賃 80000", 80_000, "31日 家賃"),
-        ("2月29日 1000", 1_000, "2月29日"),
-        ("2026年2月30日 家賃 80000", 80_000, "2026年2月30日 家賃"),
+        ("31日 家賃 80000", 80_000, EntryCategory.housing, "31日 家賃"),
+        ("2月29日 1000", 1_000, EntryCategory.other, "2月29日"),
+        ("2026年2月30日 家賃 80000", 80_000, EntryCategory.housing, "2026年2月30日 家賃"),
     ])
-    func unreadDateStaysInMemo(text: String, amount: Int, memo: String) {
-        #expect(parse(text) == [ParsedEntry(amount: amount, category: .other, memo: memo)])
+    func unreadDateStaysInMemo(text: String, amount: Int, category: EntryCategory, memo: String) {
+        #expect(parse(text) == [ParsedEntry(amount: amount, category: category, memo: memo)])
     }
 
     @Test("先頭に置いた日付は、後ろの件にも引き継ぐ", arguments: [
@@ -430,7 +430,7 @@ struct RuleBasedParserTests {
         ("家賃 80000 30日", -2),
     ])
     func futureAndDayOnlyDates(text: String, daysAgo: Int) {
-        #expect(parse(text) == [ParsedEntry(amount: 80_000, category: .other, memo: "家賃", daysAgo: daysAgo)])
+        #expect(parse(text) == [ParsedEntry(amount: 80_000, category: .housing, memo: "家賃", daysAgo: daysAgo)])
     }
 
     /// 2026-10-28（日本時間）に読む解析器。月をまたぐ「先月」「来月」を確かめる。
@@ -445,7 +445,7 @@ struct RuleBasedParserTests {
     ])
     func relativeMonthAndYearDates(text: String, daysAgo: Int) {
         #expect(Self.lateOctoberParser.entries(from: text)
-            == [ParsedEntry(amount: 80_000, category: .other, memo: "家賃", daysAgo: daysAgo)])
+            == [ParsedEntry(amount: 80_000, category: .housing, memo: "家賃", daysAgo: daysAgo)])
     }
 
     // 決められない日付を今月や今年として読むと、違う月の日付で黙って記録されるので、今日の記録にして語と日付をメモに残す。
@@ -454,7 +454,7 @@ struct RuleBasedParserTests {
         ("先月31日 家賃 80000", "先月31日 家賃"), ("去年2025/10/1 家賃 80000", "去年2025/10/1 家賃"),
     ])
     func unsupportedRelativeDates(text: String, memo: String) {
-        #expect(Self.lateOctoberParser.entries(from: text) == [ParsedEntry(amount: 80_000, category: .other, memo: memo)])
+        #expect(Self.lateOctoberParser.entries(from: text) == [ParsedEntry(amount: 80_000, category: .housing, memo: memo)])
     }
 
     @Test("語の付かない「30日」は、これまでどおり今月のその日")
@@ -776,7 +776,7 @@ struct RuleBasedParserTests {
     func numericDateKeepsIncomeInItsEntry() {
         #expect(parse("給料 25万 9/25 家賃 8万") == [
             ParsedEntry(amount: 250_000, category: .other, isIncome: true, memo: "給料"),
-            ParsedEntry(amount: 80_000, category: .other, memo: "家賃", daysAgo: 3),
+            ParsedEntry(amount: 80_000, category: .housing, memo: "家賃", daysAgo: 3),
         ])
     }
 

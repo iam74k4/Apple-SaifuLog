@@ -3,21 +3,16 @@ import SwiftUI
 
 /// カレンダーのページ（ホームを左へスワイプした 2 枚目。docs/design.md §9 の ⑩）。
 ///
-/// 上から、今月の見通し（今日あと・固定費を引いた今月あと・月末の見込み。ほかの月はその月の支出と収入）、月のカレンダー（日ごとの
-/// 支出と、予算の日割りより多い日・くり返しの予定の印）、選んだ日の記録。会話は記録した順に流れるので、日ごとに見返す・抜けた日を
-/// 見つける・決まった支出の予定を見るのはこのページで行う。
+/// 「いくら使ったか」だけが分かるページにする。上にその月に使った額、月のカレンダーの日ごとに使った額、選んだ日の合計と記録。
+/// 見通し・予算の日割りの印・くり返しの予定の印は出さない（数字と印が多いと、いちばん知りたい「使った額」が埋もれるため。予算の
+/// 残りは帯と月のまとめに、細かい比べは会話の質問にある）。記録は会話の入力欄からだけ（入口を 1 つに保つ）。
 ///
-/// 入力欄は置かない。「この日に記録」で会話のページへ戻り、入力欄にその日の日付を入れる（記録の入口を会話の入力欄の 1 つに
-/// 保つ。入口を分けると、どこに書けばよいかを考えさせるため。`HomeView` の説明と同じ）。
-///
-/// 文字がとても大きいとき（アクセシビリティサイズ）は 7 列の表をやめ、記録か予定のある日と今日の一覧にして、選んだ日の記録をその日の
-/// 行の下に出す（7 列では 1 日の幅が 50pt ほどしかなく、金額が読めないため）。
+/// 文字がとても大きいとき（アクセシビリティサイズ）は 7 列の表をやめ、記録のある日と今日の一覧にして、選んだ日の記録をその日の
+/// 行の下に出す（7 列では、日の数字も金額も読めない大きさまで縮むため）。
 struct LedgerCalendarView: View {
     let model: LedgerCalendarModel
     /// 会話のページへ戻る。
     let showConversation: () -> Void
-    /// 「この日に記録」。会話のページへ戻り、入力欄にその日の日付を入れる。
-    let recordOnDay: (Date) -> Void
     let edit: (Entry) -> Void
     /// 削除を求める（確認はホームが出す）。
     let requestDelete: (Entry) -> Void
@@ -25,8 +20,6 @@ struct LedgerCalendarView: View {
     let makeRecurring: (Entry) -> Void
     /// その月の月のまとめを開く。
     let openReport: (Date) -> Void
-    /// 予算を決める（変える）画面を出す。
-    let editBudget: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -36,7 +29,10 @@ struct LedgerCalendarView: View {
                 if model.loadFailed {
                     LoadFailedView(retry: { model.reload() })
                 } else if let days = model.days {
-                    summary(days)
+                    // 先の月には月のまとめの入口を出さない（月のまとめは今月より先を出さず、押すと今月が開いて、見ていた月と食い違うため）。
+                    CalendarMonthSpendCard(
+                        days: days, openReport: model.isFutureMonth ? nil : { openReport(days.month.start) }
+                    )
                     if dynamicTypeSize.isAccessibilitySize {
                         // 一覧の行に日付とその日の支出があるので、行の下に出す記録には見出しを付けない。
                         CalendarDayList(model: model, days: days) { dayPanel($0, showsHeader: false) }
@@ -72,29 +68,15 @@ struct LedgerCalendarView: View {
         }
     }
 
-    /// いちばん上の数字。今月は見通し、ほかの月はその月の支出と収入。先の月には月のまとめの入口を出さない（月のまとめは
-    /// 今月より先を出さず、押すと今月が開いて、見ていた月と食い違うため）。
-    @ViewBuilder
-    private func summary(_ days: LedgerCalendarMonth) -> some View {
-        let openMonthReport = { openReport(days.month.start) }
-        if let outlook = model.outlook {
-            SpendingOutlookCard(outlook: outlook, editBudget: editBudget, openReport: openMonthReport)
-        } else {
-            CalendarMonthTotalsCard(days: days, openReport: model.isFutureMonth ? nil : openMonthReport)
-        }
-    }
-
     private func dayPanel(_ day: LedgerCalendarMonth.Day, showsHeader: Bool) -> some View {
         CalendarDayPanel(
             day: day,
             showsHeader: showsHeader,
             records: model.selectedRecords,
-            planned: model.planned(on: day.start),
             calendar: model.calendar,
             edit: { if let entry = model.entry(for: $0) { edit(entry) } },
             requestDelete: { if let entry = model.entry(for: $0) { requestDelete(entry) } },
-            makeRecurring: { if let entry = model.entry(for: $0) { makeRecurring(entry) } },
-            recordOnDay: { recordOnDay(day.start) }
+            makeRecurring: { if let entry = model.entry(for: $0) { makeRecurring(entry) } }
         )
     }
 }
@@ -149,6 +131,7 @@ private struct CalendarPageHeader: View {
         .buttonBorderShape(.circle)
         .accessibilityLabel("会話")
         .accessibilityHint("記録と質問の会話に戻ります")
+        .accessibilityIdentifier(AccessibilityID.CalendarPage.conversationButton)
     }
 
     private var monthSwitcher: some View {
@@ -197,167 +180,38 @@ private struct CalendarPageHeader: View {
     }
 }
 
-// MARK: - 見通し
+// MARK: - 使った額
 
-/// 今月の見通し（`SpendingOutlook`）。予算を決めていれば「今日あと」を大きく出し、決めていなければ今月の支出と、予算を決める案内。
-///
-/// 今日あとは、まだ記録していない今月の固定費（くり返しの記録）を先に引いて日割りにした額から、今日の支出を引いたもの。ホームの帯の
-/// 「1日あたり」は固定費を引かないので、固定費の多い月は、こちらのほうが小さく出る（使える額を多く見せないため）。
-/// 超えたことは、注意の色だけでなく、アイコンと「オーバー」の語でも伝える（ホームの帯と同じ）。
-private struct SpendingOutlookCard: View {
-    let outlook: SpendingOutlook
-    let editBudget: () -> Void
-    let openReport: () -> Void
+/// その月に使った額（支出の合計）を大きく出す。収入があれば下に小さく 1 行。月のまとめへの小さな入口。
+private struct CalendarMonthSpendCard: View {
+    let days: LedgerCalendarMonth
+    /// 月のまとめを開く。nil なら入口を出さない（先の月）。
+    let openReport: (() -> Void)?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let left = outlook.todayLeft, let allowance = outlook.todayAllowance {
-                todayFigures(left: left, allowance: allowance)
-            } else {
-                spentFigures
-            }
-            Divider()
-            rows
-            if outlook.budget == nil {
-                Text("予算を決めると、今日あといくら使えるかが出ます。")
-                    .font(.footnote)
-                    .foregroundStyle(Theme.inkSecondary)
-            }
-            footer
-        }
-        .reportCard()
-    }
-
-    /// 今日あと（大きく）と、今日の目安・今日の支出。
-    private func todayFigures(left: Int, allowance: Int) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("今日あと")
-                .font(.subheadline)
-                .foregroundStyle(Theme.inkSecondary)
-            if left >= 0 {
-                Text(verbatim: YenFormatter.string(from: left))
+            VStack(alignment: .leading, spacing: 4) {
+                Text("使った額")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.inkSecondary)
+                Text(verbatim: YenFormatter.string(from: days.expense))
                     .font(.largeTitle.bold())
                     .monospacedDigit()
                     .foregroundStyle(Theme.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                     .contentTransition(.numericText())
-            } else {
-                Label {
-                    Text("\(YenFormatter.string(from: -left)) オーバー")
-                } icon: {
-                    Image(systemName: "exclamationmark.triangle.fill")
+                // 収入は使った額と取り違えないよう、小さく、収入の色で（あるときだけ）。
+                if days.income > 0 {
+                    Text("収入 \(YenFormatter.string(from: days.income))")
+                        .font(.footnote)
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.income)
                 }
-                .font(.largeTitle.bold())
-                .monospacedDigit()
-                .foregroundStyle(Theme.danger)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
             }
-            FigurePair(
-                first: Text("今日の目安 \(YenFormatter.string(from: allowance))"),
-                second: Text("使った額 \(YenFormatter.string(from: outlook.spentToday))")
-            )
-            .font(.footnote)
-            .foregroundStyle(Theme.inkSecondary)
-        }
-        // 見出し・額・目安と使った額を 1 つの要素として読ませる。
-        .accessibilityElement(children: .combine)
-    }
-
-    /// 予算を決めていないときの、今月の支出。
-    private var spentFigures: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("今月の支出")
-                .font(.subheadline)
-                .foregroundStyle(Theme.inkSecondary)
-            Text(verbatim: YenFormatter.string(from: outlook.spent))
-                .font(.largeTitle.bold())
-                .monospacedDigit()
-                .foregroundStyle(Theme.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    @ViewBuilder
-    private var rows: some View {
-        let fixed = outlook.plannedFixedTotal
-        if fixed > 0 {
-            ReportRow(label: Text("まだ記録していない固定費"), value: YenFormatter.string(from: fixed))
-        }
-        if let free = outlook.freeToSpend {
-            ReportRow(
-                label: fixed > 0 ? Text("固定費を引いた今月あと") : Text("今月あと"),
-                value: free >= 0
-                    ? YenFormatter.string(from: free) : String(localized: "\(YenFormatter.string(from: -free)) オーバー"),
-                valueColor: free >= 0 ? Theme.ink : Theme.danger
-            )
-        }
-        if let projection = outlook.projection {
-            ReportRow(label: Text("このペースだと今月の支出"), value: YenFormatter.string(from: projection))
-            if let over = outlook.projectedOverBudget, over > 0 {
-                Label {
-                    Text("予算を \(YenFormatter.string(from: over)) 超える見込み")
-                } icon: {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                }
-                .labelStyle(TrendLabelStyle())
-                .font(.footnote)
-                .foregroundStyle(Theme.danger)
-            }
-        } else {
-            // 月の初めは数日の支出で大きく振れるので、見込みは出さない（`SpendingOutlook.projectionMinimumDay`）。出ない理由を添える。
-            Text("今月の支出の見込みは、月の \(SpendingOutlook.projectionMinimumDay) 日目から出します。")
-                .font(.footnote)
-                .foregroundStyle(Theme.inkSecondary)
-        }
-    }
-
-    /// 予算のボタンと月のまとめへの入口。今日あとは予算で決まるので、ここからも予算を決めたり変えたりできるようにする（ホームの帯と
-    /// 設定からも開ける）。
-    private var footer: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                budgetButton
-                Spacer(minLength: 8)
-                ReportLink(action: openReport)
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                budgetButton
-                ReportLink(action: openReport)
-            }
-        }
-    }
-
-    private var budgetButton: some View {
-        Button(action: editBudget) {
-            Text(outlook.budget == nil ? "予算を決める" : "予算を変更")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.accentText)
-                .lineLimit(2)
-                .frame(minHeight: 30)
-        }
-        .buttonStyle(.glass)
-        .buttonBorderShape(.capsule)
-    }
-}
-
-/// 今月でない月の、支出と収入。見通し（今日あと）は今月だけに出す。
-private struct CalendarMonthTotalsCard: View {
-    let days: LedgerCalendarMonth
-    /// 月のまとめを開く。nil なら入口を出さない（先の月）。
-    let openReport: (() -> Void)?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ReportRow(label: Text("支出"), value: YenFormatter.string(from: days.expense))
-            // 収入の色は、収入があるときだけ（月のまとめと同じ）。
-            ReportRow(
-                label: Text("収入"), value: YenFormatter.string(from: days.income),
-                valueColor: days.income > 0 ? Theme.income : Theme.ink
-            )
+            // 見出し・額・収入を 1 つの要素として読ませる。
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(AccessibilityID.CalendarPage.monthSpend)
             if let openReport {
                 HStack {
                     Spacer(minLength: 0)
@@ -387,47 +241,13 @@ private struct ReportLink: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-    }
-}
-
-/// 「今日の目安 ¥…・使った額 ¥…」のような 2 つの数字。アクセシビリティサイズの文字で 1 行に収まらなければ縦に積み、そのときだけ
-/// 区切りの点を外す（ホームの帯の「1日あたり ¥…・のこり N 日」と同じ）。
-private struct FigurePair: View {
-    let first: Text
-    let second: Text
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    var body: some View {
-        let inline = HStack(alignment: .firstTextBaseline, spacing: 4) {
-            figure(first)
-            Text("・")
-            figure(second)
-        }
-        if dynamicTypeSize.isAccessibilitySize {
-            ViewThatFits(in: .horizontal) {
-                inline
-                VStack(alignment: .leading, spacing: 2) {
-                    figure(first)
-                    figure(second)
-                }
-            }
-        } else {
-            inline
-        }
-    }
-
-    private func figure(_ text: Text) -> some View {
-        text
-            .monospacedDigit()
-            .lineLimit(1)
-            .minimumScaleFactor(0.5)
+        .accessibilityIdentifier(AccessibilityID.CalendarPage.reportLink)
     }
 }
 
 // MARK: - カレンダー
 
-/// 月のカレンダー（7 列）。週の始まりは設定のとおり（画面の暦の `firstWeekday`）。
+/// 月のカレンダー（7 列）。週の始まりは端末の設定のとおり（画面の暦の `firstWeekday`）。
 private struct CalendarMonthGrid: View {
     let model: LedgerCalendarModel
     let days: LedgerCalendarMonth
@@ -447,8 +267,6 @@ private struct CalendarMonthGrid: View {
                                     isSelected: model.selectedDay == day.start,
                                     isToday: model.isToday(day),
                                     isFuture: model.isFuture(day),
-                                    exceedsPace: model.exceedsPace(day),
-                                    plannedCount: model.planned(on: day.start).count,
                                     calendar: model.calendar
                                 ) {
                                     model.select(day)
@@ -462,7 +280,6 @@ private struct CalendarMonthGrid: View {
                     .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            CalendarLegend(showsPace: days.dailyPace(budget: model.budget) != nil, showsPlanned: !model.planned.isEmpty)
         }
         .reportCard()
     }
@@ -490,17 +307,15 @@ private struct CalendarMonthGrid: View {
     }
 }
 
-/// カレンダーの 1 日。日・その日の支出（支出が無く収入があれば収入）・印（予算の日割りより多い日の点と、くり返しの予定の記号）。
+/// カレンダーの 1 日。日の数字と、その日に使った額（無ければ空）。
 ///
-/// 今日は日の数字を主の塗りの丸に入れ、選んでいる日は枠で囲む。予算の日割りより多い日は、点（形）と注意の色の金額で示す
-/// （色だけに頼らない。下の凡例に意味を書き、VoiceOver では語で読む）。
+/// 今日は日の数字を主の塗りの丸に入れ、選んでいる日は枠で囲む。収入はマスに出さない（「いくら使ったか」を見るページなので、
+/// マスの数字は支出だけにそろえる。収入は選んだ日の合計に出す）。
 private struct CalendarDayCell: View {
     let day: LedgerCalendarMonth.Day
     let isSelected: Bool
     let isToday: Bool
     let isFuture: Bool
-    let exceedsPace: Bool
-    let plannedCount: Int
     let calendar: Calendar
     let select: () -> Void
 
@@ -511,7 +326,6 @@ private struct CalendarDayCell: View {
             VStack(spacing: 2) {
                 number
                 amount
-                marks
             }
             .padding(.vertical, 4)
             .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity, alignment: .top)
@@ -525,10 +339,11 @@ private struct CalendarDayCell: View {
         }
         // 文字の色はセルの中で決めているので、tint に染めない形にする（押している間は薄くなる）。
         .buttonStyle(.plain)
-        .accessibilityLabel(Text(day.start, format: spokenDateFormat))
-        .accessibilityValue(Text(verbatim: spokenValue))
+        .accessibilityLabel(Text(day.start, format: CalendarDaySpeech.dateFormat(calendar)))
+        .accessibilityValue(Text(verbatim: CalendarDaySpeech.value(day: day, isToday: isToday)))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityHint("この日の記録を出します")
+        .accessibilityIdentifier(AccessibilityID.CalendarPage.day(calendar.component(.day, from: day.start)))
     }
 
     private var number: some View {
@@ -549,123 +364,47 @@ private struct CalendarDayCell: View {
     @ViewBuilder
     private var amount: some View {
         if day.expense > 0 {
-            amountText(YenFormatter.digits(from: day.expense), color: exceedsPace ? Theme.danger : Theme.ink)
-        } else if day.income > 0 {
-            amountText("+" + YenFormatter.digits(from: day.income), color: Theme.income)
+            Text(verbatim: YenFormatter.digits(from: day.expense))
+                .font(.caption2)
+                .monospacedDigit()
+                .foregroundStyle(Theme.ink)
+                // 金額は桁の途中で改行させない。収まらなければ縮めて 1 行に収める。
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
         }
     }
+}
 
-    private func amountText(_ text: String, color: Color) -> some View {
-        Text(verbatim: text)
-            .font(.caption2)
-            .monospacedDigit()
-            .foregroundStyle(color)
-            // 金額は桁の途中で改行させない。収まらなければ縮めて 1 行に収める。
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
-    }
-
-    @ViewBuilder
-    private var marks: some View {
-        if exceedsPace || plannedCount > 0 {
-            HStack(spacing: 3) {
-                if exceedsPace {
-                    PaceMark()
-                }
-                if plannedCount > 0 {
-                    Image(systemName: "repeat")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.inkSecondary)
-                }
-            }
-        }
-    }
-
-    private var spokenDateFormat: Date.FormatStyle {
+/// 日の読み上げ（表のセルと、アクセシビリティサイズの一覧の行で同じにする）。
+private enum CalendarDaySpeech {
+    static func dateFormat(_ calendar: Calendar) -> Date.FormatStyle {
         var style = Date.FormatStyle.dateTime.month(.wide).day().weekday(.wide)
         style.calendar = calendar
         style.timeZone = calendar.timeZone
         return style
     }
 
-    /// 読み上げる中身（今日・支出・収入・目安より多い・予定）。何も無ければ「記録なし」。
-    private var spokenValue: String {
-        CalendarDaySpeech.items(
-            day: day, isToday: isToday, exceedsPace: exceedsPace, plannedCount: plannedCount
-        ).formatted(.list(type: .and))
-    }
-}
-
-/// 日の読み上げの中身（表のセルと、アクセシビリティサイズの一覧の行で同じにする）。
-private enum CalendarDaySpeech {
-    static func items(day: LedgerCalendarMonth.Day, isToday: Bool, exceedsPace: Bool, plannedCount: Int) -> [String] {
+    /// 読み上げる中身（今日・使った額）。使っていなければ「使っていない」。画面の見出し（「使った額」）と同じ言葉で読む。
+    static func value(day: LedgerCalendarMonth.Day, isToday: Bool) -> String {
         var items: [String] = []
         if isToday { items.append(String(localized: "今日")) }
-        if day.expense > 0 { items.append(String(localized: "支出 \(YenFormatter.string(from: day.expense))")) }
-        if day.income > 0 { items.append(String(localized: "収入 \(YenFormatter.string(from: day.income))")) }
-        if exceedsPace { items.append(String(localized: "日割りの目安より多い")) }
-        if plannedCount > 0 { items.append(String(localized: "くり返しの予定 \(plannedCount) 件")) }
-        if day.recordCount == 0, plannedCount == 0 { items.append(String(localized: "記録なし")) }
-        return items
-    }
-}
-
-/// 予算の日割りより多い日の印（注意の色の点）。
-private struct PaceMark: View {
-    @ScaledMetric(relativeTo: .caption2) private var size = 6
-
-    var body: some View {
-        Circle()
-            .fill(Theme.danger)
-            .frame(width: size, height: size)
-            .accessibilityHidden(true)
-    }
-}
-
-/// 印の意味。出ている印だけを書く。日のボタンが印の意味を語で読むので、VoiceOver では読ませない。
-private struct CalendarLegend: View {
-    let showsPace: Bool
-    let showsPlanned: Bool
-
-    var body: some View {
-        if showsPace || showsPlanned {
-            HStack(spacing: 12) {
-                if showsPace {
-                    Label { Text("日割りの目安より多い") } icon: { PaceMark() }
-                }
-                if showsPlanned {
-                    Label { Text("くり返しの予定") } icon: { Image(systemName: "repeat") }
-                }
-                Spacer(minLength: 0)
-            }
-            .labelStyle(LegendLabelStyle())
-            .font(.caption)
-            .foregroundStyle(Theme.inkSecondary)
-            .accessibilityHidden(true)
-        }
-    }
-}
-
-/// 凡例の印と語を近づけて並べる（既定の Label は印と語の間が広く、隣の項目の印と見分けにくいため）。
-private struct LegendLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: 4) {
-            configuration.icon
-            configuration.title
-        }
+        items.append(day.expense > 0
+            ? String(localized: "使った額 \(YenFormatter.string(from: day.expense))")
+            : String(localized: "使っていない"))
+        return items.formatted(.list(type: .and))
     }
 }
 
 // MARK: - アクセシビリティサイズの一覧
 
-/// 文字がとても大きいときの日の一覧（記録か予定のある日と今日）。選んだ日の記録は、その日の行の下に出す。
+/// 文字がとても大きいときの日の一覧（記録のある日と今日）。選んだ日の記録は、その日の行の下に出す。
 private struct CalendarDayList<Panel: View>: View {
     let model: LedgerCalendarModel
     let days: LedgerCalendarMonth
     @ViewBuilder let panel: (LedgerCalendarMonth.Day) -> Panel
 
     var body: some View {
-        let listed = days.days.filter { $0.recordCount > 0 || !model.planned(on: $0.start).isEmpty || model.isToday($0) }
+        let listed = days.days.filter { $0.recordCount > 0 || model.isToday($0) }
         VStack(alignment: .leading, spacing: 8) {
             if listed.isEmpty {
                 Text("この月の記録はありません")
@@ -677,8 +416,6 @@ private struct CalendarDayList<Panel: View>: View {
                     day: day,
                     isSelected: model.selectedDay == day.start,
                     isToday: model.isToday(day),
-                    exceedsPace: model.exceedsPace(day),
-                    plannedCount: model.planned(on: day.start).count,
                     calendar: model.calendar
                 ) {
                     model.select(day)
@@ -691,13 +428,11 @@ private struct CalendarDayList<Panel: View>: View {
     }
 }
 
-/// 一覧の 1 日。日付と曜日・その日の支出（収入）・印の語。
+/// 一覧の 1 日。日付と曜日・その日に使った額。
 private struct CalendarDayListRow: View {
     let day: LedgerCalendarMonth.Day
     let isSelected: Bool
     let isToday: Bool
-    let exceedsPace: Bool
-    let plannedCount: Int
     let calendar: Calendar
     let select: () -> Void
 
@@ -710,23 +445,7 @@ private struct CalendarDayListRow: View {
                 if day.expense > 0 {
                     Text(verbatim: YenFormatter.string(from: day.expense))
                         .monospacedDigit()
-                        .foregroundStyle(exceedsPace ? Theme.danger : Theme.ink)
-                } else if day.income > 0 {
-                    Text(verbatim: YenFormatter.signedString(from: day.income))
-                        .monospacedDigit()
-                        .foregroundStyle(Theme.income)
-                }
-                if exceedsPace {
-                    Label { Text("日割りの目安より多い") } icon: { PaceMark() }
-                        .labelStyle(LegendLabelStyle())
-                        .font(.footnote)
-                        .foregroundStyle(Theme.inkSecondary)
-                }
-                if plannedCount > 0 {
-                    Label("くり返しの予定", systemImage: "repeat")
-                        .labelStyle(LegendLabelStyle())
-                        .font(.footnote)
-                        .foregroundStyle(Theme.inkSecondary)
+                        .foregroundStyle(Theme.ink)
                 }
             }
             .padding(12)
@@ -741,12 +460,11 @@ private struct CalendarDayListRow: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(Text(day.start, format: spokenDateFormat))
-        .accessibilityValue(Text(verbatim: CalendarDaySpeech.items(
-            day: day, isToday: isToday, exceedsPace: exceedsPace, plannedCount: plannedCount
-        ).formatted(.list(type: .and))))
+        .accessibilityLabel(Text(day.start, format: CalendarDaySpeech.dateFormat(calendar)))
+        .accessibilityValue(Text(verbatim: CalendarDaySpeech.value(day: day, isToday: isToday)))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityHint("この日の記録を出します")
+        .accessibilityIdentifier(AccessibilityID.CalendarPage.day(calendar.component(.day, from: day.start)))
     }
 
     private var dateFormat: Date.FormatStyle {
@@ -755,37 +473,27 @@ private struct CalendarDayListRow: View {
         style.timeZone = calendar.timeZone
         return style
     }
-
-    private var spokenDateFormat: Date.FormatStyle {
-        var style = Date.FormatStyle.dateTime.month(.wide).day().weekday(.wide)
-        style.calendar = calendar
-        style.timeZone = calendar.timeZone
-        return style
-    }
 }
 
 // MARK: - 選んだ日
 
-/// 選んだ日の記録と予定。記録の行は会話の返事の行と同じもの（押すと ⑥ 直す、長押しで直す・毎月くり返す・削除）。
-/// 下の「この日に記録」で、会話の入力欄にその日の日付を入れる。
+/// 選んだ日の合計と記録。記録の行は会話の返事の行と同じもの（押すと ⑥ 直す、長押しで直す・毎月くり返す・削除）。
 private struct CalendarDayPanel: View {
     let day: LedgerCalendarMonth.Day
-    /// 日付とその日の支出の見出しを出すか（文字がとても大きいときの一覧では、上の行に出ているので出さない）。
+    /// 日付とその日に使った額の見出しを出すか（文字がとても大きいときの一覧では、上の行に出ているので出さない）。
     let showsHeader: Bool
     let records: [LedgerCalendarModel.DayRecord]
-    let planned: [PlannedOccurrence]
     let calendar: Calendar
     let edit: (LedgerCalendarModel.DayRecord) -> Void
     let requestDelete: (LedgerCalendarModel.DayRecord) -> Void
     let makeRecurring: (LedgerCalendarModel.DayRecord) -> Void
-    let recordOnDay: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if showsHeader {
                 header
             }
-            if records.isEmpty, planned.isEmpty {
+            if records.isEmpty {
                 Text("この日の記録はありません")
                     .foregroundStyle(Theme.inkSecondary)
             }
@@ -800,23 +508,11 @@ private struct CalendarDayPanel: View {
                     makeRecurring: record.isRecurring ? nil : { makeRecurring(record) }
                 )
             }
-            ForEach(planned) { occurrence in
-                PlannedOccurrenceRow(occurrence: occurrence)
-            }
-            Button(action: recordOnDay) {
-                Label("この日に記録", systemImage: "plus")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.accentText)
-                    .frame(minHeight: 30)
-            }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.capsule)
-            .accessibilityHint("会話に戻り、入力欄にこの日の日付を入れます")
         }
         .reportCard()
     }
 
-    /// 日付と曜日、その日の支出（収入があれば収入も）。
+    /// 日付と曜日、その日に使った額（収入があれば収入も）。
     private var header: some View {
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -839,31 +535,27 @@ private struct CalendarDayPanel: View {
             .accessibilityAddTraits(.isHeader)
     }
 
-    /// その日の合計。記録の無い日（予定だけの日も）は出さない（「¥0」と出すと、予定の額が数えられていないように見えるため）。
+    /// その日の合計。記録の無い日は出さない（下に「この日の記録はありません」と出るため）。
     @ViewBuilder
     private var totals: some View {
         if day.recordCount > 0 {
-            totalFigures
-        }
-    }
-
-    private var totalFigures: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            if day.expense > 0 || day.income == 0 {
-                Text(verbatim: YenFormatter.string(from: day.expense))
-                    .foregroundStyle(Theme.ink)
-                    .accessibilityLabel(Text("支出 \(YenFormatter.string(from: day.expense))"))
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                if day.expense > 0 || day.income == 0 {
+                    Text(verbatim: YenFormatter.string(from: day.expense))
+                        .foregroundStyle(Theme.ink)
+                        .accessibilityLabel(Text("使った額 \(YenFormatter.string(from: day.expense))"))
+                }
+                if day.income > 0 {
+                    Text(verbatim: YenFormatter.signedString(from: day.income))
+                        .foregroundStyle(Theme.income)
+                        .accessibilityLabel(Text("収入 \(YenFormatter.string(from: day.income))"))
+                }
             }
-            if day.income > 0 {
-                Text(verbatim: YenFormatter.signedString(from: day.income))
-                    .foregroundStyle(Theme.income)
-                    .accessibilityLabel(Text("収入 \(YenFormatter.string(from: day.income))"))
-            }
+            .font(.headline)
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
         }
-        .font(.headline)
-        .monospacedDigit()
-        .lineLimit(1)
-        .minimumScaleFactor(0.5)
     }
 
     private var titleFormat: Date.FormatStyle {
@@ -871,65 +563,5 @@ private struct CalendarDayPanel: View {
         style.calendar = calendar
         style.timeZone = calendar.timeZone
         return style
-    }
-}
-
-/// まだ記録していない、くり返しの記録の予定の行。記録の行と同じ並び（印・品目・種別・金額）で、印はくり返しの記号の淡い塗りにして、
-/// まだ記録ではないことを示す（記録する日を過ぎたら、開いたときにアプリが記録し、記録の行に替わる）。
-private struct PlannedOccurrenceRow: View {
-    let occurrence: PlannedOccurrence
-
-    @Environment(\.categoryCatalog) private var catalog
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @ScaledMetric(relativeTo: .body) private var tileSize = 36
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            if !dynamicTypeSize.isAccessibilitySize {
-                Image(systemName: "repeat")
-                    .font(.system(size: tileSize * 0.45, weight: .semibold))
-                    .foregroundStyle(Theme.inkSecondary)
-                    .frame(width: tileSize, height: tileSize)
-                    .background(Theme.track, in: .rect(cornerRadius: tileSize * 0.28))
-                    .accessibilityHidden(true)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        titleText
-                        Spacer(minLength: 8)
-                        amountText
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        titleText
-                        amountText
-                    }
-                }
-                Text("くり返しの予定・\(kind)")
-                    .font(.caption)
-                    .foregroundStyle(Theme.inkSecondary)
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private var kind: String {
-        occurrence.isIncome ? String(localized: "収入") : catalog.localizedName(for: occurrence.category)
-    }
-
-    private var titleText: some View {
-        Text(verbatim: occurrence.memo.isEmpty ? kind : occurrence.memo)
-            .font(.body.weight(.semibold))
-            .foregroundStyle(Theme.ink)
-    }
-
-    private var amountText: some View {
-        Text(verbatim: occurrence.isIncome
-            ? YenFormatter.signedString(from: occurrence.amount) : YenFormatter.string(from: occurrence.amount))
-            .font(.title3.weight(.semibold))
-            .monospacedDigit()
-            .foregroundStyle(occurrence.isIncome ? Theme.income : Theme.ink)
-            .lineLimit(1)
-            .minimumScaleFactor(0.5)
     }
 }

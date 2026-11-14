@@ -122,46 +122,4 @@ enum ModelContainerFactory {
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         return try ModelContainer(for: schema, configurations: [configuration])
     }
-
-    // MARK: - 家計の保存先（家族・パートナーとの共有）
-
-    /// 家計の保存先に置くモデル。自分の記録（`modelTypes`）とは別の保存先にする（docs/design.md §5-5）。
-    ///
-    /// SwiftData の CloudKit 同期は共有データベース（CKShare）を扱えないので、家計は CKSyncEngine が専用のゾーンと同期する。
-    /// 同じ保存先に入れると、自分の記録の iCloud 同期（`.private`）が家計の記録まで自分の私用データベースに上げてしまうため、
-    /// ファイルごと分ける。
-    static var householdModelTypes: [any PersistentModel.Type] {
-        [Household.self, HouseholdEntry.self, HouseholdSyncState.self]
-    }
-
-    static var householdSchema: Schema {
-        Schema(householdModelTypes)
-    }
-
-    /// 家計の保存先のファイル（Application Support/household.store）。変えると、それまでの家計の記録と同期の状態が読めなくなる。
-    ///
-    /// 保護クラスは、自分の記録と同じく開いた直後に Complete を当てる（`StoreFileProtection`。SwiftData は SQLite のファイルに
-    /// 自分で保護を付け、エンタイトルメントの既定は効かないため）。ロック中は開けないので、開くのは自分の記録の保存先を開けた後
-    /// （`HouseholdHost.start`）。
-    static var householdStoreURL: URL {
-        URL.applicationSupportDirectory.appending(path: "household.store", directoryHint: .notDirectory)
-    }
-
-    /// 家計の保存先を開く。iCloud との同期は SwiftData に任せない（`cloudKitDatabase` はいつも `.none`。CKSyncEngine が同期する）。
-    static func makeHouseholdContainer(url: URL = householdStoreURL) throws -> ModelContainer {
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let container = try ModelContainer(for: householdSchema, configurations: [householdConfiguration(url: url)])
-        StoreFileProtection.apply(toStoreAt: url)
-        return container
-    }
-
-    static func householdConfiguration(url: URL) -> ModelConfiguration {
-        ModelConfiguration(schema: householdSchema, url: url, cloudKitDatabase: .none)
-    }
-
-    /// メモリの上だけの家計の保存先（テストとプレビュー用）。
-    static func makeInMemoryHouseholdContainer() throws -> ModelContainer {
-        let configuration = ModelConfiguration(schema: householdSchema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
-        return try ModelContainer(for: householdSchema, configurations: [configuration])
-    }
 }

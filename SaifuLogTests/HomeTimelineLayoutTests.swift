@@ -6,8 +6,7 @@ import Testing
 import UIKit
 @testable import SaifuLog
 
-/// ホームを開いたとき、いちばん新しい行（送信の返事のカード・質問の回答カード・先週のふりかえり・家計の記録）がタイムラインの
-/// 下の端に見えること。
+/// ホームを開いたとき、いちばん新しい行（送信の返事のカード・質問の回答カード）がタイムラインの下の端に見えること。
 ///
 /// 大きな文字でタイムラインが空に見えた不具合の再発を防ぐ。行の高さがそろわないタイムラインを LazyVStack で下端に合わせると、
 /// 見積もった全体の高さが揺れて行の無い位置で止まり、空に見えた（`HomeView` の `TimelineScrollView`）。どの文字の大きさで
@@ -18,15 +17,14 @@ import UIKit
 /// 部品だけを描くのではなく、ウィンドウに実際のホーム（ナビゲーション・帯・入力欄の中のスクロール）を置き、行と見える範囲が
 /// 描かれた位置（`timelineFrameObserver`）で確かめる。下端に合わせる動きと LazyVStack の見積もりの揺れは、スクロールの中に
 /// 並べた画面で起きるため（タイムラインを LazyVStack に戻すと、この置き方で AX1 の記録と、標準から AX5 まで（AX4 を除く）の
-/// ふりかえりのカードが落ちることを確かめた）。
+/// 当時あったふりかえりのカードが落ちることを確かめた）。
 ///
-/// 開いた後に足した行（送った記録の返事・質問の回答カード・開いたまま出たふりかえりのカード）も、開いたときと同じく下の余白を
+/// 開いた後に足した行（送った記録の返事・質問の回答カード）も、開いたときと同じく下の余白を
 /// 残して下の端に出ることを確かめる。行の id まで送っていたときは余白が隠れ、動きを付けて送ると、同じときに見える範囲の高さが
 /// 変わった分だけ下端からずれた（`HomeView` の `TimelineScrollView`）。
 ///
 /// 画面を画像にして目で見るときは、環境変数 `SAIFULOG_TIMELINE_SNAPSHOTS` に書き出す先のフォルダを渡す（xcodebuild には
 /// `TEST_RUNNER_SAIFULOG_TIMELINE_SNAPSHOTS=…` で渡す）。`SAIFULOG_TIMELINE_SNAPSHOT_STYLE=dark` でダークにする。
-/// 家計の共有は署名の無いビルドのアプリでは始まらないので、家計のタイムラインはこの書き出しで見る。
 @MainActor
 @Suite(.serialized)
 struct HomeTimelineLayoutTests {
@@ -41,7 +39,6 @@ struct HomeTimelineLayoutTests {
     func newestSendIsAtTheBottom(size: UIContentSizeCategory) async throws {
         let fixture = try TimelineFixture()
         try fixture.insertDemoLedger()
-        fixture.markWeeklyRecapShown()
         let newest = try #require(try fixture.latestSend())
         // 前提: いちばん新しい送信は、1 行に 2 件を書いた送信（返事のカードに 2 件が並ぶ）。
         #expect(newest.entries.map(\.originalText) == [ScreenshotDemoLedger.multiItemText, ScreenshotDemoLedger.multiItemText])
@@ -55,7 +52,6 @@ struct HomeTimelineLayoutTests {
     func answerCardIsAtTheBottom(size: UIContentSizeCategory) async throws {
         let fixture = try TimelineFixture()
         try fixture.insertDemoLedger()
-        fixture.markWeeklyRecapShown()
         fixture.model.draft = "今月カフェいくら?"
         await fixture.model.send(calendar: TestSupport.calendar)?.value
         let exchange = try #require(fixture.model.questions.last)
@@ -68,32 +64,6 @@ struct HomeTimelineLayoutTests {
         let frames = try await fixture.host(size: size, name: "question")
 
         try Self.expectAtTheBottom(frames, key: .row(exchange.id), size: size)
-    }
-
-    @Test("先週のふりかえりのカードは、出したときにいちばん下で、下の端に見える", arguments: sizes)
-    func weeklyRecapCardIsAtTheBottom(size: UIContentSizeCategory) async throws {
-        let fixture = try TimelineFixture()
-        try fixture.insertDemoLedger()
-        // 出した日時を書かずに開く（ホームが出たときに、週が替わって最初に開いたとしてカードを出す）。
-
-        let frames = try await fixture.host(size: size, name: "recap")
-
-        let recap = try #require(fixture.model.weeklyRecap)
-        try Self.expectAtTheBottom(frames, key: .row(recap.id), size: size)
-    }
-
-    @Test("「家族」のときは、いちばん新しい家計の記録が下の端に見える", arguments: sizes)
-    func newestHouseholdEntryIsAtTheBottom(size: UIContentSizeCategory) async throws {
-        let fixture = try TimelineFixture(household: true)
-        try fixture.insertDemoLedger()
-        fixture.markWeeklyRecapShown()
-        let newest = try #require(try fixture.insertHouseholdLedger())
-        fixture.model.ledgerScope = .household
-        #expect(fixture.model.isHouseholdActive)
-
-        let frames = try await fixture.host(size: size, name: "household")
-
-        try Self.expectAtTheBottom(frames, key: .row(newest), size: size)
     }
 
     /// 開いた後に送ったものを確かめる文字の大きさ（標準・AX1・AX5）。
@@ -109,7 +79,6 @@ struct HomeTimelineLayoutTests {
     func sentEntryIsAtTheBottom(size: UIContentSizeCategory) async throws {
         let fixture = try TimelineFixture()
         try fixture.insertDemoLedger()
-        fixture.markWeeklyRecapShown()
         let before = try #require(try fixture.latestSend()).id
 
         let frames = try await fixture.host(size: size, name: "sent") { opened in
@@ -129,7 +98,6 @@ struct HomeTimelineLayoutTests {
     func askedAnswerCardIsAtTheBottom(size: UIContentSizeCategory) async throws {
         let fixture = try TimelineFixture()
         try fixture.insertDemoLedger()
-        fixture.markWeeklyRecapShown()
 
         let frames = try await fixture.host(size: size, name: "asked") { opened in
             try Self.expectTallerThanViewport(opened, size: size)
@@ -147,62 +115,6 @@ struct HomeTimelineLayoutTests {
         try Self.expectAtTheBottom(frames, key: .row(exchange.id), size: size)
     }
 
-    /// 開いたまま週が替わってふりかえりのカードが出たときも、下の余白を残して下の端に出る。同じときに見える範囲の高さが変わっても
-    /// （ここでは入力欄の上に声の入力の知らせを出す。見える範囲が縮む）。
-    /// 動きを付けて送っていたときは、変わった分が下端に合わせ直されず、AX1 と AX5 ではカードが見える範囲の下に 400pt 以上隠れた。
-    @Test("開いたままふりかえりのカードが出ると、見える範囲が同時に縮んでも、カードが下の余白を残して下の端に見える", arguments: sendSizes)
-    func weeklyRecapShownWhileOpenIsAtTheBottom(size: UIContentSizeCategory) async throws {
-        let fixture = try TimelineFixture()
-        try fixture.insertDemoLedger()
-        // 開いたときは今週もう出したことにして、開いた後に週が替わったとして出す。
-        fixture.markWeeklyRecapShown()
-
-        let frames = try await fixture.host(size: size, name: "recap-while-open") { opened in
-            try Self.expectTallerThanViewport(opened, size: size)
-            #expect(fixture.model.weeklyRecap == nil)
-            fixture.defaults.set(nil, for: AppSettings.weeklyRecapShownAt)
-            fixture.model.showWeeklyRecapIfDue(calendar: TestSupport.calendar)
-            fixture.model.voice.notice = .nothingHeard
-            return .row(try #require(fixture.model.weeklyRecap).id)
-        }
-
-        let recap = try #require(fixture.model.weeklyRecap)
-        // 前提: 知らせが出たまま（画面が 5 秒で引っ込める）。
-        #expect(fixture.model.voice.notice == .nothingHeard)
-        try Self.expectAtTheBottom(frames, key: .row(recap.id), size: size)
-    }
-
-    /// 家計に記録した直後の「記録しました 取り消す」の行は、自分が記録した吹き出しのすぐ下に出る。「取り消す」は次の文を送るまで
-    /// 出したままなので、その間に家族の記録が同期で届くことがある。いちばん下の吹き出しの下に出すと、ほかの人の記録の下に並び、
-    /// その記録を取り消すように見える（押すと消えるのは自分の記録）。
-    @Test("家計に記録した後に家族の記録が届いても、「取り消す」の行は自分が記録した吹き出しのすぐ下に出る", arguments: sendSizes)
-    func householdUndoRowStaysUnderOwnRecord(size: UIContentSizeCategory) async throws {
-        let fixture = try TimelineFixture(household: true)
-        fixture.markWeeklyRecapShown()
-        _ = try fixture.insertHouseholdLedger()
-        fixture.model.ledgerScope = .household
-        fixture.model.draft = "コンビニ 650"
-        await fixture.model.send(calendar: TestSupport.calendar)?.value
-        let own = try #require(fixture.model.justRecordedHousehold.first)
-        #expect(fixture.model.canUndo)
-        // 家族の記録が 1 分後に届く（同期で取り込んだ代わりに、家計の保存先へ入れる）。
-        let later = try #require(try fixture.insertHouseholdEntry(
-            memo: "コーヒー", amount: 400, recorderName: "たろう", createdAt: fixture.now.addingTimeInterval(60)
-        ))
-
-        let frames = try await fixture.host(size: size, name: "household-undo")
-
-        let ownRow = try #require(frames[.row(own.id)].flatMap { $0.isNull ? nil : $0 }, "自分の記録が描かれていません（\(size.rawValue)）")
-        let laterRow = try #require(frames[.row(later)].flatMap { $0.isNull ? nil : $0 }, "家族の記録が描かれていません（\(size.rawValue)）")
-        let undoRow = try #require(
-            frames[.householdUndo].flatMap { $0.isNull ? nil : $0 }, "「取り消す」の行が描かれていません（\(size.rawValue)）"
-        )
-        #expect(ownRow.maxY <= undoRow.minY, "「取り消す」の行が自分の記録の下にありません（\(size.rawValue)）")
-        #expect(undoRow.maxY <= laterRow.minY, "「取り消す」の行が家族の記録の下にあります（\(size.rawValue)）")
-        // いちばん下は、後から届いた家族の記録（下の余白を残して下の端に見える）。
-        try Self.expectAtTheBottom(frames, key: .row(later), size: size)
-    }
-
     /// 前提: 中身が画面より高い（見える範囲より上に行がある）。行の id まで送ったときに下の余白が隠れたのは、この形のときだけ。
     private static func expectTallerThanViewport(
         _ frames: [TimelineFrameKey: CGRect], size: UIContentSizeCategory
@@ -215,7 +127,7 @@ struct HomeTimelineLayoutTests {
     }
 
     /// 行が見える範囲に描かれ、その下の端が見える範囲の下の端（タイムラインの余白の分だけ上）にある。行が見える範囲より
-    /// 高いとき（AX5 のふりかえりのカードなど）も、下の端が見えていればよい。
+    /// 高いとき（AX5 の返事のカードなど）も、下の端が見えていればよい。
     private static func expectAtTheBottom(
         _ frames: [TimelineFrameKey: CGRect], key: TimelineFrameKey, size: UIContentSizeCategory
     ) throws {
@@ -229,33 +141,27 @@ struct HomeTimelineLayoutTests {
     }
 }
 
-/// ホームのモデルと、その保存先・家計の受け持ちと、ホームを置くウィンドウ。
+/// ホームのモデルと、その保存先と、ホームを置くウィンドウ。
 @MainActor
 private final class TimelineFixture {
     let context: ModelContext
     let suiteName = "HomeTimelineLayoutTests.\(UUID().uuidString)"
     let defaults: UserDefaults
-    let household: HouseholdFixture?
     /// ホームの「いま」。撮影用のデモの家計の「いま」（2026 年 9 月 15 日 20:30）にそろえる。
     let now = ScreenshotDemo.pinnedNow(on: TestSupport.now, calendar: TestSupport.calendar)
     private(set) var model: HomeModel!
 
-    init(household: Bool = false) throws {
+    init() throws {
         context = try TestSupport.makeContext()
         defaults = try #require(UserDefaults(suiteName: suiteName))
-        self.household = household ? try HouseholdFixture() : nil
         let now = now
         model = HomeModel(
             store: EntryStore(context: context),
-            household: self.household?.host,
-            defaults: defaults,
             makeParser: { now, calendar in RuleBasedParser(calendar: calendar, now: { now }) },
             makeCategoryRefiner: { nil },
             makeAnswerer: { RuleBasedQuestionAnswerer() },
             makeRemarkWriter: { nil },
             canUseDocumentCamera: true,
-            // 端末の書き起こしを使わない（マイクのボタンを出すかを調べるだけでも、音声のフレームワークに問い合わせるため）。
-            voice: VoiceInputModel(transcriber: FakeVoiceTranscriber()),
             now: { now },
             announce: { _ in }
         )
@@ -270,47 +176,10 @@ private final class TimelineFixture {
         try ScreenshotDemoLedger.insert(into: context, now: now, calendar: TestSupport.calendar)
     }
 
-    /// 先週のふりかえりを今週はもう出したことにする（記録だけのタイムラインで確かめるため）。
-    func markWeeklyRecapShown() {
-        defaults.set(now, for: AppSettings.weeklyRecapShownAt)
-    }
-
     /// いちばん新しい送信（タイムラインのいちばん下の返事のカード）。画面と同じく、読み込む件数の記録を送信にまとめて決める。
     func latestSend() throws -> EntrySend? {
         let entries = try context.fetch(Entry.timelineDescriptor(limit: HomeModel.timelinePageSize))
         return EntrySend.sends(from: Array(entries.reversed())).last
-    }
-
-    /// 家計を端末に置き、撮影用のデモの記録と同じ品目の家計の記録（家族 2 人が交互に記録したもの）を入れる。いちばん新しく
-    /// 記録したものの id を返す。
-    func insertHouseholdLedger() throws -> UUID? {
-        guard let household else { return nil }
-        try household.insertHousehold(role: .owner)
-        let records = ScreenshotDemoLedger.records(now: now, calendar: TestSupport.calendar)
-        for (index, record) in records.enumerated() {
-            household.context.insert(TestSupport.householdEntry(
-                amount: record.amount, memo: record.memo, category: record.category,
-                recorderName: index.isMultiple(of: 2) ? "はなこ" : "たろう",
-                spentAt: record.spentAt, createdAt: record.createdAt, modifiedAt: record.createdAt
-            ))
-        }
-        try household.context.save()
-        let newest = try household.context.fetch(
-            HouseholdEntry.timelineDescriptor(zoneName: TestSupport.householdZoneName, limit: 1)
-        ).first
-        return newest?.id
-    }
-
-    /// 家族の記録を 1 件、家計の保存先に入れる（同期で取り込んだ代わり）。入れた記録の id を返す。
-    func insertHouseholdEntry(memo: String, amount: Int, recorderName: String, createdAt: Date) throws -> UUID? {
-        guard let household else { return nil }
-        let entry = TestSupport.householdEntry(
-            amount: amount, memo: memo, category: .cafe, recorderName: recorderName,
-            spentAt: createdAt, createdAt: createdAt, modifiedAt: createdAt
-        )
-        household.context.insert(entry)
-        try household.context.save()
-        return entry.id
     }
 
     /// 入力欄から記録を送り（送信のボタンと同じ `HomeModel.send`）、保存し終えるまで待つ。送った記録の返事のカードの行を返す。
@@ -381,17 +250,22 @@ private final class TimelineFixture {
 private final class FrameRecorder {
     var frames: [TimelineFrameKey: CGRect] = [:]
 
-    /// 見える範囲（と `key` の行）が描かれ、位置が 0.3 秒のあいだ変わらなくなるまで待つ（最大 5 秒）。下端に合わせる動きや、
+    /// 待つ上限（秒）。前は 5 秒で、CI の iOS 26 のシミュレータ（作り直したばかりで初めて起動したもの）がほかの処理で遅いときに、
+    /// 大きな文字の件で並べ終える前に届いて落ちた（同じ件が手元と最新の iOS では通る）。落ち着かない不具合は位置が動き続けるもの
+    /// なので、上限を延ばしても見逃さない（通るときは落ち着いたところで返るので、時間は延びない）。
+    nonisolated static let settleLimit: TimeInterval = 15
+
+    /// 見える範囲（と `key` の行）が描かれ、位置が 0.3 秒のあいだ変わらなくなるまで待つ（最大 `settleLimit` 秒）。下端に合わせる動きや、
     /// 帯の高さが決まるまでの並べ直しが済んでから確かめるため。開いた後の操作で足した行は `key` に渡す（足した行が描かれる前の、
     /// 操作の前のまま動かない位置で返らないように）。
     ///
-    /// 5 秒たっても落ち着かなければ `TimelineDidNotSettle` を投げて、そこで失敗にする。この不具合は見積もりが揺れて位置が動き続ける
+    /// 上限までに落ち着かなければ `TimelineDidNotSettle` を投げて、そこで失敗にする。この不具合は見積もりが揺れて位置が動き続ける
     /// ものなので、落ち着かないまま確かめると、動いている途中にたまたま条件を満たした位置で通ったり、下の端に無いと別の理由で
     /// 落ちたりして、位置が落ち着かなかったこと自体が分からなくなるため。
     func waitUntilSettled(_ label: String, drawing key: TimelineFrameKey = .viewport) async throws {
         var last = frames
         var stableSince = Date.now
-        let deadline = Date.now.addingTimeInterval(5)
+        let deadline = Date.now.addingTimeInterval(Self.settleLimit)
         while Date.now < deadline {
             try await Task.sleep(for: .milliseconds(100))
             if frames != last {
@@ -416,6 +290,6 @@ private struct TimelineDidNotSettle: Error, CustomStringConvertible {
 
     var description: String {
         let viewport = viewport.map { "\($0)" } ?? "描かれていない"
-        return "タイムラインの行と見える範囲の位置が 5 秒たっても落ち着きませんでした（\(label)。見える範囲 \(viewport)）"
+        return "タイムラインの行と見える範囲の位置が \(Int(FrameRecorder.settleLimit)) 秒たっても落ち着きませんでした（\(label)。見える範囲 \(viewport)）"
     }
 }

@@ -14,15 +14,7 @@ struct LocalizationTests {
         return try #require(Bundle(path: path))
     }
 
-    /// 日本語の中黒（全角）のまま英語の画面に出すと、半角の文の間で幅が広く浮いて見える。
-    @Test("ホームの帯の区切りの点は、英語では中点にする")
-    func summarySeparatorIsLocalized() throws {
-        let english = try Self.bundle(for: "en")
-
-        #expect(english.localizedString(forKey: "・", value: nil, table: nil) == "·")
-    }
-
-    /// 回答カードの期間の見出しは文字をつなげるだけなので（帯のように並べ方で空きが入らない）、英語の訳の区切りに空白が
+    /// 回答カードの期間の見出しは文字をつなげるだけなので、英語の訳の区切りに空白が
     /// 無いと「This Month·Sep 1–30」と詰まる。App Store の英語のスクリーンショットにも写る。
     @Test("質問の回答カードの期間の見出しは、英語では中点の前後に空白を入れる（日本語は全角の中黒でつなげる）")
     func questionPeriodSeparatorIsSpaced() throws {
@@ -66,11 +58,11 @@ struct LocalizationTests {
         }
     }
 
-    /// 許可を求める API は、Info.plist に利用目的が無いとアプリを落とす（Face ID は認証が失敗する）。マイク（声の入力）と
-    /// カメラ（レシート）と Face ID（アプリのロック）の利用目的が、開発言語の既定値（project.yml）と英語の訳（InfoPlist.xcstrings）の
-    /// 両方に入っていることを確かめる。
-    @Test("マイクとカメラと Face ID の利用目的が Info.plist にあり、英語にも訳してある", arguments: [
-        "NSMicrophoneUsageDescription", "NSCameraUsageDescription", "NSFaceIDUsageDescription",
+    /// 許可を求める API は、Info.plist に利用目的が無いとアプリを落とす（Face ID は認証が失敗する）。カメラ（レシート）と
+    /// Face ID（アプリのロック）の利用目的が、開発言語の既定値（project.yml）と英語の訳（InfoPlist.xcstrings）の両方に入って
+    /// いることを確かめる。
+    @Test("カメラと Face ID の利用目的が Info.plist にあり、英語にも訳してある", arguments: [
+        "NSCameraUsageDescription", "NSFaceIDUsageDescription",
     ])
     func usageDescriptions(key: String) throws {
         let value = try #require(Bundle.main.object(forInfoDictionaryKey: key) as? String)
@@ -78,25 +70,5 @@ struct LocalizationTests {
         let english = try Self.bundle(for: "en").localizedString(forKey: key, value: nil, table: "InfoPlist")
         #expect(english != key)
         #expect(english.contains("never saved or sent"))
-    }
-
-    /// 月のまとめのカテゴリの行は、アクセシビリティサイズの文字で「¥2,300 オーバー」を金額と語の 2 行に分ける（折り返しに
-    /// 任せると「オー」「バー」のように語の途中で折れるため）。分け方は訳した文から金額を探すので、日本語と英語で確かめる。
-    @Test("予算を超えた額の文は、日本語でも英語でも金額と語の 2 行に分けられ、語順が違えば分けない")
-    func budgetOverTextSplitsAfterAmount() throws {
-        let amount = YenFormatter.string(from: 2_300)
-        let japanese = String(localized: "\(amount) オーバー")
-        let lines = try #require(BudgetOverText.lines(japanese, amount: amount))
-        #expect(lines.amount == amount)
-        #expect(lines.rest == "オーバー")
-
-        let englishFormat = try Self.bundle(for: "en").localizedString(forKey: "%@ オーバー", value: nil, table: nil)
-        let english = try #require(BudgetOverText.lines(String(format: englishFormat, amount), amount: amount))
-        #expect(english.amount == amount)
-        #expect(english.rest == "over")
-
-        // 金額が語の後ろに来る訳や、金額の無い文は分けない（1 行のまま縮める）。
-        #expect(BudgetOverText.lines("Over by \(amount)", amount: amount) == nil)
-        #expect(BudgetOverText.lines("オーバー", amount: amount) == nil)
     }
 }

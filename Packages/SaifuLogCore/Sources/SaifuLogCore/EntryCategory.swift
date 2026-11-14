@@ -1,6 +1,6 @@
 import Foundation
 
-/// 支出のカテゴリ。組み込みの 8 種と、利用者が作ったカテゴリ（`custom`。docs/design.md §8）。
+/// 支出のカテゴリ。組み込みの 10 種と、利用者が作ったカテゴリ（`custom`。docs/design.md §8）。
 ///
 /// rawValue は保存に使うので、表示名を変えても rawValue は変えないこと。
 /// 変えると保存済みの記録がすべて「その他」に落ちる。作ったカテゴリの rawValue は「custom:」と ID（`CategoryCatalog` の
@@ -8,7 +8,8 @@ import Foundation
 ///
 /// 作ったカテゴリの名前・記号・色は、カテゴリの一覧（`CategoryCatalog`）から引く。この型だけで決まる表示名・記号・
 /// キーワードは組み込みのものだけで、作ったカテゴリには「その他」と同じものを返す（一覧を渡し忘れても落ちないように）。
-/// AI の選択肢とキーワード辞書は組み込みの 8 種だけ（`builtIns`）。
+/// AI の選択肢とキーワード辞書は組み込みの 10 種だけ（`builtIns`）。住居と衣服・美容は後から足した（家賃は家計でいちばん大きい
+/// 支出なのに「その他」になって聞き返され、洋服や美容院も「その他」に入れるしかなかったため。2026-11-14）。
 ///
 /// 型名を `Category` にしないのは、Objective-C ランタイムの `Category` とぶつかり、
 /// Foundation や SwiftUI を import したアプリ側で「ambiguous for type lookup」になるため。
@@ -20,13 +21,18 @@ public enum EntryCategory: Hashable, Sendable, Identifiable {
     case entertainment
     case utilities
     case medical
+    /// 住居（家賃・管理費・住宅ローンなど）。
+    case housing
+    /// 衣服・美容（洋服・靴・美容院・化粧品など）。
+    case clothing
     case other
     /// 利用者が作ったカテゴリ。値は ID（`CustomCategoryInfo.id`）。
     case custom(String)
 
     /// 組み込みのカテゴリ（定義の順。「その他」が最後）。AI の選択肢・キーワード辞書・並びの基準に使う。
+    /// 後から足したもの（住居・衣服・美容）は「その他」の前に足す（前からある 8 種の並びは変えない）。
     public static let builtIns: [EntryCategory] = [
-        .food, .daily, .transport, .cafe, .entertainment, .utilities, .medical, .other,
+        .food, .daily, .transport, .cafe, .entertainment, .utilities, .medical, .housing, .clothing, .other,
     ]
 
     /// 作ったカテゴリの rawValue の頭。
@@ -72,6 +78,8 @@ public enum EntryCategory: Hashable, Sendable, Identifiable {
         case .entertainment: "娯楽"
         case .utilities: "光熱・通信"
         case .medical: "医療"
+        case .housing: "住居"
+        case .clothing: "衣服・美容"
         case .other, .custom: "その他"
         }
     }
@@ -86,6 +94,8 @@ public enum EntryCategory: Hashable, Sendable, Identifiable {
         case .entertainment: "ticket"
         case .utilities: "bolt"
         case .medical: "cross.case"
+        case .housing: "house"
+        case .clothing: "tshirt"
         case .other, .custom: "tag"
         }
     }
@@ -120,10 +130,10 @@ public enum EntryCategory: Hashable, Sendable, Identifiable {
         case .daily:
             [
                 "日用品", "ドラッグストア", "ドラッグ", "洗剤", "ティッシュ", "トイレットペーパー", "シャンプー",
-                "歯ブラシ", "歯磨き", "ゴミ袋", "電池", "消耗品", "雑貨", "文房具", "化粧品", "100均", "百均",
+                "歯ブラシ", "歯磨き", "ゴミ袋", "電池", "消耗品", "雑貨", "文房具", "100均", "百均",
                 "ダイソー", "無印", "バスタオル",
                 "toiletries", "detergent", "tissue", "toilet paper", "shampoo", "conditioner", "soap", "toothbrush",
-                "toothpaste", "trash bag", "garbage bag", "battery", "batteries", "stationery", "cosmetics", "makeup",
+                "toothpaste", "trash bag", "garbage bag", "battery", "batteries", "stationery",
                 "drugstore", "drug store", "daiso", "muji", "towel", "diaper", "razor",
             ]
         case .transport:
@@ -150,6 +160,9 @@ public enum EntryCategory: Hashable, Sendable, Identifiable {
                 "entertainment", "movie", "cinema", "theater", "theatre", "game", "karaoke", "concert", "manga", "comic",
                 "book", "magazine", "travel", "museum", "amusement park", "theme park", "zoo", "aquarium", "bowling",
                 "hobby", "hobbies", "netflix", "spotify", "disney",
+                // 動画・音楽のサブスク（毎月の記録によく書く名前）。
+                "ネットフリックス", "スポティファイ", "ディズニープラス", "hulu", "u-next", "abema", "youtube premium",
+                "prime video", "apple music", "dazn",
             ]
         case .utilities:
             [
@@ -157,6 +170,9 @@ public enum EntryCategory: Hashable, Sendable, Identifiable {
                 "ネット代", "光回線", "wifi", "wi-fi", "プロバイダ",
                 "utilities", "utility", "electricity", "electric bill", "power bill", "gas", "gas bill", "water bill",
                 "phone", "phone bill", "mobile bill", "mobile phone", "cellphone", "smartphone", "internet", "broadband",
+                // 携帯の会社とクラウドの保存容量（毎月の記録によく書く名前）。「au」「UQ」のような 2 文字の名前は、ほかの語の一部に
+                // 当たりやすいので入れない。
+                "ドコモ", "docomo", "ソフトバンク", "softbank", "楽天モバイル", "ahamo", "povo", "ワイモバイル", "icloud",
             ]
         case .medical:
             [
@@ -165,13 +181,26 @@ public enum EntryCategory: Hashable, Sendable, Identifiable {
                 "medical", "hospital", "clinic", "doctor", "dentist", "dental", "medicine", "medication", "pharmacy",
                 "prescription", "eye drops", "eyedrops", "checkup", "check-up",
             ]
-        case .other:
-            // ほかのカテゴリの短い語に誤って当たる語（「パンツ」の「パン」、「ガスト」の「ガス」など）を
-            // 長い語で受け止めるために置く。ここに当たったときは「その他」になる。英語の語は、その他と読んだ理由があることを
-            // 示すために置く（当たらない品目と違い、返事でカテゴリを聞き返さない。`CategoryMemory.asksCategory`）。
+        case .housing:
             [
-                "洋服", "パンツ", "美容院", "美容室", "散髪", "プレゼント", "ご祝儀",
-                "clothes", "haircut", "hair salon", "gift", "present",
+                "住居", "住居費", "家賃", "管理費", "共益費", "住宅ローン", "更新料", "敷金", "礼金", "引っ越し", "引越し", "引越",
+                "rent", "mortgage", "management fee", "moving",
+            ]
+        case .clothing:
+            // 「パンツ」は食費の「パン」より長いので、こちらに当たる（前は「その他」で受け止めていた）。「服」の 1 文字は
+            // 「服薬」などにも当たるので入れない。
+            [
+                "衣服", "洋服", "服代", "衣類", "シャツ", "下着", "靴", "スニーカー", "ユニクロ", "しまむら", "パンツ",
+                "美容", "美容院", "美容室", "散髪", "ヘアカット", "ネイル", "エステ", "化粧品",
+                "zara", "clothes", "clothing", "shoes", "sneakers", "haircut", "hair salon", "nail", "cosmetics", "makeup",
+            ]
+        case .other:
+            // ほかのカテゴリの短い語に誤って当たる語を、長い語で受け止めるために置く（「ガスト」の「ガス」は食費の「ガスト」が
+            // 受け止める）。ここに当たったときは「その他」になる。英語の語は、その他と読んだ理由があることを示すために置く（当たらない
+            // 品目と違い、返事でカテゴリを聞き返さない。`CategoryMemory.asksCategory`）。
+            [
+                "プレゼント", "ご祝儀",
+                "gift", "present",
             ]
         }
     }
@@ -231,6 +260,8 @@ extension EntryCategory: RawRepresentable {
         case "entertainment": self = .entertainment
         case "utilities": self = .utilities
         case "medical": self = .medical
+        case "housing": self = .housing
+        case "clothing": self = .clothing
         case "other": self = .other
         default:
             guard rawValue.hasPrefix(Self.customPrefix) else { return nil }
@@ -249,6 +280,8 @@ extension EntryCategory: RawRepresentable {
         case .entertainment: "entertainment"
         case .utilities: "utilities"
         case .medical: "medical"
+        case .housing: "housing"
+        case .clothing: "clothing"
         case .other: "other"
         case .custom(let id): Self.customPrefix + id
         }

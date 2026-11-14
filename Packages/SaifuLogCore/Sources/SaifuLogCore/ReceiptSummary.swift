@@ -17,12 +17,17 @@ public enum ReceiptSummary {
         return cleaned.isEmpty ? nil : cleaned
     }
 
+    /// 連絡先の始まり（「TEL 03-…」「電話：(03)…」「FAX」）。英字の続く語の途中では当てず、後ろに番号か行の終わりが続くときだけ。
+    static let contactMarker =
+        #"(?:(?<![A-Za-z])(?:TEL|Tel|tel|FAX|Fax|fax)|電話(?:番号)?|℡)\s*[.:：]?\s*(?=[\d(（+]|$)"#
+
     /// 店名の行から、店名でない部分（電話番号・長い数字・記号の並び）を除く。
     static func cleanedStoreName(_ text: String) -> String {
         var name = TextNormalizer.normalize(text)
-        // 「TEL」「電話」から後ろは連絡先。
-        for marker in ["TEL", "Tel", "tel", "電話", "℡", "FAX"] {
-            if let range = name.range(of: marker) { name = String(name[..<range.lowerBound]) }
+        // 「TEL」「電話」の後に番号が続く（か行の終わりの）ところから後ろは連絡先。語の途中（「Hotel」の tel）や、番号の
+        // 続かない語（「電話ショップ」）では切らない（店名が途中で切れて、「Ho」のような名前が残るため）。
+        if let range = name.range(of: Self.contactMarker, options: .regularExpression) {
+            name = String(name[..<range.lowerBound])
         }
         // 4 桁以上の数字の並び（「-」や空白でつないだものも）は、電話番号・カード番号・登録番号・郵便番号。
         name = name.replacingOccurrences(of: #"[T#*xX]?\d[\d\-\s*]{2,}\d"#, with: " ", options: .regularExpression)

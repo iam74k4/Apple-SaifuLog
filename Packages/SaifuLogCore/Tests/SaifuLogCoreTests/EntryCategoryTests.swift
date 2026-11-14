@@ -3,11 +3,19 @@ import Testing
 
 @Suite("カテゴリ")
 struct EntryCategoryTests {
-    @Test("v1 は 8 種で、表示名の順も決まっている")
-    func eightCategories() {
+    @Test("組み込みは 10 種で、表示名の順も決まっている（後から足した住居と衣服・美容は「その他」の前）")
+    func builtInCategories() {
         #expect(EntryCategory.builtIns.map(\.displayName) == [
-            "食費", "日用品", "交通", "カフェ", "娯楽", "光熱・通信", "医療", "その他",
+            "食費", "日用品", "交通", "カフェ", "娯楽", "光熱・通信", "医療", "住居", "衣服・美容", "その他",
         ])
+    }
+
+    @Test("後から足したカテゴリの rawValue は、保存の値として決まっている（変えると記録が読めなくなる）")
+    func newRawValues() {
+        #expect(EntryCategory.housing.rawValue == "housing")
+        #expect(EntryCategory.clothing.rawValue == "clothing")
+        #expect(EntryCategory(rawValue: "housing") == .housing)
+        #expect(EntryCategory(rawValue: "clothing") == .clothing)
     }
 
     @Test("保存に使う rawValue は重ならない")
@@ -38,6 +46,16 @@ struct EntryCategoryTests {
         ("映画", .entertainment),
         ("電気代", .utilities),
         ("病院", .medical),
+        ("家賃", .housing),
+        ("マンションの管理費", .housing),
+        ("引っ越し代", .housing),
+        ("ユニクロ", .clothing),
+        ("美容院", .clothing),
+        ("化粧品", .clothing),
+        ("スニーカー", .clothing),
+        ("ネットフリックス", .entertainment),
+        ("ドコモ", .utilities),
+        ("iCloud", .utilities),
     ])
     func guessesCategory(text: String, expected: EntryCategory) {
         #expect(EntryCategory.guess(from: text) == expected)
@@ -45,7 +63,8 @@ struct EntryCategoryTests {
 
     @Test("短い語の誤爆は長い語が受け止める", arguments: [
         ("ガスト", EntryCategory.food),
-        ("パンツ", .other),
+        // 「パン」より長い「パンツ」は衣服・美容（前は「その他」で受け止めていた）。
+        ("パンツ", .clothing),
         ("ネット通販", .other),
     ])
     func longerKeywordWins(text: String, expected: EntryCategory) {
@@ -81,6 +100,13 @@ struct EntryCategoryTests {
         ("dentist", .medical),
         ("toilet paper", .daily),
         ("batteries", .daily),
+        ("rent", .housing),
+        ("mortgage", .housing),
+        ("shoes", .clothing),
+        ("haircut", .clothing),
+        ("makeup", .clothing),
+        ("Hulu", .entertainment),
+        ("docomo", .utilities),
     ])
     func guessesEnglishItems(text: String, expected: EntryCategory) {
         #expect(EntryCategory.guess(from: text) == expected)

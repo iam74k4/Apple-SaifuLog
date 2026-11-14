@@ -54,12 +54,7 @@ struct EditEntrySheet: View {
                         if model.delete() { dismiss() }
                     }
                 } message: {
-                    if model.isShared {
-                        // 家計の記録は、長押しの削除（ホーム）と同じく、家族の端末からも消えることを添える。
-                        Text("\(model.deletionSummary)の家計の記録を削除します。家族の端末からも消えます。この操作は取り消せません。")
-                    } else {
-                        Text("\(model.deletionSummary)の記録を削除します。この操作は取り消せません。")
-                    }
+                    Text("\(model.deletionSummary)の記録を削除します。この操作は取り消せません。")
                 }
                 .confirmationDialog(
                     "直した内容を破棄しますか？",
@@ -85,9 +80,6 @@ struct EditEntrySheet: View {
                 }
                 if model.source == .recurring {
                     recurringNote
-                }
-                if model.source == .wallet {
-                    walletNote
                 }
                 amountSection
                 memoSection
@@ -141,17 +133,6 @@ struct EditEntrySheet: View {
         .foregroundStyle(Theme.inkSecondary)
     }
 
-    /// Apple Pay の支払いから記録したものであること（打った文が無いので、送った文の代わりに出す）。
-    private var walletNote: some View {
-        Label {
-            Text("Apple Pay の支払いから記録しました。品目はお店の名前です。")
-        } icon: {
-            Image(systemName: "creditcard")
-        }
-        .font(.footnote)
-        .foregroundStyle(Theme.inkSecondary)
-    }
-
     /// 金額の入力欄。「¥」を前に置き、入れた数字は 3 桁ごとにカンマを入れて見せる。保存できない額なら、下に理由を出す。
     private var amountSection: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -165,8 +146,10 @@ struct EditEntrySheet: View {
                 }
                 .keyboardType(.numberPad)
                 .focused($focusedField, equals: .amount)
-                .onChange(of: model.amountText) { model.normalizeAmountText() }
+                // 打っている間は区切りを入れず、入力欄を離れたときにそろえる（`formatsAmountAfterEditing` の説明）。
+                .formatsAmountAfterEditing(isEditing: focusedField == .amount, normalize: model.normalizeAmountText)
                 .accessibilityHint(model.amountIssue?.message ?? Text(verbatim: ""))
+                .accessibilityIdentifier(AccessibilityID.EditEntry.amountField)
             }
             .font(.title.bold())
             .monospacedDigit()
@@ -201,6 +184,7 @@ struct EditEntrySheet: View {
                 Text("品目")
             }
             .focused($focusedField, equals: .memo)
+            .accessibilityIdentifier(AccessibilityID.EditEntry.memoField)
             .submitLabel(.done)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -240,14 +224,12 @@ struct EditEntrySheet: View {
         }
     }
 
-    /// カテゴリ。8 種を色と記号つきで並べ、1 つを選ぶ。アクセシビリティサイズの文字では 1 列にする。
+    /// カテゴリ。組み込みの 10 種と作ったカテゴリを色と記号つきで並べ、1 つを選ぶ。アクセシビリティサイズの文字では 1 列にする。
     private var categorySection: some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel("カテゴリ")
             LazyVGrid(columns: categoryColumns, spacing: 8) {
-                // 家族と共有している家計の記録は、組み込みのカテゴリだけ（作ったカテゴリは自分の一覧にしかなく、家族の端末では
-                // 「その他」になるため）。
-                ForEach(model.isShared ? EntryCategory.builtIns : catalog.all) { category in
+                ForEach(catalog.all) { category in
                     ChoiceChip(isSelected: model.category == category) {
                         model.category = category
                     } label: {
@@ -304,6 +286,7 @@ struct EditEntrySheet: View {
                 .contentShape(.rect)
         }
         .foregroundStyle(Theme.danger)
+        .accessibilityIdentifier(AccessibilityID.EditEntry.deleteButton)
         .padding(.top, 8)
     }
 
@@ -321,6 +304,7 @@ struct EditEntrySheet: View {
         .buttonStyle(.glassProminent)
         .tint(Theme.accentFill)
         .disabled(!model.canSave)
+        .accessibilityIdentifier(AccessibilityID.EditEntry.saveButton)
     }
 
     private var showsFailure: Binding<Bool> {

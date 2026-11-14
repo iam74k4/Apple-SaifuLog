@@ -28,12 +28,10 @@ struct QuickActionTests {
         #expect(QuickActionInbox.shared.pending == .ask("今月いくら?"))
 
         // 続けて頼まれたら、新しいほうを持つ。
-        _ = try await ScanReceiptIntent().perform()
-        #expect(QuickActionInbox.shared.take() == .receipt)
-        _ = try await ComposeEntryIntent().perform()
-        #expect(QuickActionInbox.shared.take() == .compose)
-        _ = try await VoiceEntryIntent().perform()
-        #expect(QuickActionInbox.shared.take() == .voice)
+        var another = RecordEntryIntent()
+        another.text = "コーヒー 400"
+        _ = try await another.perform()
+        #expect(QuickActionInbox.shared.take() == .record("コーヒー 400"))
         #expect(RecordEntryIntent.openAppWhenRun)
     }
 
@@ -53,12 +51,27 @@ struct QuickActionTests {
         #expect(fixture.model.pendingQuickAction == nil)
     }
 
+    /// 「ひとことで記録」で頼まれたチャットの操作（「さっきの消して」）は、すぐには行わず確認を出す（声の聞き取りの誤りで、
+    /// 記録のつもりの頼みから直前の記録を黙って消さないため）。
+    @Test func recordRequestConfirmsChatCommand() async throws {
+        let fixture = try Fixture()
+        fixture.model.receive(.record("ランチ 850"))
+        await fixture.model.performPendingQuickAction(calendar: TestSupport.calendar)?.value
+
+        fixture.model.receive(.record("さっきの消して"))
+        await fixture.model.performPendingQuickAction(calendar: TestSupport.calendar)?.value
+
+        #expect(try fixture.entries().map(\.amount) == [850])
+        let pending = try #require(fixture.model.pendingCommand)
+        #expect(pending.command == .removeLast)
+    }
+
     /// 「家計に質問」は、記録か見分けずに質問として答える（金額の入った文も記録しない）。
     @Test func asksAsQuestion() async throws {
         let fixture = try Fixture()
         fixture.model.receive(.ask("今月の支出は?"))
         await fixture.model.performPendingQuickAction(calendar: TestSupport.calendar)?.value
-        guard case .answered(let answer, _, _) = fixture.lastQuestionState else {
+        guard case .answered(let answer, _) = fixture.lastQuestionState else {
             Issue.record("答えのカードが出なかった")
             return
         }
@@ -93,33 +106,52 @@ struct QuickActionTests {
         #expect(try fixture.entries().map(\.amount).sorted() == [400, 850])
     }
 
-    /// 入力欄を開く頼みと、文の空の記録の頼みは、入力欄にキーボードを出す。ほかの画面を出している間は待つ。
-    @Test func composeWaitsForOtherScreens() async throws {
+    /// 文の空の記録の頼みは、入力欄にキーボードを出す。シートを出している間は待つ。
+    @Test func emptyRecordWaitsForOtherScreens() async throws {
         let fixture = try Fixture()
-        fixture.model.presentSettings()
-        fixture.model.receive(.compose)
+        fixture.model.presentBudgetSetup()
+        fixture.model.receive(.record("  "))
 
         #expect(fixture.model.performPendingQuickAction(calendar: TestSupport.calendar) == nil)
         #expect(fixture.model.inputFocusRequest == 0)
 
-        fixture.model.settings = nil
+        fixture.model.budgetSetup = nil
         await fixture.model.performPendingQuickAction(calendar: TestSupport.calendar)?.value
         #expect(fixture.model.inputFocusRequest == 1)
-
-        fixture.model.receive(.record("  "))
-        await fixture.model.performPendingQuickAction(calendar: TestSupport.calendar)?.value
-        #expect(fixture.model.inputFocusRequest == 2)
         #expect(try fixture.entries().isEmpty)
     }
 
-    /// 「レシートを読み取る」は、カメラのボタンを押したときと同じく「撮る」「写真から選ぶ」を出す。
-    @Test func receiptShowsSourceChoice() async throws {
+    /// 頼みを受けたら、設定と月のまとめを閉じて会話で行う（閉じないと、返事が画面の下に隠れたまま終わる）。
+    @Test func receivingClosesPushedScreens() async throws {
         let fixture = try Fixture()
-        fixture.model.receive(.receipt)
+        fixture.model.presentSettings()
+        fixture.model.presentMonthlyReport(calendar: TestSupport.calendar)
 
+        fixture.model.receive(.record("ランチ 850"))
+
+        #expect(fixture.model.settings == nil)
+        #expect(fixture.model.monthlyReport == nil)
         await fixture.model.performPendingQuickAction(calendar: TestSupport.calendar)?.value
+        #expect(try fixture.entries().map(\.amount) == [850])
+    }
 
-        #expect(fixture.model.showsReceiptSourceChoice)
+    /// シートを出している間は記録も質問も待ち、閉じたら行う（シートの下で記録して、返事が見えないまま終わらないように）。
+    /// 設定の上でシートを出しているときは、設定も閉じない（書きかけを黙って捨てない）。
+    @Test func recordWaitsForSheets() async throws {
+        let fixture = try Fixture()
+        fixture.model.presentSettings()
+        let settings = try #require(fixture.model.settings)
+        settings.presentBudgetSetup()
+
+        fixture.model.receive(.record("ランチ 850"))
+
+        #expect(fixture.model.settings === settings)
+        #expect(fixture.model.performPendingQuickAction(calendar: TestSupport.calendar) == nil)
+        #expect(try fixture.entries().isEmpty)
+
+        fixture.model.settings = nil
+        await fixture.model.performPendingQuickAction(calendar: TestSupport.calendar)?.value
+        #expect(try fixture.entries().map(\.amount) == [850])
     }
 }
 

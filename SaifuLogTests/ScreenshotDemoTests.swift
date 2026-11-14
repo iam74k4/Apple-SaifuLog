@@ -12,22 +12,12 @@ import Testing
 struct ScreenshotDemoTests {
     // MARK: - 起動引数
 
-    @Test("起動引数から撮る画面と購入の状態を読む（購入の状態を省けば、プレミアムのシートは無料・ほかは購入済み）")
+    @Test("起動引数から撮る画面を読む")
     func parsesArguments() {
         let arguments = ["SaifuLog", "-AppleLanguages", "(ja)"]
-        #expect(ScreenshotDemo.parse(arguments: arguments + ["-SaifuLogScreenshotDemo", "ask"])
-            == .init(screen: .ask, premium: .purchased))
-        #expect(ScreenshotDemo.parse(arguments: arguments + ["-SaifuLogScreenshotDemo", "premium"])
-            == .init(screen: .premium, premium: .free))
-        #expect(ScreenshotDemo.parse(arguments: arguments + ["-SaifuLogScreenshotDemo", "trial"])
-            == .init(screen: .trial, premium: .free))
-        #expect(ScreenshotDemo.parse(arguments: [
-            "SaifuLog", "-SaifuLogScreenshotPremium", "free", "-SaifuLogScreenshotDemo", "report",
-        ]) == .init(screen: .report, premium: .free))
-        // 知らない購入の状態は、画面ごとの既定にする。
-        #expect(ScreenshotDemo.parse(arguments: [
-            "SaifuLog", "-SaifuLogScreenshotDemo", "home", "-SaifuLogScreenshotPremium", "lifetime",
-        ]) == .init(screen: .home, premium: .purchased))
+        #expect(ScreenshotDemo.parse(arguments: arguments + ["-SaifuLogScreenshotDemo", "ask"]) == .init(screen: .ask))
+        #expect(ScreenshotDemo.parse(arguments: ["SaifuLog", "-SaifuLogScreenshotDemo", "report"]) == .init(screen: .report))
+        #expect(ScreenshotDemo.parse(arguments: arguments + ["-SaifuLogScreenshotDemo", "calendar"]) == .init(screen: .calendar))
     }
 
     @Test("撮る画面の引数が無い・値が無い・知らない画面なら、撮影用のデモにしない（ふだんの起動）")
@@ -35,7 +25,9 @@ struct ScreenshotDemoTests {
         #expect(ScreenshotDemo.parse(arguments: ["SaifuLog"]) == nil)
         #expect(ScreenshotDemo.parse(arguments: ["SaifuLog", "-SaifuLogScreenshotDemo"]) == nil)
         #expect(ScreenshotDemo.parse(arguments: ["SaifuLog", "-SaifuLogScreenshotDemo", "settings"]) == nil)
-        #expect(ScreenshotDemo.parse(arguments: ["SaifuLog", "-SaifuLogScreenshotPremium", "free"]) == nil)
+        // プレミアムをやめたので、プレミアムと体験のシートの画面は無い。
+        #expect(ScreenshotDemo.parse(arguments: ["SaifuLog", "-SaifuLogScreenshotDemo", "premium"]) == nil)
+        #expect(ScreenshotDemo.parse(arguments: ["SaifuLog", "-SaifuLogScreenshotDemo", "trial"]) == nil)
     }
 
     @Test("テストのプロセスは起動引数を持たないので、撮影用のデモにならない")
@@ -184,10 +176,10 @@ struct ScreenshotDemoTests {
         #expect(groups.filter { records[$0[0].id].originalText == ScreenshotDemoLedger.multiItemText }.allSatisfy { $0.count == 2 })
     }
 
-    @Test("数字がスクリーンショットに向く: 先週と今月は食費がいちばん多く、今月は予算の内（カテゴリ別の予算も）で、予算の目安の提案は出ない", arguments: shootingDays)
+    @Test("数字がスクリーンショットに向く: 今月は食費がいちばん多く、予算の内", arguments: shootingDays)
     func figuresSuitScreenshots(day: Date) throws {
         let calendar = TestSupport.calendar
-        let demo = try Self.makeDemo(.recap, on: day)
+        let demo = try Self.makeDemo(.report, on: day)
         defer { Self.removeDefaults(of: demo) }
         // mainContext はコンテナが生きている間しか使えないので、コンテナを持っておく。
         let container = try demo.makeContainer()
@@ -196,13 +188,6 @@ struct ScreenshotDemoTests {
         let budget = ScreenshotDemoLedger.monthlyBudget
         let plan = try BudgetStore(context: context).plan()
         #expect(plan.total == budget)
-        #expect(plan.byCategory == ScreenshotDemoLedger.categoryBudgets)
-
-        // 先週のふりかえり: 先週も前の週も支出があり（前の週との差を出せる）、食費がいちばん多い。
-        let recap = try #require(WeeklyRecap(records: entries, now: demo.now, budget: budget, calendar: calendar))
-        #expect(!recap.isEmpty)
-        #expect(recap.previousSummary.expense > 0)
-        #expect(recap.topCategories().first?.category == .food)
 
         // 月のまとめで開く今月も食費がいちばん多い。
         let thisMonth = try #require(ReportPeriod.thisMonth.interval(now: demo.now, calendar: calendar))
@@ -211,27 +196,6 @@ struct ScreenshotDemoTests {
 
         // 帯は「今月あと ¥…」（予算を超えていない）。
         #expect(monthSummary.expense < budget)
-
-        // 月のまとめのカテゴリの行: 今月はカテゴリ別の予算の内で、月まるごとの前の月は食費が予算を超える（前の月へ戻ると、
-        // 超えた出方も確かめられる）。
-        let budgets = try context.fetch(FetchDescriptor<Budget>())
-        let report = try #require(MonthlyReport(
-            records: entries, month: demo.now, now: demo.now, categoryBudgets: BudgetPlan.categoryDecisions(in: budgets),
-            calendar: calendar
-        ))
-        #expect(Set(report.categoryBudgets.keys) == Set(ScreenshotDemoLedger.categoryBudgets.keys))
-        #expect(report.categoryBudgets.values.allSatisfy { !$0.isOver && $0.spent > 0 })
-        let lastMonth = try #require(ReportPeriod.lastMonth.interval(now: demo.now, calendar: calendar))
-        let previous = try #require(MonthlyReport(
-            records: entries, month: lastMonth.start, now: demo.now,
-            categoryBudgets: BudgetPlan.categoryDecisions(in: budgets), calendar: calendar
-        ))
-        #expect(previous.categoryBudgets[.food]?.isOver == true)
-
-        // 予算の目安の提案（予算との差が 2 割以上のときだけ）は、ふりかえりのカードに出さない。
-        if let suggestion = BudgetSuggestion(records: entries, now: demo.now, calendar: calendar) {
-            #expect(!suggestion.differsNotably(from: budget))
-        }
     }
 
     /// 2 年分の月末（月の支出がいちばん多くなる日）。
@@ -242,7 +206,7 @@ struct ScreenshotDemoTests {
 
     /// 月の最後の日に撮ったときに、帯と月のまとめの「1日あたり」が「残り」と同じ額になり、「今日までの目安」が予算と同じ額に
     /// なっていた（ストアの画像に向かない）。デモの「いま」を月の半ばに置いたので、月末に撮っても月の半ばの数字になる。
-    @Test("どの月の月末に撮っても、今月は予算の内（カテゴリ別の予算も）で、1日あたりは残りより十分少なく、予算の目安の提案は出ない（2 月のような短い月の後も）", arguments: monthEnds)
+    @Test("どの月の月末に撮っても、今月は予算の内で、1日あたりは残りより十分少ない（2 月のような短い月の後も）", arguments: monthEnds)
     func budgetFitsEveryMonth(day: Date) throws {
         let calendar = TestSupport.calendar
         let now = ScreenshotDemo.pinnedNow(on: day, calendar: calendar)
@@ -255,17 +219,10 @@ struct ScreenshotDemoTests {
         let summary = LedgerSummary(records: records, interval: thisMonth, calendar: calendar)
         let spent = summary.expense
         #expect(spent < budget)
-        // 月のまとめのカテゴリの行も、今月は予算の内（ストアの画像に超えた形を写さない）。
-        for (category, amount) in ScreenshotDemoLedger.categoryBudgets {
-            #expect(summary.expense(in: category) < amount, "\(category) \(summary.expense(in: category))")
-        }
         // 帯と月のまとめの「1日あたり」「のこり N 日」。
         let status = try #require(BudgetStatus(budget: budget, spent: spent, now: now, month: thisMonth, calendar: calendar))
         #expect(status.remainingDays >= 14)
         #expect(status.dailyAllowance * 10 < status.remaining)
-        if let suggestion = BudgetSuggestion(records: records, now: now, calendar: calendar) {
-            #expect(!suggestion.differsNotably(from: budget), "目安 \(suggestion.amount)")
-        }
     }
 
     // MARK: - 使い捨ての保存先と設定
@@ -302,60 +259,24 @@ struct ScreenshotDemoTests {
         #expect(try container.mainContext.fetchCount(FetchDescriptor<Entry>()) > 0)
     }
 
-    @Test("設定は専用の領域を空にして使い、利用者の設定（standard）には書かない。ふりかえりのカードはふりかえりの画面でだけ出す")
+    @Test("設定は専用の領域を空にして使い、利用者の設定（standard）には書かない")
     func defaultsAreDisposableAndSeparate() throws {
         let suiteName = "ScreenshotDemoTests.\(UUID().uuidString)"
         defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
         // 前の撮影の残り。
         let leftover = try #require(UserDefaults(suiteName: suiteName))
         leftover.set(true, forKey: "leftover")
-        leftover.set(Date.distantPast, for: AppSettings.weeklyRecapShownAt)
         let standardOnboarding = UserDefaults.standard.object(forKey: AppSettings.hasCompletedOnboarding.key) as? Bool
-        let standardRecap = UserDefaults.standard.object(forKey: AppSettings.weeklyRecapShownAt.key) as? Date
 
-        let recap = ScreenshotDemo(
-            configuration: .init(screen: .recap, premium: .purchased), launchedAt: TestSupport.now,
+        let demo = ScreenshotDemo(
+            configuration: .init(screen: .home), launchedAt: TestSupport.now,
             calendar: TestSupport.calendar, uiLanguage: "ja", defaultsSuiteName: suiteName
         )
-        #expect(recap.defaults !== UserDefaults.standard)
-        #expect(recap.defaults.object(forKey: "leftover") == nil)
-        #expect(recap.defaults.bool(for: AppSettings.hasCompletedOnboarding))
-        #expect(recap.defaults.date(for: AppSettings.weeklyRecapShownAt) == nil)
-
-        let home = ScreenshotDemo(
-            configuration: .init(screen: .home, premium: .purchased), launchedAt: TestSupport.now,
-            calendar: TestSupport.calendar, uiLanguage: "ja", defaultsSuiteName: suiteName
-        )
-        #expect(home.defaults.date(for: AppSettings.weeklyRecapShownAt) == home.now)
+        #expect(demo.defaults !== UserDefaults.standard)
+        #expect(demo.defaults.object(forKey: "leftover") == nil)
+        #expect(demo.defaults.bool(for: AppSettings.hasCompletedOnboarding))
 
         #expect(UserDefaults.standard.object(forKey: AppSettings.hasCompletedOnboarding.key) as? Bool == standardOnboarding)
-        #expect(UserDefaults.standard.object(forKey: AppSettings.weeklyRecapShownAt.key) as? Date == standardRecap)
-    }
-
-    // MARK: - 購入の状態
-
-    @Test("購入の状態は選んだとおりで、価格は App Store を読まずに日本の価格の表示を出す")
-    func purchasesFollowChoice() async throws {
-        let purchased = try Self.makeDemo(.home)
-        defer { Self.removeDefaults(of: purchased) }
-        let premium = purchased.makePurchases()
-        await premium.refreshPurchases()
-        #expect(premium.status == .premium(.purchased))
-
-        let free = try Self.makeDemo(.premium)
-        defer { Self.removeDefaults(of: free) }
-        let manager = free.makePurchases()
-        await manager.refreshPurchases()
-        #expect(manager.status == .free)
-        #expect(manager.productsState == .loaded)
-        #expect(manager.displayPrice(for: .premium) == 1_800.formatted(.currency(code: "JPY")))
-        #expect(manager.isOffered(.premium))
-        #expect(manager.isOffered(.trial14))
-        // シートは読み込み済みとして価格と購入・体験のボタンを出す。
-        let sheet = PremiumSheetModel(purchases: manager, announce: { _ in })
-        #expect(sheet.premiumPrice == 1_800.formatted(.currency(code: "JPY")))
-        #expect(sheet.canPurchase)
-        #expect(sheet.canStartTrial)
     }
 
     // MARK: - 撮る画面の開き方
@@ -368,11 +289,10 @@ struct ScreenshotDemoTests {
 
         #expect(home.questions.map(\.text) == ScreenshotDemo.questions)
         for exchange in home.questions {
-            guard case .answered(let answer, let remark, let freeQuestionsLeft) = exchange.state else {
+            guard case .answered(let answer, let remark) = exchange.state else {
                 Issue.record("答えていません: \(exchange.state)")
                 continue
             }
-            #expect(freeQuestionsLeft == nil)
             guard case .ai(let sentence) = remark else {
                 Issue.record("一言がありません: \(String(describing: remark))")
                 continue
@@ -391,7 +311,7 @@ struct ScreenshotDemoTests {
 
         #expect(home.questions.count == 2)
         for exchange in home.questions {
-            guard case .answered(_, let remark, _) = exchange.state else {
+            guard case .answered(_, let remark) = exchange.state else {
                 Issue.record("答えていません: \(exchange.state)")
                 continue
             }
@@ -416,24 +336,7 @@ struct ScreenshotDemoTests {
         #expect(demo.calendar.isDate(result.day, inSameDayAs: demo.now))
     }
 
-    @Test("声の画面: 聞いている表示のまま止まらず、確定した文と途中の文を出す")
-    func voiceScreenKeepsListening() async throws {
-        let (demo, home) = try Self.makeHome(.voice, uiLanguage: "ja")
-        defer { Self.removeDefaults(of: demo) }
-        await demo.stage(on: home, calendar: demo.calendar)
-        await Self.waitUntil { !home.voice.preview(prefix: "").full.isEmpty }
-
-        #expect(home.voice.phase == .listening)
-        let preview = home.voice.preview(prefix: "")
-        #expect(preview.settled == "ドラッグストア")
-        #expect(preview.tentative == "1280円")
-        // 時計を止めてあるので、時間がたっても自動で止まらない。
-        home.voice.tick()
-        #expect(home.voice.phase == .listening)
-        home.voice.cancel()
-    }
-
-    @Test("月のまとめの画面: 今月を下の端（カテゴリ別のグラフと金額の行）から開き、カテゴリ別の予算の進みを出し、日本語の画面では照合を通る一言を添える")
+    @Test("月のまとめの画面: 今月を下の端（カテゴリ別のグラフと金額の行）から開き、日本語の画面では照合を通る一言を添える")
     func reportScreenOpensMonthWithRemark() async throws {
         let (demo, home) = try Self.makeHome(.report, uiLanguage: "ja")
         defer { Self.removeDefaults(of: demo) }
@@ -443,11 +346,6 @@ struct ScreenshotDemoTests {
         #expect(report.month == ReportPeriod.thisMonth.interval(now: demo.now, calendar: demo.calendar))
         #expect(report.screenshotScrollsToBottom)
         #expect(report.report?.breakdown.isEmpty == false)
-        // 購入済みのデモなので、カテゴリの行に予算の進みを出す（食費とカフェ。どちらも支出があり、予算の内）。
-        await Self.waitUntil { report.showsCategoryBudgets }
-        #expect(Set(report.categoryBudgets.keys) == Set(ScreenshotDemoLedger.categoryBudgets.keys))
-        #expect(report.budgetedCategoriesWithoutExpense.isEmpty)
-        #expect(report.categoryBudgets.values.allSatisfy { !$0.isOver })
         await report.remark.currentTask?.value
         guard case .written(let sentence) = report.remark.state else {
             Issue.record("一言がありません: \(report.remark.state)")
@@ -456,29 +354,8 @@ struct ScreenshotDemoTests {
         #expect(sentence.contains("食費"))
     }
 
-    @Test("ふりかえりの画面: ホームが出る前にカードと一言（日本語の画面）を出しそろえる。ほかの画面ではカードを出さない")
-    func recapScreenShowsCard() async throws {
-        let (demo, home) = try Self.makeHome(.recap, uiLanguage: "ja")
-        defer { Self.removeDefaults(of: demo) }
-        await demo.prepare(home, calendar: demo.calendar)
-
-        let recap = try #require(home.weeklyRecap)
-        #expect(recap.recap?.isEmpty == false)
-        guard case .written(let sentence) = recap.remark.state else {
-            Issue.record("一言がありません: \(recap.remark.state)")
-            return
-        }
-        #expect(sentence.hasPrefix("先週いちばん多かったのは食費でした。"))
-
-        let (other, otherHome) = try Self.makeHome(.home, uiLanguage: "ja")
-        defer { Self.removeDefaults(of: other) }
-        await other.prepare(otherHome, calendar: other.calendar)
-        otherHome.showWeeklyRecapIfDue(calendar: other.calendar)
-        #expect(otherHome.weeklyRecap == nil)
-    }
-
     /// デモの時計は、作ってからの経過だけ進む。起動の日時に過去の日時（テストの決まった日時）を渡しても、実際の時間の
-    /// 経過で週や月の境目を越えない（越えると、ふりかえりのカードが出るかどうかが、テストを動かした日によって変わる）。
+    /// 経過で週や月の境目を越えない（越えると、写す数字が、テストを動かした日によって変わる）。
     @Test func demoClockAdvancesOnlyFromCreation() throws {
         let demo = try Self.makeDemo(.home, on: TestSupport.date(2020, 1, 1, hour: 12))
         defer { Self.removeDefaults(of: demo) }
@@ -489,51 +366,48 @@ struct ScreenshotDemoTests {
         #expect(elapsed < 60)
     }
 
-    @Test("ふりかえりの一言の代わりは、数字を書かず、数字の文との照合を通る")
+    @Test("月のまとめの一言の代わりは、数字を書かず、数字の文との照合を通る")
     func recapRemarksPassCheck() {
-        let weekly = "期間: 先週の1週間（2026年9月20日から2026年9月26日まで）\n支出の合計: ¥21,390（支出の記録 17件）\n支出の多いカテゴリ: 光熱・通信 ¥9,800（46%）、食費 ¥8,000（37%）"
+        let thisMonth = "期間: 今月（2026年9月1日から2026年9月30日まで。まだ月の途中）\n支出の合計: ¥21,390（支出の記録 17件）\n支出の多いカテゴリ: 光熱・通信 ¥9,800（46%）、食費 ¥8,000（37%）"
         let monthly = "期間: 2026年8月1日から2026年8月31日まで\n支出の合計: ¥123,230（支出の記録 80件）"
-        #expect(ScreenshotDemoRemarkWriter.remark(from: weekly) == "先週いちばん多かったのは光熱・通信でした。こまめに記録できていて、いい調子です。")
-        #expect(RecapRemark.checked(ScreenshotDemoRemarkWriter.remark(from: weekly), facts: weekly) != nil)
+        #expect(ScreenshotDemoRemarkWriter.remark(from: thisMonth) == "今月は光熱・通信がいちばん多くなっています。記録を続けられていて、いい調子です。")
+        #expect(RecapRemark.checked(ScreenshotDemoRemarkWriter.remark(from: thisMonth), facts: thisMonth) != nil)
         // カテゴリの行が無ければ、カテゴリに触れない。
         #expect(ScreenshotDemoRemarkWriter.remark(from: monthly) == "記録を続けられていて、いい調子です。")
         #expect(RecapRemark.checked(ScreenshotDemoRemarkWriter.remark(from: monthly), facts: monthly) != nil)
     }
 
-    @Test("カレンダーの画面: カレンダーのページを出し、くり返しの記録は記録せずに今月の予定として出す。ほかの画面には入れない")
-    func calendarScreenShowsPlannedRecurring() async throws {
+    @Test("ホームの画面: 日本語では記録を 1 つ送り、返事に AI の一言を添える。英語では送らない")
+    func homeScreenShowsReplyRemark() async throws {
+        let (demo, home) = try Self.makeHome(.home, uiLanguage: "ja")
+        defer { Self.removeDefaults(of: demo) }
+        await demo.stage(on: home, calendar: demo.calendar)
+
+        let remark = try #require(home.replyRemark)
+        #expect(remark.text.hasPrefix("今月のカフェは"))
+        #expect(home.justRecorded.map(\.memo) == ["カフェラテ"])
+
+        let (english, englishHome) = try Self.makeHome(.home, uiLanguage: "en")
+        defer { Self.removeDefaults(of: english) }
+        await english.stage(on: englishHome, calendar: english.calendar)
+        #expect(englishHome.replyRemark == nil)
+        #expect(englishHome.justRecorded.isEmpty)
+    }
+
+    @Test("カレンダーの画面: カレンダーのページを出し、今月の使った額を出す。ほかの画面には入れない")
+    func calendarScreenShowsSpending() async throws {
         let (demo, home) = try Self.makeHome(.calendar, uiLanguage: "ja")
         defer { Self.removeDefaults(of: demo) }
-        // ホームが出たときと同じく、記録する日を過ぎたくり返しの記録を記録してから、カレンダーを開く。
-        home.recordDueRecurringEntries(calendar: demo.calendar)
         home.calendarPage.configure(calendar: demo.calendar)
         await demo.stage(on: home, calendar: demo.calendar)
 
         #expect(home.page == .calendar)
-        #expect(home.justRecorded.isEmpty)
-        let outlook = try #require(home.calendarPage.outlook)
-        #expect(outlook.plannedFixed.map(\.memo) == ScreenshotDemoLedger.recurringDrafts.map(\.memo))
-        // 固定費を引いても、今月あとが残る（今日あとは、撮る月の 15 日の曜日で使った額が変わり、目安を超える月もある）。
-        #expect((outlook.freeToSpend ?? 0) > 0)
+        #expect((home.calendarPage.days?.expense ?? 0) > 0)
 
         let (other, otherHome) = try Self.makeHome(.home, uiLanguage: "ja")
         defer { Self.removeDefaults(of: other) }
         otherHome.calendarPage.configure(calendar: other.calendar)
-        #expect(otherHome.calendarPage.planned.isEmpty)
         #expect(otherHome.page == .conversation)
-    }
-
-    @Test("プレミアムと体験の画面: プレミアムのシートを出し、体験の画面は下の端から開く")
-    func premiumScreensPresentSheet() async throws {
-        let (premiumDemo, premiumHome) = try Self.makeHome(.premium, uiLanguage: "ja")
-        defer { Self.removeDefaults(of: premiumDemo) }
-        await premiumDemo.stage(on: premiumHome, calendar: premiumDemo.calendar)
-        #expect(premiumHome.premiumSheet?.screenshotScrollsToBottom == false)
-
-        let (trialDemo, trialHome) = try Self.makeHome(.trial, uiLanguage: "ja")
-        defer { Self.removeDefaults(of: trialDemo) }
-        await trialDemo.stage(on: trialHome, calendar: trialDemo.calendar)
-        #expect(trialHome.premiumSheet?.screenshotScrollsToBottom == true)
     }
 
     // MARK: - Release に入らないことの印
@@ -552,7 +426,7 @@ struct ScreenshotDemoTests {
         -> ScreenshotDemo
     {
         ScreenshotDemo(
-            configuration: .init(screen: screen, premium: screen.defaultPremium), launchedAt: day,
+            configuration: .init(screen: screen), launchedAt: day,
             calendar: TestSupport.calendar, uiLanguage: uiLanguage,
             defaultsSuiteName: "ScreenshotDemoTests.\(UUID().uuidString)"
         )
@@ -562,26 +436,16 @@ struct ScreenshotDemoTests {
         UserDefaults.standard.removePersistentDomain(forName: demo.defaultsDomain)
     }
 
-    /// デモのホームのモデル（メモリの上の保存先。購入の事実は読み終えた状態）。
+    /// デモのホームのモデル（メモリの上の保存先）。
     static func makeHome(_ screen: ScreenshotDemo.Screen, uiLanguage: String) throws -> (ScreenshotDemo, HomeModel) {
         let demo = try makeDemo(screen, uiLanguage: uiLanguage)
         let container = try demo.makeContainer()
         retained.append(container)
-        let home = demo.makeHomeModel(
-            context: container.mainContext, pendingWrites: PendingStoreWrites(), purchases: demo.makePurchases(),
-            storeHost: nil, household: nil
-        )
+        let home = demo.makeHomeModel(context: container.mainContext, pendingWrites: PendingStoreWrites(), storeHost: nil)
         return (demo, home)
     }
 
     /// 保存先はコンテナが生きている間しか使えないので、テストの間は持っておく。
     private static var retained: [ModelContainer] = []
-
-    /// 条件がそろうまで待つ（書き起こしの知らせは別の Task で受け取るため）。2 秒でやめる。
-    static func waitUntil(_ condition: () -> Bool) async {
-        for _ in 0..<200 where !condition() {
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-    }
 }
 #endif

@@ -87,4 +87,15 @@ struct ReceiptItemRefinementTests {
         #expect(ReceiptSummary.storeLabel(nil) == nil)
         #expect(ReceiptSummary.storeLabel(String(repeating: "あ", count: 40))?.count == ReceiptSummary.maximumStoreNameLength)
     }
+
+    /// 「TEL」「電話」は、後ろに番号が続くときだけ連絡先として切る。以前は語の途中でも切り、「Hotel Okura」が「Ho」になった。
+    @Test("連絡先は番号が続くときだけ切り、店名の中の tel や電話は残す")
+    func storeLabelCutsContactOnlyBeforeNumbers() {
+        #expect(ReceiptSummary.storeLabel("Hotel Okura") == "Hotel Okura")
+        #expect(ReceiptSummary.storeLabel("電話ショップ 渋谷") == "電話ショップ 渋谷")
+        #expect(ReceiptSummary.storeLabel("イオン TEL:03-0000-0000") == "イオン")
+        #expect(ReceiptSummary.storeLabel("カフェ 電話 (03)0000-0000") == "カフェ")
+        #expect(ReceiptSummary.storeLabel("カフェ\u{2121}0120-000-000") == "カフェ")
+        #expect(ReceiptSummary.storeLabel("書店 FAX") == "書店")
+    }
 }

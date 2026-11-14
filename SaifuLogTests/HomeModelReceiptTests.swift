@@ -26,32 +26,21 @@ struct HomeModelReceiptTests {
     static func read(_ fixture: Fixture, text: String = receiptText, source: ReceiptCaptureSource = .photos) async throws
         -> ReceiptResultModel {
         fixture.receipt.setText(text)
-        await fixture.model.requestReceiptScan(calendar: TestSupport.calendar).value
+        fixture.model.requestReceiptScan()
         #expect(fixture.model.showsReceiptSourceChoice)
         fixture.model.startReceiptCapture(source)
         await fixture.model.readReceipt([TestSupport.blankReceiptImage], source: source, calendar: TestSupport.calendar).value
         return try #require(fixture.model.receiptResult)
     }
 
-    static func freeScansLeft(_ fixture: Fixture) -> QuotaAllowance {
-        fixture.model.quotaStore.allowance(for: .receiptScan, status: fixture.purchases.status, calendar: TestSupport.calendar)
-    }
-
-    static func useFreeScans(_ fixture: Fixture, _ count: Int) {
-        for _ in 0..<count {
-            fixture.model.quotaStore.recordUse(of: .receiptScan, status: .free, calendar: TestSupport.calendar)
-        }
-    }
-
     // MARK: - 入口
 
-    @Test func cameraButtonOffersSources() async throws {
+    @Test func cameraButtonOffersSources() throws {
         let fixture = try Fixture()
 
-        await fixture.model.requestReceiptScan(calendar: TestSupport.calendar).value
+        fixture.model.requestReceiptScan()
 
         #expect(fixture.model.showsReceiptSourceChoice)
-        #expect(fixture.model.premiumSheet == nil)
         fixture.model.startReceiptCapture(.camera)
         #expect(fixture.model.receiptCapture == .camera)
     }
@@ -66,47 +55,9 @@ struct HomeModelReceiptTests {
         #expect(fixture.model.receiptCapture == .photos)
     }
 
-    /// 無料の 5 回を使い切っていたら、選ばせずにプレミアム（⑨）の案内を出す。
-    @Test func limitReachedShowsPremium() async throws {
-        let fixture = try Fixture()
-        Self.useFreeScans(fixture, 5)
-
-        await fixture.model.requestReceiptScan(calendar: TestSupport.calendar).value
-
-        #expect(!fixture.model.showsReceiptSourceChoice)
-        #expect(fixture.model.premiumSheet != nil)
-        #expect(fixture.announcements.last == String(localized: "今月の無料のレシートの読み取りを使い切りました"))
-    }
-
-    /// プレミアムと体験中は無制限で、記録しても数えない。
-    @Test(arguments: [[TestSupport.trial(startedDaysAgo: 3)], [PremiumPurchase(product: .premium, purchaseDate: TestSupport.now)]])
-    func unlimitedWhenPremium(records: [PremiumPurchase]) async throws {
-        let fixture = try Fixture(purchases: await TestSupport.purchases(records))
-        Self.useFreeScans(fixture, 5)
-
-        let result = try await Self.read(fixture)
-        result.requestRecord()
-
-        #expect(try fixture.entries().count == 2)
-        #expect(Self.freeScansLeft(fixture) == .unlimited)
-        #expect(fixture.model.quotaStore.allowance(for: .receiptScan, status: .free, calendar: TestSupport.calendar)
-            == .limited(remaining: 0, limit: 5))
-    }
-
-    /// 起動の直後で購入の事実を読み終えていなければ、読み終えるのを待ってから使い切ったかを決める。
-    @Test func waitsForPurchasesBeforeDeciding() async throws {
-        let fixture = try Fixture(purchases: await TestSupport.purchases([TestSupport.trial(startedDaysAgo: 1)], load: false))
-        Self.useFreeScans(fixture, 5)
-
-        await fixture.model.requestReceiptScan(calendar: TestSupport.calendar).value
-
-        #expect(fixture.model.showsReceiptSourceChoice)
-        #expect(fixture.model.premiumSheet == nil)
-    }
-
     // MARK: - 読み取りと記録
 
-    @Test func readingShowsResultAndDoesNotCount() async throws {
+    @Test func readingShowsResultWithoutRecording() async throws {
         let fixture = try Fixture()
 
         let result = try await Self.read(fixture)
@@ -116,13 +67,12 @@ struct HomeModelReceiptTests {
         #expect(result.lines.map(\.name) == ["牛乳", "ティッシュ"])
         #expect(result.reconciliation.status == .matched)
         #expect(fixture.model.receiptCapture == nil)
-        // 読み取っただけでは数えない。
-        #expect(Self.freeScansLeft(fixture) == .limited(remaining: 5, limit: 5))
+        // 読み取っただけでは記録しない。
         #expect(try fixture.entries().isEmpty)
     }
 
-    /// 品目ごとに記録すると、記録の吹き出しと「取り消す」が出て、無料の 1 回を数える。元の文は店名と合計の要約だけ。
-    @Test func recordingPerItemSavesEntriesAndCounts() async throws {
+    /// 品目ごとに記録すると、記録の吹き出しと「取り消す」が出る。元の文は店名と合計の要約だけ。
+    @Test func recordingPerItemSavesEntries() async throws {
         let fixture = try Fixture()
         let result = try await Self.read(fixture)
 
@@ -141,7 +91,6 @@ struct HomeModelReceiptTests {
         #expect(fixture.model.receiptResult == nil)
         #expect(fixture.model.justRecorded.count == 2)
         #expect(fixture.model.canUndo)
-        #expect(Self.freeScansLeft(fixture) == .limited(remaining: 4, limit: 5))
         #expect(fixture.announcements.last?.contains("¥198") == true)
         #expect(fixture.announcements.last?.contains("¥298") == true)
     }
@@ -173,12 +122,11 @@ struct HomeModelReceiptTests {
         #expect(entries.map(\.amount) == [496])
         #expect(entries.map(\.memo) == ["イオン 渋谷店"])
         #expect(entries.map(\.category) == [.daily])
-        #expect(Self.freeScansLeft(fixture) == .limited(remaining: 4, limit: 5))
     }
 
-    /// 記録の直後に取り消したら、その回の記録をすべて消し、数えた 1 回を戻す。元の文（要約）は入力欄に戻さない
+    /// 記録の直後に取り消したら、その回の記録をすべて消す。元の文（要約）は入力欄に戻さない
     /// （送り直すと、合計の 1 件をひとこと入力として記録してしまうため）。
-    @Test func undoRemovesEntriesAndRefundsQuota() async throws {
+    @Test func undoRemovesAllEntriesOfReceipt() async throws {
         let fixture = try Fixture()
         let result = try await Self.read(fixture)
         result.requestRecord()
@@ -188,29 +136,11 @@ struct HomeModelReceiptTests {
         #expect(try fixture.entries().isEmpty)
         #expect(!fixture.model.canUndo)
         #expect(fixture.model.draft.isEmpty)
-        #expect(Self.freeScansLeft(fixture) == .limited(remaining: 5, limit: 5))
         #expect(fixture.announcements.last?.contains("¥198") == true)
     }
 
-    /// 取り消しの対象から外れた後（次の文を送った後）に長押しで消しても、数えた回数は戻さない。
-    @Test func laterDeletionDoesNotRefund() async throws {
-        let fixture = try Fixture()
-        let result = try await Self.read(fixture)
-        result.requestRecord()
-        await fixture.send("今月カフェいくら?")
-        #expect(!fixture.model.canUndo)
-
-        for entry in try fixture.entries() {
-            fixture.model.requestDelete(entry)
-            fixture.model.delete(try #require(fixture.model.pendingDeletion))
-        }
-
-        #expect(try fixture.entries().isEmpty)
-        #expect(Self.freeScansLeft(fixture) == .limited(remaining: 4, limit: 5))
-    }
-
-    /// 保存に失敗したら、シートを閉じずに知らせ、回数は数えない。
-    @Test func saveFailureKeepsSheetAndDoesNotCount() async throws {
+    /// 保存に失敗したら、シートを閉じずに知らせ、記録しない。
+    @Test func saveFailureKeepsSheet() async throws {
         let fixture = try Fixture()
         let result = try await Self.read(fixture)
         fixture.failsSave = true
@@ -221,26 +151,24 @@ struct HomeModelReceiptTests {
         #expect(fixture.model.receiptResult === result)
         #expect(try fixture.entries().isEmpty)
         #expect(!fixture.model.canUndo)
-        #expect(Self.freeScansLeft(fixture) == .limited(remaining: 5, limit: 5))
     }
 
-    /// 記録しようとした時点で使い切っていたら、記録せずにシートを閉じ、閉じきったらプレミアムの案内を出す。
-    @Test func limitReachedWhileReadingShowsPremiumAfterDismiss() async throws {
+    /// レシートの読み取りに回数の制限は無い（以前は無料で月 5 回までだった）。6 回目も読み取って記録できる。
+    @Test func receiptScansAreUnlimited() async throws {
         let fixture = try Fixture()
-        let result = try await Self.read(fixture)
-        Self.useFreeScans(fixture, 5)
 
-        result.requestRecord()
+        for _ in 0..<6 {
+            let result = try await Self.read(fixture)
+            result.requestRecord()
+        }
 
-        #expect(try fixture.entries().isEmpty)
+        #expect(try fixture.entries().count == 12)
         #expect(fixture.model.receiptResult == nil)
-        fixture.model.receiptResultDidDismiss()
-        #expect(fixture.model.premiumSheet != nil)
     }
 
     // MARK: - 読めなかった
 
-    /// 文字が無い・品目も合計も無いときは、撮り直しを案内し、回数は数えない。
+    /// 文字が無い・品目も合計も無いときは、撮り直しを案内する。
     @Test(arguments: [("", ReceiptUnreadableReason.noText), ("ご来店ありがとうございます\nまたお越しください", .noAmounts)])
     func unreadableShowsGuidance(text: String, reason: ReceiptUnreadableReason) async throws {
         let fixture = try Fixture()
@@ -250,7 +178,6 @@ struct HomeModelReceiptTests {
         #expect(result.state == .unreadable(reason))
         #expect(!result.canRecord)
         #expect(fixture.announcements.last == String(localized: "レシートを読み取れませんでした"))
-        #expect(Self.freeScansLeft(fixture) == .limited(remaining: 5, limit: 5))
     }
 
     /// 画像が無い（撮った画像を取り出せなかった）ときは、文字を読まずに「画像を読み込めなかった」を理由にする。
@@ -286,7 +213,7 @@ struct HomeModelReceiptTests {
         #expect(fixture.receipt.recognizeCalls == 1)
     }
 
-    /// 写真を読み込めなかったら、「文字が見つからない」ではなく「写真を読み込めなかった」を理由にし、回数は数えない。
+    /// 写真を読み込めなかったら、「文字が見つからない」ではなく「写真を読み込めなかった」を理由にする。
     @Test func photoLoadFailureShowsReason() async throws {
         let fixture = try Fixture()
 
@@ -295,7 +222,6 @@ struct HomeModelReceiptTests {
         #expect(fixture.model.receiptResult?.state == .unreadable(.imageUnavailable))
         #expect(fixture.receipt.recognizeCalls == 0)
         #expect(fixture.announcements.last == String(localized: "レシートを読み取れませんでした"))
-        #expect(Self.freeScansLeft(fixture) == .limited(remaining: 5, limit: 5))
     }
 
     /// 写真を読み込む間にシートを閉じたら、読み込み終えても文字を読まず、読み上げもしない。
@@ -382,15 +308,5 @@ struct HomeModelReceiptTests {
         #expect(result.state == .ready)
         let notice = try #require(result.skippedPagesNotice)
         #expect(fixture.announcements.last?.hasSuffix(notice) == true)
-    }
-
-    /// ⑤ を出している間は、体験の終わりのプレミアムの案内を重ねて出さない。
-    @Test func trialEndedPremiumWaitsForReceiptSheet() async throws {
-        let fixture = try Fixture(purchases: await TestSupport.purchases([TestSupport.trial(startedDaysAgo: 20)]))
-        _ = try await Self.read(fixture)
-
-        fixture.model.presentPremiumIfTrialEnded()
-
-        #expect(fixture.model.premiumSheet == nil)
     }
 }

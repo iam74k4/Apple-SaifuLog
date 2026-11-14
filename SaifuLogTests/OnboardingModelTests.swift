@@ -4,7 +4,7 @@ import SwiftData
 import Testing
 @testable import SaifuLog
 
-/// 初回の案内（OnboardingModel）。出すかどうかの判定、終えたときの設定、② を飛ばしたとき。
+/// 初回の案内（OnboardingModel）。出すかどうかの判定と、終えたときの設定。
 /// メモリの上の保存先と、使い捨ての UserDefaults の領域で確かめる。
 @MainActor
 struct OnboardingModelTests {
@@ -14,7 +14,6 @@ struct OnboardingModelTests {
         let context: ModelContext
         let defaults: UserDefaults
         var aiStatus = OnDeviceAIStatus.available
-        private(set) var announcements: [String] = []
         private let suiteName = "OnboardingModelTests.\(UUID().uuidString)"
 
         init() throws {
@@ -34,12 +33,7 @@ struct OnboardingModelTests {
         }
 
         func makeModel() -> OnboardingModel {
-            OnboardingModel(
-                budgetStore: budgetStore,
-                defaults: defaults,
-                aiStatus: { [unowned self] in aiStatus },
-                announce: { [unowned self] in announcements.append($0) }
-            )
+            OnboardingModel(defaults: defaults, aiStatus: { [unowned self] in aiStatus })
         }
 
         var hasCompletedOnboarding: Bool {
@@ -48,10 +42,6 @@ struct OnboardingModelTests {
 
         func needsOnboarding() -> Bool {
             OnboardingModel.needsOnboarding(defaults: defaults, context: context)
-        }
-
-        func budgetRows() throws -> [Budget] {
-            try context.fetch(FetchDescriptor<Budget>())
         }
     }
 
@@ -111,8 +101,8 @@ struct OnboardingModelTests {
         #expect(!fixture.needsOnboarding())
     }
 
-    /// 数えるのは記録だけで、予算は数えない。予算だけが決まっていて記録が無い端末には案内を出す（design.md §9）。
-    /// 出しても終えたことにはしない（② には決めた予算が入って開く）。
+    /// 数えるのは記録だけで、予算は数えない。予算だけが決まっていて記録が無い端末には案内を出す。
+    /// 出しても終えたことにはしない。
     @Test func showsWhenOnlyBudgetExists() throws {
         let fixture = try Fixture()
         try fixture.budgetStore.setAmount(150_000, for: .total)
@@ -120,9 +110,6 @@ struct OnboardingModelTests {
 
         #expect(fixture.needsOnboarding())
         #expect(!fixture.hasCompletedOnboarding)
-        let model = fixture.makeModel()
-        #expect(model.budgetSetup.totalAmount == 150_000)
-        #expect(model.budgetSetup.hadTotalBudget)
     }
 
     /// 記録があるかを読めなかったときは、案内を終えたかどうかだけで決める（終えたことにはしない）。
@@ -137,68 +124,20 @@ struct OnboardingModelTests {
 
     // MARK: - 進み方
 
-    @Test func startShowsBudgetSetup() throws {
-        // Fixture を変数に持っておく。モデルに渡した AI の可否と読み上げの関数は Fixture を unowned で参照するので、
-        // 先に Fixture が解放されると、それらを呼んだときに落ちる。
+    /// 「はじめる」で案内を終える（予算は聞かない）。終えたので、次の起動では出さない。
+    @Test func startCompletes() throws {
+        // Fixture を変数に持っておく。モデルに渡した AI の可否の関数は Fixture を unowned で参照するので、
+        // 先に Fixture が解放されると、それを呼んだときに落ちる。
         let fixture = try Fixture()
         let model = fixture.makeModel()
-        #expect(!model.showsBudgetSetup)
-
-        model.start()
-
-        #expect(model.showsBudgetSetup)
         #expect(!model.isCompleted)
-    }
 
-    /// ② で予算を保存したら、予算を書き、案内を終える。
-    @Test func savingBudgetCompletes() throws {
-        let fixture = try Fixture()
-        let model = fixture.makeModel()
         model.start()
-        model.budgetSetup.selectQuickAmount(150_000)
-
-        // BudgetSetupView の保存のボタンと同じ順（保存できたら onFinish）。
-        #expect(model.budgetSetup.save())
-        model.finishBudgetSetup()
 
         #expect(model.isCompleted)
         #expect(fixture.hasCompletedOnboarding)
-        #expect(try fixture.budgetStore.plan() == BudgetPlan(total: 150_000))
-        #expect(fixture.announcements.first?.contains("¥150,000") == true)
-        // 終えたので、次の起動では出さない。
+        #expect(try fixture.budgetStore.plan() == BudgetPlan())
         #expect(!fixture.needsOnboarding())
-    }
-
-    /// ② を「あとで」で飛ばしても案内を終える。予算は書かない。
-    @Test func skippingBudgetCompletes() throws {
-        let fixture = try Fixture()
-        let model = fixture.makeModel()
-        model.start()
-        model.budgetSetup.totalText = "150,000"
-
-        model.skipBudgetSetup()
-
-        #expect(model.isCompleted)
-        #expect(fixture.hasCompletedOnboarding)
-        #expect(try fixture.budgetRows().isEmpty)
-        #expect(fixture.announcements.isEmpty)
-        #expect(!fixture.needsOnboarding())
-    }
-
-    /// ② の保存に失敗したら、案内を終えない（保存の画面に残り、もう一度保存するか「あとで」を選べる）。
-    @Test func budgetSaveFailureKeepsOnboarding() throws {
-        let fixture = try Fixture()
-        var store = fixture.budgetStore
-        store.save = { _ in throw TestError() }
-        let model = OnboardingModel(budgetStore: store, defaults: fixture.defaults, aiStatus: { .available }, announce: { _ in })
-        model.start()
-        model.budgetSetup.selectQuickAmount(150_000)
-
-        if model.budgetSetup.save() { model.finishBudgetSetup() }
-
-        #expect(model.budgetSetup.showsSaveFailure)
-        #expect(!model.isCompleted)
-        #expect(!fixture.hasCompletedOnboarding)
     }
 
     /// AI の可否は覚えておかず、読むたびに確かめる（案内を見ている間に Apple Intelligence をオンにしても変わる）。

@@ -2,7 +2,8 @@ import Foundation
 import SaifuLogCore
 import SwiftData
 
-/// 月の予算の 1 件（全体か、カテゴリ別）。毎月同じ額を使う（月ごとには持たない）。
+/// 月の予算の 1 件。毎月同じ額を使う（月ごとには持たない）。いまは全体の予算だけを書き、前の版で書いたカテゴリ別の行は
+/// 読んでも使わない（`BudgetPlan.resolve`）。
 ///
 /// 記録（`Entry`）と同じく、最初から iCloud 同期（SwiftData + CloudKit）の制約に合わせている。
 /// すべてのプロパティに既定値を持たせ、一意制約も関係も持たせない。
@@ -15,7 +16,7 @@ import SwiftData
 /// 書き込んだ日時も入れる（予算を変えた時機も家計の情報で、暗号化してもサーバーで使うことは無いため）。
 @Model
 final class Budget {
-    /// 対象（`BudgetScope.rawValue`）。全体は "total"、カテゴリ別はカテゴリの rawValue。
+    /// 対象（`BudgetScope.rawValue`）。全体は "total"、前の版のカテゴリ別の行はカテゴリの rawValue。
     /// 列挙型のまま保存すると、検索条件（#Predicate）で扱いにくいため文字列で持つ（Entry のカテゴリと同じ）。
     @Attribute(.allowsCloudEncryption) var scopeRawValue: String = BudgetScope.totalRawValue
     /// 月の予算（円）。0 は設定なし。

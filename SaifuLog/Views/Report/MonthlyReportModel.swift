@@ -3,8 +3,8 @@ import Observation
 import SaifuLogCore
 import SwiftData
 
-/// 「月のまとめ」（⑦）の状態と操作。表示する月と月送り、その月の数字（`MonthlyReport`）、カテゴリ別の予算の進み（プレミアムと
-/// 体験中だけ）、カテゴリごとの記録の一覧、一覧から開く「直す」（⑥）のシート。
+/// 「月のまとめ」（⑦）の状態と操作。表示する月と月送り、その月の数字（`MonthlyReport`）、カテゴリごとの記録の一覧、
+/// 一覧から開く「直す」（⑥）のシート。
 ///
 /// 画面（`MonthlyReportView`）から切り離し、保存先・時計・読み上げを差し替えて SaifuLogTests で確かめられるようにしている。
 /// 数字の計算はコア（`MonthlyReport`）に任せ、ここでは読み込みと月の行き来だけを受け持つ。
@@ -17,7 +17,7 @@ import SwiftData
 final class MonthlyReportModel {
     /// 表示している月（終わりの時刻は含まない）。月は `ReportPeriod`（ホームの今月と同じ、利用者が選んだ暦の月）で区切る。
     private(set) var month: DateInterval
-    /// 今日。今月より先へ進めないことと、今月かどうか（平均の日数・日割りの目安）の基準。
+    /// 今日。今月より先へ進めないことと、今月かどうか（予算の残りの日数）の基準。
     private(set) var today: Date
     /// 表示している月の数字。読み込めなかったときは nil。
     private(set) var report: MonthlyReport?
@@ -29,11 +29,13 @@ final class MonthlyReportModel {
     private(set) var monthEntries: [Entry] = []
     /// 記録の一覧を出しているカテゴリ（横に進む）。一覧を閉じると画面が nil に戻す。
     var selectedCategory: EntryCategory?
-    /// 「プレミアム」（⑨）のシート（カテゴリ別の予算の案内から開く）。出していなければ nil（閉じると画面が nil に戻す）。
-    var premiumSheet: PremiumSheetModel?
     /// 「直す」のシートで直している記録の状態と操作。シートを閉じると画面が nil に戻す。
     var editing: EditEntryModel?
-    /// まとめの先頭に添える AI の一言（プレミアムと体験中で、AI が使える端末だけ）。
+    /// 記録の一覧の長押しで消そうとしている記録（確認を出している間）。
+    var pendingDeletion: HomeModel.PendingDeletion?
+    /// 消せなかった（保存に失敗した）ことを知らせているか。
+    var showsDeleteFailure = false
+    /// 使った額の下に添える AI の一言（AI が使える端末だけ）。
     let remark: RecapRemarkModel
     #if DEBUG
     /// まとめを下の端（カテゴリ別のグラフと金額の行）まで送るか。撮影用のデモ（`ScreenshotDemo`）が、月のまとめの
@@ -45,9 +47,6 @@ final class MonthlyReportModel {
     let calendar: Calendar
 
     @ObservationIgnored private let store: EntryStore
-    /// プレミアムの状態（カテゴリ別の予算の進みを出すか）。@Observable なので、画面が読むと、状態が変わったとき（体験の終わり・
-    /// 返金・購入）に描き直させる。
-    @ObservationIgnored private let purchases: PurchaseManager?
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
     @ObservationIgnored private let didSave: @MainActor (Entry) -> Void
@@ -57,8 +56,8 @@ final class MonthlyReportModel {
     ///   - calendar: 月の区切りの暦。ホームと同じ暦を渡す（ホームの今月の合計と同じ月でまとめるため）。
     ///   - month: 開く月に入る日時（質問の回答カードから先月を開くときなど）。nil なら今月。今月より先の月は今月にする
     ///     （月送りで今月より先へ進めないのと同じ）。
-    ///   - remark: AI の一言の状態と書かせ方。渡さなければ一言を添えない（無料と同じ）。
-    ///   - purchases: プレミアムの状態。カテゴリ別の予算の進みは、プレミアムと体験中だけ出す。渡さなければ出さない（無料と同じ）。
+    ///   - remark: AI の一言の状態と書かせ方。渡さなければ一言を添えない（テストとプレビュー用）。ホームは 1 つを持ち続けて
+    ///     毎回渡す（開き直すたびに作ると、書いた結果を覚えておけず、同じ月でも毎回 AI を呼ぶため）。
     ///   - now: 今日の基準。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     ///   - didSave: ここから開いた「直す」で保存できたあとに呼ぶ（ホームが「取り消す」を片づける）。
@@ -68,7 +67,6 @@ final class MonthlyReportModel {
         calendar: Calendar,
         month anchor: Date? = nil,
         remark: RecapRemarkModel? = nil,
-        purchases: PurchaseManager? = nil,
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
         didSave: @escaping @MainActor (Entry) -> Void = { _ in },
@@ -76,13 +74,12 @@ final class MonthlyReportModel {
     ) {
         let today = now()
         self.store = store
-        self.purchases = purchases
         self.calendar = calendar
         self.now = now
         self.announce = announce
         self.didSave = didSave
         self.didDelete = didDelete
-        self.remark = remark ?? RecapRemarkModel(purchases: nil)
+        self.remark = remark ?? RecapRemarkModel(makeWriter: { nil })
         self.today = today
         // 暦で月を区切れないことは実際には無いが、そのときは数字を出さない（report が nil のまま）。
         self.month = ReportPeriod.thisMonth.interval(now: min(anchor ?? today, today), calendar: calendar)
@@ -150,9 +147,6 @@ final class MonthlyReportModel {
                 now: today,
                 budget: BudgetPlan.resolve(budgets).total,
                 budgetDecidedAt: BudgetPlan.decidedAt(.total, in: budgets),
-                // カテゴリ別の予算は、無料の人の分もいつも数えておき、出すかどうかは画面が読むときに決める（下の
-                // showsCategoryBudgets）。数えるときに決めると、見ている間に体験が終わったり買ったりしても、読み直すまで変わらないため。
-                categoryBudgets: BudgetPlan.categoryDecisions(in: budgets),
                 calendar: calendar
             )
             let month = month
@@ -170,53 +164,11 @@ final class MonthlyReportModel {
         }
     }
 
-    /// 「今日」を読み直す。前面に戻ったときと、日付が変わったときに呼ぶ（今月かどうかと平均の日数が変わるため）。
+    /// 「今日」を読み直す。前面に戻ったときと、日付が変わったときに呼ぶ（今月かどうかと予算の残りの日数が変わるため）。
     /// 表示している月はそのまま（見ている月が黙って替わらないように）。
     func refreshToday() {
         today = now()
         reload()
-    }
-
-    // MARK: - カテゴリ別の予算
-
-    /// カテゴリ別の予算の進みを出すか。プレミアムの機能なので、プレミアムと体験中だけ。
-    ///
-    /// 無料に戻った人（体験の終わり・返金・ファミリー共有の取り消し）には出さない。決めてあった額は消さずに残し（予算を決める
-    /// 画面の欄と同じ）、買えばまた出る。買わずに使える機能に見せないため（docs/design.md §6-1）。購入の事実を読み終える前は
-    /// 無料と見分けがつかないので出さず、読み終えたら描き直す（状態は @Observable のため）。
-    var showsCategoryBudgets: Bool {
-        purchases?.status.unlocksPremium ?? false
-    }
-
-    /// カテゴリ別の予算の案内（カテゴリ別の支出の下の 1 枚）を出すか。無料の人だけ（体験の後と返金の後を含む）。
-    ///
-    /// カテゴリごとの支出を見ているところが、カテゴリごとに予算を決めたくなる場面なので、そこでプレミアムで加わることを伝える。
-    /// 購入の事実を読み終える前は出さない（プレミアムの人にも一瞬出てしまうため）。
-    var showsCategoryBudgetUpsell: Bool {
-        guard let purchases, purchases.hasLoadedPurchases else { return false }
-        return purchases.status.canPurchase && !purchases.status.unlocksPremium
-    }
-
-    /// 案内に「14日間 無料で試せます」を添えるか（まだ体験していないときで、体験の商品を売り場に出せるとき。
-    /// `PurchaseManager.offersTrial`）。
-    var canStartTrial: Bool {
-        purchases?.offersTrial ?? false
-    }
-
-    /// カテゴリ別の予算の案内から、プレミアム（⑨）をシートで開く。
-    func presentPremium() {
-        guard let purchases else { return }
-        premiumSheet = PremiumSheetModel(purchases: purchases, announce: announce)
-    }
-
-    /// 表示している月の、カテゴリ別の予算の進み（出さないときは空）。予算を決めてあり、この月に当てはめるカテゴリだけ。
-    var categoryBudgets: [EntryCategory: BudgetStatus] {
-        showsCategoryBudgets ? report?.categoryBudgets ?? [:] : [:]
-    }
-
-    /// 予算の進みを出すカテゴリのうち、この月に支出の無いもの（内訳の行の後ろに ¥0 の行で並べる。出さないときは空）。
-    var budgetedCategoriesWithoutExpense: [EntryCategory] {
-        showsCategoryBudgets ? report?.budgetedCategoriesWithoutExpense ?? [] : []
     }
 
     // MARK: - カテゴリの記録
@@ -236,7 +188,15 @@ final class MonthlyReportModel {
     }
 
     /// 一覧の記録から「直す」のシートを出す。直したり消したりしたら読み直す（数字と一覧をすぐ合わせるため）。
+    ///
+    /// ほかの端末（iCloud）で消された記録なら開かずに読み直す（シートは開いた時点の記録の値を読むので、消えた記録の値を
+    /// 読むとアプリが落ちうるため。カレンダーの一覧と同じ）。削除の確認と読み上げに作ったカテゴリの名前を使うよう、
+    /// カテゴリの一覧を渡す（渡さないと、作ったカテゴリが「その他」と読まれる）。
     func presentEdit(_ entry: Entry) {
+        guard store.exists(entry.persistentModelID) else {
+            reload()
+            return
+        }
         editing = EditEntryModel(
             entry: entry,
             store: store,
@@ -250,23 +210,41 @@ final class MonthlyReportModel {
             didDelete: { [weak self] id in
                 self?.reload()
                 self?.didDelete(id)
-            }
+            },
+            catalog: (try? CustomCategoryStore(context: store.context).catalog()) ?? .builtIn
         )
     }
 }
 
-/// カテゴリの記録の一覧（`CategoryEntriesView`）に、この月の記録を出す。
-extension MonthlyReportModel: CategoryEntriesSource {
-    var periodTitle: String {
-        monthTitle
+extension MonthlyReportModel {
+    /// 一覧の記録の長押しの「削除」。確認を出す（ホームとカレンダーの記録と同じく、長押しでいつでも消せるようにする。
+    /// 前は ⑥ を開かないと消せなかった）。ほかの端末で消されていたら、確認を出さずに読み直す。
+    func requestDelete(_ entry: Entry) {
+        guard store.exists(entry.persistentModelID) else {
+            reload()
+            return
+        }
+        let catalog = (try? CustomCategoryStore(context: store.context).catalog()) ?? .builtIn
+        pendingDeletion = HomeModel.PendingDeletion(
+            entry: entry, id: entry.persistentModelID, summary: entry.summaryText(in: catalog)
+        )
     }
 
-    var emptyEntriesText: LocalizedStringResource {
-        "この月の記録はありません"
-    }
-
-    func breakdownItem(for category: EntryCategory) -> CategoryBreakdown.Item? {
-        report?.breakdown.item(for: category)
+    /// 確認のあとで記録を削除する。確認の間にほかの端末で消されていたら、消えたものとして扱う（記録の値には触れない）。
+    func delete(_ pending: HomeModel.PendingDeletion) {
+        pendingDeletion = nil
+        if store.exists(pending.id) {
+            do {
+                try store.delete([pending.entry])
+            } catch {
+                showsDeleteFailure = true
+                return
+            }
+        }
+        reload()
+        // ホームの「取り消す」の対象からも外す（⑥ から消したときと同じ）。
+        didDelete(pending.id)
+        announce(String(localized: "削除しました: \(pending.summary)"))
     }
 }
 

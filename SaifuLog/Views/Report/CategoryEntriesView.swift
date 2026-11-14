@@ -1,34 +1,13 @@
 import SaifuLogCore
 import SwiftUI
 
-/// カテゴリの記録の一覧に出すもの（期間の見出し・記録・内訳の行・直すシート）。月のまとめ（⑦）と先週のふりかえりの内訳が
-/// 同じ一覧を使うための境目。
-@MainActor
-protocol CategoryEntriesSource: AnyObject, Observable {
-    /// 期間の見出し（「2026年9月」「9月21日～27日」）。
-    var periodTitle: String { get }
-    /// 記録の無いときの案内（「この月の記録はありません」など）。
-    var emptyEntriesText: LocalizedStringResource { get }
-    /// 今日。日付に年を添えるかの基準。
-    var today: Date { get }
-    /// 期間の区切りと日付の書き方の暦。
-    var calendar: Calendar { get }
-    /// 「直す」のシートで直している記録。シートを閉じると画面が nil に戻す。
-    var editing: EditEntryModel? { get set }
-    /// その期間の、そのカテゴリの支出の記録（使った日時の新しい順）。
-    func entries(in category: EntryCategory) -> [Entry]
-    /// そのカテゴリの内訳の行（合計と割合）。支出が無ければ nil。
-    func breakdownItem(for category: EntryCategory) -> CategoryBreakdown.Item?
-    /// 一覧の記録から「直す」のシートを出す。
-    func presentEdit(_ entry: Entry)
-}
-
-/// 月のまとめ（⑦）と先週のふりかえりの内訳の行から進む、その期間のそのカテゴリの支出の記録の一覧。
+/// 月のまとめ（⑦）の内訳の行から進む、その期間のそのカテゴリの支出の記録の一覧。
 ///
-/// 読むための一覧で、ここでは並べ替えも削除もしない。記録を押すと「直す」（⑥）のシートを開き、そこで直したり
-/// 消したりできる（直してカテゴリや期間が変わった記録は、一覧から外れる）。並びは使った日時の新しい順。
-struct CategoryEntriesView<Model: CategoryEntriesSource>: View {
-    @Bindable var model: Model
+/// 読むための一覧で、並べ替えはしない。記録を押すと「直す」（⑥）のシートを開き、そこで直したり消したりできる（直して
+/// カテゴリや期間が変わった記録は、一覧から外れる）。長押しのメニューと VoiceOver の操作からも直す・削除できる（ホームと
+/// カレンダーの記録と同じ。削除は確認つき）。並びは使った日時の新しい順。
+struct CategoryEntriesView: View {
+    @Bindable var model: MonthlyReportModel
     let category: EntryCategory
 
     @Environment(\.categoryCatalog) private var catalog
@@ -39,7 +18,7 @@ struct CategoryEntriesView<Model: CategoryEntriesSource>: View {
             VStack(alignment: .leading, spacing: 16) {
                 header(count: entries.count)
                 if entries.isEmpty {
-                    Text(model.emptyEntriesText)
+                    Text("この月の記録はありません")
                         .foregroundStyle(Theme.inkSecondary)
                         .padding(.vertical, 24)
                 } else {
@@ -48,9 +27,11 @@ struct CategoryEntriesView<Model: CategoryEntriesSource>: View {
                             if entry.persistentModelID != entries.first?.persistentModelID {
                                 Divider()
                             }
-                            CategoryEntryRow(entry: entry, today: model.today, calendar: model.calendar) {
-                                model.presentEdit(entry)
-                            }
+                            CategoryEntryRow(
+                                entry: entry, today: model.today, calendar: model.calendar,
+                                edit: { model.presentEdit(entry) },
+                                requestDelete: { model.requestDelete(entry) }
+                            )
                         }
                     }
                     .padding(.horizontal, 16)
@@ -70,13 +51,33 @@ struct CategoryEntriesView<Model: CategoryEntriesSource>: View {
         .sheet(item: $model.editing) { editing in
             EditEntrySheet(model: editing)
         }
+        // 長押しの「削除」の確認（ホームの記録の削除と同じ文）。
+        .confirmationDialog(
+            "この記録を削除しますか？",
+            isPresented: showsDeletionConfirmation,
+            titleVisibility: .visible,
+            presenting: model.pendingDeletion
+        ) { pending in
+            Button("削除", role: .destructive) { model.delete(pending) }
+        } message: { pending in
+            Text("\(pending.summary)の記録を削除します。この操作は取り消せません。")
+        }
+        .alert("削除できませんでした", isPresented: $model.showsDeleteFailure) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("保存に失敗しました。もう一度お試しください。")
+        }
     }
 
-    /// 期間・そのカテゴリの合計と割合・件数。合計と割合は内訳の行と同じ値（`MonthlyReport`・`WeeklyRecap` の内訳）を出す。
+    private var showsDeletionConfirmation: Binding<Bool> {
+        Binding(get: { model.pendingDeletion != nil }, set: { if !$0 { model.pendingDeletion = nil } })
+    }
+
+    /// 期間・そのカテゴリの合計と割合・件数。合計と割合は内訳の行と同じ値（`MonthlyReport` の内訳）を出す。
     private func header(count: Int) -> some View {
-        let item = model.breakdownItem(for: category)
+        let item = model.report?.breakdown.item(for: category)
         return VStack(alignment: .leading, spacing: 4) {
-            Text(verbatim: model.periodTitle)
+            Text(verbatim: model.monthTitle)
                 .font(.subheadline)
                 .foregroundStyle(Theme.inkSecondary)
             Text(verbatim: YenFormatter.string(from: item?.amount ?? 0))
@@ -105,6 +106,7 @@ private struct CategoryEntryRow: View {
     let today: Date
     let calendar: Calendar
     let edit: () -> Void
+    let requestDelete: () -> Void
 
     @Environment(\.categoryCatalog) private var catalog
 
@@ -127,7 +129,13 @@ private struct CategoryEntryRow: View {
         }
         // 文字の色は行の中で決めているので、tint に染めない形にする（押している間は薄くなる）。
         .buttonStyle(.plain)
+        .contextMenu {
+            Button("直す", systemImage: "pencil", action: edit)
+            Button("削除", systemImage: "trash", role: .destructive, action: requestDelete)
+        }
         .accessibilityHint("記録を直す画面を開きます")
+        // 長押しのメニューは VoiceOver から見つけにくいので、削除を操作の一覧にも出す（ダブルタップは ⑥ を開く）。
+        .accessibilityAction(named: "削除", requestDelete)
     }
 
     private var titleAndDate: some View {

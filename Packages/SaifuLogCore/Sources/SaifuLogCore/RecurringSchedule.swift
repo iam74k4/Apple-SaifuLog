@@ -3,7 +3,7 @@ import Foundation
 /// くり返しの記録の「どの月の分か」（西暦の年と月）。docs/design.md §9 のくり返しの記録の決め事。
 ///
 /// 瞬間ではなく暦の年と月で持ち、保存には数（2026 年 10 月なら 202610）を使う。端末の暦（和暦など）や時間帯を変えても、
-/// iCloud で同期したほかの端末でも、同じ月を指すようにするため（無料の回数の月 `QuotaMonth` と同じ考え方）。
+/// iCloud で同期したほかの端末でも、同じ月を指すようにするため。
 public struct RecurringMonth: Hashable, Comparable, Sendable, CustomStringConvertible {
     public let year: Int
     /// 1〜12。

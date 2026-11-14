@@ -32,18 +32,13 @@ final class Entry {
     /// 元の入力文。直すときや、解析の見直しに使う。くり返しの記録から記録したものは空（打った文が無いので、タイムラインに
     /// 自分の吹き出しを出さない）。
     @Attribute(.allowsCloudEncryption) var originalText: String = ""
-    /// アプリが自動で記録したものの印。くり返しの記録はどの決まりのどの月の分か（`RecurringSchedule.occurrenceKey`）、Apple Pay の
-    /// 支払いはどの支払いか（`PaymentCapture.occurrenceKey`）。打った記録は空。同じものを 2 回記録しないために使い、iCloud で 2 台が
+    /// アプリが自動で記録したものの印。くり返しの記録はどの決まりのどの月の分か（`RecurringSchedule.occurrenceKey`）。前の版で
+    /// 記録した Apple Pay の支払いは「wallet/」で始まる印を持つ。打った記録は空。同じものを 2 回記録しないために使い、iCloud で 2 台が
     /// 同じ月の分を記録したときにも見つけて片づける（`RecurringEntryStore.removeDuplicateOccurrences`）。
     /// 後から足した項目（既定値があるので、足す前の保存先も移行なしで開ける。`ModelContainerFactoryTests`）。
     @Attribute(.allowsCloudEncryption) var recurrenceKey: String = ""
-    /// 確認待ちの記録を、保存先の開き直し・iCloud 同期の後にも結び付ける。古い記録は必要になったときに採番する。
-    @Attribute(.allowsCloudEncryption) var reviewID: String = ""
+    /// カテゴリを聞き返している記録（返事の行の下のボタンで選ぶ）。保存先の開き直し・iCloud 同期の後にも聞き返しを残すため、記録に持つ。
     @Attribute(.allowsCloudEncryption) var needsCategoryReview: Bool = false
-    /// 分類が終わる前にアプリを閉じても、次の起動で再開するための印。
-    @Attribute(.allowsCloudEncryption) var needsPaymentClassification: Bool = false
-    /// 重複候補の相手と、確認を作った時点の金額・日付。記録と同じ保存処理で書く。
-    @Attribute(.allowsCloudEncryption) var paymentReviewJSON: String = ""
 
     init(
         amount: Int,
@@ -63,7 +58,6 @@ final class Entry {
         self.createdAt = createdAt
         self.sourceRawValue = source.rawValue
         self.originalText = originalText
-        self.reviewID = UUID().uuidString
     }
 
     var category: EntryCategory {
@@ -152,20 +146,14 @@ extension Entry {
         return descriptor
     }
 
-    /// よく使うひとことの候補（`QuickPhrases`）を作るのに読む記録。`start` より後に記録したもの（レシート・くり返しの記録・Apple Pay の
-    /// 支払いから記録したものは除く）を、記録した日時の新しいものから `limit` 件。
+    /// 過去の記録のいつものカテゴリ（`CategoryHistory`）を作るのに読む記録。支出のうち、カテゴリを聞き返していないものを、
+    /// 記録した日時の新しいものから `limit` 件。
     ///
-    /// レシートの品目は店の略した名前や半角のカナが多く、ひとこと入力で打つ文の候補にならないので除く。くり返しの記録は
-    /// アプリが毎月記録し、Apple Pay の支払いは払うだけで記録されるので、打つ候補に出さない。件数で区切るのは、記録を足すたびに読み直すため（記録が増えても読む量が
-    /// 変わらないように）。
-    static func quickPhraseDescriptor(since start: Date, limit: Int = 500) -> FetchDescriptor<Entry> {
-        let receipt = EntrySource.receipt.rawValue
-        let recurring = EntrySource.recurring.rawValue
-        let wallet = EntrySource.wallet.rawValue
+    /// 聞き返している記録は、答えを待っている「その他」なので数えない。件数で区切るのは、送るたびに読むため（記録が増えても
+    /// 読む量が変わらないように。新しい記録ほど、いまの書き方と振り分けに近い）。
+    static func categoryHistoryDescriptor(limit: Int = 1000) -> FetchDescriptor<Entry> {
         var descriptor = FetchDescriptor<Entry>(
-            predicate: #Predicate {
-                $0.createdAt >= start && $0.sourceRawValue != receipt && $0.sourceRawValue != recurring && $0.sourceRawValue != wallet
-            },
+            predicate: #Predicate { $0.isIncome == false && $0.needsCategoryReview == false },
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
         descriptor.fetchLimit = limit
@@ -185,8 +173,6 @@ extension Entry {
 /// 集計（SaifuLogCore の LedgerSummary・MonthlySummary）と CSV の書き出し（LedgerCSVWriter）にそのまま渡せるようにする。
 extension Entry: LedgerCSVRecord {}
 
-/// よく使うひとことの候補（SaifuLogCore の QuickPhrases）にそのまま渡せるようにする。
-extension Entry: QuickPhraseRecord {}
 
 /// どこから記録したか。rawValue は保存に使うので変えないこと。
 enum EntrySource: String, Codable, CaseIterable, Sendable {
@@ -198,6 +184,10 @@ enum EntrySource: String, Codable, CaseIterable, Sendable {
     case voice
     /// くり返しの記録（毎月、決めた日にアプリが記録した）
     case recurring
-    /// Apple Pay の支払い（ショートカットのオートメーションから受け取り、アプリを開いたときに記録した）
+    /// 前の版で Apple Pay の支払いから記録したもの（ショートカットのオートメーションから受け取っていた）。いまは作らない。
+    /// 保存してある記録を読めるように残し、画面ではふつうの記録と同じに出す。
     case wallet
+    /// 設定の「CSV から読み込む」で、書き出した CSV から戻した記録。元の入力元は CSV に無いので、まとめてこれにする。
+    /// これより前の版のアプリ（iCloud で同期したほかの端末）は知らない値を `.text` として読む（`Entry.source`）。
+    case imported
 }

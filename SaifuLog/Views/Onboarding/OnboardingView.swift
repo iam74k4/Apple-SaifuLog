@@ -1,40 +1,27 @@
 import SwiftUI
 
-/// 初回の案内。① ようこそ → ② 予算を決める（「あとで」で飛ばせる）。
+/// 初回の案内（① ようこそ）。「はじめる」でホームへ進む。
 ///
-/// 終えたら（`OnboardingModel.isCompleted`）、呼び出し側（`AppRootView`）がホームに切り替える。② は予算を決める画面
-/// （`BudgetSetupView`）をそのまま使い、ここでは進み方（① から横に進む・「あとで」）だけを足す。
+/// 予算を決める画面は案内に入れない。記録を始める前に決めることを求めず、ホームの空の画面の例（「今月の予算を5万にして」）・
+/// 設定・質問の答えから、いつでも決められるようにするため。終えたら（`OnboardingModel.isCompleted`）、呼び出し側
+/// （`AppRootView`）がホームに切り替える。
 struct OnboardingView: View {
-    @Bindable var model: OnboardingModel
+    let model: OnboardingModel
 
     var body: some View {
-        NavigationStack {
-            WelcomeView(model: model)
-                // ① はナビゲーションバーの無い全画面にする（戻る先も見出しも無いため）。
-                .toolbar(.hidden, for: .navigationBar)
-                .navigationDestination(isPresented: $model.showsBudgetSetup) {
-                    BudgetSetupView(model: model.budgetSetup, onFinish: { finish { model.finishBudgetSetup() } })
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                Button("あとで") { finish { model.skipBudgetSetup() } }
-                                    .accessibilityHint("予算を決めずにホームへ進みます。予算はホームからいつでも決められます。")
-                            }
-                        }
-                }
-        }
+        // 関数をそのまま渡さず閉包で包む（画面の関数は MainActor に属し、そのまま `() -> Void` に渡すと Swift 6 で弾かれうるため）。
+        WelcomeView(aiStatus: model.aiStatus, start: { finish() })
     }
 
-    /// 案内を終えて、ホームに切り替える（`AppRootView` が ① ② を消してホームを出す）。
+    /// 案内を終えて、ホームに切り替える（`AppRootView` が ① を消してホームを出す）。
     ///
     /// 根元の画面の切り替えは、横に進む・シートを出すのと違って、画面が替わったことを VoiceOver に伝えない。フォーカス
-    /// していた「あとで」や保存のボタンが消えて行き先が決まらず、「あとで」では何も読まれないままホームになってしまう。
-    /// そこで切り替えの動きが済んでから、画面が替わったことを知らせる（ホームの最初の要素にフォーカスが移る）。済む前に
-    /// 知らせると、消えかけの ① ② の要素にフォーカスが移りうるため。② の保存では、先に「予算を ¥… にしました」を
-    /// 優先して読ませてあるので、それより後に知らせる順になる（読み上げが途中で切れないかは実機で確かめる）。
-    private func finish(_ complete: () -> Void) {
+    /// していた「はじめる」が消えて行き先が決まらず、何も読まれないままホームになってしまう。そこで切り替えの動きが
+    /// 済んでから、画面が替わったことを知らせる（ホームの最初の要素にフォーカスが移る）。済む前に知らせると、消えかけの
+    /// ① の要素にフォーカスが移りうるため。
+    private func finish() {
         withAnimation(.default, completionCriteria: .removed) {
-            complete()
+            model.start()
         } completion: {
             VoiceOver.screenChanged()
         }
@@ -42,7 +29,5 @@ struct OnboardingView: View {
 }
 
 #Preview {
-    if let container = try? ModelContainerFactory.makeInMemoryContainer() {
-        OnboardingView(model: OnboardingModel(budgetStore: BudgetStore(context: container.mainContext)))
-    }
+    OnboardingView(model: OnboardingModel())
 }

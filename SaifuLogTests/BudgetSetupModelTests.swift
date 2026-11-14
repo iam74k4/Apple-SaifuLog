@@ -30,8 +30,8 @@ struct BudgetSetupModelTests {
             return store
         }
 
-        func makeModel(showsCategoryBudgets: Bool = false) -> BudgetSetupModel {
-            BudgetSetupModel(store: store, showsCategoryBudgets: showsCategoryBudgets, announce: { [unowned self] in
+        func makeModel() -> BudgetSetupModel {
+            BudgetSetupModel(store: store, announce: { [unowned self] in
                 announcements.append($0)
             })
         }
@@ -54,10 +54,9 @@ struct BudgetSetupModelTests {
         #expect(model.totalAmount == 0)
         #expect(!model.canSave)
         #expect(!model.hadTotalBudget)
-        #expect(!model.showsCategoryBudgets)
     }
 
-    /// 予算を変えるときも同じ画面を使う。いまの予算を入力欄に入れて開く。
+    /// 予算を変えるときも同じ画面を使う。いまの予算を入力欄に入れて開く（前の版のカテゴリの予算の行があっても、全体の予算だけ）。
     @Test func startsWithCurrentBudget() throws {
         let fixture = try Fixture()
         try fixture.store.setAmounts([.total: 150_000, .category(.food): 40_000])
@@ -67,8 +66,6 @@ struct BudgetSetupModelTests {
         #expect(model.totalText == "150,000")
         #expect(model.hadTotalBudget)
         #expect(model.canSave)
-        #expect(model.categoryTexts[.food] == "40,000")
-        #expect(model.categoryTexts[.cafe] == "")
     }
 
     /// 入力欄は 3 桁ごとにカンマを入れて見せ、8 桁を超えた数字は捨てる。
@@ -84,9 +81,9 @@ struct BudgetSetupModelTests {
         model.normalizeTotalText()
         #expect(model.totalText == "12,345,678")
 
-        model.categoryTexts[.food] = "４００００"
-        model.normalizeCategoryText(.food)
-        #expect(model.categoryTexts[.food] == "40,000")
+        model.totalText = "４００００"
+        model.normalizeTotalText()
+        #expect(model.totalText == "40,000")
     }
 
     @Test func quickAmountFillsField() throws {
@@ -145,22 +142,26 @@ struct BudgetSetupModelTests {
         #expect(model.totalText == "200,000")
     }
 
-    /// 変えていない対象は書き込まない（iCloud で別の端末が決めた額を、書き込んだ日時で上書きしないように）。
-    @Test func saveWritesOnlyChangedScopes() throws {
+    /// 額を変えたときだけ書き込む（iCloud で別の端末が決めた額を、書き込んだ日時で上書きしないように）。前の版のカテゴリの
+    /// 予算の行には触れない。
+    @Test func saveWritesOnlyChangedAmount() throws {
         let fixture = try Fixture()
         fixture.now = TestSupport.date(2026, 9, 1)
         try fixture.store.setAmounts([.total: 150_000, .category(.food): 40_000])
         fixture.now = TestSupport.now
-        let model = fixture.makeModel(showsCategoryBudgets: true)
-        model.categoryTexts[.cafe] = "5,000"
+        let model = fixture.makeModel()
 
+        // 額を変えずに保存しても、書き込んだ日時は動かない。
+        #expect(model.save())
+        #expect(try fixture.rows().allSatisfy { $0.updatedAt == TestSupport.date(2026, 9, 1) })
+
+        model.totalText = "160,000"
         #expect(model.save())
 
         let rows = try fixture.rows()
-        #expect(rows.first { $0.scopeRawValue == "total" }?.updatedAt == TestSupport.date(2026, 9, 1))
+        #expect(rows.first { $0.scopeRawValue == "total" }?.updatedAt == TestSupport.now)
         #expect(rows.first { $0.scopeRawValue == "food" }?.updatedAt == TestSupport.date(2026, 9, 1))
-        #expect(rows.first { $0.scopeRawValue == "cafe" }?.updatedAt == TestSupport.now)
-        #expect(try fixture.plan() == BudgetPlan(total: 150_000, byCategory: [.food: 40_000, .cafe: 5_000]))
+        #expect(try fixture.plan() == BudgetPlan(total: 160_000))
     }
 
     /// 開いたときに予算を読めず空で始まっても（開いている間にほかの端末の行が届いたときも同じ）、決めてあった額と
@@ -186,32 +187,7 @@ struct BudgetSetupModelTests {
         #expect(fixture.announcements.first?.contains("¥150,000") == true)
     }
 
-    /// カテゴリ別の予算はプレミアム。欄を出していなければ、入力があっても書き込まない。
-    @Test func categoryBudgetsIgnoredWhenHidden() throws {
-        let fixture = try Fixture()
-        let model = fixture.makeModel(showsCategoryBudgets: false)
-        model.totalText = "150,000"
-        model.categoryTexts[.food] = "40,000"
-
-        #expect(model.save())
-
-        #expect(try fixture.plan() == BudgetPlan(total: 150_000))
-    }
-
-    /// カテゴリの欄を空けると、そのカテゴリは設定なし（0 を書く）。
-    @Test func clearingCategoryUnsetsIt() throws {
-        let fixture = try Fixture()
-        try fixture.store.setAmounts([.total: 150_000, .category(.food): 40_000])
-        let model = fixture.makeModel(showsCategoryBudgets: true)
-        model.categoryTexts[.food] = ""
-
-        #expect(model.save())
-
-        #expect(try fixture.plan() == BudgetPlan(total: 150_000))
-        #expect(try fixture.rows().first { $0.scopeRawValue == "food" }?.amount == 0)
-    }
-
-    /// 予算をなくすと、全体の予算を設定なし（0）にする。カテゴリ別の予算は残す。
+    /// 予算をなくすと、全体の予算を設定なし（0）にする。前の版のカテゴリの予算の行には触れない。
     @Test func removeTotalBudget() throws {
         let fixture = try Fixture()
         try fixture.store.setAmounts([.total: 150_000, .category(.food): 40_000])
@@ -219,7 +195,8 @@ struct BudgetSetupModelTests {
 
         #expect(model.removeTotalBudget())
 
-        #expect(try fixture.plan() == BudgetPlan(byCategory: [.food: 40_000]))
+        #expect(try fixture.plan() == BudgetPlan())
+        #expect(try fixture.rows().first { $0.scopeRawValue == "food" }?.amount == 40_000)
         #expect(model.totalText.isEmpty)
         #expect(fixture.announcements.last == String(localized: "予算をなくしました"))
     }

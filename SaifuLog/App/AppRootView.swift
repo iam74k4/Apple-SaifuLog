@@ -2,7 +2,7 @@ import SaifuLogCore
 import SwiftData
 import SwiftUI
 
-/// 保存先を開けたあとの最初の画面。初回だけ案内（① ようこそ → ② 予算を決める）を出し、終えたらホーム（③）にする。
+/// 保存先を開けたあとの最初の画面。初回だけ案内（① ようこそ）を出し、終えたらホームにする。
 ///
 /// 案内はホームに重ねる全画面のカバー（fullScreenCover）ではなく、根元の画面の切り替えにしている。カバーは出す動きを
 /// 消せないので、初回の起動でホームが一瞬見えてから案内が下から上がってくるため。切り替えなら、案内の間はホーム
@@ -15,10 +15,6 @@ struct AppRootView: View {
     /// 保存先を開いたもの。あとで保存先に書き込む処理を数える先（`pendingWrites`）と、設定の「iCloud で同期」の
     /// 切り替え先として、ホームのモデルに渡す。
     let storeHost: StoreHost
-    /// プレミアムの購入と状態（アプリで 1 つ）。ホームのモデルに渡す。
-    let purchases: PurchaseManager
-    /// 家計の共有（アプリで 1 つ）。ここで始め（自分の記録の保存先を開けた後）、ホームのモデルに渡す。
-    let household: HouseholdHost
 
     /// 初回の案内。出さないと決めたら nil のまま。終えても持ち続ける（終えたかどうかでホームへの切り替えを描くため）。
     @State private var onboarding: OnboardingModel?
@@ -29,10 +25,8 @@ struct AppRootView: View {
     /// 開いた状態から始めるとき（iCloud 同期の切り替えの後）に、捨てるモデルが「設定に戻す」の知らせを先に読んでしまうと、
     /// 実際に使うモデルでは設定が開かないため。
     @State private var home: HomeModel?
-    /// 設定の「週の始まり」。画面の暦に当てはめて、ここから下の画面に渡す。
-    @AppStorage(AppSettings.weekStart) private var weekStart: WeekStart
-    /// 端末の暦（地域と iOS の設定のもの）。
-    @Environment(\.calendar) private var systemCalendar
+    /// 端末の暦（地域と iOS の設定のもの。週の始まりも端末の設定のまま）。
+    @Environment(\.calendar) private var calendar
 
     var body: some View {
         ZStack {
@@ -57,44 +51,47 @@ struct AppRootView: View {
             guard let demo = ScreenshotDemo.current else { return }
             try? await Task.sleep(for: .milliseconds(800))
             guard let home else { return }
-            await demo.stage(on: home, calendar: weekStart.applied(to: systemCalendar))
+            await demo.stage(on: home, calendar: calendar)
+        }
+        // UI テスト（DEBUG のビルドだけ）: ホームが出た後に、起動引数で頼まれた画面（レシートの読み取り結果）を開く。
+        // 撮影用のデモと同じく、ホームが画面に出きるのを待ってから開く。案内を出している間はホームが無いので開かない。
+        .task {
+            guard let uiTest = UITestMode.current else { return }
+            try? await Task.sleep(for: .milliseconds(800))
+            guard let home, onboarding?.isCompleted ?? true else { return }
+            await uiTest.stage(on: home, calendar: calendar)
         }
         #endif
-        // 週の始まりを、画面の暦（ホーム・まとめ・直すシートの日付の選択が使う環境の calendar）に当てはめる。ホームは
-        // この暦を解析や期間の区切り（`ReportPeriod`）に渡すので、今週・先週の区切りも設定に従う。暦を 1 か所で
-        // 置き換えるのは、画面ごとに当てはめると、当てはめ忘れた画面だけ別の週になるため。
-        .environment(\.calendar, weekStart.applied(to: systemCalendar))
     }
 
     /// 案内を出すかを決める。最初に出るときに一度だけ（記録があれば、ここで案内を終えたことにする）。
     ///
     /// init ではなくここで決めるのは、View の init は描き直しのたびに呼ばれ、そのたびに保存先を読むことになるため。
     private func decide() {
-        // 家計の保存先も保護クラスが Complete なので、自分の記録の保存先を開けた（ロックが解けている）ここで開く。
-        // 2 回目からは何もしない（iCloud 同期の切り替えで自分の記録の保存先を開き直しても、家計の保存先は開き直さない）。
-        household.start()
         guard home == nil else { return }
         #if DEBUG
         if let demo = ScreenshotDemo.current {
             // 撮影用のデモ（DEBUG のビルドだけ）: 初回の案内を出さず、デモの設定・時計・AI の代わりでホームを作る。
-            let home = demo.makeHomeModel(
-                context: container.mainContext, pendingWrites: storeHost.pendingWrites, purchases: purchases, storeHost: storeHost,
-                household: household
+            home = demo.makeHomeModel(
+                context: container.mainContext, pendingWrites: storeHost.pendingWrites, storeHost: storeHost
             )
-            let calendar = weekStart.applied(to: systemCalendar)
-            Task {
-                await demo.prepare(home, calendar: calendar)
-                self.home = home
-            }
+            return
+        }
+        if let uiTest = UITestMode.current {
+            // UI テスト（DEBUG のビルドだけ）: 案内は起動引数で頼まれたときだけ出し、UI テストの設定・時計・キーワード辞書でホームを作る。
+            onboarding = uiTest.makeOnboardingModel()
+            home = uiTest.makeHomeModel(
+                context: container.mainContext, pendingWrites: storeHost.pendingWrites, storeHost: storeHost
+            )
             return
         }
         #endif
         if OnboardingModel.needsOnboarding(context: container.mainContext) {
-            onboarding = OnboardingModel(budgetStore: BudgetStore(context: container.mainContext))
+            onboarding = OnboardingModel()
         }
         let home = HomeModel(
-            context: container.mainContext, pendingWrites: storeHost.pendingWrites, purchases: purchases, storeHost: storeHost,
-            household: household
+            context: container.mainContext, pendingWrites: storeHost.pendingWrites, storeHost: storeHost,
+            hints: ReplyHints(defaults: .standard)
         )
         // iCloud 同期を切り替えて開き直したときは、切り替えた設定の画面を開いた状態から始める（どうなったかをその画面で見せる）。
         home.restoreSettingsAfterStoreSwitch()

@@ -17,7 +17,7 @@ struct CategoryCatalogTests {
     @Test("組み込みの rawValue は保存していた値のまま")
     func builtInRawValuesAreStable() {
         #expect(EntryCategory.builtIns.map(\.rawValue) == [
-            "food", "daily", "transport", "cafe", "entertainment", "utilities", "medical", "other",
+            "food", "daily", "transport", "cafe", "entertainment", "utilities", "medical", "housing", "clothing", "other",
         ])
         for category in EntryCategory.builtIns {
             #expect(EntryCategory(rawValue: category.rawValue) == category)
@@ -67,7 +67,7 @@ struct CategoryCatalogTests {
     @Test("画面の並びは、組み込み（その他以外）・作った順・その他")
     func catalogOrder() {
         #expect(Self.catalog.all == [
-            .food, .daily, .transport, .cafe, .entertainment, .utilities, .medical,
+            .food, .daily, .transport, .cafe, .entertainment, .utilities, .medical, .housing, .clothing,
             .custom("c1"), .custom("c2"), .custom("c3"), .other,
         ])
         #expect(CategoryCatalog.builtIn.all == EntryCategory.builtIns)
@@ -105,11 +105,37 @@ struct CategoryCatalogTests {
         #expect(Self.catalog.validateName(String(repeating: "あ", count: CategoryCatalog.maximumNameLength + 1)) == .failure(.tooLong))
         #expect(Self.catalog.validateName("食費") == .failure(.duplicate))
         #expect(Self.catalog.validateName("光熱") == .failure(.duplicate))
+        // チャットで直すときに読む組み込みの言い換えとも重ねない（「それ交通費」がどちらか決まらなくなるため）。
+        #expect(Self.catalog.validateName("交通費") == .failure(.duplicate))
+        #expect(Self.catalog.validateName("趣味") == .failure(.duplicate))
+        // 後から足した組み込みのカテゴリ（住居・衣服・美容）の名前と言い換えも。
+        #expect(Self.catalog.validateName("住居") == .failure(.duplicate))
+        #expect(Self.catalog.validateName("衣服・美容") == .failure(.duplicate))
+        #expect(Self.catalog.validateName("家賃") == .failure(.duplicate))
+        #expect(Self.catalog.validateName("洋服") == .failure(.duplicate))
         #expect(Self.catalog.validateName("いふく") == .success("いふく"))
         #expect(Self.catalog.validateName("じむ代") == .failure(.duplicate))
         // 自分の今の名前とは重なってよい（名前を変えずに記号だけ変えるとき）。
         #expect(Self.catalog.validateName("衣服", editing: "c1") == .success("衣服"))
         #expect(Self.catalog.validateName("衣服", editing: "c2") == .failure(.duplicate))
+    }
+
+    // 以前は、組み込みの言い換え（「趣味」「交通費」）を足す前に作ったカテゴリの色や記号を変えるだけでも、名前が組み込みと
+    // 重なるとして保存できなかった。
+    @Test("組み込みの言い換えと同じ名前の、前からある作ったカテゴリは、名前を変えなければ直せる")
+    func editingKeepsLegacyAliasName() {
+        let hobby = CustomCategoryInfo(id: "h1", name: "趣味", symbolName: "gamecontroller", colorIndex: 3)
+        let fare = CustomCategoryInfo(id: "f1", name: "交通費", symbolName: "car", colorIndex: 4)
+        let catalog = CategoryCatalog(customs: [hobby, fare])
+        // 自分の今の名前のままなら（表記ゆれも同じ名前とみなす）、保存できる。
+        #expect(catalog.validateName("趣味", editing: "h1") == .success("趣味"))
+        #expect(catalog.validateName(" 交通費 ", editing: "f1") == .success("交通費"))
+        // 新しく作るとき・ほかのカテゴリの名前を変えるときは、これまでどおり組み込みの言い換えと重ねない。
+        #expect(catalog.validateName("趣味") == .failure(.duplicate))
+        #expect(catalog.validateName("趣味", editing: "f1") == .failure(.duplicate))
+        // 自分の名前を、組み込みの名前や言い換えに変えることはできない。
+        #expect(catalog.validateName("食費", editing: "h1") == .failure(.duplicate))
+        #expect(catalog.validateName("光熱費", editing: "h1") == .failure(.duplicate))
     }
 
     // MARK: - 作ったカテゴリを使う計算
@@ -137,13 +163,14 @@ struct CategoryCatalogTests {
 
     @Test("一覧に無い作ったカテゴリを指す覚えは、無いものとして聞き返す（一覧にあれば聞き返さない）")
     func asksWhenLearnedCategoryIsMissing() {
-        let memory = CategoryMemory(rules: ["ユニクロ": .custom("c1"), "ユザワヤ": .custom("gone"), "家賃": .other])
-        #expect(!memory.asksCategory(memo: "ユニクロ", amount: 3_990, category: .other, isIncome: false, catalog: Self.catalog))
+        // 辞書に当たらない品目で確かめる（「ユニクロ」は衣服・美容の語になったので使わない）。
+        let memory = CategoryMemory(rules: ["メルカリ": .custom("c1"), "ユザワヤ": .custom("gone"), "家賃": .other])
+        #expect(!memory.asksCategory(memo: "メルカリ", amount: 3_990, category: .other, isIncome: false, catalog: Self.catalog))
         #expect(memory.asksCategory(memo: "ユザワヤ", amount: 500, category: .other, isIncome: false, catalog: Self.catalog))
         // 「その他のまま」を選んだ覚えは、組み込みのカテゴリなのでいつもある。
         #expect(!memory.asksCategory(memo: "家賃", amount: 80_000, category: .other, isIncome: false, catalog: Self.catalog))
         // 一覧を渡さなければ、作ったカテゴリを指す覚えはどれも無いものとみなす。
-        #expect(memory.asksCategory(memo: "ユニクロ", amount: 3_990, category: .other, isIncome: false))
+        #expect(memory.asksCategory(memo: "メルカリ", amount: 3_990, category: .other, isIncome: false))
     }
 
     @Test("内訳の同じ額の行は、組み込み・作ったカテゴリ・その他の順")
@@ -169,8 +196,8 @@ struct CategoryCatalogTests {
         ))
         #expect(question.category == .custom("c1"))
         #expect(question.metric == .categoryExpense)
-        // 一覧を渡さなければ、作ったカテゴリの名前は読まない。
-        #expect(QuestionParser.read("今月の衣服いくら?", now: Fixture.now, calendar: Fixture.calendar).category == nil)
+        // 一覧を渡さなければ、作ったカテゴリの名前は読まず、組み込みの「衣服・美容」の語として読む。
+        #expect(QuestionParser.read("今月の衣服いくら?", now: Fixture.now, calendar: Fixture.calendar).category == .clothing)
     }
 
     @Test("期間の語に作ったカテゴリの名前が続く文は、金額が無ければ質問")

@@ -11,8 +11,6 @@ struct QuestionExchangeView: View {
     let openReport: (Date) -> Void
     /// 予算を決める画面を出す（予算が無くて答えられなかったとき）。
     let setBudget: () -> Void
-    /// プレミアムのシートを出す（無料の回数を使い切ったとき）。
-    let openPremium: () -> Void
     /// 続けて聞く質問を送る。nil なら候補を出さない（いちばん新しい答えにだけ出す）。
     var askFollowUp: ((QuestionFollowUp) -> Void)?
 
@@ -26,8 +24,7 @@ struct QuestionExchangeView: View {
                 accessibilityLabel: exchange.state.isQuestion ? Text("質問: \(exchange.text)") : Text("送った文: \(exchange.text)")
             )
             QuestionReplyCard(
-                state: exchange.state, openReport: openReport, setBudget: setBudget, openPremium: openPremium,
-                askFollowUp: askFollowUp
+                state: exchange.state, openReport: openReport, setBudget: setBudget, askFollowUp: askFollowUp
             )
         }
     }
@@ -35,14 +32,14 @@ struct QuestionExchangeView: View {
 
 /// 質問への返事のカード（アプリからの返事として左寄せ。記録の返事のカードと同じ面）。
 ///
-/// 答えたときは、大きな数字（コードが計算した値をそのまま）、期間とカテゴリの見出し、元になった件数、AI の一言（ある場合。
-/// 数字の照合を通ったものか定型文）、無料の残りの回数（3 回以下のとき）を出す。今月・先月の答えは、押すとその月の月のまとめへ進む。
+/// 答えたときは、大きな数字（コードが計算した値をそのまま）、期間とカテゴリの見出し、AI の一言（数字の照合を通ったときだけ）
+/// を出す。元になった記録の件数と、一言を捨てたときの定型文（「数字はアプリが計算しました」）は出さない（どの答えにも同じ形で
+/// 付き、答えの数字より目に入ってしまうため）。今月・先月の答えは、押すとその月の月のまとめへ進む。
 /// 主の塗りは使わない（塗りの主ボタンが無いため）。予算を超えた額は、注意の色にアイコンと語を添える（色だけに頼らない）。
 private struct QuestionReplyCard: View {
     let state: QuestionExchange.State
     let openReport: (Date) -> Void
     let setBudget: () -> Void
-    let openPremium: () -> Void
     var askFollowUp: ((QuestionFollowUp) -> Void)?
 
     var body: some View {
@@ -63,10 +60,9 @@ private struct QuestionReplyCard: View {
                     .foregroundStyle(Theme.inkSecondary)
             }
             .accessibilityElement(children: .combine)
-        case .answered(let answer, let remark, let freeQuestionsLeft):
+        case .answered(let answer, let remark):
             AnswerContent(
-                answer: answer, remark: remark, freeQuestionsLeft: freeQuestionsLeft,
-                openReport: openReport, setBudget: setBudget, askFollowUp: askFollowUp
+                answer: answer, remark: remark, openReport: openReport, setBudget: setBudget, askFollowUp: askFollowUp
             )
         case .unreadable:
             NoticeContent(
@@ -87,25 +83,43 @@ private struct QuestionReplyCard: View {
         case .correction:
             NoticeContent(
                 title: "記録は直していません",
-                message: "前の記録を直す文のようだったので、新しい記録にもしませんでした。記録を直すときは、返事の記録を押してください。記録した直後なら、「取り消す」で取り消して送り直すこともできます。"
+                message: "前の記録を直す文のようでしたが、直した後の金額が分からなかったので、新しい記録にもしませんでした。「さっきのを900に直して」のように直した後の金額を 1 つだけ書いて送るか、返事の記録を押して直してください。"
             )
-        case .limitReached:
-            VStack(alignment: .leading, spacing: 8) {
-                NoticeContent(
-                    title: "今月の無料の質問を使い切りました",
-                    message: "プレミアムなら、回数の制限なく質問できます。記録はこれまでどおり無料で、回数の制限なく続けられます。"
-                )
-                Button(action: openPremium) {
-                    Text("プレミアムを見る")
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Theme.accentText)
-                        .frame(minHeight: 30)
-                }
-                // カードの中の操作は灰色の枠のボタンにする（文字の色が本文と同じ墨なので、形で押せることを示す。ガラスは操作の層にだけ使う）。
-                .buttonStyle(.bordered)
-                .buttonBorderShape(.capsule)
-                .accessibilityHint("プレミアムでできることと購入の画面を開きます")
-            }
+        case .amountChanged(let item, let from, let to):
+            NoticeContent(
+                title: "金額を直しました",
+                message: item.isEmpty
+                    ? "\(YenFormatter.string(from: from)) から \(YenFormatter.string(from: to)) にしました。"
+                    : "「\(item)」を \(YenFormatter.string(from: from)) から \(YenFormatter.string(from: to)) にしました。"
+            )
+        case .removed(let summary):
+            NoticeContent(title: "削除しました", message: "\(summary) を削除しました。")
+        case .commandAsked(let question):
+            NoticeContent(title: question.title, message: question.detail)
+        case .commandCancelled:
+            NoticeContent(title: "何も変えていません", message: "送った文を入力欄に戻しました。書き直して送れます。")
+        case .noTarget:
+            NoticeContent(
+                title: "直せる直前の記録がありません",
+                message: "タイムラインの記録を押して直してください。長押しで削除もできます。"
+            )
+        case .splitNotChanged:
+            NoticeContent(
+                title: "割り勘の記録の金額は直していません",
+                message: "割り勘の記録は 1 人分の額を記録しているので、チャットでは直しません。記録を押して直してください。"
+            )
+        case .budgetSet(let amount):
+            NoticeContent(
+                title: "月の予算を決めました",
+                message: "今月から \(YenFormatter.string(from: amount)) にしました。ホームの上に、今月あといくら使えるかを出します。"
+            )
+        case .recategorized(let item, let category, let remembered):
+            NoticeContent(
+                title: "\(category)にしました",
+                message: remembered
+                    ? "次から「\(item)」は\(category)に振り分けます。"
+                    : "このカテゴリで記録を直しました。"
+            )
         case .loadFailed:
             NoticeContent(title: "記録を読み込めませんでした", message: "もう一度お試しください。")
         }
@@ -119,7 +133,6 @@ private struct QuestionReplyCard: View {
 private struct AnswerContent: View {
     let answer: LedgerAnswer
     let remark: QuestionRemark?
-    let freeQuestionsLeft: Int?
     let openReport: (Date) -> Void
     let setBudget: () -> Void
     var askFollowUp: ((QuestionFollowUp) -> Void)?
@@ -146,10 +159,12 @@ private struct AnswerContent: View {
                 .buttonStyle(.plain)
                 .accessibilityElement(children: .combine)
                 .accessibilityHint("月のまとめを開きます")
+                .accessibilityIdentifier(AccessibilityID.Reply.answerSummary)
             } else {
                 summary
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier(AccessibilityID.Reply.answerSummary)
             }
             if answer.value == .noBudget {
                 Button(action: setBudget) {
@@ -163,18 +178,13 @@ private struct AnswerContent: View {
                 .buttonBorderShape(.capsule)
                 .accessibilityHint("予算を決める画面を開きます")
             }
-            if let freeQuestionsLeft {
-                Text(verbatim: QuestionTexts.freeQuestionsLeft(freeQuestionsLeft))
-                    .font(.footnote)
-                    .foregroundStyle(Theme.inkSecondary)
-            }
             if let askFollowUp, !answer.followUps.isEmpty {
                 FollowUpQuestions(followUps: answer.followUps, ask: askFollowUp)
             }
         }
     }
 
-    /// 期間・見出し・数字・件数・一言。VoiceOver ではまとめて 1 つの要素として、この順に読ませる。
+    /// 期間・見出し・数字・一言。VoiceOver ではまとめて 1 つの要素として、この順に読ませる。
     private var summary: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -198,9 +208,6 @@ private struct AnswerContent: View {
                 AnswerTrendChart(trend: trend)
                     .padding(.vertical, 4)
             }
-            Text(verbatim: QuestionTexts.recordCount(answer.recordCount))
-                .font(.caption)
-                .foregroundStyle(Theme.inkSecondary)
             remarkView
         }
     }
@@ -329,13 +336,8 @@ private struct AnswerContent: View {
             .font(.subheadline)
             .foregroundStyle(Theme.ink)
             .padding(.top, 2)
-        case .fixed:
-            Text(QuestionTexts.fixedRemark)
-                .font(.subheadline)
-                .foregroundStyle(Theme.inkSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 2)
-        case nil:
+        case .fixed, nil:
+            // 一言を捨てたときは何も添えない（数字はいつもコードが計算したもの）。
             EmptyView()
         }
     }
@@ -438,7 +440,7 @@ struct FollowUpQuestions: View {
 
 /// 内訳の 1 行（色と記号の丸・名前・金額・割合）。1 行に収まらなければ金額を名前の下に積み、それでも収まらなければ
 /// 割合を金額の下に積む（縮めて読めなくしない）。アクセシビリティサイズの文字では、名前と金額に幅を使わせるため丸を省く
-/// （記録の返事の行の印と同じ。名前はいつも出る）。先週のふりかえりのカードの上位のカテゴリでも使う。
+/// （記録の返事の行の印と同じ。名前はいつも出る）。
 struct BreakdownLine: View {
     let item: CategoryBreakdown.Item
 
@@ -496,6 +498,38 @@ struct BreakdownLine: View {
 }
 
 /// 答えられなかったときの案内（見出し・文・質問の例）。
+/// 端末内 AI が選んだ操作の確認の文（ホームの確認のアラートと、タイムラインの返事のカードで同じものを使う）。
+extension CommandQuestion {
+    /// 確認の見出し（何の操作か）。
+    var title: LocalizedStringResource {
+        switch self {
+        case .recategorize: "カテゴリを変えますか？"
+        case .changeAmount: "金額を直しますか？"
+        case .remove: "記録を削除しますか？"
+        case .setMonthlyBudget: "月の予算を決めますか？"
+        }
+    }
+
+    /// 確認の本文（どの記録を、どうするか）。
+    var detail: LocalizedStringResource {
+        switch self {
+        case .recategorize(let summary, let category): "「\(summary)」を\(category)にします。"
+        case .changeAmount(let summary, let amount): "「\(summary)」を \(YenFormatter.string(from: amount)) にします。"
+        case .remove(let summary): "\(summary) を消します。この操作は取り消せません。"
+        case .setMonthlyBudget(let amount): "今月から \(YenFormatter.string(from: amount)) にします。"
+        }
+    }
+
+    /// 行うボタンの文字。
+    var confirmLabel: LocalizedStringResource {
+        switch self {
+        case .recategorize, .changeAmount: "変える"
+        case .remove: "削除"
+        case .setMonthlyBudget: "決める"
+        }
+    }
+}
+
 private struct NoticeContent: View {
     let title: LocalizedStringResource
     let message: LocalizedStringResource
@@ -505,6 +539,7 @@ private struct NoticeContent: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.headline)
+                .accessibilityIdentifier(AccessibilityID.Reply.noticeTitle)
             Text(message)
                 .font(.subheadline)
                 .foregroundStyle(Theme.inkSecondary)
@@ -541,25 +576,21 @@ private struct NoticeContent: View {
             QuestionExchangeView(
                 exchange: QuestionExchange(
                     text: "今月カフェいくら?", askedAt: .now,
-                    state: .answered(answer, remark: .ai("今月のカフェは¥3,200でした。"), freeQuestionsLeft: 3)
+                    state: .answered(answer, remark: .ai("今月のカフェは¥3,200でした。"))
                 ),
-                openReport: { _ in }, setBudget: {}, openPremium: {}
+                openReport: { _ in }, setBudget: {}
             )
             QuestionExchangeView(
                 exchange: QuestionExchange(text: "去年の食費は?", askedAt: .now, state: .unreadable),
-                openReport: { _ in }, setBudget: {}, openPremium: {}
-            )
-            QuestionExchangeView(
-                exchange: QuestionExchange(text: "今月の食費は?", askedAt: .now, state: .limitReached),
-                openReport: { _ in }, setBudget: {}, openPremium: {}
+                openReport: { _ in }, setBudget: {}
             )
             QuestionExchangeView(
                 exchange: QuestionExchange(text: "スーパー 残り 500", askedAt: .now, state: .unclear),
-                openReport: { _ in }, setBudget: {}, openPremium: {}
+                openReport: { _ in }, setBudget: {}
             )
             QuestionExchangeView(
                 exchange: QuestionExchange(text: "さっきのを900に直して", askedAt: .now, state: .correction),
-                openReport: { _ in }, setBudget: {}, openPremium: {}
+                openReport: { _ in }, setBudget: {}
             )
         }
         .padding()

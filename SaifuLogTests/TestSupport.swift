@@ -80,29 +80,6 @@ struct StubParser: EntryParsing {
     }
 }
 
-/// プレミアムの購入の事実を決めて渡す（StoreKit を使わない）。
-extension TestSupport {
-    /// 体験を始めた日時が `daysAgo` 日前（経過時間）の体験の購入。
-    static func trial(startedDaysAgo daysAgo: Double, now: Date = now) -> PremiumPurchase {
-        PremiumPurchase(product: .trial14, purchaseDate: now.addingTimeInterval(-daysAgo * TrialPeriod.secondsPerDay))
-    }
-
-    /// 決めた購入の事実を持つ PurchaseManager。購入の事実を読み終えた状態で返す（`load` が false なら読む前のまま）。
-    /// 商品は読めない（価格も購入も StoreKit が要るため、購入の流れは `StoreKitPurchaseTests` で確かめる）。
-    @MainActor
-    static func purchases(
-        _ records: [PremiumPurchase] = [],
-        now: @escaping () -> Date = { TestSupport.now },
-        sync: @escaping @MainActor () async throws -> Void = {},
-        load: Bool = true
-    ) async -> PurchaseManager {
-        let verified = records.enumerated().map { VerifiedPurchase(transactionID: UInt64($0.offset), purchase: $0.element) }
-        let manager = PurchaseManager(now: now, loadPurchases: { verified }, loadProducts: { _ in [] }, sync: sync)
-        if load { await manager.refreshPurchases() }
-        return manager
-    }
-}
-
 /// 答え方を差し替えられる、家計への質問の答え手（HomeModel と FallbackQuestionAnswerer に渡す）。
 struct StubAnswerer: QuestionAnswering {
     let body: @Sendable (String, QuestionLedger) async throws -> QuestionReply
@@ -116,7 +93,7 @@ struct StubAnswerer: QuestionAnswering {
     }
 }
 
-/// 書き方を差し替えられる、ふりかえりの AI の一言の書き手（HomeModel・RecapRemarkModel に渡す）。呼ばれた回数も数える。
+/// 書き方を差し替えられる、月のまとめの AI の一言の書き手（HomeModel・RecapRemarkModel に渡す）。呼ばれた回数も数える。
 struct StubRemarkWriter: RecapRemarkWriting {
     let calls = CallCounter()
     let body: @Sendable (String) async throws -> String

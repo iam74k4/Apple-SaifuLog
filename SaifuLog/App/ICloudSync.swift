@@ -60,7 +60,7 @@ enum ICloudAccountStatus: Equatable, Sendable {
     /// - Parameter canUseCloudKit: このプロセスが CloudKit を使えるか。テストで false を渡して、問い合わせないことを確かめる。
     static func current(
         containerIdentifier: String = ModelContainerFactory.iCloudContainerIdentifier,
-        canUseCloudKit: Bool = HouseholdSharing.canUseCloudKit
+        canUseCloudKit: Bool = CloudKitEntitlement.isAvailable
     ) async -> ICloudAccountStatus {
         guard canUseCloudKit else { return .missingEntitlement }
         do {
@@ -72,14 +72,15 @@ enum ICloudAccountStatus: Equatable, Sendable {
     }
 }
 
-/// iCloud と同期する保存先を開けず、端末の中だけに戻したときの理由（起動や切り替えのときの知らせに出す）。
+/// iCloud と同期する保存先を開けず、端末の中だけに戻したときの理由（ログに残す。知らせには戻したことだけを出す）。
 ///
 /// 理由を「サインインしていない」「容量が足りない」などに見分けることはしない。保存先を開く（`ModelContainer.init`）ときは
 /// CloudKit につながず、アカウントも容量も確かめないので、そうした理由では開けなくならない（サインインしていなくても、
 /// iCloud の entitlement が無くても開け、ログに出すだけ）。開けなくなるのは CloudKit の制約に合わないモデルのときで、
 /// そのとき SwiftData は `SwiftDataError.loadIssueModelContainer` だけを投げ、Core Data の元のエラーを付けない
 /// （どちらも署名なしのテストのプロセスで、シミュレータの iOS 26.4 で確かめた）。見分けても当たらないので、原因に近い
-/// エラーのドメインと番号だけを残し、問い合わせに使えるようにする（説明文は端末のパスを含むことがあるので残さない）。
+/// エラーのドメインと番号だけをログに残し、調べるときに使えるようにする（説明文は端末のパスを含むことがあるので残さない。
+/// 利用者への知らせには出さない）。
 /// サインインしていないなど、開けても同期できない状態は、設定の画面が `ICloudAccountStatus` で確かめて案内する。
 struct ICloudSyncFailure: Equatable, Sendable {
     let domain: String
@@ -103,16 +104,6 @@ struct ICloudSyncFailure: Equatable, Sendable {
 }
 
 // MARK: - 利用者向けの文
-
-extension ICloudSyncFailure {
-    /// 端末の中だけに戻した理由の文（起動や切り替えのときの知らせに出す）。
-    var reasonText: String {
-        // 番号は文字にしてから埋め込む。数のまま埋め込むと、地域の書き方で桁区切りが入り（「134,060」）、
-        // 問い合わせや検索に写したときに本当の番号と食い違うため。
-        let codeText = String(code)
-        return String(localized: "理由: \(domain) \(codeText)")
-    }
-}
 
 extension ICloudAccountStatus {
     /// 同期をオンにできない（オンのまま同期できない）ときの案内。使えるときは nil。
@@ -156,5 +147,18 @@ extension ICloudAccountStatus {
         case .missingEntitlement:
             String(localized: "このビルドのアプリでは iCloud を使えないため、この iPhone の中だけに保存しています（署名していない開発用のビルドのため）。")
         }
+    }
+}
+
+/// このプロセスが CloudKit を使えるか（iCloud の entitlement つきで署名したビルドか）。
+///
+/// 署名の無いビルド（`make build`・`make test-app` の CODE_SIGNING_ALLOWED=NO。アプリのテストもこのアプリの中で動く）は
+/// iCloud の entitlement を持たず、CKContainer を作るとプロセスが止まる（SIGTRAP。iOS 26.4 のシミュレータで確かめた）。
+/// entitlement そのものは iOS の公開の API で読めないので、署名の印（`_CodeSignature/CodeResources`）の有無で見分ける。
+/// このアプリの署名したビルドは、どれも iCloud の entitlement を持つ（`project.yml` の entitlements）。
+enum CloudKitEntitlement {
+    static var isAvailable: Bool {
+        let signature = Bundle.main.bundleURL.appending(path: "_CodeSignature/CodeResources")
+        return FileManager.default.fileExists(atPath: signature.path(percentEncoded: false))
     }
 }

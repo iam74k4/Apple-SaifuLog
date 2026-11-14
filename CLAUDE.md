@@ -4,59 +4,60 @@
 端末内の AI（Apple の Foundation Models）で行い、家計のデータを端末の外に出さない。
 
 ## 現在の到達点
-- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・カテゴリの聞き返しと修正の記憶・よく使うひとこと・家計への質問・レシートの読み取り・声の入力・月の予算・カレンダー・月のまとめ・週のふりかえり・設定と CSV 書き出し・iCloud 同期（自分の端末どうし）・アプリのロック・初回の案内・プレミアム（StoreKit）の試作**まで。
+- 初期構成の段階。プロジェクトの骨組み・CI/CD・ドキュメントと、**ひとこと入力・記録の直し・チャットで頼む操作（直す・消す・予算）・記録の返事の AI の一言・カテゴリの振り分けと聞き返しと修正の記憶・家計への質問・レシートの読み取り・月の予算・カレンダー・月のまとめ・設定と CSV 書き出し・iCloud 同期（自分の端末どうし）・アプリのロック・ウィジェット・初回の案内の試作**まで。すべての機能を無料で、回数の制限なく使える（プレミアムと課金はやめた）。
   - 試作済み: 一行の読み取り（端末内 AI、使えない端末ではキーワード辞書）、タイムライン（会話の形。1 回の送信で記録したものを
     送信にまとめ（コアの `TimelineSend`。送信は保存せず、元の文・入力元が同じで記録した日時が 0.1 秒以内に続く記録をまとめる）、送った文を
-    右寄せの自分の吹き出し（灰色。声はマイク・レシートは印つき）に、記録をアプリの返事のカード（「記録しました」・記録ごとの行。
-    行を押すと ⑥。割り勘の説明は行の下の文、直前の返事の最後に今月の状況の一行）に出し、暦の日が替わるところに日付だけの見出し（コアの `TimelineDay`）。質問の吹き出しと回答カード・ふりかえりの
-    カードも同じ見た目。部品は `Views/TimelineConversation.swift`、送信は `EntrySend`。下端から開く。行は LazyVStack ではなく
+    右寄せの自分の吹き出し（灰色。レシートは印つき。前の版で声で入れた記録はマイクの印）に、記録をアプリの返事のカード（「記録しました」・記録ごとの行。
+    行を押すと ⑥。割り勘の説明は行の下の文、直前の返事の最後に、送った支出のカテゴリの今月の件数と合計（「カフェは今月 3 件・¥1,350」。今月に使った「その他」でない支出があるときだけ。どの端末でも。`ReplyTexts.categoryTally`）と、予算を決めていれば今月の状況の一行（AI の一言が照合に通ったときは、どちらも一言に置き換える。今月使った額は帯にあるのでくり返さない）、最初の数回の記録の返事の下にヒントを 1 行（直し方を 3 回 → カレンダーを 3 回。チャットか ⑥ で一度直す・カレンダーを一度開くと出さない。回数は UserDefaults の `AppSettings`。`ReplyHints`・`HomeModel.replyHint`・`ReplyHintLine`）に出し、暦の日が替わるところに日付だけの見出し（コアの `TimelineDay`）。質問の吹き出しと回答カードも
+    同じ見た目。部品は `Views/TimelineConversation.swift`、送信は `EntrySend`。下端から開く。行は LazyVStack ではなく
     すべて測る並べ方（`TimelineStack`。VStack と同じ位置で、揃えを行の中まで問い合わせない）に並べ、読み込みは 50 件ずつ・300 件まで
     （記録の件数で数える。上限に届いたら月のまとめと CSV の書き出しを案内）。行の中も HStack・ViewThatFits・VStack の測り直しを
     避けて同じ形に置く Layout で組む（`ReplyRowLayout`・`SplitRowLayout`・`LeadingStack`）。LazyVStack の高さの見積もりの揺れで、
     大きな文字で開くと空に見えたため。`HomeView` の `TimelineScrollView`、確かめは `HomeTimelineLayoutTests`。帯の文字の大きさの
     上限は AX1）、記録の直後の「取り消す」（直前の送信の返事の見出し。時間では引っ込めず、次の送信・取り消し・その記録を直す・
-    記録先の切り替え・開き直しまで。入力欄の VoiceOver の操作にも）、長押しでの記録の削除（確認つき）、今月の支出と収入の合計。
-    画面は縦向きのみ。見た目は iOS 26 の Liquid Glass に合わせ、ガラスは操作の層（帯のボタン・入力欄・よく使うひとこと・月送り・主ボタン・
-    プレミアムの下の帯）にだけ使う。ホームの帯と入力欄は `safeAreaBar` に置き、上は `.scrollEdgeEffectStyle(.hard)`（`docs/design.md` §7）。
-    家計のタイムライン（機能フラグで隠している）は記録ごとの吹き出しのまま（`EntryBubble`。会話の形にするのは
-    あとの作業）。
+    開き直しまで。入力欄の VoiceOver の操作にも）、長押しでの記録の削除（確認つき）、今月の支出と収入の合計。
+    画面は縦向きのみ。見た目は iOS 26 の Liquid Glass に合わせ、ガラスは操作の層（帯のボタン・入力欄・月送り・主ボタン）にだけ使う。ホームの帯と入力欄は `safeAreaBar` に置き、上は `.scrollEdgeEffectStyle(.hard)`（`docs/design.md` §7）。
     ⑥ 直す（返事の行を押す・長押しのメニュー・VoiceOver の操作（行と入力欄の「直す: …」）・⑦ の記録の一覧から開くシート。金額・品目・
-    支出か収入か・カテゴリ・日付を直し、そこから削除もできる。`EditEntryModel` と `EntryStore.update`。割り勘の人数は記録に持たないので直せない）。
-    月の全体の予算（② 予算を決める、ホームの帯の「今月あと ¥…／1日あたり ¥…」と、バーの今日までの目安の印と一言（月のまとめと同じ `MonthlyReport` の数字）。カテゴリ別の予算の欄は、ホームと ⑧ から開いたときに
-    プレミアムと体験中だけ出す。進み（使った額との比べ）は ⑦ のカテゴリの行にだけ出す（プレミアムと体験中だけ。無料に戻ったら出さずに
-    額を残す。`MonthlyReportModel.showsCategoryBudgets`、数字はコアの `MonthlyReport.categoryBudgets`・`BudgetPlan.categoryDecisions`））。⑦ 月のまとめ（ホームの帯の見出しと数字から横に進む。月送り・支出と収入と収支・1 日あたりの
-    平均・前の月との差・予算の進み（いまの予算に決めた月から後だけ）・カテゴリ別の割合の帯（`BreakdownCompositionBar`）と行（カテゴリ別の予算の進みも。当てはめる月の
-    決まりは全体の予算と同じ）・行からその月の記録の一覧と ⑥。
+    支出か収入か・カテゴリ・日付を直し、そこから削除もできる。`EditEntryModel` と `EntryStore.update`。割り勘の人数は記録に持たないので直せない。
+    金額の欄（⑥・② 予算・くり返しの記録・⑤ レシート）は打っている間は区切りを入れず、欄を離れたときに「60,000」の形にそろえる
+    （`formatsAmountAfterEditing`。打つたびに書き換えると、速く打った桁が落ちた））。
+    ホームの帯（`SummaryHeader`。「今月使った」額を大きく、予算を決めていれば細いバーと「あと ¥…」か「¥… オーバー」だけ。1 日あたり・のこりの日数・
+    今日までの目安・収入・予算のボタンは出さない（帯は会話の上に常に出ているので、数字を増やすほど会話の場所が減り、使った額が埋もれるため。細かい数字は
+    月のまとめと会話の質問にある）。左の列（見出しと数字。押すと ⑦）と右の列（歯車。⑧）に分ける（前は数字の的が帯の幅いっぱいで歯車の真下まで
+    広がり、歯車の少し下を押すと ⑦ が開いた）。⑦ と ⑧ は片方を出している間はもう片方を開かない。VoiceOver では数字の要素の操作「カレンダー」）。
+    月の全体の予算（② 予算を決める・⑧・会話の「今月の予算を5万にして」で決める。帯の数字は月のまとめと同じ `MonthlyReport` の数字）。予算は全体の 1 つだけ（カテゴリ別の予算はやめた。
+    前の版で決めたカテゴリ別の行は `BudgetPlan.resolve` が読んで無視する。`BudgetScope.category` は古い行を読むために残す））。⑦ 月のまとめ（ホームの帯の見出しと数字から横に進む。月送り・使った額（大きく）・収入があれば収入と収支を
+    小さく 1 行・前の月との差（終わった月だけ。月の途中で前の月のまる 1 か月と比べない）・予算の残り（終わった月は「余った額」、今月で超えていなければ
+    1 日あたりに使える額。いまの予算に決めた月から後だけ）・カテゴリ別の割合の帯（`BreakdownCompositionBar`）と行・行からその月の記録の一覧と ⑥（一覧も長押しで直す・削除。確認つき）・
+    使った額のカードの下に AI の一言（AI が使える端末だけ。無料。数字の文（コアの `RecapFacts`）だけを端末内 AI に渡して書かせ
+    （`SaifuLog/AI/FoundationModelsRecapRemarkWriter`）、`AnswerSentenceCheck` で照合して合わなければ捨てる（`RecapRemarkModel`）。
+    実機でのモデルの一言の確認はまだ）。
+    1 日あたりの平均・今日までの目安・目安との比べは出さない（使った額と予算の残りが埋もれるため）。
     `MonthlyReportView` と `MonthlyReportModel`、数字はコアの `MonthlyReport` と `CategoryBreakdown`）。
     ⑩ カレンダー（ホームを左へスワイプした 2 枚目のページ。`HomeView` の TabView のページの形で、カレンダーからは会話のボタンでも
     戻れる。帯にカレンダーのボタンは置かず（スワイプで出るページと入口が重なるため）、VoiceOver では帯の数字の要素の操作「カレンダー」で
-    開く（ページは `HomeModel.page`。開いたときと Siri の頼みを受けたときは会話）。「自分」の記録だけ（「家族」のときは
-    ページもボタンも出さない）。今月なら見通し（今日あと＝まだ記録していない今月の固定費（くり返しの記録の予定）を先に引いて日割りにした額
-    − 今日の支出・固定費を引いた今月あと・このペースだと今月の支出（7 日目から））、ほかの月は支出と収入。月のカレンダー（日ごとの支出・
-    予算の日割りより多い日の点・くり返しの予定の記号）、選んだ日の記録（返事の行 `RecordedReplyRow` を記録の値の控え `DayRecord` で使い回す。
-    押すと ⑥）と予定、「この日に記録」（会話へ戻り、入力欄の頭に日付「10/2 」を入れてキーボードを出す。`HomeModel.prepareDraft`、書き方は
-    コアの `DateExpression.notation`）。アクセシビリティサイズの文字では日の一覧。予算は帯・⑩ の見通しの欄・⑧ から
-    開ける。`Views/Calendar/` の `LedgerCalendarView`・`LedgerCalendarModel`、
-    数字はコアの `LedgerCalendarMonth`・`SpendingOutlook`・`RecurringSchedule.plannedOccurrences`。撮影用のデモの画面 `calendar` がある（ストアの
-    画像にはまだ入れていない）。実機でのスワイプと VoiceOver の確認はまだ）。
-    初回の案内（① ようこそ → ② → ホーム。記録がある端末には出さない。`AppRootView` と `OnboardingModel`）。
-    ⑧ 設定（ホームの帯の右上の歯車から横に進む。月の予算（② のシート）・週の始まり（`AppSettings.weekStart`。`AppRootView` が画面の
-    暦に当てはめる）・記録の CSV 書き出し（今月・先月・今年・すべて。中身はコアの `LedgerCSVWriter`、ファイルは `LedgerExporter` が
-    メインスレッドの外で作り、共有の画面を閉じたら消す）・プライバシーポリシー・ライセンス・版。`SettingsView` と `SettingsModel`。
-    いちばん上に「プレミアム」の節（「サイフログ プレミアム」の行。2 行目に体験の案内・体験の残りの日数・購入の形）と「購入の復元」の行。
-    行の頭に色の付いた印（`SettingsRowIcon`）。週の始まりの下に「同期」の節（「iCloud で同期」））。
-    ⑨ プレミアム（StoreKit 2。⑧ の「サイフログ プレミアム」と、体験が終わった後の最初の起動に一度だけ出すシートと、⑦ の無料の人への
-    カテゴリ別の予算の案内。プレミアムでできること（機能ごとの効きめと無料との違い）・無料のまま使えること・下に固定したガラスの帯の
-    体験（まだ体験していなくて体験の商品があれば主の塗りのボタン。`PurchaseManager.offersTrial`）と購入のボタン。買い切り
-    `com.iam74k4.SaifuLog.premium`（ファミリー共有）と、価格 0 の非消耗型の 14 日間の体験 `com.iam74k4.SaifuLog.trial14`（購入日時から
-    経過時間で 14 日）。価格は App Store の表示のまま。まだ出していない機能は「近日」（いまは無い）。`PremiumSheet` と `PremiumSheetModel`、購入・復元・
-    Transaction.updates の購読は `SaifuLog/Purchases/PurchaseManager`（`SaifuLogApp` で 1 つ作り、起動したらすぐ購読）、状態はコアの
-    `PremiumStatus`・`TrialPeriod`。無料の回数の数え方はコアの `UsageQuota` と `QuotaStore`（家計への質問とレシートの読み取りで使う）。
-    Xcode の Run では `Config/SaifuLog.storekit` で購入を試せる。購入のテストは SKTestSession で、iOS 26.3・26.4 のシミュレータでは
-    Apple の不具合で動かないので、`make test-app` から除き、`make test-storekit` が iOS 26.2 のシミュレータで動かす（飛ばされたら失敗。
-    CI のランナーで iOS 26.2 のランタイムを入れて通るかはまだ走らせていない）。実機（Sandbox）での購入・復元・返金・ファミリー共有の
-    確認はまだ。「カテゴリ別の予算の進みを出すまで App 内課金は審査に出さない」の条件は満たした（⑦ に出した）。審査に出すかどうかの
-    最終判断は所有者。`docs/release-flow.md` の「App 内課金を審査に出す」）。配色は白 × 墨（モノクロ。地はライトが白に近い灰色・ダークが黒、
+    開く（ページは `HomeModel.page`。開いたときと Siri の頼みを受けたときは会話）。「いくら使ったか」だけが分かるページにする:
+    上にその月に使った額（大きく）と、収入があれば小さく 1 行と月のまとめへの入口、月のカレンダー（日ごとに使った額だけ。今日と選んだ日の印）、
+    選んだ日の使った額の合計と記録（返事の行 `RecordedReplyRow` を記録の値の控え `DayRecord` で使い回す。押すと ⑥、長押しで削除と「毎月くり返す」）。
+    見通し（今日あと・固定費・ペース）・予算の日割りの印・くり返しの予定の印・凡例・予算のボタン・「この日に記録」は出さない（数字と印が
+    多いと、いちばん知りたい使った額が埋もれるため。記録の入口は会話の入力欄の 1 つにする）。アクセシビリティサイズの文字では日の一覧。
+    `Views/Calendar/` の `LedgerCalendarView`・`LedgerCalendarModel`（記録の保存先だけを受け取る）、数字はコアの `LedgerCalendarMonth`。撮影用のデモの画面
+    `calendar` がある（ストアの画像にはまだ入れていない）。実機でのスワイプと VoiceOver の確認はまだ）。
+    初回の案内（① ようこそ →「はじめる」でホーム。予算の画面は挟まない（予算は会話の「今月の予算を5万にして」か ⑧ で決める。
+    記録の無いホームの案内にその例を出し、押すと入力欄に入る）。記録がある端末には出さない。`AppRootView` と `OnboardingModel`）。
+    ⑧ 設定（ホームの帯の右上の歯車から横に進む。上から「予算」（月の予算。② のシート）・「カテゴリ」（作ったカテゴリと、その画面の中の
+    覚えたカテゴリ）・「毎月の記録」（くり返しの記録）・「同期」（「iCloud で同期」）・「セキュリティ」（アプリのロック）・「記録を書き出す」
+    （CSV。1 行のメニューで今月・先月・今年・すべてを選んだらすぐ書き出す。中身はコアの `LedgerCSVWriter`、ファイルは `LedgerExporter` が
+    メインスレッドの外で作り、共有の画面を閉じたら消す。書き出しとアカウントの確かめは設定を閉じたときだけやめる）・「記録を読み込む」
+    （「CSV から読み込む」。このアプリが書き出した形の CSV だけを読み、使った日時（分まで）・金額・種類・カテゴリ・品目が同じ記録は飛ばし、
+    件数を確かめてから入れる。読み取りはコアの `LedgerCSVReader`・`LedgerCSVImport`、保存はアプリの `LedgerImporter`、入力元は
+    `EntrySource.imported`。ファイルは残さない）・「このアプリについて」
+    （ヘルプ・お問い合わせ・プライバシーポリシー・バージョン）。週の始まりの設定（端末の暦のまま）とライセンスの行はやめた。
+    `SettingsView` と `SettingsModel`。行の頭に色の付いた印（`SettingsRowIcon`））。
+    プレミアム（StoreKit の買い切りと 14 日間の体験）・無料の回数の制限（家計への質問とレシートの読み取り）・体験が終わった後の案内は
+    やめ、すべての機能を無料で使える（2026-11-13。中身が薄く、無料の AI の一言と紛らわしく、仕組みが重いため。0.1.0 はすべて無料・広告なし・
+    データを集めない。将来の候補は任意の応援（チップ）だけ。App Store Connect の古い課金アイテムは審査に出さない。
+    `docs/design.md` §6）。配色は白 × 墨（モノクロ。地はライトが白に近い灰色・ダークが黒、
     操作の色は墨と白で外観で入れ替わる。色はカテゴリ・収入・注意と、設定の行の印だけ。トグルはシステムの緑のまま（主の塗りの tint を
     掛けない）。`Theme`・`Palette`、`docs/design.md` §7）。
     家計への質問（ひとこと入力と同じ入力欄。記録か質問かはコアの `InputIntentClassifier` が決め、誤って記録しないことを優先し、
@@ -65,46 +66,31 @@
     AI が使えないときはコアの `QuestionParser`。答えはホームのタイムラインの回答カード（`SaifuLog/Views/Question/`）で、保存しない。
     金額と件数の答えには前の期間との比べ（途中の期間は前の期間の同じところまで。コアの `LedgerComparison`。AI に渡す文にも書く）、今月・先月の
     金額には 6 か月の推移（`LedgerTrend`、`AnswerTrendChart`）、いちばん新しい答えには続けて聞ける質問のボタン（`QuestionFollowUp`。質問の読み取りが
-    同じ質問に読める日本語の文を送る。`HomeModel.askFollowUp`）。無料は月 10 回で、
-    答えを出せたときだけ数え、使い切ったら ⑨ への案内。実機でのモデルの答え方の確認はまだ）。
-    週のふりかえり（週が替わって最初に開いたときだけ、ホームのタイムラインの出した日時の位置に「先週のふりかえり」のカードを出し、出した日時を
-    `AppSettings.weeklyRecapShownAt` に書いて同じ週にはもう出さない（閉じても開き直しても）。記録を始める前の週には出さない。定型文（先週の支出と
-    前の週との差）・上位 3 カテゴリ・月の予算を日割りした週の目安との比べ・予算の目安の提案（予算が無ければ「予算を決める」、あれば差が 2 割以上の
-    ときだけ。表示だけで予算は変えない）。押すと先週の内訳（⑦ と同じ部品。カテゴリの記録の一覧は `CategoryEntriesView` を共有）。数字と出す条件は
-    コアの `WeeklyRecap`、予算の目安は `BudgetSuggestion`。`SaifuLog/Views/Recap/` の `WeeklyRecapModel`（カードと内訳で同じもの）・`WeeklyRecapCard`・
-    `WeeklyRecapView`。プレミアムと体験中で AI が使える端末では、数字の文（コアの `RecapFacts`）だけを端末内 AI に渡して一言を書かせ
-    （`SaifuLog/AI/FoundationModelsRecapRemarkWriter`）、`AnswerSentenceCheck` で照合して合わなければ捨てる（`RecapRemarkModel`）。月のまとめの先頭にも
-    同じ一言。無料と AI の使えない端末は定型文だけ。週の始まりの朝の通知は出さない（未決）。実機でのモデルの一言の確認はまだ）。
+    同じ質問に読める日本語の文を送る。`HomeModel.askFollowUp`）。回数の制限は無い。
+    答えのカードに、元になった記録の件数と定型の注記は出さない。実機でのモデルの答え方の確認はまだ）。
     レシートの読み取り（④⑤。入力欄の左のカメラのボタン →「撮る」（VisionKit の書類カメラ）か「写真から選ぶ」（PhotosPicker）→ ⑤ の読み取り結果の
     シート。文字は `SaifuLog/Receipt/ReceiptTextRecognizer` が Vision で端末内で読み（iOS 26 の `RecognizeDocumentsRequest`、日本語に対応しないか読めなければ
     `VNRecognizeTextRequest`）、店名・日付・品目・値引き・税・合計などの見分けはコアの `ReceiptLineScanner`、照合と記録の下書きは `ReceiptReconciler`
     （外税は「税・その他」の 1 行。合わなければ ⑤ で確かめてから記録）。AI は品名とカテゴリだけを整え（iOS 27 で画像に対応したモデルは画像も、iOS 26 は
     文字だけ。`SaifuLog/AI/FoundationModelsReceiptItemRefiner`）、AI の金額は使わない（コアの `ReceiptItemRefinement`）。画像も OCR の全文も保存せず、
-    記録の元の文は「レシート: 店名 合計 ¥…」の要約（`ReceiptSummary`）。無料は月 5 回で、記録したときだけ数え、直後の取り消しで戻す。使い切ったら
-    カメラのボタンから ⑨。⑤ で直した内容があれば閉じる前に確かめ（⑥ と同じ）、書類カメラは 4 ページまで読んで、超えたら ⑤ に知らせる。
+    記録の元の文は「レシート: 店名 合計 ¥…」の要約（`ReceiptSummary`。店名の「TEL」「電話」は後ろに番号が続くときだけ切る）。回数の制限は無い。
+    ⑤ で直した内容があれば閉じる前に確かめ（⑥ と同じ）、書類カメラは 4 ページまで読んで、超えたら ⑤ に知らせる。
     状態は `SaifuLog/Views/Receipt/ReceiptResultModel`、出し入れと記録は `HomeModel`。実機でのカメラ・実際のレシートの読み取りの
     精度・モデルの整え方の確認はまだ）。
-    声の入力（入力欄の右のマイクのボタン。入力欄が空なら送信の位置。話した内容を iOS 26 の SpeechAnalyzer で端末の中で書き起こし、入力欄に
-    入れるだけで送信はしない（送信は利用者が押したときだけ）。SpeechTranscriber（ja_JP）を先に、日本語に対応しなければ DictationTranscriber、
-    どちらも無ければマイクを出さない。書き起こしは `SaifuLog/Voice/`（`SpeechModules`・`SpeechAnalysisSession`・`SpeechAnalyzerTranscriber`。
-    マイクは AVAudioEngine で取り、`bestAvailableAudioFormat` の形式に AVAudioConverter で変えて渡す）、状態は `SaifuLog/Views/Voice/VoiceInputModel`
-    （許可・モデルのダウンロードの確認と進み・途中の文・止めるボタン・話し終えて 2 秒・話し始めずに 6 秒・30 秒・割り込み・裏へ）、まとめ方と
-    止める決まりはコアの `VoiceTranscript`・`VoiceListeningLimit`。マイクの許可だけを求め、音声認識の許可は求めない（Apple の説明）。声は保存も
-    送信もしない。無料で回数を数えない。声で入れた文の記録は入力元 `.voice`。実機での実際の声の書き起こし・許可・ダウンロード・割り込みの確認はまだ。
-    シミュレータの iOS 26.4 では SpeechTranscriber が使えず、DictationTranscriber の日本語のモデルも無い）。
     iCloud 同期（⑧ の「iCloud で同期」。既定はオフ。自分の iCloud の私用データベース `iCloud.com.iam74k4.SaifuLog` で、同じ Apple
-    アカウントの端末どうしの記録と予算をそろえる。家族との共有は含まない）。設定はアプリのロックと同じ専用のファイル（`LaunchSettingsStore`。
+    アカウントの端末どうしの記録と予算をそろえる。ほかの人との共有はしない）。設定はアプリのロックと同じ専用のファイル（`LaunchSettingsStore`。
     UserDefaults ではない）に置き、`StoreHost` が最初に開く直前に読んで `ModelContainerFactory.CloudKitDatabase`（`.none` / `.private`。
     `.automatic` は置いていない）を決める。
     オンとオフで同じファイル（default.store）を開き、`cloudKitDatabase` だけを替える。切り替えは `StoreHost.setICloudSyncEnabled`
     （設定に書いて `reopen`。前の保存先の画面が消え（`StoreRootView` の onDisappear）、書き込み中の処理が終わるのを待ってから開き、
     設定の画面を開いた状態のホームに戻す。ホームのモデルは `AppRootView` が 1 回だけ作り、`HomeModel.restoreSettingsAfterStoreSwitch`
     で設定を開く）。iCloud と同期する保存先だけを開けなければ（同じファイルを `.none` でなら開けたときだけ）`.none` に戻して設定もオフに
-    し、理由（原因に近いエラーのドメインと番号）をアラートで出す（`ICloudSyncFailure`。`.none` でも開けなければ戻さず、設定も変えずに
+    し、アラートで知らせる（原因に近いエラーのドメインと番号（`ICloudSyncFailure`）はアラートに出さず、ログに残す。設定を書けなければ
+    それも知らせる。`.none` でも開けなければ戻さず、設定も変えずに
     再試行の画面。SwiftData は CloudKit の制約違反を中身の分からない `loadIssueModelContainer` で投げるので、エラーの種類では見分けない）。オンにする前に `CKContainer.accountStatus`（`ICloudAccountStatus`）を確かめ、
     使えなければ案内だけ。設定の状態と操作は `SettingsModel`（アカウントの問い合わせは差し替えられる。テストのプロセスは iCloud の
     entitlement を持たないので `CKContainer` を作らない）。最後に同期した時刻は出さない。ほかの端末の変更は `StoreChanges.remote`
-    （`NSPersistentStoreRemoteChange`）で、月のまとめ・ふりかえり・設定の予算を読み直す。エンタイトルメントに iCloud（CloudKit・
+    （`NSPersistentStoreRemoteChange`）で、月のまとめ・設定の予算を読み直す。エンタイトルメントに iCloud（CloudKit・
     コンテナ）と `aps-environment`、`SaifuLog/Info.plist` に `UIBackgroundModes` の remote-notification を足し、`make export-ipa` が値
     （`aps-environment` が production など。`release.mk` の `RELEASE_ENTITLEMENT_VALUES`）も照合する。モデルが CloudKit の制約を
     満たすことは `ModelContainerFactoryTests` で確かめている（制約のためにモデルを変えることは無かった）。記録と予算の項目はすべて CloudKit の
@@ -114,43 +100,75 @@
     診断画面にアカウントの状態・いまの保存先の同期・設定の値。CloudKit のスキーマを Production に出すこと（所有者の作業。その前に
     CloudKit Console で項目の型が Encrypted になっているかを確かめる）と、実機 2 台での同期の確認はまだ（`docs/design.md` §5-3・§15、
     `docs/release-flow.md` の「Capability（iCloud など）を足すとき」の「CloudKit のスキーマ」）。
-    家族・パートナーとの家計の共有（**機能フラグで隠している**。`HouseholdSharing.isEnabled` は DEBUG と社内テスト用のビルド（INTERNAL_DIAGNOSTICS）
-    でだけ true で、App Store へ出すビルドでは画面・同期・招待の受け入れを出さない。`make archive` が、INTERNAL_BUILD=NO のアーカイブに印の文字列
-    `SaifuLog-HouseholdSharing-v1` と Info.plist の `CKSharingSupported` が無いこと（と remote-notification があること）を確かめる。Info.plist は
-    `SaifuLog/Info.plist` と `SaifuLog/Info-HouseholdSharing.plist` の 2 つで、`project.yml` の `SAIFULOG_HOUSEHOLD_SHARING` で選ぶ）。家計は自分の記録とは別の
-    保存先（household.store。`ModelContainerFactory.makeHouseholdContainer`、`cloudKitDatabase` は `.none`）に置き、`SaifuLog/Household/` の `HouseholdSync` が
-    CKSyncEngine を 2 つ（私用・共有のデータベース。状態は household.store に保存して次の起動で渡す。家計の無い端末でも作り、サーバーにある家計（同じ
-    Apple アカウントのほかの端末・サインアウトの前）を取り込む。サインアウトしたら作り直し、前の CKSyncEngine から遅れて届いた出来事は捨てる）持って
-    家計ごとのゾーン（`household-<UUID>`）と同期し、ゾーンごと CKShare で共有する。署名の無いビルド（`make build`・`make test-app`）は iCloud の entitlement が
-    無く CKContainer で止まるので、家計の共有を始めない（`HouseholdSharing.canUseCloudKit`）。記録の中身はすべて暗号化フィールド（`HouseholdRecord`）。衝突は直した日時の新しいほう、削除が勝つ、ゾーンが消えたら
-    端末の家計を消して知らせる（決め事はコアの `HouseholdConflict`・`HouseholdZoneRemoval`）。全体は `HouseholdHost`（`SaifuLogApp` で 1 つ、`AppRootView` が
-    自分の記録の保存先を開けた後に `start()`）、共有の作成・削除・受け入れは `HouseholdCloudService`、招待は `HouseholdAppDelegate`・`HouseholdSceneDelegate`
-    （DEBUG と社内テスト用のビルドだけ）から `HouseholdInvitationInbox` へ。設定の「家族と共有」の節（`Views/Household/`。家計を作る・UICloudSharingController で
-    招待・共有をやめる・抜ける・削除）、ホームの帯の「自分／家族」（`HomeModel.ledgerScope`。「家族」では家計に記録し、家計の記録（記録した人の名前つき）と
-    家族の今月の合計を出す。予算・まとめ・質問・ふりかえり・レシート・声は「自分」だけ）、⑥ は `EditEntryModel.Target` で家計の記録も直す。v1 は家計を 1 つ
-    だけ。購入の状態で入口を絞っていない。CKSyncEngine と共有は差し替えてテストし、実機 2 台・2 アカウントでの確かめはまだ（`docs/design.md` §5-5・§15 の 15）。
-    CHANGELOG の利用者向けの「追加」には、隠している間は書かない）。
     App Store の掲載情報の下書き（`docs/app-store/`。日本語と英語の名前・サブタイトル・説明・キーワードと文字数、審査メモ、App のプライバシー
     （データの収集なし）と年齢制限（4+）の回答。App Store Connect への入力は所有者が確かめてから）と、サポート URL のページ（`docs/support.md`）。
     スクリーンショットは撮影用のデモ（`SaifuLog/ScreenshotDemo/`。**DEBUG のビルドだけ**で、`#if DEBUG` の中。起動引数
-    `-SaifuLogScreenshotDemo <画面>` と `-SaifuLogScreenshotPremium purchased|free` で、メモリの上の架空の記録・専用の UserDefaults の領域・
-    決まった AI の一言とレシートと書き起こしと価格の表示で撮る画面を開き、初回の案内と診断のボタンと家計の共有を出さない）を
-    `scripts/app-store-screenshots.sh` が 6.9 インチのシミュレータで日本語と英語で撮る（`docs/app-store/screenshots/`。透過の層は
-    `scripts/screenshot-image.swift` で外す）。Release のアーカイブに入っていないことは `make archive` が印 `SaifuLog-ScreenshotDemo-v1`
+    `-SaifuLogScreenshotDemo <画面>` で、メモリの上の架空の記録・専用の UserDefaults の領域・
+    決まった AI の一言とレシートで撮る画面を開き、初回の案内と診断のボタンを出さない）を
+    `scripts/app-store-screenshots.sh` が 6.9 インチのシミュレータで日本語と英語で撮る（`docs/app-store/screenshots/`。やめた機能が写った
+    古い画像は消したので、提出の前に撮り直す。透過の層は `scripts/screenshot-image.swift` で外す）。Release のアーカイブに入っていないことは `make archive` が印 `SaifuLog-ScreenshotDemo-v1`
     （`release.mk` の `RELEASE_SCREENSHOT_DEMO_MARKER`）で確かめる。組み立ては `ScreenshotDemoTests`。
-    カテゴリの聞き返しと修正の記憶（「その他」になり、品目が辞書にも覚えにも当たらない支出だけ、直前の返事の行の下にカテゴリのボタン
-    （`CategoryQuestionView`）を出して聞き返す。記録は止めない。AI が使える端末では、聞き返す前に品目だけを端末内 AI に渡して組み込みの
-    8 つから選ばせ、その他でなければそのカテゴリで記録する（`AI/CategoryRefiner`・`FoundationModelsCategoryClassifier`、決め事はコアの
-    `CategoryRefinement`。上限は全体で 3 秒。答えは覚えない。ひとこと入力の記録だけ）。返事で選んだカテゴリと ⑥ で変えたカテゴリを品目の言葉とともに覚え、
-    読み取った後に AI と辞書のどちらの記録にも当てる（AI への手がかりには渡さない）。当て方はコアの `CategoryMemory`、保存は
-    `LearnedCategory`（暗号化フィールド）と `LearnedCategoryStore`、状態は `HomeModel.categoryQuestionIDs`・`chooseCategory`。⑧ の
-    「覚えたカテゴリ」（`LearnedCategoriesView`・`LearnedCategoriesModel`）で一覧・変える・忘れる）。
+    カテゴリの振り分け・聞き返し・修正の記憶（ひとこと入力の記録だけ。読み取った後、コアの `CategoryResolver` が次の順で決める:
+    品目に作ったカテゴリの名前 → 品目に組み込みのカテゴリの名前があれば読み取ったまま → 覚えたカテゴリ（`CategoryMemory`）→ 過去の記録の
+    いつものカテゴリ（コアの `CategoryHistory`。同じ品目の記録が 2 件以上で、半分を超えるカテゴリ。「その他」と聞き返し中の記録は数えない。
+    読むのは新しい支出 1000 件まで、`Entry.categoryHistoryDescriptor`）→ 読み取ったカテゴリ（AI かキーワード辞書）→ 店の名前の辞書
+    （レシートと同じ `ReceiptStoreDictionary`）→ 「その他」。AI が使える端末では、決まらない品目と、作ったカテゴリがあるときは読み取りや
+    店の名前の辞書で決めた品目も、品目だけを端末内 AI に渡し、組み込みの表示名と作ったカテゴリの名前から選ばせる（決まらない品目を先に聞く。
+    読み取りで決めた品目には作ったカテゴリの答えだけを使う。`AI/CategoryRefiner`・`FoundationModelsCategoryClassifier`（選択肢は
+    `DynamicGenerationSchema`）、決め事はコアの `CategoryRefinement`。上限は全体で 3 秒。答えは覚えない）。それでも「その他」で、品目が辞書の
+    「その他」の語にも当たらない支出だけ、直前の返事の行の下にカテゴリのボタン（`CategoryQuestionView`）を出して聞き返す（`Entry.needsCategoryReview` に持ち、
+    開き直しても `HomeModel.refreshCategoryQuestions` で読み直す。確認待ちの一覧はやめた）。記録は止めない。直前の記録はチャットの文
+    （「それ日用品」「さっきのは交際費にして」。コアの `CategoryCorrection`。数字の無い文で、カテゴリの名前のほかは前の記録を指す語・直す語・
+    語尾だけ）でも直せ、`HomeModel.submit` が記録か質問かを見分ける前に読み、直前の送信の支出が 1 件か聞き返し中が 1 件のときだけ直して、
+    返事のカード（`QuestionExchange.State.recategorized`）を出す（「取り消す」は残す）。返事・チャットで選んだカテゴリと ⑥ で変えたカテゴリを
+    品目の言葉とともに覚える（AI への手がかりには渡さない）。保存は `LearnedCategory`（暗号化フィールド）と `LearnedCategoryStore`、状態は
+    `HomeModel.categoryQuestionIDs`・`chooseCategory`。⑧ の「カテゴリ」の画面の「覚えたカテゴリ」（`LearnedCategoriesView`・
+    `LearnedCategoriesModel`）で一覧・変える・忘れる（忘れても過去の記録のいつものカテゴリは使う）。実機でのモデルの選び方の確認はまだ）。
+    チャットで頼む操作（記録にも質問にもしない文。コアの `ChatCommand`・`ChatCommandReader`。`HomeModel.submit` が記録か質問かを
+    見分ける前に読む。誤って記録を書き換えないことを優先し、読めなければふつうの送信として読む。相手は文を送った時点の直前の送信の
+    記録（`HomeModel.commandTargets`。くり返しの記録は相手にしない）で、カテゴリと金額を直すのはそのうちの支出が 1 件のときか、
+    聞き返し中が 1 件のときだけ（収入は直さない）。消すときは直前の送信の記録をすべて消す。相手が無ければ（質問の後・取り消した後・
+    くり返しの記録の後）「直せる直前の記録がありません」と案内して文を入力欄に戻す）。決まりで読むのは、カテゴリを変える
+    （`CategoryCorrection`）・消す（数字の無い文で、消す語（「消して」「削除」「取り消して」「なかったことに」「キャンセル」など）のほかは
+    前の記録を指す語・語尾だけ。「なし」「いらない」「やめて」は前の記録を指す語があるときだけで、「カテゴリなし」では消さない。
+    「取り消す」と同じだが、文は入力欄に戻さない）・月の全体の予算を決める（「予算」と金額がちょうど 1 つ、カテゴリの名前が無く、
+    ほかの期間（「来月」「年間」「週」「日」「12月」）や残り・超えた額の語（「残り」「超え」「オーバー」）が無く、残りが「今月」「にして」
+    「に設定」などだけ。`BudgetStore.setAmount(.total)`）・金額を直す（`InputIntentClassifier` の直す語があり、直した先の金額（値引き・
+    合計・おつり・ポイントは数えない）がちょうど 1 つで、金額のほかは前の記録を指す語・直す語・語尾だけ。「名前の変更 2500」
+    「前のタイヤ変えて 20000」のように品目や店の名前が残る文は記録にする。「AじゃなくてB」は後ろの金額で、A が金額か前の記録を指す語
+    だけのときに限る（「スタバじゃなくてドトール 400」は記録）。メモは品目だけにし（割り勘の説明は前の金額のため）、カテゴリの聞き返しと
+    チャットの相手は残し、「取り消す」だけを引っ込める（⑥ と同じ理由）。割り勘の記録は 1 人分の額を記録しているので、書いた金額が
+    1 人分か合計か決められず、直さずに ⑥ で直すよう案内する）。決まりで読んだ操作はすぐ行う（直前の送信の記録を 2 件以上か、レシートの記録を
+    消すときだけは確かめる。`HomeModel.needsConfirmation`。Siri の「ひとことで記録」で頼まれた操作も確かめる。カテゴリの名前だけの文（「交通」）は
+    直すが覚えない（`CategoryCorrection.isNameOnly`）。消す語と打ち消し（「削除はいらない」「消さないで」）が一緒の文、ほかの月の予算の文
+    （「前の月の予算」）、ポイント・おつり・値引き・合計の言い直しは操作にしない）。
+    決まりで読めず、記録か質問か決められない文・前の記録を直そうとする文・金額の無い記録の文になったときだけ、AI が使える端末では
+    文だけを端末内 AI に渡して操作の種類（5 つの選択肢から 1 つ。いちばん確かな選択肢を毎回選ぶ）を選ばせ（`AI/ChatCommandInterpreter`・
+    `FoundationModelsChatCommandInterpreter`。上限は `AITimeouts.chatCommand` の 3 秒、失敗と時間切れは `AIFallbackLog` の
+    `chatCommand`）、値は `ChatCommandReader.command(kind:in:…)` が文から読む（文に無い値と、種類に合う語の無い文では行わない）。
+    AI が選んだ操作は、どれも確認のアラート（`HomeModel.pendingCommand`。返事のカードは `.commandAsked`）で選んでもらってから行い、
+    キャンセルなら何も変えずに文を入力欄に戻す（`.commandCancelled`。確認の間に相手が消えていれば行わない。AI の答えを待つ間にほかの画面や
+    確認を開いていれば、確認を出さずにやめて文を戻す）。返事はタイムラインの案内の
+    カード（`QuestionExchange.State` の `.recategorized`・`.amountChanged`・`.removed`・`.budgetSet`・`.noTarget`・`.splitNotChanged`）、
+    書き込めなければ文を入力欄に戻して `StoreFailure`（`.amountChange`・`.budgetChange` で見出しを分ける）。読めなければこれまでどおりの
+    案内（書き直し・直し方・金額が見つからない）。金額の無い文などで何も記録しなかったときは、直前の送信の「取り消す」と聞き返しを
+    戻す。実機でのモデルの選び方の確認はまだ）。
+    記録の返事の AI の一言（Apple Intelligence を返事に使う。無料。ひとこと入力で記録した直後に、いま記録した支出（3 件まで）・その
+    「その他」でない最初のカテゴリの今月の合計と件数・今月の支出の合計と件数・予算の残り（超えた額）を数字の文にし（コアの `RecordFacts`。
+    収入は書かない）、その文だけを端末内 AI に渡して一言を書かせる（`AI/FoundationModelsRecordRemarkWriter`。記録の返事向けの指示文で、
+    数字の例を書かず、責めない・指図しない・利用者の文の中の指示に従わない。一文に足りる長さまで。`RecordRemarkWriterFactory`）。上限は `AITimeouts.recordRemark` の 3 秒で、待つ間も入力できる。
+    `RecapRemark.checked`（`AnswerSentenceCheck`）で照合して、文に無い数字と、予算の残りと超えた額・前より多いか少ないかの向きが文と
+    食い違えば捨てる。書かせるのは今月に使った支出だけ（前の月の日付の記録には書かせない）で、届いたときに数字の文を作り直して変わっていれば
+    出さない。ほかの端末の変更の知らせでは、数字が変わったときだけ外す（この端末の保存でも知らせが届くため。`reviewReplyRemarkAfterRemoteChange`）。
+    ロックの画面を出している間は読み上げない。直前の送信の返事にだけ、カテゴリの件数と今月の状況の行の代わりに出す（同じ数字から書くので 2 度言わない。`HomeModel.requestReplyRemark`・
+    `replyRemark`、画面は `ReplyRemarkLine`。保存せず、次の送信・記録を消す・直す・カテゴリを選ぶ・予算を変える・ほかの端末の変更で消える。
+    届いたときは読み上げを遮らずに読む）。AI の使えない端末と、照合に通らなかったときは定型の一行だけ（予算を決めていなければ何も出さない）。失敗と時間切れは `AIFallbackLog` の `recordRemark`。撮影用のデモは
+    決まった一言を返す writer で、ホームの画面に写す。実機でのモデルの一言の確認はまだ）。
     作ったカテゴリ（利用者が 20 個まで作る。記録は ID だけを持つ `EntryCategory.custom`（rawValue は「custom:」と ID）で、名前・記号・色・
     並びは `CustomCategory`（暗号化フィールド）と `CustomCategoryStore`。一覧はコアの `CategoryCatalog` で、ホームが `CategoryCatalogModel` を
     1 つ持ち、画面へは環境の `categoryCatalog` で渡す（名前・色・記号は `CategoryCatalog` の拡張から引き、`EntryCategory.displayName` を
-    直接出さない）。AI の選択肢は組み込みの 8 種のままで、作ったカテゴリは文の中の名前（「衣服 3000」）・覚えたカテゴリ・返事の聞き返しの
-    「カテゴリを作る」・⑥・⑤ で付く。削除すると記録は「その他」、カテゴリ別の予算は 0、覚えたカテゴリからも外す。家族の家計には持ち込まない
-    （「その他」にする）。⑧ の「カテゴリ」（`Views/Categories/` の `CategoryListView`・`CategoryListModel`、作る・直すシートは
+    直接出さない）。作ったカテゴリは文の中の名前（「衣服 3000」）・覚えたカテゴリ・過去の記録・AI の聞き直し（選択肢に作ったカテゴリの
+    名前を入れる）・返事の聞き返しの「カテゴリを作る」・チャットの直し・⑥・⑤ で付く（ひとこと入力の読み取りの選択肢は組み込みの 10 種のまま。住居と衣服・美容は 2026-11-14 に足した。家賃・洋服・美容院が「その他」になり聞き返されたため）。削除すると記録は「その他」にし、覚えたカテゴリからも外す。⑧ の「カテゴリ」（`Views/Categories/` の `CategoryListView`・`CategoryListModel`、作る・直すシートは
     `CategoryEditorSheet`・`CategoryEditorModel`）。`docs/design.md` §8）。
     くり返しの記録（家賃・サブスク・給料のように毎月同じ記録。決めた日（1〜31。無い日は月末）を過ぎて最初に開いたとき（ホームが出た・前面に戻った・
     日付が変わった・足したり直したりした）に `HomeModel.recordDueRecurringEntries` が記録し、返事のカード（「くり返しの記録」。自分の吹き出しは出さない。
@@ -160,28 +178,28 @@
     コアの `RecurringSchedule`・`RecurringMonth`（西暦で数える）。⑧ の「毎月の記録」の「くり返しの記録」（`Views/Recurring/` の `RecurringListView`・
     `RecurringListModel`、足す・直すシートは `RecurringEditorSheet`・`RecurringEditorModel`）と、返事の行の長押しの「毎月くり返す」（その記録の月の次の
     月から）。自分の記録だけ。無料。`docs/design.md` §9）。
-    Siri・ショートカット（`SaifuLog/Intents/`。App Intents の 5 つの操作（ひとことで記録・家計に質問・レシートを読み取る・声で入力・入力欄を
-    開く）と App Shortcuts（言い方の英語は `Resources/AppShortcuts.xcstrings`）。どれもアプリを開いてから行う（`openAppWhenRun`）。頼みは
-    `QuickActionInbox` に置き、ホームが出たら `HomeModel.performPendingQuickAction` が行う（読み取りの間・ほかの画面・ロック中は待つ）。
+    Siri・ショートカット（`SaifuLog/Intents/`。App Intents の 2 つの操作（ひとことで記録・家計に質問。レシート・声・入力欄を開く操作は
+    やめた）と App Shortcuts（言い方の英語は `Resources/AppShortcuts.xcstrings`）。どれもアプリを開いてから行う（`openAppWhenRun`）。頼みは
+    `QuickActionInbox` に置き、ホームが出たら `HomeModel.performPendingQuickAction` が行う（読み取りの間・ロック中は待つ）。
     署名の無いビルドではショートカットから実行できないので、シミュレータでは ad hoc 署名で確かめる。操作の題名と説明に「Apple」の語を
-    書かない（「Apple Pay」も。App Store Connect が ITMS-90626 でアップロードを弾く。`AppIntentMetadataTests`）。ウィジェットは未決（§13））。
-    Apple Pay の支払いの自動記録（ショートカットの「取引」のオートメーションで `RecordPaymentIntent`（アプリを開かない）が金額と店名を受け取り、
-    `PaymentInbox`（Application Support/PaymentInbox、保護は `completeUntilFirstUserAuthentication`。記録の保存先の Complete の唯一の例外。
-    `docs/design.md` §5-4）に置く。ホームが出たとき・前面に戻ったとき・受け取ったときに `HomeModel.importCapturedPayments` が記録にし、
-    返事「Apple Pay の支払い」と「取り消す」。入力元 `.wallet`、印 `wallet/<ID>` で 2 回記録しない。金額はウォレットの値のまま（円だけ）、
-    品目とカテゴリはコアの `PaymentCapture`（店名の辞書はレシートと同じ）。⑧ の「自動で記録」の「Apple Pay の支払い」（`WalletCaptureView`）に
-    作り方。同じ買い物を 2 回数えないよう、打った・声・Siri・レシートの記録と、使った日と金額が同じ支払いがあれば、直前の返事の行の下で
-    「Apple Pay の支払いと同じですか？」（支払いが後から届いたら支払いの行の下で「前の記録と同じ支払いですか？」）と聞き、選んだときだけ
-    Apple Pay の側を消す（見つけ方はコアの `PaymentOverlap`、状態は `HomeModel.paymentOverlaps`、画面は `PaymentOverlapView`）。
-    実機での確認はまだ）。
-    よく使うひとこと（入力欄の上に、直近 90 日のよく記録する品目を「品目 ¥金額」のボタンで並べ、押すと入力欄に入る。送信は利用者。
-    候補はコアの `QuickPhrases`、画面は `QuickPhraseBar`、`HomeModel.quickPhrases`）。
+    書かない（「Apple Pay」も。App Store Connect が ITMS-90626 でアップロードを弾く。`AppIntentMetadataTests`）。コントロールセンターの
+    操作（ControlWidget）は作らない）。
+    ウィジェット（2026-11-14。拡張は `SaifuLogWidgets/`（WidgetKit）。ホーム画面の小とロック画面の長方形・丸・1 行。出すのはホームの帯と
+    同じ今月使った額と、予算を決めていれば「あと ¥…」か「¥… オーバー」とバーだけ。拡張は保存先を開かず、アプリの帯
+    （`MonthSummaryHeader`）が数字の変わるたびに、月・使った額・予算だけ（コアの `WidgetSnapshot`）を App Group の共有の領域の JSON の
+    ファイルに書く（`SaifuLog/Widgets/` の `WidgetSnapshotFile`（拡張にも入れる）・`WidgetPublisher`。前と同じなら書かない。保護は最初の
+    ロック解除の後は読める。UserDefaults の共有の領域は使わない）。グループの ID は Info.plist の `SaifuLogAppGroup`（`APP_GROUP_ID`）。
+    月が替わると、開かなくても使った額は 0 から（予定に次の月の始まりの分を並べる）。ロック画面の金額は `privacySensitive` で端末の
+    ロック中に隠し、アプリのロックがオンの間は数字を渡さず「ロック中」だけ。押すと「saifulog://record」（`WidgetLink`）で Siri の頼みと
+    同じ受け箱に入力欄を開く頼みを置く。撮影用のデモと UI テストでは数字を渡さない。文字列は拡張の `SaifuLogWidgets/Localizable.xcstrings`
+    （`make check-strings` が両方を確かめる）。`make archive` が拡張が入っているか・版がアプリと同じかを確かめる（`RELEASE_WIDGET_CHECK`）。
+    拡張の App ID と App Group の登録（所有者の作業）と、実機での確認はまだ。`docs/design.md` §9 のウィジェットの決め事）。
     アプリのロック（⑧ の「セキュリティ」の「Face ID でロック」。既定はオフ。起動と裏から戻ったときに `deviceOwnerAuthentication` を求め、
     前面を離れたら隠す。オンにするときもオフにするときも認証する。状態は `AppLock`（`SaifuLogApp` で 1 つ、環境で設定へ渡す）、ロックの画面は
     シートやアラートより上の別の窓（`AppLockOverlay` の `AppLockWindow`。VoiceOver もその窓の中だけにとどめる）。設定は UserDefaults では
     なく専用のファイル（`LaunchSettingsStore`。最初のロック解除の後は読める保護。ロック中に裏で起こされると UserDefaults は空の内容を
-    覚えてしまうため）。起動したときに読めなければ、読めるまで画面を隠す。家計の画面を隠している間は、くり返しの記録・支払いの取り込み・
-    Siri の頼み・ふりかえりを待たせる（`HomeView`）。Face ID の利用目的は project.yml と InfoPlist.xcstrings。実機の Face ID と VoiceOver の
+    覚えてしまうため）。起動したときに読めなければ、読めるまで画面を隠す。家計の画面を隠している間は、くり返しの記録・
+    Siri の頼みを待たせる（`HomeView`）。Face ID の利用目的は project.yml と InfoPlist.xcstrings。実機の Face ID と VoiceOver の
     確認はまだ）。⑧ に「ヘルプ・お問い合わせ」（`docs/support.md`）。
     保存先を開けないときは落とさず、ロック中なら解除を待って開き直し、それ以外は再試行の画面を出す（`StoreHost`）。
     保存先のデータ保護は NSFileProtectionComplete（ロック中は読めないようにする。SwiftData は SQLite のファイルに自分で保護を付け
@@ -189,11 +207,17 @@
     当てる（`StoreFileProtection`。-shm は記録の中身を含まず、落ちるおそれがあるので当てない）。実機での確認はまだ。
     release.yml は開発用の証明書で署名したアーカイブから提出物を作るようにしたが、証明書の Secrets の登録と、
     main で `mode=export` の照合が通るかの確認はまだ。`docs/design.md` §5-4）。
-  - **未実装:** 週のふりかえりの通知・家族との共有の提供（試作は機能フラグで隠している）・
-    金額が読めないときの聞き返し・CSV の読み込み・ウィジェット（未決。`docs/design.md` §13）。
+  - **未実装:** 金額が読めないときの聞き返し・ほかのアプリの CSV（PayPay など）の読み込み。
+  - **やめたもの（2026-11-13）:** Apple Pay の支払いの自動記録・買う前チェック・家族との家計の共有（試作）・確認待ちの一覧・
+    よく使うひとこと・独自の声の入力（キーボードの音声入力で足りる）・週のふりかえり・カテゴリ別の予算・プレミアムと課金と無料の回数の制限（すべて無料にした）・週の始まりの設定・
+    ライセンスの行・初回の案内の予算の画面・月のまとめの 1 日あたりの平均と今日までの目安。Siri の操作は 2 つにした
+    （チャットと端末内 AI に絞るため。`docs/design.md` §15）。
   - 実機での確認の手段: release.yml の手動実行 `mode=testflight` で、develop のビルドを診断画面入りで TestFlight の
     社内テスト専用に送れるようにした（審査には出ない。Environment `release` の配備ブランチは `main` と `develop`）。
     実際に TestFlight で入れての確認はまだ（`docs/release-flow.md` の「TestFlight で実機に入れる（社内テスト）」）。
+  - 本物の端末内 AI の答え方のテスト（`make test-ai`。`SaifuLogTests/AIEvaluation/`）を足した。Apple Intelligence をオンにした Mac の
+    シミュレータで、読み取り・カテゴリ・チャットの操作・質問・一言を本物のモデルに頼んで確かめる（CI では動かさない）。まだ一度も
+    動かしていない（表の答えと割合の下限は、動かしてから見直す）。実機（とくに対応機種のうち古いもの）での時間の確認は別にまだ。
 - プロダクトの決定事項と未決事項は `docs/design.md` にある。仕様に迷ったらまずそこを見る。
 - README などに、実装していない機能を「できる」と書かない。予定は「予定」と書く。
   逆に、機能を足したら README・`docs/design.md`・`PRIVACY.md` の「予定」も外す。
@@ -250,20 +274,45 @@ docs: add privacy policy
 - `make build` — 生成してから `xcodebuild build -scheme SaifuLog`（汎用 iOS シミュレータ向け、
   署名なし、`SIM_ARCHS`（既定 arm64）だけ）。CI の最初のステップと同じ経路
 - `make test` — `swift test --package-path Packages/SaifuLogCore`（コアのテスト）
-- `make build-tests` — アプリ側のテスト（`SaifuLogTests/`、Swift Testing）を `xcodebuild build-for-testing` で
-  ビルドする（汎用のシミュレータ向け、署名なし）。`make build` はスキームの build アクション（SaifuLog だけ）
-  なので、テストのターゲットが壊れても `make build` だけでは気づけない
+- `make build-tests` — アプリ側のテスト（`SaifuLogTests/`、Swift Testing）と UI テスト（`SaifuLogUITests/`）を
+  `xcodebuild build-for-testing` でビルドする（汎用のシミュレータ向け、署名なし）。`make build` はスキームの build アクション
+  （SaifuLog だけ）なので、テストのターゲットが壊れても `make build` だけでは気づけない
 - `make test-app` — アプリ側のテストをシミュレータで動かす（`build-tests` の後に `test-without-building`、
-  `-only-testing:SaifuLogTests`。購入のテスト `StoreKitPurchaseTests` は除く）。SwiftData の保存・読み込みの条件や保存の失敗の扱い、保存先の開き方、
+  `-only-testing:SaifuLogTests`。本物の端末内 AI の答え方のテスト `AIEvaluationTests` は `-skip-testing` で外す）。
+  SwiftData の保存・読み込みの条件や保存の失敗の扱い、保存先の開き方、
   画面のモデル（`HomeModel`）の操作など、コアに置けない部分。
   機種は `scripts/pick-simulator.sh` が、いちばん新しい iOS の iPhone を選ぶ（`TEST_DESTINATION=…` で上書きできる）
-- `make test-storekit` — 購入のテスト（SKTestSession）を、それが動く版（`STOREKIT_TEST_OS`、いまは iOS 26.2）のシミュレータで
-  動かし、1 つでも飛ばされたら失敗にする（`scripts/test-storekit.sh`。シミュレータが無ければ `scripts/prepare-storekit-simulator.sh`）
+- `make test-app-ios26` — アプリ側のテストを iOS 26 の版（`IOS26_TEST_OS`、いまは iOS 26.2）のシミュレータで動かす（iOS 26 での
+  SwiftData などの動作の違いを確かめる）。その版のシミュレータが無ければ止まる（`./scripts/prepare-simulator.sh 26.2` で入れる。
+  ランタイムは数 GB。CI は build.yml が `scripts/prepare-simulator.sh` で入れる）
+- `make test-ui` — 画面を操作する UI テスト（`SaifuLogUITests/`、XCTest の XCUITest）をシミュレータで動かす（`build-tests` の後に
+  `test-without-building`、`-only-testing:SaifuLogUITests`。宛先は `make test-app` と同じ）。アプリを起動引数 `-SaifuLogUITest YES` で
+  開き（`SaifuLog/UITestMode/`。**DEBUG のビルドだけ**で `#if DEBUG` の中。メモリの上の保存先（`-SaifuLogUITestSeed demo` なら撮影用の
+  デモと同じ記録）・専用の UserDefaults の領域・キーワード辞書（端末内 AI は使わない）・「いま」はその月の 15 日の 20:30・ロックと
+  iCloud 同期はオフ・診断のボタンなし。`-SaifuLogUITestFirstRun YES` で初回の案内から、`-SaifuLogUITestReceipt YES` で決まった
+  レシートの ⑤ を開く）、初回の案内・記録と取り消し・カテゴリの聞き返し・チャットの操作・質問・直す・削除・カレンダー・
+  月のまとめ・設定とその先・CSV の書き出し・レシート・アクセシビリティの検査（`performAccessibilityAudit`。要素の説明と押せる
+  範囲）・いちばん大きな文字を押して確かめる。要素は表示の文ではなく名前（`SaifuLog/App/AccessibilityID.swift`。UI テストの
+  ターゲットにも同じファイルを入れる）で探す。画面に要素を足したり作り替えたりしたら、名前を付け直して UI テストも直す。
+  待つときは決まった時間眠らず、要素の状態を待つ。CI のシミュレータは遅く揺れるので、入力欄はフォーカスが入るまで押し直してから
+  打ち（`focusField`）、落ちたテストは xcodebuild が 1 回だけ動かし直す（`-retry-tests-on-failure -test-iterations 2`）。CI で
+  歯車を押したのに月のまとめが開いたことがあった（帯の数字の的が歯車の真下まで広がっていたため。帯を左右の列に分けて直し、
+  `openSettings` は月のまとめが開いたら失敗にする）
+- `make test-ai` — 本物の端末内 AI（Foundation Models）の答え方のテスト（`SaifuLogTests/AIEvaluation/` の `AIEvaluationTests`）
+  だけを動かす（`scripts/test-ai.sh`。`build-tests` の後に `-only-testing:SaifuLogTests/AIEvaluationTests`、宛先は `make test-app` と同じ）。
+  ひとこと入力の読み取り・カテゴリの聞き直し・チャットの操作の種類・家計への質問・記録の返事と月のまとめの一言を本物のモデルに
+  頼み、答えの合い方（表ごとの割合。選ぶ答えは 8 割、一言の照合は 6 割）と上限の時間（`AITimeouts`）を見る。揺れてはいけないこと
+  （入力に無い金額を作らない・カテゴリが選択肢の外にならない・記録や質問の文をチャットの操作として行わない・質問の答えの数字が
+  コードの計算と同じ）は 1 件でも外れたら落ちる。シミュレータの端末内 AI は Mac の Apple Intelligence を使うので、Apple シリコンの
+  Mac（macOS 26 以降）で Apple Intelligence をオンにし、モデルを入れ終えてから動かす。使えなければ飛ばさずに失敗する
+  （`REQUIRE_AI_EVALUATION=1`）。CI のランナーでは Apple Intelligence を使えず、モデルの答えは揺れるので、`make ci` と build.yml には
+  入れない。指示文・`@Guide`・AI に渡すもの・`AITimeouts` を変えたときと、リリースの前に通す（件ごとの答えと時間はログの表に出る）
 - `make check-strings` — `make build` が書き出した Debug の .stringsdata と `Localizable.xcstrings` を突き合わせ、
   足りないキー・使われていないキー・en の無いキー・ja と en の書式指定子の不一致があれば止まる（`scripts/check-strings.py`）
-- `make ci` — 必須チェック `build`（build.yml）と同じ 8 種類（`make build`・`make check-strings`・`make test`・`make build-tests`・
-  `make test-app`・`make test-storekit`・`make check-version`・`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を順に通す。
-  `make test-app` は最新 iOS と購入テスト用の iOS 26.2 の両方で実行する（SwiftData などの動作の違いも確かめる）。
+- `make ci` — 必須チェック `build`（build.yml）と同じ 9 種類（`make build`・`make check-strings`・`make test`・`make build-tests`・
+  `make test-app`・`make test-ui`・`make test-app-ios26`・`make check-version`・`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を
+  順に通す。
+  アプリ側のテストは最新 iOS と iOS 26.2 の両方で動かす（SwiftData などの動作の違いも確かめる）。
   **`make build` が通るだけでは CI が通るとは限らない。** PR の前はこれを通す
 - `make clean` / `make open` — 生成物の削除 / Xcode で開く
 - `release.mk`（Makefile の末尾で読み込む）:
@@ -273,8 +322,8 @@ docs: add privacy policy
     既定は署名あり。`ARCHIVE_SIGNING=NO` で署名なし（build.yml と `make ci`）、`ARCHIVE_KEYCHAIN=…` で署名に使う
     キーチェーンを指定する（release.yml が、証明書を取り込んだ使い捨てのキーチェーンを渡す）。
     `INTERNAL_BUILD=YES` で社内テスト用（診断画面入り。release.yml の `mode=testflight` だけが渡す。既定は `NO`）。
-    できたアプリの Info.plist にバージョン・ビルド番号・アイコンが入っているかと、診断画面と家族との家計の共有が
-    `INTERNAL_BUILD` のとおりに入っているか（`NO` なら入っていないか。家計の共有は印の文字列と `CKSharingSupported` で見る）、
+    できたアプリの Info.plist にバージョン・ビルド番号・アイコンが入っているかと、診断画面が
+    `INTERNAL_BUILD` のとおりに入っているか（`NO` なら入っていないか）、
     `UIBackgroundModes` に remote-notification があるか、撮影用のデモが入っていないかも確かめる（CI の build でも走る）
   - `make export-ipa` — アーカイブから .ipa を書き出すだけ（送信しない）。署名とエンタイトルメントを表示し、
     エンタイトルメントのファイル（`SaifuLog/SaifuLog.entitlements`）のキーが載っていないか、値が `release.mk` の
@@ -295,12 +344,13 @@ docs: add privacy policy
   `com.iam74k4.SaifuLog` は作者のチームで登録済みで、チームだけ替えると自動署名が失敗する。
 - エンタイトルメントは `project.yml` の `targets.SaifuLog.entitlements.properties` に書く。
   `SaifuLog/SaifuLog.entitlements` は `make generate` が書き出す生成物（直接書き換えても消える）だが、
-  コミットはする。いまは次の 4 つ: データ保護（`com.apple.developer.default-data-protection = NSFileProtectionComplete`）、
+  コミットはする。いまは次の 5 つ: データ保護（`com.apple.developer.default-data-protection = NSFileProtectionComplete`）、
   iCloud（`com.apple.developer.icloud-services = CloudKit` と `com.apple.developer.icloud-container-identifiers =
   $(ICLOUD_CONTAINER_ID)`。`Config/Base.xcconfig` で `iCloud.com.iam74k4.SaifuLog`）、`aps-environment = development`
-  （App Store 向けの書き出しで production に替わる）。Info.plist の `UIBackgroundModes` の remote-notification は、ビルドの設定で
-  書けないので `SaifuLog/Info.plist` に置き、`CKSharingSupported` は家計の共有が有効なビルド（Debug と社内テスト用）が使う
-  `SaifuLog/Info-HouseholdSharing.plist` にだけ置く（2 つは `project.yml` の `SAIFULOG_HOUSEHOLD_SHARING` で選び、ほかは同じ中身に保つ）。
+  （App Store 向けの書き出しで production に替わる）、App Group（`com.apple.security.application-groups = $(APP_GROUP_ID)`。
+  `group.com.iam74k4.SaifuLog`。ウィジェットに数字を渡す）。ウィジェットの拡張は `targets.SaifuLogWidgets.entitlements` に
+  App Group だけ（`SaifuLogWidgets/SaifuLogWidgets.entitlements`。同じく生成物だがコミットする）。Info.plist の `UIBackgroundModes` の remote-notification は、ビルドの設定で
+  書けないので `SaifuLog/Info.plist` に置く（どのビルドも同じファイル）。
   エンタイトルメントは署名ありのアーカイブにしか焼かれない。release.yml は開発用の証明書（Environment `release` の
   Secrets `APPLE_DEV_CERT_P12_BASE64` / `APPLE_DEV_CERT_P12_PASSWORD`）で署名してアーカイブする。build.yml と
   `make ci` のアーカイブは署名なしで、エンタイトルメントは焼かれない（組み立ての確認だけなので要らない）。
@@ -323,9 +373,13 @@ docs: add privacy policy
 ### コードの置き場所
 - `SaifuLog/` — アプリ本体。起動と保存先を開く部分・設定のキー（`App/`）、SwiftUI の画面と画面ごとの
   `@Observable` のモデル（`Views/`）、SwiftData のモデルと保存先の作り方（`Models/`）、
-  Foundation Models を使う部分（`AI/`）、StoreKit の購入と復元（`Purchases/`）、レシートの文字認識（`Receipt/`）、
-  声の書き起こし（`Voice/`）、家族との家計の共有（`Household/`。機能フラグで隠している）、`Resources/`（Assets、String Catalog など）、
-  実機での確認に使う診断画面（`Diagnostics/`）、App Store のスクリーンショットの撮影用のデモ（`ScreenshotDemo/`。DEBUG だけ）。
+  Foundation Models を使う部分（`AI/`）、Siri とショートカット（`Intents/`）、レシートの文字認識（`Receipt/`）、
+  `Resources/`（Assets、String Catalog など）、
+  実機での確認に使う診断画面（`Diagnostics/`）、App Store のスクリーンショットの撮影用のデモ（`ScreenshotDemo/`。DEBUG だけ）、
+  UI テストで起動したときの状態（`UITestMode/`。DEBUG だけ）、UI テストが要素を探す名前（`App/AccessibilityID.swift`）、
+  ウィジェットに数字を渡す部分（`Widgets/`。`WidgetSnapshotFile.swift` と `WidgetLink.swift` は拡張にも入れる）。
+- `SaifuLogWidgets/` — ウィジェットの拡張（WidgetKit）。保存先（SwiftData）を開かない。Info.plist（`NSExtension` と
+  `SaifuLogAppGroup`）・String Catalog・プライバシーマニフェストを持つ。
 - 診断画面（`SaifuLog/Diagnostics/`）は、社内テスト用のビルド（Swift の条件 `INTERNAL_DIAGNOSTICS`。
   `make archive INTERNAL_BUILD=YES`）と DEBUG のビルドにだけ入れる。コードは必ず `#if DEBUG || INTERNAL_DIAGNOSTICS` で
   囲い（入口のボタンや `HomeView` のシートも）、App Store へ出すビルドに入れない（`make archive` がアプリの中の印
@@ -353,12 +407,11 @@ docs: add privacy policy
 
 ### 保存先・設定・テストの作り方
 - **保存先（`ModelContainer`）は `SaifuLog/Models/ModelContainerFactory.swift` でだけ作る。** アプリは
-  `makeContainer(cloudKitDatabase:)`、テストとプレビューは `makeInMemoryContainer()`（家族との家計の保存先は `makeHouseholdContainer` と
-  `makeInMemoryHouseholdContainer()`）。`.modelContainer(for:inMemory:)` や
+  `makeContainer(cloudKitDatabase:)`、テストとプレビューは `makeInMemoryContainer()`。`.modelContainer(for:inMemory:)` や
   `ModelConfiguration(isStoredInMemoryOnly:)` を直接使わない（iCloud が既定の `.automatic` になり、iCloud の
   entitlement を足した時点でテストやプレビューまで同期しようとするため）。保存先の場所（`storeURL`、
   Application Support/default.store）は変えない（変えるとそれまでの記録が読めなくなる。テストで確かめている）。
-  モデルを足すときは `ModelContainerFactory.modelTypes`（家計のモデルは `householdModelTypes`）に並べる。
+  モデルを足すときは `ModelContainerFactory.modelTypes` に並べる。
 - アプリの保存先は `SaifuLog/App/StoreHost.swift` が開く（最初の画面が出るとき）。fatalError で止めない。
   ロック中は解除を待って開き直し、それ以外の失敗は再試行の画面（`StoreRootView`）を出す（再試行でもまた開けなければ、
   回数を出して VoiceOver にも読み上げる）。iCloud の切り替えなどで開き直すときは `reopen(cloudKitDatabase:)`
@@ -396,6 +449,8 @@ docs: add privacy policy
   返らない（時間切れ）ときは、キーワード辞書によるルールベース解析に切り替える。**AI が無くても記録できるアプリであること。**
   上限は `SaifuLog/AI/AITimeouts` の 1 か所に書き、AI を待つときはコアの `withDeadline` を通す（止まったモデルを待たない。
   取り消しは時間切れにしない）。
+- 本物のモデルの答え方は `make test-ai`（`SaifuLogTests/AIEvaluation/`）で確かめる。指示文・`@Guide`・AI に渡すもの・`AITimeouts`
+  を変えたら、Apple Intelligence をオンにした Mac で通す（CI では動かない）。AI を使う機能を足したら、ここにも表を足す。
 - 記録の直後に必ずアプリの返事で記録した内容と「取り消す」を出し、返事の行からすぐ直せるようにする。記録は長押しでいつでも
   削除できるようにする（確認つき。VoiceOver の操作からも）。
 
