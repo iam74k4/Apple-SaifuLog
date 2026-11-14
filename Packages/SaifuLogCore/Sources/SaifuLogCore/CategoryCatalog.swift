@@ -108,11 +108,14 @@ public struct CategoryCatalog: Sendable, Hashable {
         guard !trimmed.isEmpty else { return .failure(.empty) }
         guard trimmed.count <= Self.maximumNameLength else { return .failure(.tooLong) }
         let folded = Self.fold(trimmed)
+        // 名前を変えずに記号や色だけを直すときは、組み込みの名前とは比べない。前の版で作れた名前（言い換えを足す前に作った
+        // 「趣味」「交通費」など）のカテゴリが、名前を変えないかぎり保存できなくなるため。
+        let keepsOwnName = editing.flatMap { id in customs.first { $0.id == id } }.map { Self.fold($0.name) == folded } ?? false
         // 組み込みのカテゴリの言い換え（「交通費」「光熱費」など。チャットでカテゴリを直すときに読む名前）とも重ねない。
         // 重なると「それ交通費」がどちらのカテゴリか決まらず、利用者の思ったほうにならないことがあるため。
         let aliases: [String] = CategoryCorrection.aliases.values.flatMap { $0 }
         let builtInNames: [String] = EntryCategory.builtIns.map(\.displayName) + ["光熱", "通信"] + aliases
-        if builtInNames.contains(where: { Self.fold($0) == folded }) { return .failure(.duplicate) }
+        if !keepsOwnName, builtInNames.contains(where: { Self.fold($0) == folded }) { return .failure(.duplicate) }
         if customs.contains(where: { $0.id != editing && Self.fold($0.name) == folded }) { return .failure(.duplicate) }
         return .success(trimmed)
     }

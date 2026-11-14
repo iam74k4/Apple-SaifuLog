@@ -115,6 +115,24 @@ struct CategoryCatalogTests {
         #expect(Self.catalog.validateName("衣服", editing: "c2") == .failure(.duplicate))
     }
 
+    // 以前は、組み込みの言い換え（「趣味」「交通費」）を足す前に作ったカテゴリの色や記号を変えるだけでも、名前が組み込みと
+    // 重なるとして保存できなかった。
+    @Test("組み込みの言い換えと同じ名前の、前からある作ったカテゴリは、名前を変えなければ直せる")
+    func editingKeepsLegacyAliasName() {
+        let hobby = CustomCategoryInfo(id: "h1", name: "趣味", symbolName: "gamecontroller", colorIndex: 3)
+        let fare = CustomCategoryInfo(id: "f1", name: "交通費", symbolName: "car", colorIndex: 4)
+        let catalog = CategoryCatalog(customs: [hobby, fare])
+        // 自分の今の名前のままなら（表記ゆれも同じ名前とみなす）、保存できる。
+        #expect(catalog.validateName("趣味", editing: "h1") == .success("趣味"))
+        #expect(catalog.validateName(" 交通費 ", editing: "f1") == .success("交通費"))
+        // 新しく作るとき・ほかのカテゴリの名前を変えるときは、これまでどおり組み込みの言い換えと重ねない。
+        #expect(catalog.validateName("趣味") == .failure(.duplicate))
+        #expect(catalog.validateName("趣味", editing: "f1") == .failure(.duplicate))
+        // 自分の名前を、組み込みの名前や言い換えに変えることはできない。
+        #expect(catalog.validateName("食費", editing: "h1") == .failure(.duplicate))
+        #expect(catalog.validateName("光熱費", editing: "h1") == .failure(.duplicate))
+    }
+
     // MARK: - 作ったカテゴリを使う計算
 
     @Test("文に作ったカテゴリの名前があれば、そのカテゴリにする（覚えより先）")
