@@ -90,7 +90,7 @@ struct CategoryEditorSheet: View {
             Text("名前")
                 .font(.subheadline)
                 .foregroundStyle(Theme.inkSecondary)
-            TextField(text: $model.name, prompt: Text("衣服・住居・美容 など").foregroundStyle(Theme.inkSecondary)) {
+            TextField(text: $model.name, prompt: Text("交際・ペット・子ども など").foregroundStyle(Theme.inkSecondary)) {
                 Text("名前")
             }
             .foregroundStyle(Theme.ink)

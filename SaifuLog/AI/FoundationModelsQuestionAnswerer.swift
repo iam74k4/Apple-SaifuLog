@@ -110,7 +110,7 @@ struct LedgerQueryArguments {
     @Guide(description: "知りたいこと。expenseTotal は支出の合計、incomeTotal は収入の合計、balance は収支、expenseByCategory は支出のカテゴリ別の内訳、categoryExpense はあるカテゴリの支出の合計、entryCount は記録の件数、remainingBudget は月の予算の残り、dailyAllowance は月末まで日割りで使える額、topCategory はいちばん多く使ったカテゴリ")
     var metric: MetricChoice
 
-    @Guide(description: "聞かれたカテゴリ。unspecified は特定のカテゴリを聞かれていないとき。food は食費、daily は日用品、transport は交通、cafe はカフェ、entertainment は娯楽、utilities は光熱・通信、medical は医療、other はその他")
+    @Guide(description: "聞かれたカテゴリ。unspecified は特定のカテゴリを聞かれていないとき。food は食費、daily は日用品、transport は交通、cafe はカフェ、entertainment は娯楽、utilities は光熱・通信、medical は医療、housing は住居、clothing は衣服・美容、other はその他")
     var category: CategoryChoice
 
     @Generable
@@ -125,7 +125,7 @@ struct LedgerQueryArguments {
 
     @Generable
     enum CategoryChoice {
-        case unspecified, food, daily, transport, cafe, entertainment, utilities, medical, other
+        case unspecified, food, daily, transport, cafe, entertainment, utilities, medical, housing, clothing, other
     }
 
     /// コアの形（`QuestionChoice`）に写す。
@@ -160,6 +160,8 @@ struct LedgerQueryArguments {
         case .entertainment: .entertainment
         case .utilities: .utilities
         case .medical: .medical
+        case .housing: .housing
+        case .clothing: .clothing
         case .other: .other
         }
         return QuestionChoice(period: period, metric: metric, category: category)

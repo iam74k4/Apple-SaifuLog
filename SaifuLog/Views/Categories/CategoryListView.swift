@@ -73,7 +73,7 @@ struct CategoryListView: View {
     private var customSection: some View {
         Section {
             if model.customs.isEmpty {
-                Text("まだ作ったカテゴリはありません。家賃・服・美容など、よく使う分け方を作れます。")
+                Text("まだ作ったカテゴリはありません。交際・ペット・子どもなど、よく使う分け方を作れます。")
                     .foregroundStyle(Theme.inkSecondary)
                     .listRowBackground(Theme.surface)
             }
@@ -229,8 +229,8 @@ extension LocalizedStringResource {
 #Preview {
     if let container = try? ModelContainerFactory.makeInMemoryContainer() {
         let store = CustomCategoryStore(context: container.mainContext)
-        let _ = try? store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
-        let _ = try? store.create(name: "住居", symbolName: "house", colorIndex: 1)
+        let _ = try? store.create(name: "交際", symbolName: "wineglass", colorIndex: 0)
+        let _ = try? store.create(name: "ペット", symbolName: "pawprint", colorIndex: 1)
         NavigationStack {
             CategoryListView(model: CategoryListModel(store: store, categories: CategoryCatalogModel(store: store)))
         }

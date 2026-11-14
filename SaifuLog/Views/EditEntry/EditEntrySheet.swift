@@ -224,7 +224,7 @@ struct EditEntrySheet: View {
         }
     }
 
-    /// カテゴリ。8 種を色と記号つきで並べ、1 つを選ぶ。アクセシビリティサイズの文字では 1 列にする。
+    /// カテゴリ。組み込みの 10 種と作ったカテゴリを色と記号つきで並べ、1 つを選ぶ。アクセシビリティサイズの文字では 1 列にする。
     private var categorySection: some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel("カテゴリ")

@@ -225,7 +225,7 @@ struct SettingsView: View {
             Text(.categoriesTitle)
                 .foregroundStyle(Theme.inkSecondary)
         } footer: {
-            sectionFooter("家賃・服・美容など、カテゴリは作って増やせます。記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。")
+            sectionFooter("交際・ペット・子どもなど、カテゴリは作って増やせます。記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。")
         }
     }
 

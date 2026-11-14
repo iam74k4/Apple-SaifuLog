@@ -1874,13 +1874,13 @@
         }
       }
     },
-    "まだ作ったカテゴリはありません。家賃・服・美容など、よく使う分け方を作れます。" : {
+    "まだ作ったカテゴリはありません。交際・ペット・子どもなど、よく使う分け方を作れます。" : {
       "comment" : "設定の「カテゴリ」に作ったカテゴリが無いときの案内",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You haven’t created any categories yet. Create the ones you use often, such as rent, clothing, or beauty."
+            "value" : "You haven’t created any categories yet. Create the ones you use often, such as social, pets, or kids."
           }
         }
       }
@@ -2535,6 +2535,17 @@
         }
       }
     },
+    "推し活" : {
+      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）。好きな人やキャラクターを応援するための出費",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fandom"
+          }
+        }
+      }
+    },
     "ペット" : {
       "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
       "localizations" : {
@@ -2942,6 +2953,17 @@
         }
       }
     },
+    "子ども" : {
+      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kids"
+          }
+        }
+      }
+    },
     "交際" : {
       "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
       "localizations" : {
@@ -3125,7 +3147,7 @@
       }
     },
     "住居" : {
-      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
+      "comment" : "カテゴリ",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3718,6 +3740,17 @@
         }
       }
     },
+    "衣服・美容" : {
+      "comment" : "カテゴリ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clothing & beauty"
+          }
+        }
+      }
+    },
     "医療" : {
       "comment" : "カテゴリ",
       "localizations" : {
@@ -4213,13 +4246,13 @@
         }
       }
     },
-    "家賃・服・美容など、カテゴリは作って増やせます。記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。" : {
+    "交際・ペット・子どもなど、カテゴリは作って増やせます。記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。" : {
       "comment" : "設定の「カテゴリ」の節の注記",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You can create categories such as rent, clothing, or beauty. When you choose a category in a reply or change one on the edit screen, SaifuLog records the same words in that category from now on."
+            "value" : "You can create categories such as social, pets, or kids. When you choose a category in a reply or change one on the edit screen, SaifuLog records the same words in that category from now on."
           }
         }
       }
@@ -5254,17 +5287,6 @@
         }
       }
     },
-    "美容" : {
-      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Beauty"
-          }
-        }
-      }
-    },
     "群青" : {
       "comment" : "カテゴリを作る・直すシートの色の名前（VoiceOver が読む）",
       "localizations" : {
@@ -5320,24 +5342,13 @@
         }
       }
     },
-    "衣服" : {
-      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Clothing"
-          }
-        }
-      }
-    },
-    "衣服・住居・美容 など" : {
+    "交際・ペット・子ども など" : {
       "comment" : "カテゴリを作る・直すシートの、名前の欄が空のときの例",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "e.g. Clothing, Housing, Beauty"
+            "value" : "e.g. Social, Pets, Kids"
           }
         }
       }
@@ -6098,17 +6109,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Gifts"
-          }
-        }
-      }
-    },
-    "趣味" : {
-      "comment" : "カテゴリを作るシートの、よく使うカテゴリの候補の名前（押すと名前の欄に入る）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hobbies"
           }
         }
       }

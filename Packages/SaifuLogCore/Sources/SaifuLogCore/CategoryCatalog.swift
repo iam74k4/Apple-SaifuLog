@@ -24,7 +24,7 @@ public struct CustomCategoryInfo: Sendable, Hashable, Identifiable {
     }
 }
 
-/// カテゴリの一覧（組み込みの 8 種と、利用者が作ったカテゴリ）。作ったカテゴリの名前・記号・色を引き、画面の並びを決める。
+/// カテゴリの一覧（組み込みの 10 種と、利用者が作ったカテゴリ）。作ったカテゴリの名前・記号・色を引き、画面の並びを決める。
 ///
 /// 決め事:
 /// - 画面の並びは、組み込みの「その他」以外（定義の順）、作ったカテゴリ（利用者が決めた順）、「その他」（`all`）。
@@ -33,12 +33,12 @@ public struct CustomCategoryInfo: Sendable, Hashable, Identifiable {
 ///   記録そのものは書き換えない（届けば名前が出る）。
 /// - 作ったカテゴリには、文の中にその名前が書かれていれば当てる（`customCategory(namedIn:)`。修正の記憶より先に見る。
 ///   `CategoryMemory`）。名前が 2 つ当たれば長いほう。
-/// - AI の選択肢とキーワード辞書は組み込みの 8 種だけ（`EntryCategory.builtIns`）。
+/// - AI の選択肢とキーワード辞書は組み込みの 10 種だけ（`EntryCategory.builtIns`）。
 public struct CategoryCatalog: Sendable, Hashable {
     /// 作ったカテゴリ（利用者が決めた順）。
     public let customs: [CustomCategoryInfo]
 
-    /// 組み込みの 8 種だけの一覧（作ったカテゴリが無い、または一覧を読めないとき）。
+    /// 組み込みの 10 種だけの一覧（作ったカテゴリが無い、または一覧を読めないとき）。
     public static let builtIn = CategoryCatalog(customs: [])
 
     /// 作れるカテゴリの数の上限。多すぎると、聞き返しのボタンや予算の欄が長くなって選びにくくなるため。
@@ -46,7 +46,8 @@ public struct CategoryCatalog: Sendable, Hashable {
     /// 名前の最大の長さ（文字）。返事の行・月のまとめの行・ボタンに収まる長さにする。
     public static let maximumNameLength = 12
 
-    /// 作ったカテゴリに選べる記号（SF Symbols）。組み込みのカテゴリの記号とは別のもの。
+    /// 作ったカテゴリに選べる記号（SF Symbols）。組み込みのカテゴリの記号とは別のもの（「tshirt」「house」は、後から組み込みにした
+    /// 衣服・美容と住居と同じ記号だが、前に作ったカテゴリが使っているので残す）。
     public static let symbolChoices = [
         "tshirt", "scissors", "house", "gift", "graduationcap", "pawprint", "car", "dumbbell",
         "heart", "gamecontroller", "book", "airplane", "leaf", "bag", "wineglass", "music.note",

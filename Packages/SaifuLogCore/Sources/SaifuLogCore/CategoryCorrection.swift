@@ -107,6 +107,8 @@ public enum CategoryCorrection {
         .entertainment: ["娯楽費", "趣味"],
         .utilities: ["光熱費", "通信費", "光熱", "通信"],
         .medical: ["医療費"],
+        .housing: ["家賃", "住宅", "住まい"],
+        .clothing: ["衣服", "洋服", "服", "美容", "衣類", "ファッション"],
     ]
 
     // MARK: - 残りの語

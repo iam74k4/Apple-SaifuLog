@@ -15,21 +15,20 @@ final class CategoryEditorModel: Identifiable {
         case edit(EntryCategory)
     }
 
-    /// よく使うカテゴリの候補（名前と記号）。作るときに押すと、名前と記号を入れる。家計簿でよく分ける費目のうち、組み込みの 8 種に
-    /// 無いもの（家賃・服・美容・交際費などが「その他」に入らないように）。名前は画面の言語の文字列で入れる（作った後は利用者の名前）。
+    /// よく使うカテゴリの候補（名前と記号）。作るときに押すと、名前と記号を入れる。家計簿でよく分ける費目のうち、組み込みの 10 種に
+    /// 無いもの（交際費・子どもの費用などが「その他」に入らないように）。名前は画面の言語の文字列で入れる（作った後は利用者の名前）。
+    /// 組み込みのカテゴリの名前と言い換え（住居・衣服・美容・趣味など。`CategoryCatalog.validateName`）は作れないので入れない。
     static let presets: [(name: LocalizedStringResource, symbolName: String)] = [
-        ("住居", "house"),
-        ("衣服", "tshirt"),
-        ("美容", "scissors"),
         ("交際", "wineglass"),
         ("教育", "graduationcap"),
+        ("子ども", "heart"),
         ("車", "car"),
         ("ペット", "pawprint"),
-        ("趣味", "gamecontroller"),
         ("旅行", "airplane"),
         ("保険", "building.columns"),
         ("贈り物", "gift"),
         ("ジム", "dumbbell"),
+        ("推し活", "sparkles"),
     ]
 
     /// 色の名前（VoiceOver が読む。`Palette.customCategoryChoices` と同じ順）。
