@@ -303,8 +303,9 @@ App Store Connect に登録してあるが、**すべての機能を無料にし
 
 - バージョンを審査に出すとき、「App 内課金とサブスクリプション」で選ばない（選ぶと、アプリに買う入口の無い課金アイテムを
   審査に出すことになる）。
-- App Store Connect に残しておいても、審査に出さなければ配信されない。消すかどうかは所有者が決める（製品 ID は消しても同じ App では
-  使い直せないので、いつか収益化を考え直すときに同じ ID を使うなら残しておく）。
+- App Store Connect に残しておいても、審査に出さなければ配信されない。消すかどうかは所有者が決める（製品 ID は消すと同じ App では
+  二度と使えない）。0.1.0 は「すべて無料・広告なし・データを集めない」で出し、将来の候補は任意の応援（チップ。消耗型）だけにした
+  （2026-11-14。`docs/design.md` §6）。応援を足すときは、この 2 つとは別の ID で作るので、残しておく理由は無い。
 - 有料 App 契約（Paid Apps）と口座・税の情報も、無料のままなら要らない。
 
 ---
@@ -430,7 +431,7 @@ App Store Connect に登録してあるが、**すべての機能を無料にし
 | `v<version> は配信済み（タグあり）で、Apple はこの版の新しいビルドを TestFlight にも受け付けません`（承認済みのときも同じ） | 承認された版は閉じ、TestFlight 用のビルドも送れない。作業ブランチで `MARKETING_VERSION` と CHANGELOG の先頭の見出しを次の版に上げて develop へ入れてから、`mode=testflight` を走らせ直す |
 | `このアーカイブのアプリには診断画面（社内テスト用）が入っています` | `INTERNAL_BUILD=NO`（App Store へ出すビルド）のアーカイブに診断画面が入った。`INTERNAL_DIAGNOSTICS` を `project.yml` や `Config/*.xcconfig` で足していないか、診断画面のコードが `#if DEBUG \|\| INTERNAL_DIAGNOSTICS` の外に出ていないかを確かめる |
 | `INTERNAL_BUILD=YES ですが、アーカイブのアプリに診断画面の印（…）が見つかりません` | `mode=testflight` のアーカイブに診断画面が入らなかった。`project.yml` の `SAIFULOG_INTERNAL_BUILD` から `SWIFT_ACTIVE_COMPILATION_CONDITIONS` への組み立てと、`SaifuLog/Diagnostics/DiagnosticsReport.swift` の `buildMarker` が `release.mk` の `RELEASE_INTERNAL_MARKER` と同じ値かを確かめる |
-| `このアーカイブのアプリには撮影用のデモ（DEBUG のビルドだけの仕組み）が入っています` | Release のアーカイブに撮影用のデモが入った。`SaifuLog/ScreenshotDemo/` と、それを呼ぶ場所（`SaifuLogApp`・`AppRootView`・`HomeView`・`PurchaseManager`・`PremiumSheet`）が `#if DEBUG` の外に出ていないか、Release の構成に `DEBUG` の条件を足していないかを確かめる |
+| `このアーカイブのアプリには撮影用のデモ（DEBUG のビルドだけの仕組み）が入っています` | Release のアーカイブに撮影用のデモが入った。`SaifuLog/ScreenshotDemo/` と、それを呼ぶ場所（`SaifuLogApp`・`AppRootView`・`HomeView`・`MonthlyReportView`）と、同じく DEBUG のビルドだけの UI テストの状態（`SaifuLog/UITestMode/`）が `#if DEBUG` の外に出ていないか、Release の構成に `DEBUG` の条件を足していないかを確かめる |
 | `UIBackgroundModes に remote-notification がありません` | `SaifuLog/Info.plist` から消えた。iCloud 同期がほかの端末の変更の知らせ（サイレントプッシュ）を受け取るのに要るので戻す |
 | 「依存を入れる」などの `pip install` が `--require-hashes` や `--only-binary` のエラーで止まる | `scripts/requirements.txt` のハッシュと合わない、またはランナーの Python の版に合う wheel が無い。手で書き換えず、`scripts/requirements.in` の先頭にある手順（`pip-compile --generate-hashes --strip-extras`）で作り直す。Python の版（`setup-python` の `3.12`）を変えたときも作り直す |
 | export で `Cloud signing permission error` | API キーのロールが Admin でない |
@@ -902,7 +903,10 @@ CloudKit は、スキーマに載った項目を後から暗号化フィール�
    項目が暗号化フィールドであることを確かめている）。足した項目も、Production に出す前に 2 で型が暗号化になっているかを確かめる
 5. **やめた家計の共有の型（`HouseholdEntry`）を出さない。** 家族との家計の共有（2026-11-13 にやめた）を試したことがあると、Development に
    `HouseholdEntry` の型が残っている。Deploy Schema Changes は Development の型をすべて Production に出し、Production の型は消せないので、
-   Schema → Record Types に `HouseholdEntry` があれば、0 のリセットで消してから 1 からやり直す
+   Schema → Record Types に `HouseholdEntry` があれば、0 のリセットで消してから 1 からやり直す。
+   同じく、`CD_Entry` に、やめた機能の項目（`CD_reviewID`・`CD_needsPaymentClassification`・`CD_paymentReviewJSON`。Apple Pay の支払いの
+   自動記録と確認待ちの一覧のもの）が残っていれば、0 のリセットからやり直す（前のビルドで同期したことがあると、Development の型に残る。
+   Production に出すと、使わない項目が消せないまま残るため）
 
 ### exportArchive の upload が失敗したら
 
