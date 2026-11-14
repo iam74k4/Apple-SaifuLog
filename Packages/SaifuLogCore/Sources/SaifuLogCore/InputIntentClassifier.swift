@@ -23,9 +23,11 @@ public enum InputIntent: Hashable, Sendable {
 /// 1. 「?」（全角も）・「いくら」・「どれくらい」・「何円」・「何件」・「何回」・「教えて」・「ですか」などの、はっきり質問を表す語があれば
 ///    質問（金額があっても。「ランチ850円って高い?」を記録しない）。ただし「いくら丼」は品目なので見ない。
 /// 2. 記録として読める金額があり（記録の読み取りと同じ `EntryInput` で 1 件以上）、上の語が無ければ、記録。ただし
-///    - 「訂正」「修正」「じゃなく」「ではなく」「間違えた」、または前の記録を指す語（「さっき」「前の」「今の」「直前」）と直す語
-///      （「直して」「直す」「変えて」「変更」「にして」）の組を含むなら、前の記録を直そうとする文（`correction`）。「間違えて」
-///      （「間違えて買ったパン 300」）と「お直し」（「ズボンのお直し 1500」）は記録にも書くので見ない
+///    - 「訂正」「修正」「じゃなく」「ではなく」「間違えた」、または前の記録を指す語（「さっき」「前の」「今の」「それ」「最後の」など。
+///      チャットの操作の読み取り `ChatCommandReader` と同じ語）と直す語（「直して」「直す」「変えて」「変更」「にして」）か言い直しの語
+///      （「実は」「本当は」「正しくは」）の組を含むなら、前の記録を直そうとする文（`correction`）。金額と直す語と語尾だけの文
+///      （「900に直して」）も同じ（品目が無いので記録としては読めない）。「間違えて」（「間違えて買ったパン 300」）と「お直し」
+///      （「ズボンのお直し 1500」）は記録にも書くので見ない
 ///    - 「残り」「使える」「予算」「収支」「件数」「内訳」、後ろに金額の続かない「合計」、比べる語（「超え」「多い」「少ない」「以上」
 ///      「以下」「増え」「減っ」）も含むなら、決められない（`unclear`）。「スーパー 合計2480」のように金額を添えた「合計」は、
 ///      記録の書き方（添えた額。§4-4）なので記録のまま。「より」だけでは比べる文にしない（「母より 10000」は記録）
@@ -54,7 +56,12 @@ public enum InputIntentClassifier {
         let hasAmount = !EntryInput(String(chars), now: now, calendar: calendar).segments.isEmpty
 
         if hasAmount {
-            if containsCorrectionWord(normalized) { return .correction }
+            // 直す文を記録にすると、直したつもりの支出が二重に記録される。前の記録を指す語のある文と、金額と直す語だけの文
+            // （「900に直して」）は、記録にしない。
+            if containsCorrectionWord(normalized)
+                || ChatCommandReader.isBareAmountEdit(normalized, now: now, calendar: calendar) {
+                return .correction
+            }
             return containsAmbiguousWord(normalized) || containsComparisonWord(normalized) ? .unclear : .record
         }
         if containsAmbiguousWord(normalized) || containsQuestionWord(normalized)
@@ -86,17 +93,32 @@ public enum InputIntentClassifier {
     /// 直す語を含むが、品目の名前のもの（「修正テープ 200」を、記録を直す文にしない）。
     static let correctionWordExceptions = ["修正テープ", "修正液", "修正ペン", "訂正印", "お直し"]
 
-    /// 前の記録を指す語。直す語（`editWords`）と組のときだけ、記録を直す文とみなす（「今のランチ 900」は記録）。
-    static let referenceWords = ["さっき", "先ほど", "前の", "今の", "直前"]
+    /// 前の記録を指す語。直す語（`editWords`）か言い直しの語（`restatementWords`）と組のときだけ、記録を直す文とみなす
+    /// （「今のランチ 900」は記録）。チャットの操作の読み取り（`ChatCommandReader.pointerWords`）と同じ語にする。前は
+    /// こちらに「それ」「いまの」「最後の」などが無く、チャットの操作として読めなかった「それを900に直して」が新しい記録になり、
+    /// 同じ支出が二重に記録された。
+    static let referenceWords = ["さっき", "先ほど", "さきほど", "今の", "いまの", "直前", "最後の", "前の", "それ", "これ", "あれ"]
 
-    /// 「前の」「今の」を含むが、前の記録を指さない語（「名前の変更 2500」「出前の注文」「午前の」）。
+    /// 前の記録を指す語のうち、後ろに品目らしい語が続くと品目を指す言い方にもなる語（「前のタイヤ」「最後のランチ」「これから」）。
+    /// 直した先を示す直す語（`targetedEditWords`）があるときだけ、前の記録を指すとみなす（`refersToPreviousRecord`）。
+    static let boundReferenceWords: Set<String> = ["前の", "今の", "いまの", "最後の", "それ", "これ", "あれ"]
+
+    /// 前の記録を指す語を含むが、前の記録を指さない語（「名前の変更 2500」「出前の注文」「午前の」「それぞれ」「これから」）。
     static let referenceWordExceptions = [
         "名前", "出前", "午前", "駅前", "手前", "建前", "以前", "寸前", "事前", "自前", "生前", "門前", "目の前", "腕前", "板前",
         "気前", "人前", "只今", "ただ今",
+        "それぞれ", "それから", "それなり", "それでも", "それとも", "それら", "おそれ", "これから", "これまで", "これら",
+        "あれこれ", "あれから",
     ]
 
-    /// 「前の」「今の」のすぐ後ろに続いても、前の記録を指す語・助詞（「前の記録」「今のは」）。
-    static let recordPointerFollowers = ["記録", "やつ", "金額", "値段", "額", "支出", "入力", "分", "件", "を", "は", "が", "も", "の", "、", "。"]
+    /// 前の記録を指す語のすぐ後ろに続いても、前の記録を指す語・助詞・言い直しの語（「前の記録」「今のは」「あれ実は」）。
+    static let recordPointerFollowers = [
+        "記録", "やつ", "金額", "値段", "額", "支出", "入力", "分", "件", "実は", "本当は", "ほんとは", "正しくは",
+        "を", "は", "が", "も", "の", "、", "。",
+    ]
+
+    /// 言い直しの語（「あれ実は900円だった」）。前の記録を指す語と組のときだけ、記録を直す文とみなす。
+    static let restatementWords = ["実は", "本当は", "ほんとは", "正しくは"]
 
     /// 直した先を示す直す語（「に直して」「に変えて」）。品目らしい語が続く「前の」「今の」（「今のランチ 900 に直して」）でも、
     /// これがあれば前の記録を直す文とみなす。
@@ -145,26 +167,31 @@ public enum InputIntentClassifier {
         questionWords.contains { text.contains($0) }
     }
 
-    /// 前の記録を直そうとする文か（`correctionWords`、または前の記録を指す語と直す語の組）。
+    /// 前の記録を直そうとする文か（`correctionWords`、または前の記録を指す語と、直す語か言い直しの語の組）。
     static func containsCorrectionWord(_ text: String) -> Bool {
         let haystack = masking(correctionWordExceptions, in: text)
         if correctionWords.contains(where: { haystack.contains($0) }) { return true }
-        return editWords.contains { haystack.contains($0) } && refersToPreviousRecord(haystack)
+        return (editWords + restatementWords).contains { haystack.contains($0) } && refersToPreviousRecord(haystack)
+    }
+
+    /// 直す語（`editWords`・`targetedEditWords`）を含むか。品目の名前の直す語（「お直し」「修正テープ」）は数えない。
+    static func containsEditWord(_ text: String) -> Bool {
+        let haystack = masking(correctionWordExceptions, in: text)
+        return (editWords + targetedEditWords).contains { haystack.contains($0) }
     }
 
     /// 前の記録を指す語があるか。
     ///
-    /// 「前の」「今の」はほかの語の一部（「名前の」「出前の」）や、品目を指す言い方（「前のタイヤ変えて 20000」は前輪のタイヤの
-    /// 交換の記録）にもなる。ほかの語の一部（`referenceWordExceptions`）は見ず、後ろに品目らしい語が続くときは、直した先を示す直す語
-    /// （`targetedEditWords`）があるときだけ前の記録を指すとみなす（記録の文を、直す文として書き直しを頼まないため）。
+    /// 「前の」「今の」「それ」などはほかの語の一部（「名前の」「出前の」「それぞれ」）や、品目を指す言い方（「前のタイヤ変えて 20000」は
+    /// 前輪のタイヤの交換の記録）にもなる。ほかの語の一部（`referenceWordExceptions`）は見ず、後ろに品目らしい語が続くときは、直した先を
+    /// 示す直す語（`targetedEditWords`）があるときだけ前の記録を指すとみなす（記録の文を、直す文として書き直しを頼まないため）。
     static func refersToPreviousRecord(_ text: String) -> Bool {
         let haystack = masking(referenceWordExceptions, in: text)
-        let boundWords: Set<String> = ["前の", "今の"]
         for word in referenceWords {
             var searchStart = haystack.startIndex
             while searchStart < haystack.endIndex,
                   let range = haystack.range(of: word, range: searchStart..<haystack.endIndex) {
-                guard boundWords.contains(word) else { return true }
+                guard boundReferenceWords.contains(word) else { return true }
                 let rest = haystack[range.upperBound...]
                 if let next = rest.first, next.isLetter, !recordPointerFollowers.contains(where: { rest.hasPrefix($0) }) {
                     if targetedEditWords.contains(where: { haystack.contains($0) }) { return true }
