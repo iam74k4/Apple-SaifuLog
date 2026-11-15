@@ -45,9 +45,9 @@ DERIVED_DATA := build/DerivedData
 # xcodebuild に足す引数（例: make build XCODEBUILD_FLAGS=-quiet）。
 XCODEBUILD_FLAGS ?=
 
-# テストのカバレッジを取るか（YES / NO）。YES なら、コアのテストは swift test --enable-code-coverage で、アプリのテストと
-# UI テストは xcodebuild -enableCodeCoverage YES で動かし、結果（.xcresult）を TEST_RESULTS に残す。make coverage-report が
-# 表にする（CI の build.yml と make ci は YES）。合否には使わない（テストの無いところを見つけるための数字）。
+# テストのカバレッジを取るか（YES / NO）。YES なら、アプリのテストと UI テストを xcodebuild -enableCodeCoverage YES で動かし、
+# 結果（.xcresult）を TEST_RESULTS に残す。コアは make core-coverage で別に取る。make coverage-report が表にする（CI の build.yml と
+# make ci は YES）。合否には使わない（テストの無いところを見つけるための数字）。
 # make build-tests と make test-app / test-ui には同じ値を渡す（違うとテストのビルドが作り直しになる）。
 COVERAGE ?= NO
 TEST_RESULTS := build/TestResults
@@ -70,7 +70,7 @@ IOS26_TEST_OS ?= 26.2
 # 例: make test-app-ios26 IOS26_TEST_DESTINATION='platform=iOS Simulator,OS=26.2,name=iPhone 17 Pro'
 IOS26_TEST_DESTINATION ?= $(shell ./scripts/pick-simulator.sh $(IOS26_TEST_OS) 2>/dev/null)
 
-.PHONY: all generate build build-tests test test-app test-app-ios26 test-ui test-ai print-ios26-os check-strings coverage-report ci open clean check-xcodegen
+.PHONY: all generate build build-tests test core-coverage test-app test-app-ios26 test-ui test-ai print-ios26-os check-strings coverage-report ci open clean check-xcodegen
 
 all: build
 
@@ -100,7 +100,14 @@ build: generate
 # コアは SwiftUI / SwiftData / FoundationModels に依存しないので、シミュレータを起動せずに
 # macOS 上の swift test だけで回せる。速く、CI のランナーの機種にも左右されない。
 test:
-	swift test --package-path $(CORE_PACKAGE) $(if $(filter YES,$(COVERAGE)),--enable-code-coverage)
+	swift test --package-path $(CORE_PACKAGE)
+
+# コアのテストのカバレッジを取る（make coverage-report の表のため。合否は make test で見る）。時間を測るテスト（上限の時間までに
+# 返るか。withDeadline・AI からルールベースへの切り替え・カテゴリの聞き直し）は外す。計測を入れると遅くなり、並べて動かす
+# ほかのテストに押されて決めた時間を超え、CI で落ちたため（それらのファイルの割合は、そのぶん低く出る）。
+CORE_COVERAGE_SKIP := DeadlineTests|FallbackEntryParserTests|CategoryRefinementTests
+core-coverage:
+	swift test --package-path $(CORE_PACKAGE) --enable-code-coverage --skip '$(CORE_COVERAGE_SKIP)'
 
 # アプリのテスト（SaifuLogTests）と UI テスト（SaifuLogUITests）、スキームのテストに入っている全ターゲットをビルドする
 # （動かさない）。make build はスキームの build アクション（SaifuLog だけ）なので、テストのターゲットがコンパイルできなく
@@ -212,7 +219,8 @@ check-strings:
 		--catalog SaifuLogWidgets/Localizable.xcstrings \
 		--stringsdata-dir $(DERIVED_DATA)/Build/Intermediates.noindex/SaifuLog.build/Debug-iphonesimulator/SaifuLogWidgets.build/Objects-normal
 
-# テストのカバレッジの表（コアのテスト・アプリのテスト・UI テスト）を Markdown で出す（COVERAGE=YES でテストを動かした後に）。
+# テストのカバレッジの表（コアのテスト・アプリのテスト・UI テスト）を Markdown で出す（make core-coverage と、COVERAGE=YES で
+# アプリのテストと UI テストを動かした後に）。
 # 割合と、割合の低いファイルを並べる（scripts/coverage-report.py）。CI は実行のまとめ（Summary）にも書く。合否には使わない。
 coverage-report:
 	@python3 scripts/coverage-report.py \
@@ -229,10 +237,11 @@ coverage-report:
 ci:
 	$(MAKE) build
 	$(MAKE) check-strings
-	$(MAKE) test COVERAGE=YES
+	$(MAKE) test
 	$(MAKE) build-tests COVERAGE=YES
 	$(MAKE) test-app COVERAGE=YES
 	$(MAKE) test-ui COVERAGE=YES
+	$(MAKE) core-coverage
 	$(MAKE) coverage-report
 	$(MAKE) test-app-ios26 COVERAGE=YES
 	$(MAKE) check-version

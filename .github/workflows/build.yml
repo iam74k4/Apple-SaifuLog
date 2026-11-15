@@ -109,7 +109,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p build/logs
-          make test COVERAGE=YES 2>&1 | tee build/logs/core-test.log
+          make test 2>&1 | tee build/logs/core-test.log
 
       # アプリのテスト（SaifuLogTests）と、スキームのテストに入っている全ターゲットをコンパイルする。
       # 上の make build はスキームの build アクション（SaifuLog だけ）なので、テストのターゲットが
@@ -147,7 +147,10 @@ jobs:
       - name: テストのカバレッジ
         if: ${{ !cancelled() }}
         continue-on-error: true
-        run: make coverage-report | tee -a "$GITHUB_STEP_SUMMARY"
+        # コアのカバレッジは、時間を測るテストを外して別に取る（make core-coverage。合否は上の「コアのテスト」で見る）。
+        run: |
+          make core-coverage
+          make coverage-report | tee -a "$GITHUB_STEP_SUMMARY"
 
       # 上のテストで起動したシミュレータ（いちばん新しい iOS）を止める。UI テストの後に動かしたままだと、次の iOS 26 の
       # シミュレータの起動に 10 分以上かかり、xcodebuild がそのシミュレータを見つけられずに止まったことがある（ランナーの

@@ -9,7 +9,7 @@
 コア）ごとの割合と、割合の低いファイルを並べる。テストのファイル自身は数えない。合否には使わない（テストの無いところを
 見つけるための数字）ので、結果が無い・読めないときも、そのことを書いて 0 で終わる。
 
-- コアのテスト: swift test --enable-code-coverage が書き出す JSON（llvm-cov export の形）。
+- コアのテスト: make core-coverage（swift test --enable-code-coverage。時間を測るテストは外す）が書き出す JSON（llvm-cov export の形）。
 - アプリのテストと UI テスト: xcodebuild -enableCodeCoverage YES の .xcresult を `xcrun xccov view --report --json` で読む。
   ウィジェットの拡張のソースは、ウィジェットのテスト（SaifuLogWidgetsTests）のバンドルに入れて動かすので、そのターゲットの
   中に出る。同じファイルがいくつかのターゲットに出るとき（アプリと拡張の両方に入れるファイル）は、割合の高い方を使う。
@@ -142,7 +142,7 @@ def main():
             except (OSError, ValueError) as error:
                 sections += [f"### {title}", "", f"読めません: {error}", ""]
         else:
-            sections += [f"### {title}", "", f"結果がありません（{args.core_json}）。COVERAGE=YES で make test を動かしてください。", ""]
+            sections += [f"### {title}", "", f"結果がありません（{args.core_json}）。先に make core-coverage を動かしてください（テストが 1 つでも落ちると、swift test はカバレッジを書き出さない）。", ""]
 
     for spec in args.xcresult:
         title, _, path = spec.partition("=")

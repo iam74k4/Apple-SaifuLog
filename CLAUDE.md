@@ -311,14 +311,16 @@ docs: add privacy policy
   （`REQUIRE_AI_EVALUATION=1`）。CI のランナーでは Apple Intelligence を使えず、モデルの答えは揺れるので、`make ci` と build.yml には
   入れない。指示文・`@Guide`・AI に渡すもの・`AITimeouts` を変えたときと、リリースの前に通す（件ごとの答えと時間はログの表に出る）
 - `make coverage-report` — テストのカバレッジの表（コアのテスト・アプリのテストとウィジェットのテスト・UI テストの、行の割合と
-  置き場所ごとの割合と割合の低いファイル）を Markdown で出す（`scripts/coverage-report.py`）。先に `COVERAGE=YES` でテストを動かす
-  （`make test COVERAGE=YES`・`make build-tests COVERAGE=YES`・`make test-app COVERAGE=YES`・`make test-ui COVERAGE=YES`。結果は
-  `build/TestResults/`）。CI は実行のまとめ（Summary）に書く。合否には使わない（テストの無いところを見つけるための数字）
+  置き場所ごとの割合と割合の低いファイル）を Markdown で出す（`scripts/coverage-report.py`）。先に `make core-coverage`（コア。時間を
+  測るテストは外す。計測で遅くなって決めた時間を超えるため）と、`COVERAGE=YES` でのアプリのテストと UI テスト（`make build-tests
+  COVERAGE=YES`・`make test-app COVERAGE=YES`・`make test-ui COVERAGE=YES`。結果は `build/TestResults/`）を動かす。CI は実行の
+  まとめ（Summary）に書く。合否には使わない（テストの無いところを見つけるための数字）
 - `make check-strings` — `make build` が書き出した Debug の .stringsdata と `Localizable.xcstrings` を突き合わせ、
   足りないキー・使われていないキー・en の無いキー・ja と en の書式指定子の不一致があれば止まる（`scripts/check-strings.py`）
 - `make ci` — 必須チェック `build`（build.yml）と同じ 9 種類（`make build`・`make check-strings`・`make test`・`make build-tests`・
   `make test-app`・`make test-ui`・`make test-app-ios26`・`make check-version`・`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を
-  順に通す（テストは `COVERAGE=YES` で動かし、UI テストの後に `make coverage-report` で表を出す）。
+  順に通す（アプリのテストと UI テストは `COVERAGE=YES` で動かし、UI テストの後に `make core-coverage` と `make coverage-report` で
+  表を出す）。
   アプリ側のテストは最新 iOS と iOS 26.2 の両方で動かす（SwiftData などの動作の違いも確かめる）。
   **`make build` が通るだけでは CI が通るとは限らない。** PR の前はこれを通す
 - `make clean` / `make open` — 生成物の削除 / Xcode で開く
