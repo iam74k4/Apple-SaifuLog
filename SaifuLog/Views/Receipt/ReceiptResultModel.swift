@@ -58,6 +58,8 @@ final class ReceiptResultModel: Identifiable {
         var spentAt: Date
         /// 記録の元の文（「レシート: 店名 合計 ¥…」。OCR の全文は入れない）。
         var originalText: String
+        /// 払ったカードの ID（どの記録にも付ける）。カードでなければ nil。
+        var cardID: String? = nil
     }
 
     private(set) var state: State = .reading
@@ -71,6 +73,8 @@ final class ReceiptResultModel: Identifiable {
     var mode: ReceiptRecordMode = .perItem
     /// まとめて 1 件のときのカテゴリ（既定は額のいちばん多いカテゴリ）。
     var singleCategory: EntryCategory = .other
+    /// 払ったカードの ID。カードでなければ空。レシートの支払いの行から決め（`PaymentLinker.cardID(forReceipt:)`）、直せる。
+    var cardID = ""
     /// レシートの合計。読めなければ nil。
     private(set) var receiptTotal: Int?
     /// 書類カメラで上限より多く撮ったとき、読み取らなかった最初のページ（5 ページ目なら 5）。読み取らなかったページが無ければ nil。
@@ -100,6 +104,7 @@ final class ReceiptResultModel: Identifiable {
         var lines: [Line]
         var mode: ReceiptRecordMode
         var singleCategory: EntryCategory
+        var cardID: String
     }
 
     /// - Parameters:
@@ -109,6 +114,7 @@ final class ReceiptResultModel: Identifiable {
     ///   - record: 記録する（ホームが保存する）。
     ///   - retake: 撮り直す（ホームがシートを閉じて、同じ取り込み口をもう一度開く）。
     ///   - catalog: いまのカテゴリの一覧（作ったカテゴリの名前を引く）。
+    ///   - cards: いまのカードの一覧（レシートの支払いの行からカードを決め、選べるようにする）。
     init(
         source: ReceiptCaptureSource,
         readAt: Date,
@@ -117,7 +123,8 @@ final class ReceiptResultModel: Identifiable {
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
         record: @escaping @MainActor (Submission) -> RecordOutcome,
         retake: @escaping @MainActor () -> Void,
-        catalog: @escaping @MainActor () -> CategoryCatalog = { .builtIn }
+        catalog: @escaping @MainActor () -> CategoryCatalog = { .builtIn },
+        cards: [PaymentCard] = []
     ) {
         self.source = source
         self.day = readAt
@@ -128,7 +135,11 @@ final class ReceiptResultModel: Identifiable {
         self.record = record
         self.retakeAction = retake
         self.catalog = catalog
+        self.cards = cards
     }
+
+    /// いまのカードの一覧（開いた時点のもの）。無ければ、カードを選ぶ欄を出さない。
+    let cards: [PaymentCard]
 
     // MARK: - 読み取りの結果
 
@@ -155,6 +166,7 @@ final class ReceiptResultModel: Identifiable {
                 )
             }
             receiptTotal = scan.total
+            cardID = PaymentLinker(cards: cards).cardID(forReceipt: scan) ?? ""
             // 品目が 1 つ（合計だけのレシートを含む）なら 1 件、2 つ以上なら品目ごとを既定にする（品目ごとに仕分けるための機能のため）。
             mode = draft.count >= 2 ? .perItem : .single
             singleCategory = ReceiptReconciler.dominantCategory(of: draft.map { ($0.amount, $0.category) })
@@ -200,7 +212,7 @@ final class ReceiptResultModel: Identifiable {
     }
 
     private var editable: Editable {
-        Editable(storeName: storeName, spentAt: spentAt, lines: lines, mode: mode, singleCategory: singleCategory)
+        Editable(storeName: storeName, spentAt: spentAt, lines: lines, mode: mode, singleCategory: singleCategory, cardID: cardID)
     }
 
     // MARK: - 行の操作
@@ -303,7 +315,8 @@ final class ReceiptResultModel: Identifiable {
         return Submission(
             records: records,
             spentAt: spentAt,
-            originalText: Self.summaryText(storeName: storeName, total: records.reduce(0) { $0 + $1.amount })
+            originalText: Self.summaryText(storeName: storeName, total: records.reduce(0) { $0 + $1.amount }),
+            cardID: cardID.isEmpty ? nil : cardID
         )
     }
 

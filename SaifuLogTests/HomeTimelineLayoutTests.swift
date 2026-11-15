@@ -160,7 +160,6 @@ private final class TimelineFixture {
             makeParser: { now, calendar in RuleBasedParser(calendar: calendar, now: { now }) },
             makeCategoryRefiner: { nil },
             makeAnswerer: { RuleBasedQuestionAnswerer() },
-            makeRemarkWriter: { nil },
             canUseDocumentCamera: true,
             now: { now },
             announce: { _ in }

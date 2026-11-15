@@ -30,7 +30,7 @@ struct QuestionAnsweringTests {
             "今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar
         )
 
-        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth), remark: nil))
+        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth)))
     }
 
     @Test func ruleBasedUnreadable() async throws {
@@ -55,7 +55,7 @@ struct QuestionAnsweringTests {
 
         let reply = try await answerer.answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
 
-        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth), remark: nil))
+        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth)))
         #expect(log.snapshot.fallbacks == [.question: 1])
         #expect(log.snapshot.lastError?.feature == .question)
         #expect(log.snapshot.lastError?.error.type == String(reflecting: TestError.self))
@@ -68,7 +68,7 @@ struct QuestionAnsweringTests {
 
         let reply = try await answerer.answer("先月の支出は?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
 
-        #expect(reply == .answered(try Self.answer(LedgerQuestion(period: .lastMonth, metric: .expenseTotal)), remark: nil))
+        #expect(reply == .answered(try Self.answer(LedgerQuestion(period: .lastMonth, metric: .expenseTotal))))
         #expect(log.snapshot.fallbacks == [.question: 1])
         #expect(log.snapshot.lastError == nil)
     }
@@ -76,7 +76,7 @@ struct QuestionAnsweringTests {
     /// AI が答えたら、そのまま使う（AI の記録には何も残さない）。
     @Test func fallbackKeepsPrimaryAnswer() async throws {
         let log = AIFallbackLog()
-        let expected = QuestionReply.answered(try Self.answer(Self.cafeThisMonth), remark: .ai("今月のカフェは¥1,600でした。"))
+        let expected = QuestionReply.answered(try Self.answer(Self.cafeThisMonth))
         let answerer = Self.fallbackAnswerer(primary: StubAnswerer { _, _ in expected }, log: log)
 
         let reply = try await answerer.answer("カフェ代は?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
@@ -121,7 +121,7 @@ struct QuestionAnsweringTests {
 
         let reply = try await answerer.answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
 
-        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth), remark: nil))
+        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth)))
         #expect(log.snapshot.fallbacks == [.question: 1])
         #expect(log.snapshot.timeouts == [.question: 1])
         #expect(log.snapshot.lastError == nil)
@@ -130,7 +130,7 @@ struct QuestionAnsweringTests {
     /// 上限があっても、AI が上限までに答えたら、その答えを使う。
     @Test func fallbackKeepsPrimaryAnswerWithinTimeout() async throws {
         let log = AIFallbackLog()
-        let expected = QuestionReply.answered(try Self.answer(Self.cafeThisMonth), remark: .ai("今月のカフェは¥1,600でした。"))
+        let expected = QuestionReply.answered(try Self.answer(Self.cafeThisMonth))
         let answerer = FallbackQuestionAnswerer(
             primary: StubAnswerer { _, _ in expected }, fallback: RuleBasedQuestionAnswerer(),
             timeout: .seconds(10), onFallback: log.reporter(for: .question)
@@ -209,20 +209,8 @@ struct QuestionAnsweringTests {
         #expect(recorder.latest?.answer == (try Self.answer(Self.cafeThisMonth)))
     }
 
-    /// モデルの一言がツールの結果の数字だけなら、その一言を添える。回答カードの数字はツールが計算したもの。
-    @Test func modelSentenceWithToolNumbersIsKept() async throws {
-        let answerer = FoundationModelsQuestionAnswerer { _, tool in
-            _ = try await tool.call(arguments: LedgerQueryArguments(period: .thisMonth, metric: .categoryExpense, category: .cafe))
-            return " 今月のカフェは¥1,600（2件）でした。\n"
-        }
-
-        let reply = try await answerer.answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
-
-        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth), remark: .ai("今月のカフェは¥1,600（2件）でした。")))
-    }
-
-    /// モデルの一言にツールの結果に無い数字があれば、一言を捨てて定型文にする（数字はツールのまま）。
-    @Test func modelSentenceWithOtherNumbersIsReplaced() async throws {
+    /// 回答カードの数字はツールが計算したもの。モデルがツールの後に書いた文（違う数字でも）は使わない。
+    @Test func modelSentenceIsNotUsed() async throws {
         let answerer = FoundationModelsQuestionAnswerer { _, tool in
             _ = try await tool.call(arguments: LedgerQueryArguments(period: .thisMonth, metric: .categoryExpense, category: .cafe))
             return "今月のカフェは¥2,000でした。"
@@ -230,35 +218,10 @@ struct QuestionAnsweringTests {
 
         let reply = try await answerer.answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
 
-        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth), remark: .fixed))
+        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth)))
     }
 
-    /// モデルの一言に、期間の日付の数字を件数として書いたもの（「30件」）があれば、一言を捨てて定型文にする。
-    @Test func modelSentenceWithDateDigitAsCountIsReplaced() async throws {
-        let answerer = FoundationModelsQuestionAnswerer { _, tool in
-            _ = try await tool.call(arguments: LedgerQueryArguments(period: .thisMonth, metric: .categoryExpense, category: .cafe))
-            return "今月のカフェは¥1,600（30件）でした。"
-        }
-
-        let reply = try await answerer.answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
-
-        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth), remark: .fixed))
-    }
-
-    /// モデルの一言の Markdown の記号と、改行の後ろの文は外し、最初の一文だけを添える（一言は `Text(verbatim:)` で出すので、記号が
-    /// 画面にそのまま出ていた）。
-    @Test func modelSentenceIsMadePlain() async throws {
-        let answerer = FoundationModelsQuestionAnswerer { _, tool in
-            _ = try await tool.call(arguments: LedgerQueryArguments(period: .thisMonth, metric: .categoryExpense, category: .cafe))
-            return "今月のカフェは**¥1,600**でした。\n\n*   2件です。"
-        }
-
-        let reply = try await answerer.answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
-
-        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth), remark: .ai("今月のカフェは¥1,600でした。")))
-    }
-
-    /// ツールを呼んだ後に一言の生成が失敗しても（安全のための拒否など）、ツールが計算した答えを定型文で返す。
+    /// ツールを呼んだ後に続きの生成が失敗しても（安全のための拒否など）、ツールが計算した答えを返す。
     @Test func modelFailureAfterToolCallKeepsToolAnswer() async throws {
         let answerer = FoundationModelsQuestionAnswerer { _, tool in
             _ = try await tool.call(arguments: LedgerQueryArguments(period: .thisMonth, metric: .categoryExpense, category: .cafe))
@@ -267,7 +230,7 @@ struct QuestionAnsweringTests {
 
         let reply = try await answerer.answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
 
-        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth), remark: .fixed))
+        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth)))
     }
 
     /// ツールを呼ぶ前に失敗したら投げる（キーワード辞書に答え直させる）。
@@ -291,7 +254,7 @@ struct QuestionAnsweringTests {
         let reply = try await FallbackQuestionAnswerer(
             primary: ai, fallback: RuleBasedQuestionAnswerer(), onFallback: log.reporter(for: .question)
         ).answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
-        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth), remark: nil))
+        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth)))
         #expect(log.snapshot.lastError?.error.type == "SaifuLog.QuestionAIError.toolNotCalled")
     }
 

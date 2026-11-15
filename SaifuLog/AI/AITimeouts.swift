@@ -3,17 +3,15 @@ import Foundation
 /// 端末内 AI を待つ上限（機能ごと）。値はここにだけ書く。
 ///
 /// どれも、モデルが返らないまま止まったときに待ち続けないための安全の上限で、ふつうにかかる時間を詰めるためのものではない。
-/// 上限を過ぎたら、AI が終わるのを待たずに、AI の使えない端末と同じ経路（キーワード辞書・定型文）に切り替え、時間切れとして
+/// 上限を過ぎたら、AI が終わるのを待たずに、AI の使えない端末と同じ経路（キーワード辞書）に切り替え、時間切れとして
 /// `AIFallbackLog` に残す（利用者には知らせない。docs/design.md §4-2）。
 /// 値は実機で測る前の仮の値。実機でふつうにかかる時間（初めての生成のモデルの読み込みを含む）を測ってから見直す（docs/design.md §15）。
 enum AITimeouts {
     /// ひとこと入力の読み取り（区間ごとの生成をすべて含む）。待つ間は次の文を送れず、保存先の開き直し（iCloud の切り替え）も
     /// 待たせるので、短くする（読み取りに続けて待つカテゴリの聞き直しは、さらに短い `categoryRefine`）。
     static let entry: Duration = .seconds(6)
-    /// 家計への質問（ツール呼び出しと一言）。
+    /// 家計への質問（ツール呼び出し）。
     static let question: Duration = .seconds(8)
-    /// 月のまとめの一言。
-    static let recapRemark: Duration = .seconds(8)
     /// レシートの品名とカテゴリの整え。品目の数だけ生成が長くなり、iOS 27 では画像も渡すので、ほかより長くする。
     static let receiptRefine: Duration = .seconds(15)
     /// 辞書で決まらなかった品目のカテゴリの聞き直し（`CategoryRefiner`）。読み取りの後に続けて待つ（その間は次の文を送れない）ので、
@@ -22,7 +20,4 @@ enum AITimeouts {
     /// 決まりで読めなかったチャットの文の、操作の種類の選び（`ChatCommandInterpreter`）。選択肢から 1 つ選ぶだけの小さな生成で、
     /// 待つ間は次の文を送れないので、カテゴリの聞き直しと同じく短くする。
     static let chatCommand: Duration = .seconds(3)
-    /// 記録の返事に添える一言（`RecordRemarkWriterFactory`）。返事は先に出し、一言は後から足すので入力は止めないが、記録した直後の
-    /// 一言なので、遅れて出ても意味が薄い。短くする。
-    static let recordRemark: Duration = .seconds(3)
 }

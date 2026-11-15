@@ -86,7 +86,7 @@ struct HomeModelCustomCategoryTests {
 
         await fixture.send("今月の推し活いくら?")
 
-        guard case .answered(let answer, _) = fixture.lastQuestionState else {
+        guard case .answered(let answer) = fixture.lastQuestionState else {
             Issue.record("答えのカードが出なかった")
             return
         }

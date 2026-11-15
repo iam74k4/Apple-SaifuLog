@@ -28,18 +28,12 @@ struct HomeModelTests {
         var answerer: any QuestionAnswering = RuleBasedQuestionAnswerer()
         /// 答え手を作った回数（記録か質問か決められない文などでは、答えさせない）。
         private(set) var answererCalls = 0
-        /// 月のまとめの AI の一言の書き手。既定は無し（AI が使えない端末と同じ。テストで本物のモデルを呼ばないため）。
-        var remarkWriter: (any RecapRemarkWriting)?
-        /// 記録の返事の AI の一言の書き手。既定は無し（AI が使えない端末と同じ）。
-        var recordRemarkWriter: (any RecapRemarkWriting)?
         /// 設定の置き場所（初回の案内を終えたかなど）。テストごとの使い捨ての領域。
         let suiteName = "HomeModelTests.Fixture.\(UUID().uuidString)"
         let defaults: UserDefaults
         /// レシートの読み取りの代わり（OCR が読んだ文字と、品名を整える AI）。既定は文字なし・AI なし。
         let receipt = ReceiptStub()
         private(set) var announcements: [String] = []
-        /// いまの読み上げを遮らずに読み上げさせた文（記録の返事の一言）。
-        private(set) var asideAnnouncements: [String] = []
         private(set) var model: HomeModel!
 
         /// - Parameters:
@@ -63,13 +57,10 @@ struct HomeModelTests {
                     answererCalls += 1
                     return answerer
                 },
-                makeRemarkWriter: { [unowned self] in remarkWriter },
-                makeRecordRemarkWriter: { [unowned self] in recordRemarkWriter },
                 receiptReader: receipt.reader,
                 canUseDocumentCamera: canUseDocumentCamera,
                 now: { [unowned self] in now },
                 announce: { [unowned self] in announcements.append($0) },
-                announceAside: { [unowned self] in asideAnnouncements.append($0) },
                 hints: showsHints ? ReplyHints(defaults: defaults) : nil
             )
         }
@@ -1055,14 +1046,13 @@ struct HomeModelTests {
 
         #expect(try fixture.entries().count == 3)
         #expect(fixture.model.questions.map(\.text) == ["今月カフェいくら?"])
-        guard case .answered(let answer, let remark) = fixture.lastQuestionState else {
+        guard case .answered(let answer) = fixture.lastQuestionState else {
             Issue.record("答えのカードが出なかった: \(String(describing: fixture.lastQuestionState))")
             return
         }
         #expect(answer.question == LedgerQuestion(period: .thisMonth, metric: .categoryExpense, category: .cafe))
         #expect(answer.value == .amount(1_600))
         #expect(answer.recordCount == 2)
-        #expect(remark == nil)
         #expect(fixture.model.draft.isEmpty)
         #expect(!fixture.model.canUndo)
         #expect(!fixture.showedNoAmount)
@@ -1081,7 +1071,7 @@ struct HomeModelTests {
 
         #expect(!fixture.model.canUndo)
         #expect(try fixture.entries().map(\.amount) == [850])
-        guard case .answered(let answer, _) = fixture.lastQuestionState else {
+        guard case .answered(let answer) = fixture.lastQuestionState else {
             Issue.record("答えのカードが出なかった")
             return
         }
@@ -1102,27 +1092,6 @@ struct HomeModelTests {
 
         #expect(!fixture.model.isParsing)
         #expect(try fixture.entries().isEmpty)
-    }
-
-    /// AI の一言は、回答カードに数字とは別に添え、読み上げにも入れる。
-    @Test func aiRemarkIsShownAndSpoken() async throws {
-        let fixture = try Fixture()
-        fixture.answerer = StubAnswerer { text, ledger in
-            let question = LedgerQuestion(period: .thisMonth, metric: .expenseTotal)
-            let answer = try #require(LedgerQuestionAnswerer.answer(
-                question, ledger: ledger, now: TestSupport.now, calendar: TestSupport.calendar
-            ))
-            return .answered(answer, remark: .ai("今月はまだ何も使っていません。"))
-        }
-
-        await fixture.send("今月どう?")
-
-        guard case .answered(_, let remark) = fixture.lastQuestionState else {
-            Issue.record("答えのカードが出なかった")
-            return
-        }
-        #expect(remark == .ai("今月はまだ何も使っていません。"))
-        #expect(fixture.announcements.last?.contains("今月はまだ何も使っていません。") == true)
     }
 
     /// 読めなかった質問は、送った文を入力欄に戻す（書き直して送り直せるように）。
@@ -1252,7 +1221,7 @@ struct HomeModelTests {
     @Test func answerOpensMonthlyReportForItsMonth() async throws {
         let fixture = try Fixture()
         await fixture.send("先月の支出は?")
-        guard case .answered(let answer, _) = fixture.lastQuestionState else {
+        guard case .answered(let answer) = fixture.lastQuestionState else {
             Issue.record("答えのカードが出なかった")
             return
         }
@@ -1270,7 +1239,7 @@ struct HomeModelTests {
 
         await fixture.send("今月あと何日でいくら使える?")
 
-        guard case .answered(let answer, _) = fixture.lastQuestionState else {
+        guard case .answered(let answer) = fixture.lastQuestionState else {
             Issue.record("答えのカードが出なかった")
             return
         }

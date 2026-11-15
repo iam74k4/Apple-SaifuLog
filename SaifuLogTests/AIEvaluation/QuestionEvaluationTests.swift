@@ -33,7 +33,6 @@ extension AIEvaluationTests {
             try AIEvaluation.requireModel()
             await AIEvaluation.warmUp()
             var card = AIScorecard("家計への質問（上限 \(AIEvaluation.seconds(AITimeouts.question))）")
-            var remarks = AIScorecard("家計への質問の一言（照合に通って AI の一言を出せた）")
             for (text, question) in Self.cases {
                 let expected = try #require(Self.answer(question), "「\(text)」の正しい答えを計算できない")
                 let timed = await AIEvaluation.measure {
@@ -42,35 +41,21 @@ extension AIEvaluationTests {
                     )
                 }
                 var answer: LedgerAnswer?
-                var remark: QuestionRemark?
-                if case .answered(let answered, let written)? = timed.value {
+                if case .answered(let answered)? = timed.value {
                     answer = answered
-                    remark = written
                 }
                 if let answer {
                     // 揺れてはいけない: 答えの数字は、モデルが選んだ質問をコードが計算したもの（モデルの書いた数字は使わない）。
                     #expect(answer == Self.answer(answer.question), "「\(text)」の答えの数字がコードの計算と違う: \(answer.value)")
-                    // 揺れてはいけない: 画面に出す AI の一言は、ツールの結果の数字だけで書かれている。
-                    if case .ai(let sentence)? = remark {
-                        let facts = LedgerAnswerFacts.text(for: answer, calendar: TestSupport.calendar, catalog: Self.ledger.catalog)
-                        #expect(AnswerSentenceCheck.accepts(sentence, facts: facts), "「\(text)」の一言が照合に通らない: \(sentence)")
-                    }
                 }
                 card.record(
                     "「\(text)」",
                     passed: answer == expected && timed.isWithin(AITimeouts.question),
                     timed.describe { _ in Self.describe(answer) }
                 )
-                if answer != nil {
-                    var usesAI = false
-                    if case .ai? = remark { usesAI = true }
-                    remarks.record("「\(text)」", passed: usesAI, Self.describe(remark))
-                }
             }
             print(card.report)
-            print(remarks.report)
             #expect(card.rate >= AIEvaluation.passRate, "\(card.report)")
-            #expect(remarks.rate >= AIEvaluation.remarkPassRate, "\(remarks.report)")
         }
 
         private static func answer(_ question: LedgerQuestion) -> LedgerAnswer? {
@@ -82,14 +67,6 @@ extension AIEvaluationTests {
             let question = answer.question
             let category = question.category.map { " \($0.displayName)" } ?? ""
             return "\(question.period) \(question.metric)\(category) → \(answer.value)"
-        }
-
-        private static func describe(_ remark: QuestionRemark?) -> String {
-            switch remark {
-            case .ai(let sentence)?: "「\(sentence)」"
-            case .fixed?: "定型文（照合で捨てた）"
-            case nil: "なし"
-            }
         }
     }
 }

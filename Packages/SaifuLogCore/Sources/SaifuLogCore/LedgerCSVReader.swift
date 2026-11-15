@@ -38,9 +38,12 @@ public enum LedgerCSVReader {
         public let amount: Int
         /// 送った文。
         public let originalText: String
+        /// 払ったカードの ID（支払いの列の名前を、いまのカードの名前で引いたもの）。列が無い・空・知らないカードの名前・収入なら nil。
+        public let cardID: String?
 
         public init(
-            line: Int, spentAt: Date, isIncome: Bool, category: EntryCategory, memo: String, amount: Int, originalText: String
+            line: Int, spentAt: Date, isIncome: Bool, category: EntryCategory, memo: String, amount: Int, originalText: String,
+            cardID: String? = nil
         ) {
             self.line = line
             self.spentAt = spentAt
@@ -49,6 +52,7 @@ public enum LedgerCSVReader {
             self.memo = memo
             self.amount = amount
             self.originalText = originalText
+            self.cardID = isIncome ? nil : cardID
         }
     }
 
@@ -94,19 +98,27 @@ public enum LedgerCSVReader {
     /// - Parameters:
     ///   - timeZone: 日付と時刻を読む時間帯（書き出しと同じく、画面の暦の時間帯）。
     ///   - catalog: 作ったカテゴリの一覧（名前で戻す）。
-    public static func read(_ data: Data, timeZone: TimeZone, catalog: CategoryCatalog = .builtIn) throws -> Result {
+    ///   - cards: いまのカードの一覧（支払いの列の名前で戻す）。
+    public static func read(
+        _ data: Data, timeZone: TimeZone, catalog: CategoryCatalog = .builtIn, cards: [PaymentCard] = []
+    ) throws -> Result {
         guard data.count <= maximumBytes else { throw ReadError.tooLarge }
-        return try read(text: decode(data), timeZone: timeZone, catalog: catalog)
+        return try read(text: decode(data), timeZone: timeZone, catalog: catalog, cards: cards)
     }
 
     /// 文字にした中身を読む（BOM が残っていれば外す）。
-    public static func read(text: String, timeZone: TimeZone, catalog: CategoryCatalog = .builtIn) throws -> Result {
+    public static func read(
+        text: String, timeZone: TimeZone, catalog: CategoryCatalog = .builtIn, cards: [PaymentCard] = []
+    ) throws -> Result {
         var text = Substring(text)
         if text.unicodeScalars.first == "\u{FEFF}" { text = Substring(text.unicodeScalars.dropFirst()) }
         let records = try parse(text)
         guard let header = records.first, let language = language(ofHeader: header) else {
             throw ReadError.unrecognizedHeader
         }
+        // 支払いの列は、カードを足した版から書く。前の版のファイルには無い。
+        let columnCount = header.count
+        let cardIDs = Dictionary(cards.map { (KeywordMatcher.fold($0.name), $0.id) }, uniquingKeysWith: { first, _ in first })
         guard records.count - 1 <= maximumRows else { throw ReadError.tooLarge }
 
         var calendar = Calendar(identifier: .gregorian)
@@ -116,7 +128,7 @@ public enum LedgerCSVReader {
         var issues: [Issue] = []
         for (offset, fields) in records.enumerated().dropFirst() {
             let line = offset + 1
-            switch row(fields, line: line, calendar: calendar, categories: categories) {
+            switch row(fields, line: line, columnCount: columnCount, calendar: calendar, categories: categories, cardIDs: cardIDs) {
             case .success(let row): rows.append(row)
             case .failure(let issue): issues.append(Issue(line: line, reason: issue))
             }
@@ -207,7 +219,7 @@ public enum LedgerCSVReader {
     static func language(ofHeader fields: [String]) -> LedgerCSVWriter.Language? {
         let trimmed = fields.map { unescape($0).trimmingCharacters(in: .whitespaces) }
         for language in [LedgerCSVWriter.Language.japanese, .english]
-        where trimmed == LedgerCSVWriter.header(language: language) {
+        where trimmed == LedgerCSVWriter.header(language: language) || trimmed == LedgerCSVWriter.legacyHeader(language: language) {
             return language
         }
         return nil
@@ -217,22 +229,25 @@ public enum LedgerCSVReader {
 
     /// 列の並び（書き出しの `LedgerCSVWriter.text` と同じ）。
     private enum Column: Int {
-        case date, time, kind, category, item, amount, originalText
+        case date, time, kind, category, item, amount, originalText, payment
     }
 
     private static func row(
-        _ raw: [String], line: Int, calendar: Calendar, categories: [String: EntryCategory]
+        _ raw: [String], line: Int, columnCount: Int, calendar: Calendar, categories: [String: EntryCategory],
+        cardIDs: [String: String]
     ) -> Swift.Result<Row, IssueReason> {
-        guard raw.count == LedgerCSVWriter.header(language: .japanese).count else { return .failure(.columnCount) }
+        guard raw.count == columnCount else { return .failure(.columnCount) }
         let fields = raw.map(unescape)
         func value(_ column: Column) -> String { fields[column.rawValue] }
         guard let spentAt = date(value(.date), time: value(.time), calendar: calendar) else { return .failure(.date) }
         guard let isIncome = isIncome(value(.kind)) else { return .failure(.kind) }
         guard let amount = amount(value(.amount)) else { return .failure(.amount) }
         let category = isIncome ? .other : categories[CategoryCatalog.fold(value(.category))] ?? .other
+        let payment = columnCount > Column.payment.rawValue ? value(.payment) : ""
         return .success(Row(
             line: line, spentAt: spentAt, isIncome: isIncome, category: category, memo: value(.item), amount: amount,
-            originalText: value(.originalText)
+            originalText: value(.originalText),
+            cardID: payment.isEmpty ? nil : cardIDs[KeywordMatcher.fold(payment.trimmingCharacters(in: .whitespaces))]
         ))
     }
 

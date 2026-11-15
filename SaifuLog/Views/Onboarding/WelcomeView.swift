@@ -2,11 +2,10 @@ import SwiftUI
 
 /// ① ようこそ。初回だけ出す。
 ///
-/// 何ができるか（入力の例）、この iPhone で AI が文を読むか（読まなくても記録できること）、記録をどこに置くかを
-/// 伝え、「はじめる」でホームへ進む。状態と操作は `OnboardingModel` が持ち、進み方は `OnboardingView` が決める。
+/// 何ができるか（入力の例 3 つ）と、記録をどこに置くか（1 行）だけを伝え、「はじめる」でホームへ進む。前は AI の可否と
+/// 置き場所の段落も並べていたが、文が「はじめる」の下に潜るほど長く、例が埋もれたので削った（AI が使えなくても記録できる
+/// ので、可否は伝えなくても困らない）。状態と操作は `OnboardingModel` が持ち、進み方は `OnboardingView` が決める。
 struct WelcomeView: View {
-    /// この端末でいま AI を使えるか（`OnboardingModel.aiStatus`）。
-    let aiStatus: OnDeviceAIStatus
     /// 「はじめる」。
     let start: () -> Void
 
@@ -17,20 +16,7 @@ struct WelcomeView: View {
             VStack(alignment: .leading, spacing: 32) {
                 header
                 examples
-                VStack(alignment: .leading, spacing: 20) {
-                    WelcomeNote(
-                        symbolName: aiStatus.isAvailable ? "sparkles" : "text.book.closed",
-                        title: aiStatus.title,
-                        message: aiStatus.message
-                    )
-                    WelcomeNote(
-                        symbolName: "lock.iphone",
-                        title: "記録はこの iPhone の中に",
-                        // iCloud 同期は既定でオフなので、見出しの「この iPhone の中に」は案内の時点では正しい。
-                        // 設定でオンにしたときだけ利用者の iCloud にも置くことを書き添え、あとで同期を選んでも食い違わないようにする。
-                        message: "記録はこの iPhone の中に保存し、文の読み取りもこの iPhone の中で行います。開発者のサーバーはなく、記録や入力した文を開発者や第三者に送ることはありません。設定で iCloud の同期をオンにしたときだけ、記録をあなたの iCloud にも保存し、同じ Apple アカウントの端末どうしでそろえます。"
-                    )
-                }
+                privacyNote
             }
             .foregroundStyle(Theme.ink)
             .padding(.horizontal)
@@ -70,20 +56,30 @@ struct WelcomeView: View {
             Text("ひとことで家計簿")
                 .font(.largeTitle.bold())
                 .accessibilityAddTraits(.isHeader)
-            Text("サイフログは、「ランチ 850」のように一行送るだけで記録できる家計簿です。分類と計算はアプリが引き受け、同じ入力欄で家計について聞くこともできます。")
+            Text("一行送るだけで記録でき、同じ入力欄で家計について聞けます。")
                 .foregroundStyle(Theme.inkSecondary)
         }
     }
 
     private var examples: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("こんなふうに書けます")
-                .font(.title3.bold())
-                .accessibilityAddTraits(.isHeader)
             ForEach(WelcomeExample.all) { example in
                 WelcomeExampleRow(example: example)
             }
         }
+    }
+
+    /// 記録の置き場所の 1 行。iCloud 同期は既定でオフなので「この iPhone の中」は案内の時点では正しい。設定でオンにしたときだけ
+    /// 利用者の iCloud にも置くことを書き添え、あとで同期を選んでも食い違わないようにする。
+    private var privacyNote: some View {
+        Label {
+            Text("記録はこの iPhone の中に置き、外へは送りません（iCloud の同期は、設定でオンにしたときだけ）。")
+        } icon: {
+            Image(systemName: "lock")
+                .accessibilityHidden(true)
+        }
+        .font(.footnote)
+        .foregroundStyle(Theme.inkSecondary)
     }
 
     private var startButton: some View {
@@ -130,66 +126,6 @@ private struct WelcomeExampleRow: View {
     }
 }
 
-/// 案内の 1 項目（AI の可否・記録の置き場所）。見出しと本文に、飾りの記号を添える。
-private struct WelcomeNote: View {
-    let symbolName: String
-    let title: LocalizedStringResource
-    let message: LocalizedStringResource
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            // アクセシビリティサイズの文字では、本文に幅を使わせるため記号を省く（見出しで分かる）。
-            if !dynamicTypeSize.isAccessibilitySize {
-                Image(systemName: symbolName)
-                    .font(.headline)
-                    .foregroundStyle(Theme.accentText)
-                    .frame(minWidth: 24)
-                    .accessibilityHidden(true)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                    .accessibilityAddTraits(.isHeader)
-                Text(message)
-                    .foregroundStyle(Theme.inkSecondary)
-            }
-        }
-    }
-}
-
-extension OnDeviceAIStatus {
-    /// ようこその案内の見出し。
-    var title: LocalizedStringResource {
-        switch self {
-        case .available: "この iPhone では AI が文を読みます"
-        case .deviceNotEligible: "この iPhone ではキーワード辞書で読みます"
-        case .appleIntelligenceNotEnabled, .modelNotReady, .unavailable: "いまはキーワード辞書で読みます"
-        }
-    }
-
-    /// ようこその案内の本文。AI が使えなくても記録できることを、どの場合にも伝える（使えない端末を欠陥のように見せない）。
-    var message: LocalizedStringResource {
-        switch self {
-        case .available:
-            "Apple Intelligence が、この iPhone の中で品目やカテゴリを読み取ります。読み違えたときは、記録の直後に取り消すか、記録をタップして直せます。"
-        case .deviceNotEligible:
-            "この iPhone は Apple Intelligence に対応していないため、端末内の辞書で金額やカテゴリを読み取ります。上の例のような書き方なら、AI がなくても記録や質問ができます。"
-        case .appleIntelligenceNotEnabled:
-            "Apple Intelligence がオフのため、端末内の辞書で読み取ります。記録はそのままできます。設定で Apple Intelligence をオンにすると、AI が読むようになります。"
-        case .modelNotReady:
-            "Apple Intelligence の準備（モデルのダウンロードなど）が済むまでは、端末内の辞書で読み取ります。記録はそのままできます。準備が済むと、AI が読むようになります。"
-        case .unavailable:
-            "いまは Apple Intelligence を使えないため、端末内の辞書で読み取ります。記録はそのままできます。"
-        }
-    }
-}
-
-#Preview("AI が使える") {
-    WelcomeView(aiStatus: .available, start: {})
-}
-
-#Preview("非対応の機種") {
-    WelcomeView(aiStatus: .deviceNotEligible, start: {})
+#Preview {
+    WelcomeView(start: {})
 }

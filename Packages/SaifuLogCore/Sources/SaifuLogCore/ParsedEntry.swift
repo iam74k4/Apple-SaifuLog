@@ -17,6 +17,9 @@ public struct ParsedEntry: Sendable, Hashable {
     public var daysAgo: Int
     /// 割った人数。割り勘でなければ 1。
     public var splitCount: Int
+    /// 払ったカードの ID。文に書いたカードから決める（`PaymentLinker`）。カードで払ったと読めなければ nil（現金・その他）。
+    /// 解析（AI・ルールベース）は決めず、読み取った後に `PaymentLinker.link` が決める（登録したカードは利用者ごとに違うため）。
+    public var cardID: String?
 
     public init(
         amount: Int,
@@ -24,7 +27,8 @@ public struct ParsedEntry: Sendable, Hashable {
         isIncome: Bool = false,
         memo: String = "",
         daysAgo: Int = 0,
-        splitCount: Int = 1
+        splitCount: Int = 1,
+        cardID: String? = nil
     ) {
         self.amount = amount
         self.category = category
@@ -32,6 +36,7 @@ public struct ParsedEntry: Sendable, Hashable {
         self.memo = memo
         self.daysAgo = daysAgo
         self.splitCount = splitCount
+        self.cardID = cardID
     }
 
     /// 読み取った値から 1 件を組み立てる。

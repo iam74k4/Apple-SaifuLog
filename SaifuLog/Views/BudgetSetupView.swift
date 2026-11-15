@@ -23,9 +23,6 @@ struct BudgetSetupView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     totalField
                     QuickAmountPicker(model: model)
-                    Text("予算はあとからいつでも変えられます。")
-                        .font(.footnote)
-                        .foregroundStyle(Theme.inkSecondary)
                 }
                 if model.hadTotalBudget {
                     removeButton
@@ -39,13 +36,17 @@ struct BudgetSetupView: View {
         // 上へ流れた文や大きな金額が、ツールバーのボタンの後ろで透けて重ならないよう、上ははっきりした効果にする（ホームの帯と同じ）。
         .scrollEdgeEffectStyle(.hard, for: .top)
         .background(Theme.background)
-        // 保存のボタンは画面の下に置き続ける。数字のキーボードには確定のキーが無いので、キーボードを出したまま
-        // 押せる場所に置く（キーボードが出るとその上に移る）。
-        // 下の帯は safeAreaBar に置き、中身がその下を流れるようにする（地を塗らない。スクロール端の効果が下端をぼかす。ホームの入力欄と同じ）。
-        .safeAreaBar(edge: .bottom, spacing: 0) {
-            saveButton
-                .padding(.horizontal)
-                .padding(.vertical, 8)
+        // 閉じると保存は、iOS 26 の標準の形（左上の ×・右上の ✓）にする。前は文字の「キャンセル」と、下に浮く大きな「保存」で、
+        // 押せない間は灰色の塊になって中身（日付の欄）を隠し、シートごとに保存の場所も違った。右上の ✓ は、数字のキーボードを
+        // 出したままでも押せる（数字のキーボードには確定のキーが無い）。
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(role: .confirm) {
+                    if model.save() { onFinish() }
+                }
+                .disabled(!model.canSave)
+                .accessibilityIdentifier(AccessibilityID.Budget.saveButton)
+            }
         }
         .alert("予算を保存できませんでした", isPresented: $model.showsSaveFailure) {
             Button("OK", role: .cancel) {}
@@ -102,23 +103,6 @@ struct BudgetSetupView: View {
             // 収まらず、打った桁が見えなくなるので、大きさに上限を設ける。
             .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         }
-    }
-
-    private var saveButton: some View {
-        Button {
-            if model.save() { onFinish() }
-        } label: {
-            Text("保存")
-                .fontWeight(.semibold)
-                // 押せるときは主の塗りの上なので onAccent（Theme の説明）。押せないときは灰色のガラスの上なので、
-                // 墨のままだとダークで地に沈む。補足の文字の色にする（送信ボタンと同じ）。
-                .foregroundStyle(model.canSave ? Theme.onAccent : Theme.inkSecondary)
-                .frame(maxWidth: .infinity, minHeight: 44)
-        }
-        .buttonStyle(.glassProminent)
-        .tint(Theme.accentFill)
-        .disabled(!model.canSave)
-        .accessibilityIdentifier(AccessibilityID.Budget.saveButton)
     }
 
     /// 全体の予算をなくす。決めた予算があるときだけ出す。押すと確認を出し、確かめてからなくす
@@ -195,7 +179,7 @@ struct BudgetSetupSheet: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("キャンセル", role: .cancel) { dismiss() }
+                        Button(role: .close) { dismiss() }
                     }
                 }
         }

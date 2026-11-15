@@ -58,8 +58,9 @@ final class LocalizedAppearanceUITests: XCTestCase {
             "記録の返事が出ません。いまの画面:\n\(app.debugDescription)"
         )
 
-        // カレンダーのページ（キーボードは、ページを替えると閉じる）。
-        app.showCalendarPage()
+        // 月の画面のカレンダー。
+        app.openMonthlyReport(language: language)
+        app.showMonthCalendar()
         try app.auditAccessibility()
     }
 }

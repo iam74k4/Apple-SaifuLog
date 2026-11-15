@@ -20,6 +20,8 @@ final class EditEntryModel: Identifiable {
     var isIncome: Bool
     /// 日付の選択の値。保存するときは日だけを使い、時刻は元の記録のものを残す（`EntryDateEdit`）。
     var day: Date
+    /// 払ったカードの ID。カードでなければ空。収入では使わない（保存するのは空）。
+    var cardID: String
     /// 書き込みの失敗（シートは閉じずにアラートを出す）。
     var failure: Failure?
     var showsDeleteConfirmation = false
@@ -109,6 +111,7 @@ final class EditEntryModel: Identifiable {
         self.category = original.category
         self.isIncome = original.isIncome
         self.day = original.spentAt
+        self.cardID = original.cardID
         self.originalText = target.originalText
         self.source = target.source
         self.deletionSummary = target.deletionSummary
@@ -144,7 +147,8 @@ final class EditEntryModel: Identifiable {
             isIncome: isIncome,
             category: isIncome ? .other : category,
             memo: memo.trimmingCharacters(in: .whitespacesAndNewlines),
-            spentAt: spentAt
+            spentAt: spentAt,
+            cardID: isIncome ? "" : cardID
         )
     }
 

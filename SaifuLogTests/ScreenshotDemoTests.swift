@@ -281,42 +281,20 @@ struct ScreenshotDemoTests {
 
     // MARK: - 撮る画面の開き方
 
-    @Test("質問の画面: 2 つの質問に答え、日本語の画面では照合を通る AI の一言の代わりを添える")
-    func askScreenAnswersWithCheckedRemarks() async throws {
+    @Test("質問の画面: 2 つの質問に答え、送った文は入力欄に残らない")
+    func askScreenAnswersQuestions() async throws {
         let (demo, home) = try Self.makeHome(.ask, uiLanguage: "ja")
         defer { Self.removeDefaults(of: demo) }
         await demo.stage(on: home, calendar: demo.calendar)
 
         #expect(home.questions.map(\.text) == ScreenshotDemo.questions)
         for exchange in home.questions {
-            guard case .answered(let answer, let remark) = exchange.state else {
+            guard case .answered = exchange.state else {
                 Issue.record("答えていません: \(exchange.state)")
                 continue
             }
-            guard case .ai(let sentence) = remark else {
-                Issue.record("一言がありません: \(String(describing: remark))")
-                continue
-            }
-            #expect(AnswerSentenceCheck.accepts(sentence, facts: LedgerAnswerFacts.text(for: answer, calendar: demo.calendar)))
         }
-        // 送った文は入力欄に残らない。
         #expect(home.draft.isEmpty)
-    }
-
-    @Test("質問の画面（英語）: AI の一言を添えない（一言は日本語で書かれるため）")
-    func askScreenInEnglishHasNoRemarks() async throws {
-        let (demo, home) = try Self.makeHome(.ask, uiLanguage: "en")
-        defer { Self.removeDefaults(of: demo) }
-        await demo.stage(on: home, calendar: demo.calendar)
-
-        #expect(home.questions.count == 2)
-        for exchange in home.questions {
-            guard case .answered(_, let remark) = exchange.state else {
-                Issue.record("答えていません: \(exchange.state)")
-                continue
-            }
-            #expect(remark == nil)
-        }
     }
 
     @Test("レシートの画面: 架空の店のレシートを読み、7 品目（食費 5・日用品 2）が合計と合う")
@@ -336,8 +314,8 @@ struct ScreenshotDemoTests {
         #expect(demo.calendar.isDate(result.day, inSameDayAs: demo.now))
     }
 
-    @Test("月のまとめの画面: 今月を下の端（カテゴリ別のグラフと金額の行）から開き、日本語の画面では照合を通る一言を添える")
-    func reportScreenOpensMonthWithRemark() async throws {
+    @Test("月のまとめの画面: 今月を下の端（カテゴリ別のグラフと金額の行）から開く")
+    func reportScreenOpensMonthAtBottom() async throws {
         let (demo, home) = try Self.makeHome(.report, uiLanguage: "ja")
         defer { Self.removeDefaults(of: demo) }
         await demo.stage(on: home, calendar: demo.calendar)
@@ -346,12 +324,6 @@ struct ScreenshotDemoTests {
         #expect(report.month == ReportPeriod.thisMonth.interval(now: demo.now, calendar: demo.calendar))
         #expect(report.screenshotScrollsToBottom)
         #expect(report.report?.breakdown.isEmpty == false)
-        await report.remark.currentTask?.value
-        guard case .written(let sentence) = report.remark.state else {
-            Issue.record("一言がありません: \(report.remark.state)")
-            return
-        }
-        #expect(sentence.contains("食費"))
     }
 
     /// デモの時計は、作ってからの経過だけ進む。起動の日時に過去の日時（テストの決まった日時）を渡しても、実際の時間の
@@ -366,50 +338,35 @@ struct ScreenshotDemoTests {
         #expect(elapsed < 60)
     }
 
-    @Test("月のまとめの一言の代わりは、数字を書かず、数字の文との照合を通る")
-    func recapRemarksPassCheck() {
-        let thisMonth = "期間: 今月（2026年9月1日から2026年9月30日まで。まだ月の途中）\n支出の合計: ¥21,390（支出の記録 17件）\n支出の多いカテゴリ: 光熱・通信 ¥9,800（46%）、食費 ¥8,000（37%）"
-        let monthly = "期間: 2026年8月1日から2026年8月31日まで\n支出の合計: ¥123,230（支出の記録 80件）"
-        #expect(ScreenshotDemoRemarkWriter.remark(from: thisMonth) == "今月は光熱・通信がいちばん多く、記録も続けられていて、いい調子です。")
-        // 画面に出す一文（記号を外した最初の一文）が、そのまま全文になる（2 文にすると後ろが出ないため）。
-        #expect(RecapRemark.checked(ScreenshotDemoRemarkWriter.remark(from: thisMonth), facts: thisMonth)
-            == ScreenshotDemoRemarkWriter.remark(from: thisMonth))
-        // カテゴリの行が無ければ、カテゴリに触れない。
-        #expect(ScreenshotDemoRemarkWriter.remark(from: monthly) == "記録を続けられていて、いい調子です。")
-        #expect(RecapRemark.checked(ScreenshotDemoRemarkWriter.remark(from: monthly), facts: monthly) != nil)
-    }
-
-    @Test("ホームの画面: 日本語では記録を 1 つ送り、返事に AI の一言を添える。英語では送らない")
-    func homeScreenShowsReplyRemark() async throws {
+    @Test("ホームの画面: 日本語では記録を 1 つ送り、返事に「取り消す」を出す。英語では送らない")
+    func homeScreenSendsSampleRecord() async throws {
         let (demo, home) = try Self.makeHome(.home, uiLanguage: "ja")
         defer { Self.removeDefaults(of: demo) }
         await demo.stage(on: home, calendar: demo.calendar)
 
-        let remark = try #require(home.replyRemark)
-        #expect(remark.text.hasPrefix("今月のカフェは"))
         #expect(home.justRecorded.map(\.memo) == ["カフェラテ"])
+        #expect(home.canUndo)
 
         let (english, englishHome) = try Self.makeHome(.home, uiLanguage: "en")
         defer { Self.removeDefaults(of: english) }
         await english.stage(on: englishHome, calendar: english.calendar)
-        #expect(englishHome.replyRemark == nil)
         #expect(englishHome.justRecorded.isEmpty)
     }
 
-    @Test("カレンダーの画面: カレンダーのページを出し、今月の使った額を出す。ほかの画面には入れない")
+    @Test("カレンダーの画面: 月の画面をカレンダーの見方で開き、今月の使った額を出す。ほかの画面では月の画面を開かない")
     func calendarScreenShowsSpending() async throws {
         let (demo, home) = try Self.makeHome(.calendar, uiLanguage: "ja")
         defer { Self.removeDefaults(of: demo) }
-        home.calendarPage.configure(calendar: demo.calendar)
         await demo.stage(on: home, calendar: demo.calendar)
 
-        #expect(home.page == .calendar)
-        #expect((home.calendarPage.days?.expense ?? 0) > 0)
+        let report = try #require(home.monthlyReport)
+        #expect(report.tab == .calendar)
+        #expect((report.days.days?.expense ?? 0) > 0)
 
         let (other, otherHome) = try Self.makeHome(.home, uiLanguage: "ja")
         defer { Self.removeDefaults(of: other) }
-        otherHome.calendarPage.configure(calendar: other.calendar)
-        #expect(otherHome.page == .conversation)
+        await other.stage(on: otherHome, calendar: other.calendar)
+        #expect(otherHome.monthlyReport == nil)
     }
 
     // MARK: - Release に入らないことの印

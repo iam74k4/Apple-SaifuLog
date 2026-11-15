@@ -90,20 +90,23 @@ struct EntryEdits: Equatable {
     var category: EntryCategory
     var memo: String
     var spentAt: Date
+    /// 払ったカードの ID。カードでなければ空。収入では空にする（`apply`）。
+    var cardID: String
 
-    init(amount: Int, isIncome: Bool, category: EntryCategory, memo: String, spentAt: Date) {
+    init(amount: Int, isIncome: Bool, category: EntryCategory, memo: String, spentAt: Date, cardID: String = "") {
         self.amount = amount
         self.isIncome = isIncome
         self.category = category
         self.memo = memo
         self.spentAt = spentAt
+        self.cardID = cardID
     }
 
     /// 記録のいまの値。
     init(_ entry: Entry) {
         self.init(
             amount: entry.amount, isIncome: entry.isIncome, category: entry.category,
-            memo: entry.memo, spentAt: entry.spentAt
+            memo: entry.memo, spentAt: entry.spentAt, cardID: entry.cardID
         )
     }
 
@@ -117,5 +120,8 @@ struct EntryEdits: Equatable {
         if entry.category != category { entry.category = category }
         if entry.memo != memo { entry.memo = memo }
         if entry.spentAt != spentAt { entry.spentAt = spentAt }
+        // 収入はカードの記録にしない（`PaymentLinker` と同じ）。
+        let card = isIncome ? "" : cardID
+        if entry.cardID != card { entry.cardID = card }
     }
 }

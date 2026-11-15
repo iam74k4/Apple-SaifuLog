@@ -32,6 +32,9 @@ final class RecurringEntry {
     @Attribute(.allowsCloudEncryption) var createdAt: Date = Date.now
     /// 利用者が最後に直した日時。同じ ID の行が重なったとき（行き違い）に、新しいほうの中身を採る。
     @Attribute(.allowsCloudEncryption) var updatedAt: Date = Date.now
+    /// 払うカードの ID（`CreditCard`）。記録にもこのカードを付ける（サブスクをカードで払うとき）。カードでなければ空。
+    /// 後から足した項目（既定値があるので、足す前の保存先も移行なしで開ける）。
+    @Attribute(.allowsCloudEncryption) var cardID: String = ""
 
     init(recurrenceID: String, draft: RecurringDraft, startMonth: RecurringMonth, createdAt: Date) {
         self.recurrenceID = recurrenceID
@@ -48,7 +51,7 @@ final class RecurringEntry {
 
     /// 直せる中身（金額・品目・支出か収入か・カテゴリ・日）。
     var draft: RecurringDraft {
-        RecurringDraft(amount: amount, memo: memo, isIncome: isIncome, category: category, dayOfMonth: dayOfMonth)
+        RecurringDraft(amount: amount, memo: memo, isIncome: isIncome, category: category, dayOfMonth: dayOfMonth, cardID: cardID)
     }
 
     func apply(_ draft: RecurringDraft) {
@@ -56,6 +59,8 @@ final class RecurringEntry {
         memo = draft.memo
         isIncome = draft.isIncome
         category = draft.isIncome ? .other : draft.category
+        // 収入はカードの記録にしない（`PaymentLinker` と同じ）。
+        cardID = draft.isIncome ? "" : draft.cardID
         dayOfMonth = min(max(draft.dayOfMonth, RecurringSchedule.dayRange.lowerBound), RecurringSchedule.dayRange.upperBound)
     }
 
@@ -76,6 +81,8 @@ struct RecurringDraft: Equatable {
     var isIncome: Bool
     var category: EntryCategory
     var dayOfMonth: Int
+    /// 払うカードの ID。カードでなければ空。
+    var cardID: String = ""
 }
 
 /// くり返しの記録の読み書き。保存に失敗したら変更を巻き戻し、呼び出し側に知らせる（`EntryStore`・`BudgetStore` と同じ）。
@@ -130,6 +137,7 @@ struct RecurringEntryStore {
         let rules = try rules()
         guard !rules.isEmpty else { return [] }
         let existingKeys = Set(try context.fetch(Self.occurrenceDescriptor).map(\.recurrenceKey))
+        let cardIDs = Dictionary(rules.map { ($0.recurrenceID, $0.cardID) }, uniquingKeysWith: { first, _ in first })
         var planned: [(rule: RecurringRule, month: RecurringMonth, spentAt: Date)] = []
         var recordedMonths: [String: RecurringMonth] = [:]
         for rule in rules.compactMap(\.rule) {
@@ -152,6 +160,7 @@ struct RecurringEntryStore {
                 createdAt: now.addingTimeInterval(Double(index) * ParsedEntry.orderingStep), source: .recurring, originalText: ""
             )
             entry.recurrenceKey = RecurringSchedule.occurrenceKey(ruleID: item.rule.id, month: item.month)
+            if !item.rule.isIncome { entry.cardID = cardIDs[item.rule.id] ?? "" }
             return entry
         }
         recorded.forEach(context.insert)

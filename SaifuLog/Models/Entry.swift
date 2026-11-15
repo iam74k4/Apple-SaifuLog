@@ -39,6 +39,9 @@ final class Entry {
     @Attribute(.allowsCloudEncryption) var recurrenceKey: String = ""
     /// カテゴリを聞き返している記録（返事の行の下のボタンで選ぶ）。保存先の開き直し・iCloud 同期の後にも聞き返しを残すため、記録に持つ。
     @Attribute(.allowsCloudEncryption) var needsCategoryReview: Bool = false
+    /// 払ったカードの ID（`CreditCard`）。現金やほかの払い方（カードを決めていない記録）は空。docs/design.md §8-2。
+    /// 後から足した項目（既定値があるので、足す前の保存先も移行なしで開ける。`ModelContainerFactoryTests`）。
+    @Attribute(.allowsCloudEncryption) var cardID: String = ""
 
     init(
         amount: Int,
@@ -90,6 +93,9 @@ extension Entry {
                 source: source,
                 originalText: originalText
             )
+        }.enumerated().map { index, entry in
+            entry.cardID = parsed[index].cardID ?? ""
+            return entry
         }
     }
 }
@@ -112,6 +118,9 @@ extension Entry {
                 source: .receipt,
                 originalText: submission.originalText
             )
+        }.map { entry in
+            entry.cardID = submission.cardID ?? ""
+            return entry
         }
     }
 }
@@ -172,6 +181,9 @@ extension Entry {
 
 /// 集計（SaifuLogCore の LedgerSummary・MonthlySummary）と CSV の書き出し（LedgerCSVWriter）にそのまま渡せるようにする。
 extension Entry: LedgerCSVRecord {}
+
+/// カードの締めの合計と支払い方法の内訳（SaifuLogCore の CardStatementSummary・PaymentBreakdown）に渡せるようにする。
+extension Entry: CardLedgerRecord {}
 
 
 /// どこから記録したか。rawValue は保存に使うので変えないこと。

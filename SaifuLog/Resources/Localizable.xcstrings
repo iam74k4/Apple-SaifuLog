@@ -56,6 +56,94 @@
         }
       }
     },
+    "%@%lld日引き落とし" : {
+      "comment" : "設定の「カード」の決まりの文の後ろ半分。%@ は「翌月」か「翌々月」、%lld は引き落とし日",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "paid %@ on day %lld"
+          }
+        }
+      }
+    },
+    "%@、%@に %@ 引き落とし" : {
+      "comment" : "カードの質問の答えの読み上げ（次の引き落とし）。1 つ目の %@ はカードの名前、2 つ目は引き落とし日、3 つ目は額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, %@ withdrawn: %@"
+          }
+        }
+      }
+    },
+    "%@、%@の利用 %@" : {
+      "comment" : "カードの質問の答えの読み上げ（締めの利用額）。1 つ目の %@ はカードの名前、2 つ目は締めの期間、3 つ目は額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, used %@: %@"
+          }
+        }
+      }
+    },
+    "%@〜%@" : {
+      "comment" : "カードの締めの期間（「10月16日〜11月15日」）。%@ は始まりの日と締め日",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@–%@"
+          }
+        }
+      }
+    },
+    "%@に引き落とし・%lld 件" : {
+      "comment" : "カードの締めの記録の画面の合計の下の文。%@ は引き落とし日、%lld は記録の件数",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Withdrawn on %@ · records: %lld"
+          }
+        }
+      }
+    },
+    "%@に引き落とし（%@の利用）" : {
+      "comment" : "カードの質問の答え（次の引き落とし）の行の下の文。1 つ目の %@ は引き落とし日、2 つ目は締めの期間",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Withdrawn on %@ (used %@)"
+          }
+        }
+      }
+    },
+    "%@の利用を%@に引き落とします。" : {
+      "comment" : "カードを登録・直すシートの、締めと引き落としの例。1 つ目の %@ は締めの期間、2 つ目は引き落とし日",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spending %@ is withdrawn on %@."
+          }
+        }
+      }
+    },
+    "%@の利用・%@に引き落とし" : {
+      "comment" : "カードの質問の答え（締めの利用額）の行の下の文。1 つ目の %@ は締めの期間、2 つ目は引き落とし日",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Used %@ · withdrawn on %@"
+          }
+        }
+      }
+    },
     "%@は今月 %lld 件・%@" : {
       "comment" : "ホームの返事のカードの最後の一行（直前の送信の支出）。%1$@ はカテゴリの名前（「カフェ」）、%2$lld はそのカテゴリの今月の記録の件数（いま記録したものを含む）、%3$@ はその合計（「¥1,350」）",
       "localizations" : {
@@ -289,6 +377,17 @@
         }
       }
     },
+    "%@末日引き落とし" : {
+      "comment" : "設定の「カード」の決まりの文の後ろ半分（引き落とし日が月末）。%@ は「翌月」か「翌々月」",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "paid %@ on the last day"
+          }
+        }
+      }
+    },
     "%lld か月の推移: %@" : {
       "comment" : "家計への質問の回答カードの推移の棒を VoiceOver で読むときの文。%lld は月の数、%@ は月と金額の一覧",
       "localizations" : {
@@ -456,6 +555,35 @@
         }
       }
     },
+    "%lld 枚（カード）" : {
+      "comment" : "設定の「カード」の行の右に出す、登録したカードの数。%lld は数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld card"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld cards"
+                }
+              }
+            }
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 枚"
+          }
+        }
+      }
+    },
     "%lld 番目にしました" : {
       "comment" : "設定の「カテゴリ」で、VoiceOver の操作で作ったカテゴリを動かした後に読み上げる位置。%lld は何番目か",
       "localizations" : {
@@ -489,6 +617,17 @@
         }
       }
     },
+    "%lld件・%@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld items · %@"
+          }
+        }
+      }
+    },
     "%lld日" : {
       "comment" : "くり返しの記録を作る・直すシートの、記録する日を選ぶメニューの 1 つ。%lld は毎月の何日か",
       "localizations" : {
@@ -496,6 +635,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Day %lld"
+          }
+        }
+      }
+    },
+    "%lld日締め" : {
+      "comment" : "設定の「カード」の決まりの文の前半。%lld は締め日",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "closes on day %lld"
           }
         }
       }
@@ -544,17 +694,6 @@
         }
       }
     },
-    "AI の一言: %@" : {
-      "comment" : "記録の返事に添えた端末内 AI の一言の VoiceOver の読み上げ。%@ は一言の文",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AI note: %@"
-          }
-        }
-      }
-    },
     "AI の時間切れの回数（起動から）" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。アプリを起動してから、端末内 AI が上限の時間までに返らず、キーワード辞書や定型文に切り替えた回数（機能ごとの内訳つき。AI の結果を使わなかった回数にも含む）の項目名",
       "localizations" : {
@@ -573,39 +712,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "AI fallbacks since launch"
-          }
-        }
-      }
-    },
-    "Apple Intelligence が、この iPhone の中で品目やカテゴリを読み取ります。読み違えたときは、記録の直後に取り消すか、記録をタップして直せます。" : {
-      "comment" : "ようこその画面。端末内の AI が使えるときの説明",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Intelligence reads the item and category right on this iPhone. If it gets something wrong, undo it right after recording, or tap the record to fix it."
-          }
-        }
-      }
-    },
-    "Apple Intelligence がオフのため、端末内の辞書で読み取ります。記録はそのままできます。設定で Apple Intelligence をオンにすると、AI が読むようになります。" : {
-      "comment" : "ようこその画面。Apple Intelligence がオフのときの説明",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Intelligence is turned off, so entries are read with an on-device dictionary. You can still record as usual. Turn on Apple Intelligence in Settings to have AI read them."
-          }
-        }
-      }
-    },
-    "Apple Intelligence の準備（モデルのダウンロードなど）が済むまでは、端末内の辞書で読み取ります。記録はそのままできます。準備が済むと、AI が読むようになります。" : {
-      "comment" : "ようこその画面。Apple Intelligence のモデルの準備が済んでいないときの説明",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Until Apple Intelligence is ready (for example, while its model downloads), entries are read with an on-device dictionary. You can still record as usual. Once it’s ready, AI will read them."
           }
         }
       }
@@ -727,6 +833,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "iCloud"
+          }
+        }
+      }
+    },
+    "iCloud からサインアウトする前に、「iCloud で同期」をオフにしてください（オンのままだと、この iPhone から記録が消えて見えることがあります）。" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn off iCloud Sync before you sign out of iCloud. If it stays on, records may seem to disappear from this iPhone."
           }
         }
       }
@@ -962,6 +1079,17 @@
         }
       }
     },
+    "「ランチ 850 楽天カードで」のように送ると、そのカードの記録になります。" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send something like “ランチ 850 楽天カードで” to record it on that card."
+          }
+        }
+      }
+    },
     "「ランチ 850」のようなひとことを送って記録します。アプリを開いて、記録した内容を返事で見せます。" : {
       "comment" : "Siri・ショートカットの操作「ひとことで記録」の説明",
       "localizations" : {
@@ -995,17 +1123,6 @@
         }
       }
     },
-    "「衣服 3000」のようにカテゴリの名前を書いて送ると、そのカテゴリで記録します。%lld 個まで作れます。" : {
-      "comment" : "設定の「カテゴリ」の、作ったカテゴリの節の注記。%lld は作れる数",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Send the category name with an amount, like “Clothing 3000”, to record it in that category. You can create up to %lld categories."
-          }
-        }
-      }
-    },
     "「衣服 3000」のように名前を書いて送ると、このカテゴリで記録します。" : {
       "comment" : "カテゴリを作る・直すシートの、名前の欄の下の説明",
       "localizations" : {
@@ -1013,6 +1130,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send the name with an amount, like “Clothing 3000”, to record it in this category."
+          }
+        }
+      }
+    },
+    "「衣服 3000」のように送ると、そのカテゴリで記録します。" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send something like “衣服 3000” to record it in that category."
           }
         }
       }
@@ -1039,6 +1167,17 @@
         }
       }
     },
+    "いつものカード" : {
+      "comment" : "カードを登録・直すシートの切り替えと、一覧の印。名前を書かずに「カードで」と書いた記録に使うカード",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usual Card"
+          }
+        }
+      }
+    },
     "いまの予算を決める前の月なので、予算の残りは分かりません（月ごとの予算は残していません）。" : {
       "comment" : "家計への質問の回答カード。先月の予算の残りを聞かれたが、いまの予算を先月より後に決めていて答えられないとき",
       "localizations" : {
@@ -1061,17 +1200,6 @@
         }
       }
     },
-    "いまは Apple Intelligence を使えないため、端末内の辞書で読み取ります。記録はそのままできます。" : {
-      "comment" : "ようこその画面。そのほかの理由で AI を使えないときの説明",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Intelligence isn’t available right now, so entries are read with an on-device dictionary. You can still record as usual."
-          }
-        }
-      }
-    },
     "いまは iCloud を使えないため、この iPhone の中だけに保存しています。iPhone の設定で、Apple アカウントの確認を求められていないかを確かめてください。" : {
       "comment" : "設定の「iCloud で同期」がオンなのに iCloud が一時的に使えないときに、節の中に出す案内",
       "localizations" : {
@@ -1090,17 +1218,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "iCloud isn’t available right now. Check the Settings app to see whether your Apple Account needs attention."
-          }
-        }
-      }
-    },
-    "いまはキーワード辞書で読みます" : {
-      "comment" : "ようこその画面。Apple Intelligence がオフ・準備中などで、いまは AI を使えないときの見出し",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Entries are read with a keyword dictionary for now"
           }
         }
       }
@@ -1265,17 +1382,6 @@
         }
       }
     },
-    "この iPhone では AI が文を読みます" : {
-      "comment" : "ようこその画面。端末内の AI が使えるときの見出し",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "On-device AI reads what you write"
-          }
-        }
-      }
-    },
     "この iPhone では iCloud の利用が制限されています（スクリーンタイムや機器の管理の設定など）。" : {
       "comment" : "iCloud の利用が制限されているとき（スクリーンタイム・機器の管理）の案内",
       "localizations" : {
@@ -1298,17 +1404,6 @@
         }
       }
     },
-    "この iPhone ではキーワード辞書で読みます" : {
-      "comment" : "ようこその画面。Apple Intelligence に対応していない機種での見出し",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This iPhone reads entries with a keyword dictionary"
-          }
-        }
-      }
-    },
     "この iPhone の記録は残り、これからはこの iPhone の中だけに保存します。iCloud に保存した記録は iCloud に残り、ほかの端末とはそろわなくなります。\n\n切り替えると記録を開き直します。" : {
       "comment" : "設定の「iCloud で同期」をオフにする前の確認のアラートの本文",
       "localizations" : {
@@ -1316,17 +1411,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your records stay on this iPhone and will be saved only on this iPhone from now on. Records saved in iCloud stay in iCloud, and this iPhone will no longer stay in sync with your other devices.\n\nSwitching reopens your records."
-          }
-        }
-      }
-    },
-    "この iPhone は Apple Intelligence に対応していないため、端末内の辞書で金額やカテゴリを読み取ります。上の例のような書き方なら、AI がなくても記録や質問ができます。" : {
-      "comment" : "ようこその画面。Apple Intelligence に対応していない機種での説明",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This iPhone doesn’t support Apple Intelligence, so amounts and categories are read with an on-device dictionary. You can record and ask questions without AI if you write like the examples above."
           }
         }
       }
@@ -1349,17 +1433,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Stop This Recurring Entry"
-          }
-        }
-      }
-    },
-    "このアプリで書き出した CSV ファイルから、記録を戻します（機種変更のときなど）。ファイルはこの iPhone の中で読み、すでにある同じ記録は 2 回入れません。" : {
-      "comment" : "設定の「記録を読み込む」の節の注記",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Restores entries from a CSV file exported by this app (for example, when you switch to a new iPhone). The file is read on this iPhone, and entries that are already here aren’t added twice."
           }
         }
       }
@@ -1458,6 +1531,29 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "%lld entries in this category will move to Other. The category is also removed from learned categories."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "このカードの記録 %lld 件は「現金・その他」になります。記録そのものは消えません。" : {
+      "comment" : "カードを削除する確認の本文。%lld は、そのカードの記録の件数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld record on this card will become “Cash & Other”. The record itself stays."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld records on this card will become “Cash & Other”. The records themselves stay."
                 }
               }
             }
@@ -1575,6 +1671,28 @@
         }
       }
     },
+    "この締めのカードの記録はありません" : {
+      "comment" : "カードの締めの記録の画面で、記録が無いとき",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No card records in this billing period"
+          }
+        }
+      }
+    },
+    "この締めの記録の一覧を開きます" : {
+      "comment" : "設定の「カード」の行の VoiceOver のヒント",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the records for this billing period"
+          }
+        }
+      }
+    },
     "この記録のカテゴリにします" : {
       "comment" : "ホームの返事のカテゴリのボタンの VoiceOver の説明",
       "localizations" : {
@@ -1637,17 +1755,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sends this question"
-          }
-        }
-      }
-    },
-    "こんなふうに書けます" : {
-      "comment" : "ようこその画面。入力の例の見出し",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Write it like this"
           }
         }
       }
@@ -1786,28 +1893,6 @@
         }
       }
     },
-    "はじめからあるカテゴリ" : {
-      "comment" : "設定の「カテゴリ」の節の見出し。アプリにはじめからある 8 つのカテゴリ",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Built-in Categories"
-          }
-        }
-      }
-    },
-    "はじめからあるカテゴリは、名前を変えたり削除したりできません。どれにも当てはまらない記録は「その他」になります。" : {
-      "comment" : "設定の「カテゴリ」の、はじめからあるカテゴリの節の注記",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Built-in categories can’t be renamed or deleted. Entries that don’t fit any category go to Other."
-          }
-        }
-      }
-    },
     "はじめる" : {
       "comment" : "ようこその画面の主ボタン。月の予算を決める画面へ進む",
       "localizations" : {
@@ -1841,17 +1926,6 @@
         }
       }
     },
-    "ひとことを書いています…" : {
-      "comment" : "月のまとめ。端末内 AI が一言を書いている間の表示",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Writing a short note…"
-          }
-        }
-      }
-    },
     "ほかの端末で削除されたため、直した内容は保存していません。" : {
       "comment" : "直すシートで保存しようとした記録が、ほかの端末で削除されていたときのアラートの本文。OK でシートを閉じる",
       "localizations" : {
@@ -1874,17 +1948,6 @@
         }
       }
     },
-    "まだ作ったカテゴリはありません。交際・ペット・子どもなど、よく使う分け方を作れます。" : {
-      "comment" : "設定の「カテゴリ」に作ったカテゴリが無いときの案内",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You haven’t created any categories yet. Create the ones you use often, such as social, pets, or kids."
-          }
-        }
-      }
-    },
     "まだ覚えたカテゴリはありません。記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、ここに並びます。" : {
       "comment" : "設定の「覚えたカテゴリ」に何も無いときの案内",
       "localizations" : {
@@ -1896,13 +1959,13 @@
         }
       }
     },
-    "まとめて1件で記録" : {
-      "comment" : "レシートの読み取り結果のシート（⑤）。レシートの合計を 1 件の記録にする選択肢",
+    "まとめて1件" : {
+      "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Record as One Entry"
+            "value" : "As one"
           }
         }
       }
@@ -1995,6 +2058,17 @@
         }
       }
     },
+    "よく使うカード" : {
+      "comment" : "カードを登録するシートの、よく使うカードの候補の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Common Cards"
+          }
+        }
+      }
+    },
     "アカウントの状態" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。iCloud のアカウントの状態の項目名",
       "localizations" : {
@@ -2068,28 +2142,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Turn On"
-          }
-        }
-      }
-    },
-    "オンにすると、アプリを開くときにロックの解除を求めます。アプリの切り替えの画面でも記録を隠します。" : {
-      "comment" : "設定の「セキュリティ」の節の注記",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "When this is on, SaifuLog asks you to unlock it when you open it, and hides your records in the app switcher."
-          }
-        }
-      }
-    },
-    "オンにすると、記録と予算をあなたの iCloud に保存し、同じ Apple アカウントの端末どうしでそろえます。オフのあいだは、この iPhone の中だけに保存します。" : {
-      "comment" : "設定の「同期」の節の注記（「iCloud で同期」がオフのとき）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "When this is on, your records and budgets are saved in your iCloud and kept in sync across devices signed in to the same Apple Account. While it’s off, they’re saved only on this iPhone."
           }
         }
       }
@@ -2293,6 +2345,122 @@
         }
       }
     },
+    "カード「%@」を削除しました" : {
+      "comment" : "カードを削除した後に VoiceOver で読み上げる内容。%@ はカードの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleted card “%@”"
+          }
+        }
+      }
+    },
+    "カード「%@」を登録しました" : {
+      "comment" : "カードを登録した後に VoiceOver で読み上げる内容。%@ はカードの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added card “%@”"
+          }
+        }
+      }
+    },
+    "カード「%@」を直しました" : {
+      "comment" : "カードを直した後に VoiceOver で読み上げる内容。%@ はカードの名前",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated card “%@”"
+          }
+        }
+      }
+    },
+    "カードで払った支出は、使った日に記録して数えています。その記録があれば、引き落としも記録すると二重になります。" : {
+      "comment" : "カードの引き落としを記録する前の確認の本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Card spending is counted on the day you use the card. If you’ve recorded those purchases, recording the withdrawal counts them twice."
+          }
+        }
+      }
+    },
+    "カードで払った支出は、使った日に記録して数えています。引き落としも記録すると二重になるので、記録しませんでした。引き落としの額は、設定の「カード」で見られます。" : {
+      "comment" : "カードの引き落としを記録しなかったときの返事のカードの本文",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Card spending is counted on the day you use the card, so recording the withdrawal would count it twice. Nothing was recorded. You can see withdrawal amounts in Settings > Cards."
+          }
+        }
+      }
+    },
+    "カードの引き落としを記録しますか？" : {
+      "comment" : "カードの引き落としを書いた文を送ったときの確認の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record a Card Withdrawal?"
+          }
+        }
+      }
+    },
+    "カードの引き落としを記録するか確かめます" : {
+      "comment" : "カードの引き落としを書いた文を送ったときに VoiceOver で読み上げる内容（確認を出した）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asking whether to record the card withdrawal"
+          }
+        }
+      }
+    },
+    "カードを登録" : {
+      "comment" : "設定の「カード」の一覧のボタンと、登録するシートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Card"
+          }
+        }
+      }
+    },
+    "カードを直す" : {
+      "comment" : "カードを直すシートの題名",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Card"
+          }
+        }
+      }
+    },
+    "カード（設定）" : {
+      "comment" : "設定の行と、その一覧の画面の題名。登録したクレジットカードを並べ、登録する・直す・削除する",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cards"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カード"
+          }
+        }
+      }
+    },
     "キャンセル" : {
       "comment" : "予算を決める画面・直すシートを保存せずに閉じるボタンと、端末内 AI が選んだチャットの操作の確認のアラートのやめるボタン",
       "localizations" : {
@@ -2337,17 +2505,6 @@
         }
       }
     },
-    "サイフログは、「ランチ 850」のように一行送るだけで記録できる家計簿です。分類と計算はアプリが引き受け、同じ入力欄で家計について聞くこともできます。" : {
-      "comment" : "ようこその画面の説明。例の「ランチ 850」は訳さない（解析が日本語の入力を前提にしているため）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "SaifuLog is a budget app where you record spending by sending a single line, like “ランチ 850”. The app takes care of the categories and the math, and you can ask about your spending in the same field."
-          }
-        }
-      }
-    },
     "シャツ" : {
       "comment" : "カテゴリを作る・直すシートの記号の名前（VoiceOver が読む）",
       "localizations" : {
@@ -2366,17 +2523,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Gym"
-          }
-        }
-      }
-    },
-    "セキュリティ" : {
-      "comment" : "設定の節の見出し（アプリのロック）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Security"
           }
         }
       }
@@ -2421,6 +2567,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dumbbell"
+          }
+        }
+      }
+    },
+    "データ" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data"
           }
         }
       }
@@ -2531,6 +2688,182 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Help & Contact"
+          }
+        }
+      }
+    },
+    "ロックは、iPhone の設定でパスコードを設定すると使えるようになります。" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To use the lock, set a passcode in the iPhone Settings app."
+          }
+        }
+      }
+    },
+    "一行送るだけで記録でき、同じ入力欄で家計について聞けます。" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record with one line, and ask about your spending in the same field."
+          }
+        }
+      }
+    },
+    "今の締めの利用額" : {
+      "comment" : "カードの質問の答えの見出し（まだ締めていない分の利用額）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current Billing Period"
+          }
+        }
+      }
+    },
+    "今の締め（%@）" : {
+      "comment" : "設定の「カード」の行の、今の締めの利用額の見出し。%@ は締めの期間",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This period (%@)"
+          }
+        }
+      }
+    },
+    "使った日の月で数えた額です。カードの引き落としの額は、設定の「カード」で見られます。" : {
+      "comment" : "月のまとめの「支払い方法」の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amounts are counted by the month you spent them. You can see card withdrawal amounts in Settings > Cards."
+          }
+        }
+      }
+    },
+    "内訳" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Breakdown"
+          }
+        }
+      }
+    },
+    "前の締め" : {
+      "comment" : "カードの締めの記録の画面の、前の締めへ戻るボタンの VoiceOver のラベル",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous Period"
+          }
+        }
+      }
+    },
+    "前の締めの利用額" : {
+      "comment" : "カードの質問の答えの見出し（締めた分の利用額）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous Billing Period"
+          }
+        }
+      }
+    },
+    "合計" : {
+      "comment" : "カードの質問の答えの、カードが 2 枚以上のときの合計の行",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total"
+          }
+        }
+      }
+    },
+    "同じ名前のカードがあります。" : {
+      "comment" : "カードを登録・直すシートの名前の問題（ほかのカードと同じ名前）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A card with this name already exists."
+          }
+        }
+      }
+    },
+    "名前・締め日・引き落とし日を決めて、カードを登録します" : {
+      "comment" : "設定の「カード」の「カードを登録」の VoiceOver のヒント",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set a name, closing day, and payment day to add a card"
+          }
+        }
+      }
+    },
+    "品目ごと" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per item"
+          }
+        }
+      }
+    },
+    "家計" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Household"
+          }
+        }
+      }
+    },
+    "引き落としは記録していません" : {
+      "comment" : "カードの引き落としを記録しなかったときの返事のカードの見出しと、VoiceOver の読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Withdrawal Not Recorded"
+          }
+        }
+      }
+    },
+    "引き落とし日" : {
+      "comment" : "カードを登録・直すシートの、引き落とし日の選択",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment Day"
+          }
+        }
+      }
+    },
+    "引き落とす月" : {
+      "comment" : "カードを登録・直すシートの、締めた月の翌月か翌々月かの選択",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment Month"
           }
         }
       }
@@ -2843,17 +3176,6 @@
         }
       }
     },
-    "予算はあとからいつでも変えられます。" : {
-      "comment" : "予算を決める画面の注記。ホームの「予算を変更」から変えられる",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You can change your budget any time."
-          }
-        }
-      }
-    },
     "予算を %@ にしました" : {
       "comment" : "予算を保存した後に VoiceOver で読み上げる内容。%@ は「¥150,000」のような月の予算",
       "localizations" : {
@@ -3135,17 +3457,6 @@
         }
       }
     },
-    "会話" : {
-      "comment" : "カレンダーのページの上の帯の、会話のページへ戻るボタン（VoiceOver のラベル。記号だけのボタン）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chat"
-          }
-        }
-      }
-    },
     "住居" : {
       "comment" : "カテゴリ",
       "localizations" : {
@@ -3201,17 +3512,6 @@
         }
       }
     },
-    "作ったカテゴリ" : {
-      "comment" : "設定の「カテゴリ」の節の見出し。利用者が作ったカテゴリ",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your Categories"
-          }
-        }
-      }
-    },
     "作れるのは %lld 個までです。使わないカテゴリを削除すると、新しく作れます。" : {
       "comment" : "設定の「カテゴリ」で、作れる数に届いたときの注記。%lld は作れる数",
       "localizations" : {
@@ -3263,17 +3563,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nothing spent"
-          }
-        }
-      }
-    },
-    "保存" : {
-      "comment" : "予算を決める画面と直すシートの保存ボタン",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Save"
           }
         }
       }
@@ -3465,6 +3754,227 @@
         }
       }
     },
+    "支払い" : {
+      "comment" : "払ったカードを選ぶ欄の見出し（直す画面・レシート・くり返しの記録）と、設定の節の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment"
+          }
+        }
+      }
+    },
+    "支払い方法" : {
+      "comment" : "月のまとめの、カードごとと現金・その他の支出の内訳の見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment Methods"
+          }
+        }
+      }
+    },
+    "月末締め" : {
+      "comment" : "設定の「カード」の決まりの文の前半（締め日が月末）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "closes at month end"
+          }
+        }
+      }
+    },
+    "末日" : {
+      "comment" : "カードの締め日・引き落とし日の選択肢（月の最後の日）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last day"
+          }
+        }
+      }
+    },
+    "楽天カード・メインのカード など" : {
+      "comment" : "カードを登録・直すシートの名前の欄の入力例",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "e.g. Rakuten Card, Main card"
+          }
+        }
+      }
+    },
+    "次の引き落とし" : {
+      "comment" : "カードの質問の答えの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next Withdrawal"
+          }
+        }
+      }
+    },
+    "次の引き落とし（%@）" : {
+      "comment" : "設定の「カード」の行の、次の引き落としの額の見出し。%@ は引き落とし日",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next withdrawal (%@)"
+          }
+        }
+      }
+    },
+    "次の締め" : {
+      "comment" : "カードの締めの記録の画面の、次の締めへ進むボタンの VoiceOver のラベル",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next Period"
+          }
+        }
+      }
+    },
+    "現金・その他" : {
+      "comment" : "払ったカードを選ぶ欄の、カードでない払い方の選択肢と、月のまとめの支払い方法の行",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cash & Other"
+          }
+        }
+      }
+    },
+    "登録したカードがありません" : {
+      "comment" : "カードの質問の答えの読み上げ（答えるカードが無いとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No cards added"
+          }
+        }
+      }
+    },
+    "登録したクレジットカードの一覧を開きます" : {
+      "comment" : "設定の「カード」の行の VoiceOver のヒント",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the list of your credit cards"
+          }
+        }
+      }
+    },
+    "登録できるのは %lld 枚までです。" : {
+      "comment" : "設定の「カード」の一覧の下の説明（上限に届いたとき）。%lld は数",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You can add up to %lld card."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You can add up to %lld cards."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "締め日" : {
+      "comment" : "カードを登録・直すシートの、締め日の選択",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Closing Day"
+          }
+        }
+      }
+    },
+    "翌々月" : {
+      "comment" : "カードの引き落とす月の選択肢（締めた月の 2 か月後）。決まりの文の中にも入る",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the month after next"
+          }
+        }
+      }
+    },
+    "翌月" : {
+      "comment" : "カードの引き落とす月の選択肢（締めた月の翌月）。決まりの文の中にも入る",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "next month"
+          }
+        }
+      }
+    },
+    "見方" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View"
+          }
+        }
+      }
+    },
+    "記録しない" : {
+      "comment" : "カードの引き落としを記録する前の確認の、記録しないボタン",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Don’t Record"
+          }
+        }
+      }
+    },
+    "記録はこの iPhone の中に置き、外へは送りません（iCloud の同期は、設定でオンにしたときだけ）。" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your records stay on this iPhone and are never sent anywhere (except to your iCloud, if you turn on iCloud Sync in Settings)."
+          }
+        }
+      }
+    },
+    "記録は消えません。" : {
+      "comment" : "カードを削除する確認の本文（そのカードの記録が無いとき）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your records stay."
+          }
+        }
+      }
+    },
     "違っていたら「それ日用品」「さっきのを900に直して」と送れば直せます" : {
       "comment" : "ホームの記録の返事の下に、最初の数回だけ出すヒント（チャットでの直し方）。例の文はアプリが日本語で読むので、英語でも日本語のまま書く",
       "localizations" : {
@@ -3483,39 +3993,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tip: If something’s wrong, send “それ日用品” or “さっきのを900に直して” to fix it"
-          }
-        }
-      }
-    },
-    "左へスワイプすると、日ごとに使った額のカレンダーが見られます" : {
-      "comment" : "ホームの記録の返事の下に、直し方のヒントの後に数回だけ出すヒント。押すとカレンダーのページを出す",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Swipe left to see a calendar of what you spent each day"
-          }
-        }
-      }
-    },
-    "ヒント: 左へスワイプすると、日ごとに使った額のカレンダーが見られます" : {
-      "comment" : "上のヒントの VoiceOver の読み上げ",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tip: Swipe left to see a calendar of what you spent each day"
-          }
-        }
-      }
-    },
-    "カレンダーを開きます" : {
-      "comment" : "カレンダーのヒントの VoiceOver のヒント",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Opens the calendar"
           }
         }
       }
@@ -3971,17 +4448,6 @@
         }
       }
     },
-    "同期" : {
-      "comment" : "設定の節の見出し。「iCloud で同期」のトグルを置く",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sync"
-          }
-        }
-      }
-    },
     "名前" : {
       "comment" : "カテゴリを作る・直すシートの、名前の欄の見出し",
       "localizations" : {
@@ -4066,17 +4532,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Item"
-          }
-        }
-      }
-    },
-    "品目ごとに記録" : {
-      "comment" : "レシートの読み取り結果のシート（⑤）。品目ごとに 1 件ずつ記録する選択肢",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Record Each Item"
           }
         }
       }
@@ -4231,28 +4686,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "e.g. Rent, Subscription, Salary"
-          }
-        }
-      }
-    },
-    "家賃・サブスク・給料のように毎月同じ記録を、決めた日を過ぎて最初にアプリを開いたときに記録します。" : {
-      "comment" : "設定の「毎月の記録」の節の注記。アプリは決めた日に裏で記録しないので、決めた日を過ぎて開いたときに記録することを書く",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Records entries that repeat every month, such as rent, subscriptions, or salary, the first time you open the app on or after the day you choose."
-          }
-        }
-      }
-    },
-    "交際・ペット・子どもなど、カテゴリは作って増やせます。記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。" : {
-      "comment" : "設定の「カテゴリ」の節の注記",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You can create categories such as social, pets, or kids. When you choose a category in a reply or change one on the edit screen, SaifuLog records the same words in that category from now on."
           }
         }
       }
@@ -4945,17 +5378,6 @@
         }
       }
     },
-    "毎月の記録" : {
-      "comment" : "設定の節の見出し（くり返しの記録）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Monthly Entries"
-          }
-        }
-      }
-    },
     "毎月同じ記録の一覧を開きます" : {
       "comment" : "設定の「くり返しの記録」の行の VoiceOver の説明",
       "localizations" : {
@@ -5507,17 +5929,6 @@
         }
       }
     },
-    "記録する件数: %lld件（%@）" : {
-      "comment" : "レシートの読み取り結果のシート（⑤）。記録するボタンの上の注記。%lld は記録する件数、%@ は「¥1,280」のような合計",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Entries to record: %lld (%@)"
-          }
-        }
-      }
-    },
     "記録する文" : {
       "comment" : "Siri・ショートカットの操作「ひとことで記録」の、記録する文の項目の名前",
       "localizations" : {
@@ -5573,17 +5984,6 @@
         }
       }
     },
-    "記録と予算を、あなたの iCloud で同じ Apple アカウントの端末とそろえています。iCloud からサインアウトする前に、ここでオフにしてください（オンのままだと、この iPhone から記録が消えて見えることがあります）。" : {
-      "comment" : "設定の「同期」の節の注記（「iCloud で同期」がオンのとき）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your records and budgets are kept in sync through your iCloud across devices with the same Apple Account. Turn this off here before you sign out of iCloud (if it’s on, records may seem to disappear from this iPhone)."
-          }
-        }
-      }
-    },
     "記録と予算を、あなたの iCloud で同じ Apple アカウントの端末とそろえます" : {
       "comment" : "設定の「iCloud で同期」のトグルの VoiceOver の説明（ヒント）",
       "localizations" : {
@@ -5602,17 +6002,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your records and budgets will be saved in your iCloud (Apple) and kept in sync across devices signed in to the same Apple Account. Records already on this iPhone will be uploaded to iCloud too. The developer can’t see them.\n\nThe contents of your records and budgets are encrypted on this iPhone before they’re saved to iCloud. If Apple’s Advanced Data Protection is on, they’re end-to-end encrypted, and only your trusted devices have the keys. If it’s off, they use standard encryption, with keys managed by Apple.\n\nSwitching reopens your records. If you turn it off later, the records on this iPhone stay."
-          }
-        }
-      }
-    },
-    "記録と質問の会話に戻ります" : {
-      "comment" : "カレンダーのページの上の帯の会話のボタンの VoiceOver のヒント",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Returns to the chat for entries and questions."
           }
         }
       }
@@ -5667,17 +6056,6 @@
         }
       }
     },
-    "記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。" : {
-      "comment" : "設定の「カテゴリ」の画面の「覚えたカテゴリ」の行の注記",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "When you choose a category in a reply or change one on the edit screen, SaifuLog records the same words in that category from now on."
-          }
-        }
-      }
-    },
     "記録はこの iPhone の中だけに保存しています（「iCloud で同期」はオフに戻しました）。iCloud にサインインしているかと、iCloud の空き容量を確かめてから、設定でもう一度オンにできます。" : {
       "comment" : "iCloud と同期する保存先を開けず、端末の中だけの保存先に戻したときのアラートの本文",
       "localizations" : {
@@ -5685,28 +6063,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your records are being saved only on this iPhone (Sync with iCloud has been turned off). Check that you’re signed in to iCloud and have enough iCloud storage, then you can turn it on again in Settings."
-          }
-        }
-      }
-    },
-    "記録はこの iPhone の中に" : {
-      "comment" : "ようこその画面。記録の保存先の見出し",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your records are kept on this iPhone"
-          }
-        }
-      }
-    },
-    "記録はこの iPhone の中に保存し、文の読み取りもこの iPhone の中で行います。開発者のサーバーはなく、記録や入力した文を開発者や第三者に送ることはありません。設定で iCloud の同期をオンにしたときだけ、記録をあなたの iCloud にも保存し、同じ Apple アカウントの端末どうしでそろえます。" : {
-      "comment" : "ようこその画面。記録の保存先とプライバシーの説明",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your records are saved on this iPhone, and what you write is read on this iPhone too. There’s no developer server, and your records and what you type are never sent to the developer or any third party. Only if you turn on iCloud sync in Settings are your records also saved in your iCloud and kept in sync across devices signed in to the same Apple Account."
           }
         }
       }
@@ -5777,17 +6133,6 @@
         }
       }
     },
-    "記録を書き出す" : {
-      "comment" : "設定の節の見出し。記録を CSV ファイルに書き出す",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Export Entries"
-          }
-        }
-      }
-    },
     "記録を消して、送った文を入力欄に戻します" : {
       "comment" : "ホームのタイムラインの、送信への返事の見出しの「取り消す」の VoiceOver のヒント（その送信で記録したものを消し、送った文を入力欄に戻す）。家計のタイムラインの記録の直後の「取り消す」にも使う",
       "localizations" : {
@@ -5850,17 +6195,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Unlock to see your records."
-          }
-        }
-      }
-    },
-    "記録を読み込む" : {
-      "comment" : "設定の節の見出し。このアプリで書き出した CSV ファイルから記録を戻す",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Import Entries"
           }
         }
       }
@@ -6135,17 +6469,6 @@
         }
       }
     },
-    "軽減税率" : {
-      "comment" : "レシートの読み取り結果のシート（⑤）。品目の行の注記（軽減税率の印があった品目）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reduced tax rate"
-          }
-        }
-      }
-    },
     "送った文" : {
       "comment" : "直すシートの上に出す、ひとこと入力で送った元の文の見出し",
       "localizations" : {
@@ -6223,17 +6546,6 @@
         }
       }
     },
-    "選んだ期間の記録を、Excel などの表計算ソフトで開ける CSV ファイルにします。渡す先は共有の画面であなたが選び、アプリが自動で送ることはありません。" : {
-      "comment" : "設定の「記録を書き出す」の節の注記",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Saves the entries in the period you chose as a CSV file that opens in spreadsheet apps such as Excel. You choose where it goes on the share sheet; the app never sends it anywhere on its own."
-          }
-        }
-      }
-    },
     "金額" : {
       "comment" : "直すシートの金額の欄の見出し",
       "localizations" : {
@@ -6245,13 +6557,13 @@
         }
       }
     },
-    "金額が入っていない行があります。金額を入れるか、行を外してください。" : {
-      "comment" : "レシートの読み取り結果のシート（⑤）。金額を保存できない行があるときの、記録するボタンの上の注意",
+    "金額が入っていない行があります" : {
+      "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Some items have no amount. Enter an amount or leave the item out."
+            "value" : "Some items have no amount"
           }
         }
       }
@@ -6395,23 +6707,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Iron Navy"
-          }
-        }
-      }
-    },
-    "閉じる（レシートの読み取り）" : {
-      "comment" : "レシートの読み取り結果のシート（⑤）の、記録せずにシートを閉じるボタン",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Close"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "閉じる"
           }
         }
       }

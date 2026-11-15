@@ -119,7 +119,7 @@ struct LedgerAnswerInsightsTests {
 
     // MARK: - AI に渡す文
 
-    @Test("AI に渡す文に比べを書き、その数字を一言に使ってよい")
+    @Test("AI に渡す文に比べを書く")
     func factsIncludeComparison() throws {
         let answer = try #require(Self.answer(LedgerQuestion(period: .thisMonth, metric: .categoryExpense, category: .cafe), [
             Self.record(7_200, 2026, 9, 3), Self.record(5_400, 2026, 8, 10),
@@ -127,8 +127,6 @@ struct LedgerAnswerInsightsTests {
         let facts = LedgerAnswerFacts.text(for: answer, calendar: Self.calendar)
 
         #expect(facts.contains("前の期間との比べ: 先月の同じ日まで（¥5,400）より ¥1,800 多い"))
-        #expect(AnswerSentenceCheck.accepts("今月のカフェは¥7,200で、先月より¥1,800多めです。", facts: facts))
-        #expect(!AnswerSentenceCheck.accepts("先月より¥2,000多めです。", facts: facts))
     }
 
     // MARK: - 続けて聞く質問

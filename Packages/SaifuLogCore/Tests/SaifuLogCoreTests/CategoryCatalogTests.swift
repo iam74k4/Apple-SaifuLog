@@ -213,7 +213,5 @@ struct CategoryCatalogTests {
     func factsUseCustomNames() {
         let question = LedgerQuestion(period: .thisMonth, metric: .categoryExpense, category: .custom("c1"))
         #expect(LedgerAnswerFacts.metricName(question, catalog: Self.catalog) == "衣服の支出の合計")
-        let breakdown = CategoryBreakdown(expenseByCategory: [.custom("c2"): 4_000, .food: 1_000])
-        #expect(RecapFacts.categories(breakdown.items, catalog: Self.catalog) == "美容 ¥4,000（80%）、食費 ¥1,000（20%）")
     }
 }

@@ -3,8 +3,8 @@ import SaifuLogCore
 
 /// 家計への質問に答える（端末内 AI のツール呼び出しか、キーワード辞書）。
 ///
-/// どちらの経路でも、数字はコアの `LedgerQuestionAnswerer` が計算する（AI には計算させない）。AI が書くのは一言の
-/// 言い回しだけで、回答カードにはコードが計算した数字をその一言とは別に出す。
+/// どちらの経路でも、数字はコアの `LedgerQuestionAnswerer` が計算する（AI には計算させない）。AI が選ぶのは期間・知りたいこと・
+/// カテゴリだけで、回答カードにはコードが計算した数字だけを出す。
 protocol QuestionAnswering: Sendable {
     /// - Parameters:
     ///   - ledger: 答えに使う記録と予算の写し（`QuestionLedger.load`）。
@@ -15,18 +15,10 @@ protocol QuestionAnswering: Sendable {
 
 /// 質問への返事。
 enum QuestionReply: Equatable, Sendable {
-    /// 答えられた。`remark` は回答カードに添える一言（AI が使えないときは nil）。
-    case answered(LedgerAnswer, remark: QuestionRemark?)
+    /// 答えられた。
+    case answered(LedgerAnswer)
     /// 読めなかった（質問の例を出す）。
     case unreadable
-}
-
-/// 回答カードに添える一言。
-enum QuestionRemark: Equatable, Sendable {
-    /// 端末内 AI が書いた一言。ツールの結果に無い数字を含まないことを確かめてある（`AnswerSentenceCheck`）。
-    case ai(String)
-    /// AI の一言を捨てたとき（ツールの結果に無い数字を含んでいた、空だった）の定型文。
-    case fixed
 }
 
 /// キーワード辞書で読んで答える（AI が使えない端末と、AI が失敗したとき）。
@@ -35,7 +27,7 @@ struct RuleBasedQuestionAnswerer: QuestionAnswering {
         guard let question = QuestionParser.question(from: text, now: now, calendar: calendar, catalog: ledger.catalog),
               let answer = LedgerQuestionAnswerer.answer(question, ledger: ledger, now: now, calendar: calendar)
         else { return .unreadable }
-        return .answered(answer, remark: nil)
+        return .answered(answer)
     }
 }
 

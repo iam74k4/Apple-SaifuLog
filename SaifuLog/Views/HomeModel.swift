@@ -74,18 +74,6 @@ final class HomeModel {
     private(set) var justRecordedIDs: [PersistentIdentifier] = []
     /// 入力欄の VoiceOver の「直す: …」の対象（`justRecorded` の要約。記録した時点で作っておく。理由は `justRecordedIDs` と同じ）。
     private var justRecordedItems: [RecordedItem] = []
-    /// いま出しているホームのページ。開いたときは会話（記録が先）。左右のスワイプのほか、カレンダーの「会話」のボタンと、
-    /// VoiceOver の帯の操作「カレンダー」で切り替える。
-    var page: Page = .conversation {
-        didSet {
-            // カレンダーのページを開いたら、入口を知っているので、カレンダーのヒントはもう出さない（`ReplyHints`）。
-            guard page == .calendar else { return }
-            hints?.markCalendarOpened()
-            if replyHint == .calendar { replyHint = nil }
-        }
-    }
-    /// カレンダーのページ（docs/design.md §9 の ⑩）の状態と操作。
-    let calendarPage: LedgerCalendarModel
     /// カテゴリを聞き返している記録（`Entry.needsCategoryReview`）。直前の返事の行の下にカテゴリのボタンを出す。保存先から
     /// 読み直すので、開き直した後も聞き返しが残る。
     private(set) var categoryQuestionIDs: Set<PersistentIdentifier> = []
@@ -93,13 +81,10 @@ final class HomeModel {
     var pendingDeletion: PendingDeletion?
     /// 端末内 AI が選んだチャットの操作で、行う前の確認を待っているもの（確認のアラートを出す）。
     var pendingCommand: PendingCommand?
+    /// カードの引き落としを書いた文（「クレカ引き落とし 50000」）で、記録する前の確認を待っているもの（確認のアラートを出す）。
+    var pendingCardBill: PendingCardBill?
     /// 「予算を決める」のシートの状態と操作。シートを出していなければ nil（シートを閉じると画面が nil に戻す）。
-    var budgetSetup: BudgetSetupModel? {
-        didSet {
-            // 予算を変えたかもしれない。返事の一言は予算の残りを書いていることがあるので、変わっていれば外す。
-            if budgetSetup == nil, oldValue != nil { discardReplyRemarkIfBudgetChanged() }
-        }
-    }
+    var budgetSetup: BudgetSetupModel?
     /// 「直す」のシートで直している記録の状態と操作。シートを出していなければ nil（シートを閉じると画面が nil に戻す）。
     var editing: EditEntryModel?
     /// 返事の聞き返しから開いた「カテゴリを作る」のシート。出していなければ nil（閉じると画面が nil に戻す）。
@@ -112,20 +97,18 @@ final class HomeModel {
     private(set) var inputFocusRequest = 0
     /// 「月のまとめ」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
     var monthlyReport: MonthlyReportModel?
-    /// 月のまとめの AI の一言。月のまとめを開き直しても同じものを使う（書いた一言を月の数字ごとに覚えておき、数字の
-    /// 変わらない月で AI を呼び直さないため）。初めて開いたときに作る。
-    @ObservationIgnored private var monthlyRemark: RecapRemarkModel?
     /// 「設定」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
     var settings: SettingsModel? {
         didSet {
             // 閉じた（作り直した）設定の、途中の書き出しとアカウントの確かめをやめる（`SettingsModel.close`）。
             if let oldValue, oldValue !== settings { oldValue.close() }
-            // 設定の「予算」で予算を変えたかもしれない（上の `budgetSetup` と同じ）。
-            if settings == nil, oldValue != nil { discardReplyRemarkIfBudgetChanged() }
         }
     }
     /// いまのカテゴリの一覧（組み込みと作ったカテゴリ）。画面へは環境で渡し、記録に作ったカテゴリの名前を当てるのに使う。
     let categories: CategoryCatalogModel
+    /// いまのカードの一覧（設定の「カード」で登録したもの）。画面へは環境（`paymentCards`）で渡し、記録に払ったカードを当て
+    /// （`PaymentLinker`）、カードの質問に答えるのに使う。
+    let cards: CardCatalogModel
     /// 今日。「今月」の範囲と、日付に年を添えるかの基準にする。
     ///
     /// 描画のたびに `.now` を読むだけだと、アプリを開いたまま（または裏に置いたまま）月をまたいだとき、
@@ -160,7 +143,7 @@ final class HomeModel {
     /// 読み取りの間・家計の画面を隠している間に、記録する日を過ぎたくり返しの記録を待たせたか。
     @ObservationIgnored private var holdsRecurringEntries = false
     /// 家計の画面を隠しているか（アプリのロックの画面を出している間。`HomeView` が `AppLock.hidesContent` を渡す）。隠している
-    /// 間は、くり返しの記録を記録せず、記録の返事の一言も読み上げない（ロックの画面の下で金額が周りに聞こえないように）。
+    /// 間は、くり返しの記録を記録しない（ロックの画面の下で金額が周りに聞こえないように）。
     @ObservationIgnored var hidesContent = false
     @ObservationIgnored private let pendingWrites: PendingStoreWrites
     /// 保存先を開いたもの。設定の「iCloud で同期」の切り替え先として設定に渡す。無ければ設定に iCloud の節を出さない（テスト用）。
@@ -169,11 +152,8 @@ final class HomeModel {
     @ObservationIgnored private let makeCategoryRefiner: () -> CategoryRefiner?
     @ObservationIgnored private let makeCommandInterpreter: () -> ChatCommandInterpreter?
     @ObservationIgnored private let makeAnswerer: () -> any QuestionAnswering
-    @ObservationIgnored private let makeRemarkWriter: () -> (any RecapRemarkWriting)?
-    @ObservationIgnored private let makeRecordRemarkWriter: () -> (any RecapRemarkWriting)?
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
-    @ObservationIgnored private let announceAside: @MainActor (String) -> Void
     @ObservationIgnored private let receiptReader: ReceiptReader
     /// 書類カメラで撮った画像と、上限を超えて読み取らなかったページの数。カメラの画面が閉じきってから読み取りのシートを出すため、
     /// 閉じるまで持っておく。
@@ -196,19 +176,17 @@ final class HomeModel {
     ///   - makeCommandInterpreter: 決まりで読めなかったチャットの文の操作の種類を AI に選ばせるもの（AI が使えなければ nil）。
     ///     テストで差し替える。
     ///   - makeAnswerer: 質問のたびに答え方（AI かキーワード辞書）を選ぶ。テストで差し替える。
-    ///   - makeRemarkWriter: 月のまとめの AI の一言を書くもの。AI が使えなければ nil。テストで差し替える。
-    ///   - makeRecordRemarkWriter: 記録の返事に添える AI の一言を書くもの。AI が使えなければ nil。テストで差し替える。
     ///   - receiptReader: レシートの画像の読み取り（文字認識と AI）。テストで決めた文字や偽物の AI に差し替える。
     ///   - canUseDocumentCamera: 書類カメラを使えるか。テストで決める。
     ///   - now: 記録の日時と「今日」の基準。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
-    ///   - announceAside: VoiceOver に、いまの読み上げを遮らずに読み上げさせる（記録の返事の一言）。テストで読み上げる文を集める。
-    ///   - hints: 返事の下のヒント（直し方・カレンダー）を出した回数を覚えるもの。nil ならヒントを出さない（テストの既定）。
+    ///   - hints: 返事の下のヒント（直し方）を出した回数を覚えるもの。nil ならヒントを出さない（テストの既定）。
     init(
         store: EntryStore,
         budgetStore: BudgetStore? = nil,
         learnedCategories: LearnedCategoryStore? = nil,
         categories: CategoryCatalogModel? = nil,
+        cards: CardCatalogModel? = nil,
         recurring: RecurringEntryStore? = nil,
         pendingWrites: PendingStoreWrites = PendingStoreWrites(),
         storeHost: StoreHost? = nil,
@@ -216,13 +194,10 @@ final class HomeModel {
         makeCategoryRefiner: @escaping () -> CategoryRefiner? = { CategoryRefiner.forDevice() },
         makeCommandInterpreter: @escaping () -> ChatCommandInterpreter? = { ChatCommandInterpreter.forDevice() },
         makeAnswerer: @escaping () -> any QuestionAnswering = { QuestionAnswererFactory.makeAnswerer() },
-        makeRemarkWriter: @escaping () -> (any RecapRemarkWriting)? = { RecapRemarkWriterFactory.makeWriter() },
-        makeRecordRemarkWriter: @escaping () -> (any RecapRemarkWriting)? = { RecordRemarkWriterFactory.makeWriter() },
         receiptReader: ReceiptReader = ReceiptReader(),
         canUseDocumentCamera: Bool = DocumentCameraView.isSupported,
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
-        announceAside: @escaping @MainActor (String) -> Void = { VoiceOver.announceAside($0) },
         hints: ReplyHints? = nil
     ) {
         let budgetStore = budgetStore ?? BudgetStore(context: store.context)
@@ -231,21 +206,18 @@ final class HomeModel {
         self.budgetStore = budgetStore
         self.learnedCategories = learnedCategories ?? LearnedCategoryStore(context: store.context, now: now)
         self.categories = categories ?? CategoryCatalogModel(store: CustomCategoryStore(context: store.context, now: now))
+        self.cards = cards ?? CardCatalogModel(store: CreditCardStore(context: store.context, now: now))
         self.recurring = recurring
-        self.calendarPage = LedgerCalendarModel(store: store, now: now, announce: announce)
         self.pendingWrites = pendingWrites
         self.storeHost = storeHost
         self.makeParser = makeParser
         self.makeCategoryRefiner = makeCategoryRefiner
         self.makeCommandInterpreter = makeCommandInterpreter
         self.makeAnswerer = makeAnswerer
-        self.makeRemarkWriter = makeRemarkWriter
-        self.makeRecordRemarkWriter = makeRecordRemarkWriter
         self.receiptReader = receiptReader
         self.canUseDocumentCamera = canUseDocumentCamera
         self.now = now
         self.announce = announce
-        self.announceAside = announceAside
         self.hints = hints
         self.today = now()
         refreshCategoryQuestions()
@@ -262,7 +234,7 @@ final class HomeModel {
     /// 操作の確認を待たせる。削除の確認と保存の失敗の知らせも数える。数えないと、確認の下で記録して返事を出してしまうため）。
     var isPresentingOtherScreen: Bool {
         budgetSetup != nil || editing != nil || categoryEditor != nil || recurringEditor != nil || monthlyReport != nil
-            || settings != nil || pendingCommand != nil || pendingDeletion != nil || storeFailure != nil
+            || settings != nil || pendingCommand != nil || pendingCardBill != nil || pendingDeletion != nil || storeFailure != nil
             || receiptResult != nil || receiptCapture != nil || showsReceiptSourceChoice
     }
 
@@ -283,138 +255,20 @@ final class HomeModel {
         justRecordedItems = justRecorded.map {
             RecordedItem(id: AnyHashable($0.persistentModelID), summaryText: $0.summaryText(in: categories.catalog))
         }
-        // 一言は直前の送信の返事にだけ添える。次の送信・取り消し・直すで直前の記録が替わったら外す。
-        if let replyRemark, !replyRemark.entryIDs.isSubset(of: Set(justRecordedIDs)) {
-            self.replyRemark = nil
-        }
     }
 
-    // MARK: - 記録の返事の一言
+    // MARK: - 返事のヒント
 
-    /// 直前の送信の返事に添える、端末内 AI の一言（Apple Intelligence。数字はコアの `RecordFacts` が計算した文だけを渡し、
-    /// `RecapRemark.checked` の照合に通ったものだけ）。保存しない（開き直すと消える）。
-    struct ReplyRemark: Equatable {
-        /// 一言を書いた送信の記録。
-        let entryIDs: Set<PersistentIdentifier>
-        let text: String
-        /// 一言を書いたときの月の予算（決めていなければ nil）。予算を変えたら、一言の予算の残りが食い違うので外す。
-        var budget: Int?
-        /// 一言を書かせた数字の文（`RecordFacts`）と、その基準の日時。ほかの端末の変更が届いたときに作り直して比べる。
-        var facts: String = ""
-        var sentAt: Date = .distantPast
-    }
-
-    /// 記録の返事の一言を書かせる数字の文（`RecordFacts`）と、そのときの月の予算。
-    ///
-    /// 今月（`sentAt` の月）に使った支出だけを書く。「昨日 ランチ 850」を月の 1 日に送ると、いま記録した支出が今月の数字に
-    /// 入らず、記録した額と食い違う一言（「今月はまだ使っていません」）が照合に通ってしまうため。今月の支出が無ければ nil
-    /// （一言を書かせない）。
-    private func recordFacts(for recorded: [Entry], sentAt: Date, calendar: Calendar) -> (text: String, budget: Int?)? {
-        guard let month = ReportPeriod.thisMonth.interval(now: sentAt, calendar: calendar) else { return nil }
-        let expenses = recorded.filter { !$0.isIncome && $0.spentAt >= month.start && $0.spentAt < month.end }
-        guard !expenses.isEmpty else { return nil }
-        let items = expenses.map {
-            RecordFacts.Item(
-                item: CategoryMemory.item(ofMemo: $0.memo, amount: $0.amount, isIncome: false), amount: $0.amount, category: $0.category
-            )
-        }
-        let monthRecords = (try? store.context.fetch(Entry.monthDescriptor(containing: sentAt, calendar: calendar))) ?? []
-        let budget = currentBudget()
-        guard let text = RecordFacts.text(
-            recorded: items, monthRecords: monthRecords, budget: budget, now: sentAt, calendar: calendar, catalog: categories.catalog
-        ) else { return nil }
-        return (text, budget)
-    }
-
-    /// いま出している一言。無ければ nil（AI が使えない端末・照合に通らない・まだ書いている間）。
-    private(set) var replyRemark: ReplyRemark?
-    /// 直前の記録の返事の下に出すヒント（直し方・カレンダー。`ReplyHints`）。無ければ nil。
+    /// 直前の記録の返事の下に出すヒント（直し方。`ReplyHints`）。無ければ nil。
     private(set) var replyHint: ReplyHints.Hint?
     /// ヒントを出した回数と、もう要らないことを覚えるもの。無ければヒントを出さない（テストと撮影用のデモ。アプリは
     /// `UserDefaults.standard` の `ReplyHints` を渡す）。
     @ObservationIgnored private var hints: ReplyHints?
-    /// 一言を書かせている処理（テストで待つ）。
-    @ObservationIgnored private(set) var replyRemarkTask: Task<Void, Never>?
-
-    /// 記録した直後に、返事の一言を端末内 AI に書かせる。返事は先に出し、一言は後から足す（待つ間も次の文を打てる。書き込みは
-    /// しないので `pendingWrites` には数えない）。上限（`AITimeouts.recordRemark`）までに返らない・失敗した・照合に通らない・その間に
-    /// 直前の記録が替わったときは出さない（返事の今月の状況の一行は、いつも定型の文で出ている）。
-    private func requestReplyRemark(for recorded: [Entry], sentAt: Date, calendar: Calendar) {
-        replyRemarkTask?.cancel()
-        replyRemark = nil
-        guard let made = recordFacts(for: recorded, sentAt: sentAt, calendar: calendar),
-              let writer = makeRecordRemarkWriter() else { return }
-        let facts = made.text
-        let budget = made.budget
-        let ids = Set(recorded.map(\.persistentModelID))
-        let timeout = AITimeouts.recordRemark
-        let report = AIFallbackLog.shared.reporter(for: .recordRemark)
-        replyRemarkTask = Task {
-            let sentence: String
-            do {
-                sentence = try await withDeadline(timeout) { try await writer.remark(from: facts) }
-            } catch is CancellationError {
-                return
-            } catch is DeadlineExceeded {
-                report(.timedOut(timeout))
-                return
-            } catch {
-                report(.failed(error))
-                return
-            }
-            guard !Task.isCancelled, ids.isSubset(of: Set(justRecordedIDs)) else { return }
-            // 書かせている間に数字が変わっていれば（予算の画面で予算を変えた・ほかの端末の記録が届いた）、出さない（一言は書かせた
-            // ときの数字で書いているので、いまの帯や返事の数字と食い違うため）。
-            guard recordFacts(for: recorded, sentAt: sentAt, calendar: calendar)?.text == facts else { return }
-            guard let checked = RecapRemark.checked(sentence, facts: facts) else {
-                report(.noResult)
-                return
-            }
-            replyRemark = ReplyRemark(entryIDs: ids, text: checked, budget: budget, facts: facts, sentAt: sentAt)
-            // 一言は記録の読み上げ（「記録しました: …」）の後に届く。その読み上げや次の入力を遮らないよう、控えめに読み上げる。
-            // 家計の画面を隠している間（ロックの画面の下）は読み上げない。
-            if !hidesContent { announceAside(checked) }
-        }
-    }
-
-    /// 返事の一言を外す（書いている途中なら、書かせるのもやめる）。一言は書いたときの今月の数字で書いているので、送信・記録を
-    /// 消す・直す・予算を決める・ほかの端末の変更が届くと食い違いうる。
-    func discardReplyRemark() {
-        replyRemarkTask?.cancel()
-        replyRemark = nil
-    }
 
     /// 記録を直せた（チャットか直す画面で）。直し方を知っているので、直し方のヒントを外し、もう出さない（`ReplyHints`）。
     private func noteCorrected() {
         hints?.markCorrected()
         if replyHint == .correction { replyHint = nil }
-    }
-
-    /// ほかの端末の変更が届いたときに、出している一言の数字が変わっていれば外す（`StoreChanges.remote`）。
-    ///
-    /// iCloud と同期する保存先では、この端末自身の保存の後にも同期の知らせが届く。知らせのたびに外すと、同期をオンにした端末では
-    /// 一言がほとんど出なくなるので、数字の文（`RecordFacts`）を作り直して、変わったときだけ外す。書いている途中の一言は、
-    /// 届いたときに同じように確かめる（`requestReplyRemark`）。
-    func reviewReplyRemarkAfterRemoteChange(calendar: Calendar) {
-        guard let replyRemark else { return }
-        let recorded = zip(justRecorded, justRecordedIDs).filter { replyRemark.entryIDs.contains($0.1) }.map(\.0)
-        guard recorded.count == replyRemark.entryIDs.count,
-              recordFacts(for: recorded, sentAt: replyRemark.sentAt, calendar: calendar)?.text == replyRemark.facts
-        else {
-            discardReplyRemark()
-            return
-        }
-    }
-
-    /// 予算が一言を書いたときと変わっていれば、一言を外す（予算の画面と設定から戻ったとき）。
-    private func discardReplyRemarkIfBudgetChanged() {
-        guard let replyRemark, replyRemark.budget != currentBudget() else { return }
-        discardReplyRemark()
-    }
-
-    /// いまの月の全体の予算（決めていない・読めなければ nil）。
-    private func currentBudget() -> Int? {
-        (try? budgetStore.plan())?.total
     }
 
     // MARK: - 送信
@@ -449,9 +303,6 @@ final class HomeModel {
         // 保存のときに時計を読み直すと、読み取りを待つ間に日付が変わったとき（23:59:59 に送って 0:00:01 に保存）、
         // 「9/26」と書いた記録が 1 日ずれて保存されるため。質問も、この日時で期間を区切る。
         let sentAt = now()
-        // 一言は直前の送信の返事に添えたもの。次の文を送ったら、記録にならない文でも外す（会話の流れの中で、前の返事の数字の
-        // 一言が後から読まれて食い違わないように）。
-        discardReplyRemark()
         // チャットの操作の相手（直前の送信）を、送った時点で控える。AI を待つ間に直前の送信が替わっても（取り消した・
         // くり返しの記録を記録した）、送った文が指していた記録だけを相手にするため。
         let targets = commandTargets()
@@ -468,6 +319,13 @@ final class HomeModel {
             : InputIntentClassifier.classify(text, now: sentAt, calendar: calendar, catalog: categories.catalog)
         switch intent {
         case .record:
+            // カードの引き落とし（「クレカ引き落とし 50000」）は、カードの支出を使った日に数えているので、記録すると二重に数える。
+            // 記録する前に確かめる（確かめの間は何も記録しない。`confirmCardBill`・`cancelCardBill`）。
+            if PaymentLinker(cards: cards.cards).isCardBill(text), !EntryInput(text, now: sentAt, calendar: calendar).segments.isEmpty {
+                pendingCardBill = PendingCardBill(text: text, source: source, sentAt: sentAt, calendar: calendar)
+                announce(String(localized: "カードの引き落としを記録するか確かめます"))
+                return Task {}
+            }
             // 金額の無い文だったときに直前の送信へ戻し、チャットの操作だったときの相手にするため、引っ込める前の送信を控える。
             let previous = latestSend()
             retractLastReply()
@@ -656,11 +514,14 @@ final class HomeModel {
                 announce(String(localized: "金額が見つかりませんでした"))
                 return
             }
+            // 文に書いた払い方（「楽天カードで」「カードで」「現金で」）から払ったカードを決め、品目から払い方の言葉を除く
+            // （`PaymentLinker`。AI と辞書のどちらで読んだ記録にも当てる）。カテゴリを決める前に除き、品目の言葉でカテゴリを引く。
+            let linked = PaymentLinker(cards: cards.cards).link(parsed, text: text)
             // 作ったカテゴリの名前・覚えたカテゴリ・過去の記録のいつものカテゴリ・店の名前の辞書を、AI と辞書のどちらで読んだ
             // 記録にも当てる（`CategoryResolver`）。覚えや過去の記録を読めなくても、記録は止めない。
             let catalog = categories.catalog
             let memory = (try? learnedCategories.memory()) ?? CategoryMemory()
-            let resolutions = CategoryResolver.resolve(parsed, memory: memory, history: categoryHistory(), catalog: catalog)
+            let resolutions = CategoryResolver.resolve(linked, memory: memory, history: categoryHistory(), catalog: catalog)
             var entries = resolutions.map(\.entry)
             // それでも「その他」のまま、返事で聞き返すことになる品目は、先に AI に聞き直す（AI が使える端末だけ。辞書に無い品目でも、
             // AI がカテゴリを選べれば聞き返さずに済む。選べなければ、これまでどおり返事で聞き返す）。作ったカテゴリがあれば、
@@ -697,7 +558,6 @@ final class HomeModel {
             announceRecorded(
                 recorded, today: sentAt, calendar: calendar, asksCategory: recorded.contains(where: \.needsCategoryReview)
             )
-            requestReplyRemark(for: recorded, sentAt: sentAt, calendar: calendar)
             replyHint = hints?.nextHint()
         }
     }
@@ -718,6 +578,12 @@ final class HomeModel {
     /// 家計への質問に答える。数字はコアが計算し（AI には計算させない）、答えは保存しない。
     /// 保存先には書き込まない（読むだけ）ので、`pendingWrites` には数えない。
     private func ask(_ text: String, source: EntrySource, sentAt: Date, calendar: Calendar) -> Task<Void, Never> {
+        // カードの利用額と引き落としの質問（「楽天カードの利用額は？」「次の引き落としはいくら？」）は、決まりで読んで締めごとに
+        // 数える（`CardQuestion`。AI の質問の選択肢にカードは無く、締めの期間は暦の期間と違うため）。
+        if let question = CardQuestion.read(text, cards: cards.cards) {
+            answerCard(question, text: text, sentAt: sentAt, calendar: calendar)
+            return Task {}
+        }
         let id = appendQuestion(text, askedAt: sentAt, state: .answering)
         let ledger: QuestionLedger
         do {
@@ -734,10 +600,10 @@ final class HomeModel {
             let answerer = makeAnswerer()
             let reply = (try? await answerer.answer(text, ledger: ledger, now: sentAt, calendar: calendar)) ?? .unreadable
             switch reply {
-            case .answered(let answer, let remark):
-                setQuestionState(.answered(answer, remark: remark), for: id)
+            case .answered(let answer):
+                setQuestionState(.answered(answer), for: id)
                 // 画面にカードが出るだけでは VoiceOver の利用者に伝わらないので、答えを読み上げる。
-                announce(QuestionTexts.spoken(answer, remark: remark, calendar: calendar, catalog: categories.catalog))
+                announce(QuestionTexts.spoken(answer, calendar: calendar, catalog: categories.catalog))
             case .unreadable:
                 setQuestionState(.unreadable, for: id)
                 // 書き直して送り直せるよう、送った文を入力欄に戻す（記録の「金額が見つかりませんでした」と同じ）。
@@ -745,6 +611,59 @@ final class HomeModel {
                 announce(String(localized: "質問を読めませんでした"))
             }
         }
+    }
+
+    /// カードの質問に答える（締めごとの額。保存しない）。
+    private func answerCard(_ question: CardQuestion, text: String, sentAt: Date, calendar: Calendar) {
+        let id = appendQuestion(text, askedAt: sentAt, state: .answering)
+        do {
+            let answer = try CardAnswer(question: question, cards: cards.cards, now: sentAt, timeZone: calendar.timeZone) { interval in
+                try store.context.fetch(Entry.descriptor(spentIn: interval))
+            }
+            setQuestionState(.cardAnswered(answer), for: id)
+            announce(CardTexts.spoken(answer, calendar: calendar))
+        } catch {
+            setQuestionState(.loadFailed, for: id)
+            restoreDraft(text)
+            announce(String(localized: "記録を読み込めませんでした"))
+        }
+    }
+
+    // MARK: - カードの引き落とし
+
+    /// カードの引き落としを書いた文の、記録する前の確認。
+    struct PendingCardBill: Identifiable, Equatable {
+        let id = UUID()
+        let text: String
+        let source: EntrySource
+        let sentAt: Date
+        let calendar: Calendar
+    }
+
+    /// 確認で「記録する」を押した（カードを使わずに払った分の引き落としなど、二重にならないと分かっているとき）。ふつうの記録と
+    /// 同じく読み取って記録する。読み取りの間は受け付けない（文を入力欄に戻す）。
+    @discardableResult
+    func confirmCardBill(_ pending: PendingCardBill) -> Task<Void, Never>? {
+        if pendingCardBill?.id == pending.id { pendingCardBill = nil }
+        guard !isParsing else {
+            restoreDraft(pending.text)
+            return nil
+        }
+        let previous = latestSend()
+        let targets = commandTargets()
+        retractLastReply()
+        return record(
+            pending.text, source: pending.source, sentAt: pending.sentAt, calendar: pending.calendar, previous: previous, targets: targets
+        )
+    }
+
+    /// 確認で「記録しない」を押した。送った文と、記録しなかった理由をタイムラインに出し、文を入力欄に戻す（書き直して送れるように）。
+    /// 直前の送信の「取り消す」と聞き返しは引っ込めない（記録していないので、前の返事はまだ直前の返事のまま）。
+    func cancelCardBill(_ pending: PendingCardBill) {
+        if pendingCardBill?.id == pending.id { pendingCardBill = nil }
+        appendQuestion(pending.text, askedAt: pending.sentAt, state: .cardBillNotRecorded)
+        restoreDraft(pending.text)
+        announce(String(localized: "引き落としは記録していません"))
     }
 
     /// 回答カードの「続けて聞く質問」を送る（ふつうの質問と同じ流れ。入力欄の文には触れない）。読み取りの間は受け付けない
@@ -874,7 +793,8 @@ final class HomeModel {
             announce: announce,
             record: { [weak self] submission in self?.recordReceipt(submission, calendar: calendar) ?? .failed },
             retake: { [weak self] in self?.retakeReceipt(source) },
-            catalog: { [weak self] in self?.categories.catalog ?? .builtIn }
+            catalog: { [weak self] in self?.categories.catalog ?? .builtIn },
+            cards: cards.cards
         )
         receiptResult = result
         let reader = receiptReader
@@ -1032,8 +952,6 @@ final class HomeModel {
         if justRecordedIDs.contains(id) {
             justRecorded = []
         }
-        // 直したのが前の記録でも今月の数字が変わりうるので、返事の一言は外す。
-        discardReplyRemark()
         // 直すでカテゴリを選んだ（直すで変えたカテゴリは、そこで覚える）ので、返事で聞き返すのをやめる。
         categoryQuestionIDs.remove(id)
         refreshCategoryQuestions()
@@ -1048,8 +966,6 @@ final class HomeModel {
     /// 作り直し、まだ外していない消えた記録の値を読むことになるため）。
     private func forgetJustRecorded(_ ids: Set<PersistentIdentifier>) {
         guard !ids.isEmpty else { return }
-        // 記録が消えると今月の数字が変わるので、返事の一言は外す。
-        discardReplyRemark()
         let kept = zip(justRecorded, justRecordedIDs).filter { !ids.contains($0.1) }.map(\.0)
         if kept.count != justRecorded.count { justRecorded = kept }
         categoryQuestionIDs.subtract(ids)
@@ -1096,8 +1012,6 @@ final class HomeModel {
         refreshCategoryQuestions()
         // 入力欄の VoiceOver の「直す: …」の文を、選んだカテゴリで作り直す。
         snapshotJustRecorded()
-        // 一言はカテゴリを選ぶ前の数字で書いたので外す。
-        discardReplyRemark()
         let name = categories.catalog.localizedName(for: category)
         announce(
             remembered
@@ -1291,8 +1205,6 @@ final class HomeModel {
         categoryQuestionIDs.remove(id)
         refreshCategoryQuestions()
         snapshotJustRecorded()
-        // 一言はカテゴリを変える前の数字で書いたので外す。
-        discardReplyRemark()
         let name = categories.catalog.localizedName(for: category)
         // チャットで直せた（直し方を知っている）ので、直し方のヒントはもう出さない。
         noteCorrected()
@@ -1328,8 +1240,6 @@ final class HomeModel {
             undoWithdrawn = true
             snapshotJustRecorded()
         }
-        // 一言は直す前の金額で書いたので外す。
-        discardReplyRemark()
         // チャットで直せた（直し方を知っている）ので、直し方のヒントはもう出さない。
         noteCorrected()
         reply(.amountChanged(item: item, from: previous, to: amount))
@@ -1368,8 +1278,6 @@ final class HomeModel {
             storeFailure = .budgetChange
             return
         }
-        // 一言は前の予算の残りで書いていることがあるので外す。
-        discardReplyRemark()
         reply(.budgetSet(amount: amount))
         announce(String(localized: "月の予算を\(YenFormatter.string(from: amount))にしました"))
     }
@@ -1393,10 +1301,8 @@ final class HomeModel {
     // MARK: - Siri・ショートカット
 
     /// Siri・ショートカットからの頼みを受け取る（`QuickActionInbox` から）。前に待っていた頼みがあれば、新しいほうにする。
-    /// カレンダーのページを出していたら、会話のページに戻す（返事を会話のページに出すため）。
     func receive(_ action: QuickAction) {
         pendingQuickAction = action
-        page = .conversation
         closeScreensForQuickAction()
     }
 
@@ -1495,7 +1401,8 @@ final class HomeModel {
         let recordedMonth = RecurringMonth(containing: entry.spentAt, timeZone: calendar.timeZone)
         recurringEditor = RecurringEditorModel(
             creating: RecurringDraft(
-                amount: entry.amount, memo: item, isIncome: entry.isIncome, category: entry.category, dayOfMonth: day
+                amount: entry.amount, memo: item, isIncome: entry.isIncome, category: entry.category, dayOfMonth: day,
+                cardID: entry.cardID
             ),
             notBefore: recordedMonth.adding(months: 1),
             store: recurring,
@@ -1529,17 +1436,17 @@ final class HomeModel {
     /// 両方が立つと、違う画面が開いたり二重に積まれたりするため（押した側は、戻りきってから押し直せば開く）。
     func presentMonthlyReport(calendar: Calendar, month: Date? = nil) {
         guard settings == nil else { return }
-        let remark = monthlyRemark ?? RecapRemarkModel(makeWriter: makeRemarkWriter)
-        monthlyRemark = remark
         monthlyReport = MonthlyReportModel(
             store: store,
+            cards: cards,
             calendar: calendar,
             month: month,
-            remark: remark,
             now: now,
             announce: announce,
             didSave: { [weak self] entry in self?.finishEditing(entry) },
-            didDelete: { [weak self] id in self?.forgetJustRecorded(id) }
+            didDelete: { [weak self] id in self?.forgetJustRecorded(id) },
+            // カレンダーの記録の長押しの「毎月くり返す」（シートはホームが出す。会話の返事の行と同じ）。
+            makeRecurring: { [weak self] entry in self?.presentRecurringCreation(from: entry, calendar: calendar) }
         )
     }
 
@@ -1554,13 +1461,15 @@ final class HomeModel {
     func presentSettings() {
         guard monthlyReport == nil else { return }
         settings = SettingsModel(
-            context: store.context, budgetStore: budgetStore, categories: categories, storeHost: storeHost,
+            context: store.context, budgetStore: budgetStore, categories: categories, cards: cards, storeHost: storeHost,
             now: now, announce: announce,
             // 足した・直したくり返しの記録の、記録する日を過ぎた分をすぐ記録する（ホームに戻ると返事のカードが出ている）。
             recurringDidChange: { [weak self] in
                 guard let self else { return }
                 recordDueRecurringEntries(calendar: recurringCalendar)
-            }
+            },
+            entryDidSave: { [weak self] entry in self?.finishEditing(entry) },
+            entryDidDelete: { [weak self] id in self?.forgetJustRecorded(id) }
         )
     }
 
@@ -1580,7 +1489,6 @@ final class HomeModel {
     /// 「今日」を読み直す。前面に戻ったときと、日付が変わったとき（0 時・時間帯の変更など）に呼ぶ。
     func refreshToday() {
         today = now()
-        calendarPage.refreshToday()
     }
 
     /// タイムラインにさらに前の記録を読み込む（上限の `timelineMaxLimit` を超えては読み込まない）。
@@ -1633,14 +1541,6 @@ final class HomeModel {
         let source: EntrySource
         /// 送った瞬間の日時（タイムラインの並びと日付の見出しに使う。記録した日時と同じ値）。
         let sentAt: Date
-    }
-
-    /// ホームのページ。
-    enum Page: Hashable {
-        /// 会話（記録と質問のタイムラインと入力欄）。
-        case conversation
-        /// カレンダー（月の日ごとの支出・選んだ日の記録・今日あと）。
-        case calendar
     }
 
     /// 保存先への書き込みの失敗。利用者に知らせ、記録したつもり・消したつもりにさせない。

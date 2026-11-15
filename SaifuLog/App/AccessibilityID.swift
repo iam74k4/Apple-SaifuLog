@@ -38,22 +38,14 @@ enum AccessibilityID {
         static let createCategory = "reply.createCategory"
         /// 返事の下の、チャットでの直し方のヒント。
         static let correctionHint = "reply.correctionHint"
-        /// 返事の下の、カレンダーのページのヒント（押すとカレンダー）。
-        static let calendarHint = "reply.calendarHint"
         /// チャットの操作や読めなかった文への知らせの見出し（「金額を直しました」など）。
         static let noticeTitle = "reply.noticeTitle"
         /// 質問の答えの数字と見出しの要素。
         static let answerSummary = "reply.answerSummary"
     }
 
-    /// カレンダーのページ。
+    /// 月の画面の「カレンダー」。
     enum CalendarPage {
-        /// 月に使った額の要素。
-        static let monthSpend = "calendar.monthSpend"
-        /// 会話へ戻るボタン。
-        static let conversationButton = "calendar.conversationButton"
-        /// 月のまとめへ進むボタン。
-        static let reportLink = "calendar.reportLink"
         /// 日のボタン（その月の何日か）。
         static func day(_ day: Int) -> String {
             "calendar.day.\(day)"
@@ -69,6 +61,7 @@ enum AccessibilityID {
     enum Settings {
         static let budget = "settings.budget"
         static let categories = "settings.categories"
+        static let cards = "settings.cards"
         static let recurring = "settings.recurring"
         static let iCloudSync = "settings.iCloudSync"
         static let appLock = "settings.appLock"
@@ -100,6 +93,34 @@ enum AccessibilityID {
     }
 
     /// くり返しの記録の一覧と、足す・直すシート。
+    /// 月のまとめ（⑦）。
+    enum Report {
+        /// 上のバーの「内訳」と「カレンダー」の切り替え。
+        static let tabPicker = "report.tabPicker"
+        /// 下のバーの「前の月」。
+        static let previousMonth = "report.previousMonth"
+        /// 下のバーの「次の月」。
+        static let nextMonth = "report.nextMonth"
+        /// 下のバーの月の題。
+        static let monthTitle = "report.monthTitle"
+        /// 下のバーの「今月」（今月でないときだけ出す）。
+        static let thisMonth = "report.thisMonth"
+    }
+
+    /// 設定の「カード」とカードを選ぶ欄。
+    enum Cards {
+        /// 一覧の「カードを登録」。
+        static let addButton = "cards.addButton"
+        /// 登録・直すシートの名前の欄。
+        static let nameField = "cards.nameField"
+        /// 登録・直すシートの保存。
+        static let saveButton = "cards.saveButton"
+        /// 一覧のカードの行（押すとその締めの記録）。
+        static let row = "cards.row"
+        /// 直す画面・レシート・くり返しの記録の、払ったカードを選ぶ欄。
+        static let picker = "cards.picker"
+    }
+
     enum Recurring {
         static let addButton = "recurring.addButton"
         static let amountField = "recurring.amountField"

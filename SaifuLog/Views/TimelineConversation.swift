@@ -146,11 +146,10 @@ struct PendingRecordView: View {
 /// 送信へのアプリの返事（記録したもの）のカード。左に寄せる（右の自分の吹き出しと見分けるため）。質問の回答カードと
 /// 同じ見た目（`replyCardSurface`）。
 ///
-/// 見出しに「記録しました」（2 件以上なら件数も）を出し、直前の送信なら右に「取り消す」を出す。「取り消す」は時間では
+/// 直前の送信とくり返しの記録には、見出しに「記録しました」（2 件以上なら件数も）を出し、直前の送信なら右に「取り消す」を出す。「取り消す」は時間では
 /// 引っ込めない（次の文を送る・取り消す・その記録を直す・記録先を切り替える・開き直すまで。`HomeModel.canUndo`）。記録ごとに
 /// 1 行（`RecordedReplyRow`）を並べ、行を押すと ⑥ 直すを開く。割り勘などの説明の文は、その記録の行の下に添える（`RecordedReplyRow`）。
-/// 直前の送信の返事には、最後に端末内 AI の一言（`ReplyRemarkLine`）か、無ければ今月の状況の一行（`ReplyStatusLine`）を添える
-/// （「取り消す」と同じ間だけ）。
+/// 直前の送信の返事には、最後に今月の状況の一行（`ReplyStatusLine`）を添える（「取り消す」と同じ間だけ）。
 ///
 /// 記録ごとの縦の並びにしてあるので、あとで記録ごとの選択肢（カテゴリを選ぶボタンなど）を行の下に足せる。
 struct RecordedReplyCard: View {
@@ -164,8 +163,6 @@ struct RecordedReplyCard: View {
     var showsStatus = false
     /// カテゴリを聞き返している記録（`HomeModel.categoryQuestionIDs`）。その記録の行の下にカテゴリのボタンを出す。
     var askingCategory: Set<PersistentIdentifier> = []
-    /// 返事に添える端末内 AI の一言（直前の送信だけ。`HomeModel.replyRemark`）。無ければ出さない。
-    var remark: String?
     /// 返事の下に出すヒント（直前の送信だけ。`HomeModel.replyHint`）。無ければ出さない。
     var hint: ReplyHints.Hint?
     let undo: () -> Void
@@ -178,14 +175,20 @@ struct RecordedReplyCard: View {
     var createCategory: (Entry) -> Void = { _ in }
     /// その記録の中身で、くり返しの記録を作る画面を開く（長押しの「毎月くり返す」）。
     var makeRecurring: (Entry) -> Void = { _ in }
-    /// カレンダーのページを出す（カレンダーのヒントを押したとき）。
-    var openCalendar: () -> Void = {}
 
     @Environment(\.calendar) private var calendar
 
+    /// 見出し（「記録しました」）を出すか。直前の送信と、くり返しの記録（上に送った文の吹き出しが無いので、何の返事かを示す）
+    /// だけに出す。前は過去の返事のすべてに出していて、同じ見出しが会話に並び、記録の行が埋もれたため。
+    private var showsHeader: Bool {
+        showsStatus || canUndo || send.source == .recurring
+    }
+
     var body: some View {
         LeadingStack(spacing: 2) {
-            RecordedReplyHeader(count: send.entries.count, source: send.source, undo: canUndo ? undo : nil)
+            if showsHeader {
+                RecordedReplyHeader(count: send.entries.count, source: send.source, undo: canUndo ? undo : nil)
+            }
             // たいていの送信は 1 件なので、1 件のときは行を並べる入れ物（`LeadingStack`・ForEach）を挟まない（行はすべて測るため）。
             // 記録ごとの一言や選択肢を足すときは、行の下（ここと ForEach の中）に並べる。
             if send.entries.count == 1 {
@@ -197,22 +200,16 @@ struct RecordedReplyCard: View {
                     }
                 }
             }
-            // 一言は今月の状況の一行と同じ数字（予算の残りなど）から書くので、一言があれば一行は出さない（同じことを 2 度言わない）。
-            // 一言は遅れて届くので、一行のあった場所に置き換える。
-            if let remark {
-                ReplyRemarkLine(text: remark)
-                    // 行どうしの間（12pt）と同じだけ空ける（見出しと行の間の 2pt に足す）。
-                    .padding(.top, 10)
-            } else if showsStatus {
+            if showsStatus {
                 ReplyStatusLine(today: today, calendar: calendar, entries: send.entries)
             }
             if let hint {
-                ReplyHintLine(hint: hint, openCalendar: openCalendar)
+                ReplyHintLine(hint: hint)
                     .padding(.top, 10)
             }
         }
         // 見出しは 44pt の高さの真ん中に文字があるので、上の余白を詰めて、下の余白とつり合わせる。
-        .replyCardSurface(topPadding: 2)
+        .replyCardSurface(topPadding: showsHeader ? 2 : 12)
         .leadingReply()
     }
 
@@ -539,7 +536,9 @@ struct RecordedReplyRow<Record: LedgerEntryDisplaying>: View {
         }
     }
 
-    /// カテゴリの印・品目と金額と種別・「›」の行。
+    /// カテゴリの印・品目と金額と種別の行。
+    ///
+    /// 行の右に「›」は置かない（行全体が押せ、どの行にも同じ印が並ぶと、金額の右に縦の列ができて会話が重く見えたため）。
     ///
     /// - Parameter title: 品目（説明を書き足した記録は、説明を除いた品目）。空なら種別を見出しにする。
     private func row(title: String) -> some View {
@@ -548,10 +547,6 @@ struct RecordedReplyRow<Record: LedgerEntryDisplaying>: View {
                 tile
             }
             content(title: title)
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Theme.inkSecondary)
-                .accessibilityHidden(true)
         }
     }
 
@@ -710,11 +705,9 @@ private struct ReplyStatusLine: View {
     }
 }
 
-/// 直前の記録の返事の下に 1 行だけ出すヒント（`ReplyHints`）。直し方は文だけ、カレンダーは押すとカレンダーのページを出す
-/// （スワイプのほかの入口にもなる）。ヒントだと分かるよう、電球の印を添え、本文より控えめにする。
+/// 直前の記録の返事の下に 1 行だけ出すヒント（`ReplyHints`）。ヒントだと分かるよう、電球の印を添え、本文より控えめにする。
 struct ReplyHintLine: View {
     let hint: ReplyHints.Hint
-    let openCalendar: () -> Void
 
     var body: some View {
         switch hint {
@@ -723,16 +716,6 @@ struct ReplyHintLine: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(Text("ヒント: 違っていたら「それ日用品」「さっきのを900に直して」と送れば直せます"))
                 .accessibilityIdentifier(AccessibilityID.Reply.correctionHint)
-        case .calendar:
-            Button(action: openCalendar) {
-                label(Text("左へスワイプすると、日ごとに使った額のカレンダーが見られます"), systemImage: "calendar")
-                    .frame(minHeight: 44, alignment: .leading)
-                    .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(Text("ヒント: 左へスワイプすると、日ごとに使った額のカレンダーが見られます"))
-            .accessibilityHint(Text("カレンダーを開きます"))
-            .accessibilityIdentifier(AccessibilityID.Reply.calendarHint)
         }
     }
 
@@ -746,26 +729,6 @@ struct ReplyHintLine: View {
         }
         .font(.footnote)
         .foregroundStyle(Theme.inkSecondary)
-    }
-}
-
-/// 返事の最後に添える、端末内 AI の一言（Apple Intelligence）。数字はコアが計算した文だけから書かせ、照合に通ったものだけを出す
-/// （`HomeModel.replyRemark`）。AI が書いたことが分かるよう、きらめきの印を添える。
-struct ReplyRemarkLine: View {
-    let text: String
-
-    var body: some View {
-        Label {
-            Text(verbatim: text)
-                .fixedSize(horizontal: false, vertical: true)
-        } icon: {
-            Image(systemName: "sparkles")
-                .accessibilityHidden(true)
-        }
-        .font(.subheadline)
-        .foregroundStyle(Theme.inkSecondary)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text("AI の一言: \(text)"))
     }
 }
 
@@ -859,16 +822,16 @@ private struct MessageSideMargin: ViewModifier {
 
 // MARK: - 並べ方
 
-/// 返事の行の並べ方。左のカテゴリの印（無いときもある）・中身・右の「›」を、
-/// `HStack(alignment: .top, spacing:) { 印; 中身.frame(maxWidth: .infinity, alignment: .leading); 「›」 }` のように置く
-/// （中身には、行の幅から印と「›」と間を引いた幅を提案する）。「›」だけは行の高さの真ん中に置く。
+/// 返事の行の並べ方。左のカテゴリの印（無いときもある）と中身を、
+/// `HStack(alignment: .top, spacing:) { 印; 中身.frame(maxWidth: .infinity, alignment: .leading) }` のように置く
+/// （中身には、行の幅から印と間を引いた幅を提案する）。
 ///
 /// HStack にしないのは、タイムラインを開くときの手間を減らすため（`EntryBubbleRowLayout` と同じ理由。HStack は伸び縮みの幅を
 /// 調べるために中身に幅 0 と無限大も提案し、そのたびに品目と金額の行が測り直される）。ここでは中身を実際の幅で 1 回だけ測る。
 struct ReplyRowLayout: Layout {
     /// 1 つ目の子が左の印か（アクセシビリティサイズの文字では印を置かない）。
     let hasLeadingTile: Bool
-    /// 印と中身、中身と「›」の間。
+    /// 印と中身の間。
     let spacing: CGFloat
     /// 画面の 1pt あたりの画素数。中身に提案する幅を画素の境目にそろえる。
     let displayScale: CGFloat
@@ -876,30 +839,25 @@ struct ReplyRowLayout: Layout {
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {
         guard let parts = parts(of: subviews) else { return .zero }
         let tile = parts.tile?.sizeThatFits(.unspecified)
-        let chevron = parts.chevron.sizeThatFits(.unspecified)
         let width = proposal.width.flatMap { $0.isFinite ? $0 : nil }
-        let content = parts.content.sizeThatFits(contentProposal(width: width, tile: tile, chevron: chevron))
-        let natural = fixedWidth(tile: tile, chevron: chevron) + content.width
+        let content = parts.content.sizeThatFits(contentProposal(width: width, tile: tile))
+        let natural = fixedWidth(tile: tile) + content.width
         return CGSize(
             width: max(width ?? natural, natural),
-            height: max(content.height, tile?.height ?? 0, chevron.height)
+            height: max(content.height, tile?.height ?? 0)
         )
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) {
         guard let parts = parts(of: subviews) else { return }
         let tile = parts.tile?.sizeThatFits(.unspecified)
-        let chevron = parts.chevron.sizeThatFits(.unspecified)
         var x = bounds.minX
         if let view = parts.tile, let tile {
             view.place(at: CGPoint(x: x, y: bounds.minY), proposal: ProposedViewSize(tile))
             x += tile.width + spacing
         }
         parts.content.place(
-            at: CGPoint(x: x, y: bounds.minY), proposal: contentProposal(width: bounds.width, tile: tile, chevron: chevron)
-        )
-        parts.chevron.place(
-            at: CGPoint(x: bounds.maxX - chevron.width, y: bounds.midY - chevron.height / 2), proposal: ProposedViewSize(chevron)
+            at: CGPoint(x: x, y: bounds.minY), proposal: contentProposal(width: bounds.width, tile: tile)
         )
     }
 
@@ -916,27 +874,27 @@ struct ReplyRowLayout: Layout {
         nil
     }
 
-    private func parts(of subviews: Subviews) -> (tile: LayoutSubview?, content: LayoutSubview, chevron: LayoutSubview)? {
-        if hasLeadingTile, subviews.count == 3 {
-            return (subviews[0], subviews[1], subviews[2])
+    private func parts(of subviews: Subviews) -> (tile: LayoutSubview?, content: LayoutSubview)? {
+        if hasLeadingTile, subviews.count == 2 {
+            return (subviews[0], subviews[1])
         }
-        if subviews.count == 2 {
-            return (nil, subviews[0], subviews[1])
+        if subviews.count == 1 {
+            return (nil, subviews[0])
         }
         return nil
     }
 
-    /// 中身の左右にある、中身以外の幅（印・「›」と間）。
-    private func fixedWidth(tile: CGSize?, chevron: CGSize) -> CGFloat {
-        (tile.map { $0.width + spacing } ?? 0) + spacing + chevron.width
+    /// 中身の左にある、中身以外の幅（印と間）。
+    private func fixedWidth(tile: CGSize?) -> CGFloat {
+        tile.map { $0.width + spacing } ?? 0
     }
 
     /// 中身に提案する大きさ。幅は画素の境目に切り下げる（丸めの誤差で境目をわずかに超えると、文字の幅が 1 画素広く測られるため）。
     /// 高さは提案しない（金額を `minimumScaleFactor` で縮めさせないため）。
-    private func contentProposal(width: CGFloat?, tile: CGSize?, chevron: CGSize) -> ProposedViewSize {
+    private func contentProposal(width: CGFloat?, tile: CGSize?) -> ProposedViewSize {
         let scale = max(displayScale, 1)
         return ProposedViewSize(
-            width: width.map { max(0, (($0 - fixedWidth(tile: tile, chevron: chevron)) * scale + 0.0001).rounded(.down) / scale) },
+            width: width.map { max(0, (($0 - fixedWidth(tile: tile)) * scale + 0.0001).rounded(.down) / scale) },
             height: nil
         )
     }

@@ -3,82 +3,8 @@ import CoreGraphics
 import Foundation
 import SaifuLogCore
 
-// 撮影用のデモ（`ScreenshotDemo`）で、端末や AI によって変わるものの代わりに使う決まった中身。どれも、実際のアプリが
-// 出しうる中身にする（AI の一言は照合（`AnswerSentenceCheck`）を通る文、レシートは文字認識の結果として読める文字）。
-
-/// 家計への質問の答え方。数字はキーワード辞書の読み取りとコアの計算（AI が使えない端末と同じ）で出し、AI の一言の代わりに、
-/// 答えの数字をそのまま使った決まった形の一文を添える（端末内 AI が指示どおりに書いたときの形）。
-struct ScreenshotDemoAnswerer: QuestionAnswering {
-    /// 一言を添えるか（日本語の画面だけ。`ScreenshotDemo.showsAIRemarks`）。
-    let writesRemark: Bool
-
-    func answer(_ text: String, ledger: QuestionLedger, now: Date, calendar: Calendar) async throws -> QuestionReply {
-        let reply = try await RuleBasedQuestionAnswerer().answer(text, ledger: ledger, now: now, calendar: calendar)
-        guard writesRemark, case .answered(let answer, _) = reply,
-              let sentence = Self.remark(for: answer),
-              // 本物の AI の一言と同じ照合を通す（通らない文は、実際のアプリでも出ないため）。
-              AnswerSentenceCheck.accepts(sentence, facts: LedgerAnswerFacts.text(for: answer, calendar: calendar))
-        else { return reply }
-        return .answered(answer, remark: .ai(sentence))
-    }
-
-    /// 答えに添える一文。決まった形にできない答えは nil（一言を添えない）。
-    static func remark(for answer: LedgerAnswer) -> String? {
-        let yen = YenFormatter.string(from:)
-        switch answer.value {
-        case .amount(let amount):
-            let subject = answer.question.category.map { "\($0.displayName)の支出" } ?? "支出"
-            return "\(LedgerAnswerFacts.periodName(answer.period))の\(subject)は\(yen(amount))です。"
-        case .dailyAllowance(let status) where !status.isOver:
-            return "月末まで、1日あたり\(yen(status.dailyAllowance))使えます。"
-        default:
-            return nil
-        }
-    }
-}
-
-/// 月のまとめの AI の一言の代わり。数字の文（`RecapFacts`）から、支出のいちばん多いカテゴリを
-/// 読んで、数字を書かない励ましの一文にする（端末内 AI への指示「励ましか気づきの短い一文」に沿う形。画面には最初の一文だけを
-/// 出すので、2 文にしない。`RecapRemark.checked`）。
-struct ScreenshotDemoRemarkWriter: RecapRemarkWriting {
-    func remark(from facts: String) async throws -> String {
-        Self.remark(from: facts)
-    }
-
-    static func remark(from facts: String) -> String {
-        guard let top = topCategory(in: facts) else { return "記録を続けられていて、いい調子です。" }
-        if facts.hasPrefix("期間: 今月") {
-            return "今月は\(top)がいちばん多く、記録も続けられていて、いい調子です。"
-        }
-        return "この月は\(top)がいちばん多く、記録も続けられていて、いい調子です。"
-    }
-
-    /// 「支出の多いカテゴリ: 食費 ¥6,000（49%）、…」の最初のカテゴリの名前。
-    static func topCategory(in facts: String) -> String? {
-        let label = "支出の多いカテゴリ: "
-        guard let line = facts.split(separator: "\n").first(where: { $0.hasPrefix(label) }) else { return nil }
-        return line.dropFirst(label.count).split(separator: " ").first.map(String.init)
-    }
-}
-
-/// 記録の返事の一言の代わり（端末で変わらないよう、数字の文から決まった一言を作る。数字は文のものだけを使い、照合に通る）。
-struct ScreenshotDemoRecordRemarkWriter: RecapRemarkWriting {
-    func remark(from facts: String) async throws -> String {
-        Self.remark(from: facts)
-    }
-
-    static func remark(from facts: String) -> String {
-        // 「今月のカフェ: ¥3,520（記録 8件）」から、カテゴリの名前と件数を取る。
-        guard let line = facts.split(separator: "\n").first(where: { $0.hasPrefix("今月の") && $0.contains("（記録 ") }),
-              let colon = line.firstIndex(of: ":"),
-              let open = line.range(of: "（記録 "), let close = line.range(of: "件）") else {
-            return "いいペースで記録できています。"
-        }
-        let name = line[line.index(line.startIndex, offsetBy: 3)..<colon]
-        let count = line[open.upperBound..<close.lowerBound]
-        return "今月の\(name)は\(count)件目で、いいペースで記録できています。"
-    }
-}
+// 撮影用のデモ（`ScreenshotDemo`）で、端末によって変わるものの代わりに使う決まった中身。実際のアプリが出しうる中身にする
+// （レシートは文字認識の結果として読める文字）。
 
 /// レシートの読み取りの画面で使う、文字認識の結果の代わり。架空の店（実在の店名・住所・電話番号は書かない）の内税のレシート。
 enum ScreenshotDemoReceipt {

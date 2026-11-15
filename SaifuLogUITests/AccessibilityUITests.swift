@@ -27,8 +27,8 @@ final class AccessibilityUITests: XCTestCase {
         let amount = app.element(AccessibilityID.EditEntry.amountField)
         XCTAssertTrue(amount.waitUntilHittable())
         try app.auditAccessibility()
-        // 何も直していないので、確かめずに閉じる。
-        app.navigationBars["記録を直す"].buttons["キャンセル"].tap()
+        // 何も直していないので、確かめずに閉じる（左上の ×。バーの最初のボタン）。
+        app.navigationBars["記録を直す"].buttons.element(boundBy: 0).tap()
         XCTAssertTrue(amount.waitForNonExistence(timeout: UITestTimeout.ui))
 
         // 月のまとめ。
@@ -45,8 +45,9 @@ final class AccessibilityUITests: XCTestCase {
         app.goBack()
         XCTAssertTrue(settingsBar.waitForNonExistence(timeout: UITestTimeout.ui))
 
-        // カレンダーのページ。
-        app.showCalendarPage()
+        // 月の画面のカレンダー。
+        app.openMonthlyReport()
+        app.showMonthCalendar()
         try app.auditAccessibility()
     }
 }

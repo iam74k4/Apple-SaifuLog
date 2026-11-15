@@ -32,9 +32,8 @@ struct QuestionExchangeView: View {
 
 /// 質問への返事のカード（アプリからの返事として左寄せ。記録の返事のカードと同じ面）。
 ///
-/// 答えたときは、大きな数字（コードが計算した値をそのまま）、期間とカテゴリの見出し、AI の一言（数字の照合を通ったときだけ）
-/// を出す。元になった記録の件数と、一言を捨てたときの定型文（「数字はアプリが計算しました」）は出さない（どの答えにも同じ形で
-/// 付き、答えの数字より目に入ってしまうため）。今月・先月の答えは、押すとその月の月のまとめへ進む。
+/// 答えたときは、大きな数字（コードが計算した値をそのまま）と、期間とカテゴリの見出しを出す。元になった記録の件数と、AI の
+/// 書いた文は出さない（どの答えにも同じ形で付くか、大きな数字を言い直すだけで、答えの数字より目に入ってしまうため）。今月・先月の答えは、押すとその月の月のまとめへ進む。
 /// 主の塗りは使わない（塗りの主ボタンが無いため）。予算を超えた額は、注意の色にアイコンと語を添える（色だけに頼らない）。
 private struct QuestionReplyCard: View {
     let state: QuestionExchange.State
@@ -60,9 +59,9 @@ private struct QuestionReplyCard: View {
                     .foregroundStyle(Theme.inkSecondary)
             }
             .accessibilityElement(children: .combine)
-        case .answered(let answer, let remark):
+        case .answered(let answer):
             AnswerContent(
-                answer: answer, remark: remark, openReport: openReport, setBudget: setBudget, askFollowUp: askFollowUp
+                answer: answer, openReport: openReport, setBudget: setBudget, askFollowUp: askFollowUp
             )
         case .unreadable:
             NoticeContent(
@@ -122,6 +121,13 @@ private struct QuestionReplyCard: View {
             )
         case .loadFailed:
             NoticeContent(title: "記録を読み込めませんでした", message: "もう一度お試しください。")
+        case .cardAnswered(let answer):
+            CardAnswerContent(answer: answer)
+        case .cardBillNotRecorded:
+            NoticeContent(
+                title: "引き落としは記録していません",
+                message: "カードで払った支出は、使った日に記録して数えています。引き落としも記録すると二重になるので、記録しませんでした。引き落としの額は、設定の「カード」で見られます。"
+            )
         }
     }
 }
@@ -132,7 +138,6 @@ private struct QuestionReplyCard: View {
 /// 金額の答えには 6 か月の推移の小さな棒を添える。いちばん新しい答えの下には、続けて聞ける質問のボタンを並べる。
 private struct AnswerContent: View {
     let answer: LedgerAnswer
-    let remark: QuestionRemark?
     let openReport: (Date) -> Void
     let setBudget: () -> Void
     var askFollowUp: ((QuestionFollowUp) -> Void)?
@@ -184,7 +189,7 @@ private struct AnswerContent: View {
         }
     }
 
-    /// 期間・見出し・数字・一言。VoiceOver ではまとめて 1 つの要素として、この順に読ませる。
+    /// 期間・見出し・数字。VoiceOver ではまとめて 1 つの要素として、この順に読ませる。
     private var summary: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -208,7 +213,6 @@ private struct AnswerContent: View {
                 AnswerTrendChart(trend: trend)
                     .padding(.vertical, 4)
             }
-            remarkView
         }
     }
 
@@ -318,26 +322,6 @@ private struct AnswerContent: View {
                 .foregroundStyle(Theme.inkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         default:
-            EmptyView()
-        }
-    }
-
-    @ViewBuilder
-    private var remarkView: some View {
-        switch remark {
-        case .ai(let sentence):
-            Label {
-                Text(verbatim: sentence)
-                    .fixedSize(horizontal: false, vertical: true)
-            } icon: {
-                Image(systemName: "sparkles")
-                    .accessibilityHidden(true)
-            }
-            .font(.subheadline)
-            .foregroundStyle(Theme.ink)
-            .padding(.top, 2)
-        case .fixed, nil:
-            // 一言を捨てたときは何も添えない（数字はいつもコードが計算したもの）。
             EmptyView()
         }
     }
@@ -576,7 +560,7 @@ private struct NoticeContent: View {
             QuestionExchangeView(
                 exchange: QuestionExchange(
                     text: "今月カフェいくら?", askedAt: .now,
-                    state: .answered(answer, remark: .ai("今月のカフェは¥3,200でした。"))
+                    state: .answered(answer)
                 ),
                 openReport: { _ in }, setBudget: {}
             )

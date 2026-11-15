@@ -9,21 +9,17 @@ enum AIFeature: String, CaseIterable, Sendable {
     case entry
     /// 家計への質問（`FoundationModelsQuestionAnswerer`）。
     case question
-    /// 月のまとめの一言（`FoundationModelsRecapRemarkWriter`）。
-    case recap
     /// レシートの品名とカテゴリの整え（`FoundationModelsReceiptItemRefiner`）。
     case receipt
     /// 辞書で決まらなかった品目のカテゴリの聞き直し（`FoundationModelsCategoryClassifier`）。
     case category
     /// 決まりで読めなかったチャットの文の、操作の種類の選び（`FoundationModelsChatCommandInterpreter`）。
     case chatCommand
-    /// 記録の返事に添える一言（`FoundationModelsRecordRemarkWriter`）。
-    case recordRemark
 }
 
 /// 端末内 AI の失敗と時間切れ、AI の結果を使わなかった回数を残す（os.Logger と、起動してからのメモリの上の記録）。
 ///
-/// AI が失敗しても、上限の時間（`AITimeouts`）までに返らなくても、利用者にはキーワード辞書の結果（月のまとめは一言を添えない）を見せ、
+/// AI が失敗しても、上限の時間（`AITimeouts`）までに返らなくても、利用者にはキーワード辞書の結果を見せ、
 /// 失敗は知らせない（docs/design.md §4-2）。
 /// そのままでは「AI が使えると出るのに、生成が毎回失敗している端末」と「AI の使えない端末」を見分けられないので、開発者と
 /// 所有者が Console.app（サブシステム com.iam74k4.SaifuLog・カテゴリ ai）と診断画面で確かめられるようにする。

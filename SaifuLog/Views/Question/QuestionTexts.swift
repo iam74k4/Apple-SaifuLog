@@ -156,16 +156,15 @@ enum QuestionTexts {
         return String(localized: "\(trend.points.count) か月の推移: \(items.formatted(.list(type: .and)))")
     }
 
-    /// VoiceOver に読み上げる答え（期間・見出し・数字・前の期間との比べ・一言。カードに出すものと同じ）。
+    /// VoiceOver に読み上げる答え（期間・見出し・数字・前の期間との比べ。カードに出すものと同じ）。
     static func spoken(
-        _ answer: LedgerAnswer, remark: QuestionRemark?, calendar: Calendar, catalog: CategoryCatalog = .builtIn
+        _ answer: LedgerAnswer, calendar: Calendar, catalog: CategoryCatalog = .builtIn
     ) -> String {
         var parts = [
             String(localized: answer.period.label), title(for: answer.question, catalog: catalog),
             spokenValue(answer.value, catalog: catalog),
         ]
         if let comparison = answer.comparison { parts.append(self.comparison(comparison, value: answer.value)) }
-        if case .ai(let sentence) = remark { parts.append(sentence) }
         return parts.joined(separator: String(localized: LocalizedStringResource(
             "読み上げの区切り", defaultValue: "、", comment: "回答を VoiceOver で読み上げるときの、項目の間の区切り"
         )))

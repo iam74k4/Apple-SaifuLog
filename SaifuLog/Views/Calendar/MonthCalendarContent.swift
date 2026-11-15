@@ -1,70 +1,37 @@
 import SaifuLogCore
 import SwiftUI
 
-/// カレンダーのページ（ホームを左へスワイプした 2 枚目。docs/design.md §9 の ⑩）。
+/// 月の画面（⑦ 月のまとめ）の「カレンダー」。月のカレンダーの日ごとに使った額と、選んだ日の合計と記録。
 ///
-/// 「いくら使ったか」だけが分かるページにする。上にその月に使った額、月のカレンダーの日ごとに使った額、選んだ日の合計と記録。
-/// 見通し・予算の日割りの印・くり返しの予定の印は出さない（数字と印が多いと、いちばん知りたい「使った額」が埋もれるため。予算の
-/// 残りは帯と月のまとめに、細かい比べは会話の質問にある）。記録は会話の入力欄からだけ（入口を 1 つに保つ）。
+/// 前はホームを左へスワイプした 2 枚目のページだったが、見えない入口で見つけにくく、月のまとめと同じ月を別の画面で
+/// 見せていたので、月の画面の切り替えの 1 つにした（月送りと使った額は月の画面が持つ）。「いくら使ったか」だけが分かる
+/// ようにし、見通し・予算の日割りの印・くり返しの予定の印は出さない。
 ///
 /// 文字がとても大きいとき（アクセシビリティサイズ）は 7 列の表をやめ、記録のある日と今日の一覧にして、選んだ日の記録をその日の
 /// 行の下に出す（7 列では、日の数字も金額も読めない大きさまで縮むため）。
-struct LedgerCalendarView: View {
+struct MonthCalendarContent: View {
     let model: LedgerCalendarModel
-    /// 会話のページへ戻る。
-    let showConversation: () -> Void
     let edit: (Entry) -> Void
-    /// 削除を求める（確認はホームが出す）。
+    /// 削除を求める（確認は月の画面が出す）。
     let requestDelete: (Entry) -> Void
-    /// その記録の中身で、くり返しの記録を作る画面を開く（行の長押しの「毎月くり返す」）。
-    let makeRecurring: (Entry) -> Void
-    /// その月の月のまとめを開く。
-    let openReport: (Date) -> Void
+    /// その記録の中身で、くり返しの記録を作る画面を開く（行の長押しの「毎月くり返す」）。nil なら出さない。
+    let makeRecurring: ((Entry) -> Void)?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if model.loadFailed {
-                    LoadFailedView(retry: { model.reload() })
-                } else if let days = model.days {
-                    // 先の月には月のまとめの入口を出さない（月のまとめは今月より先を出さず、押すと今月が開いて、見ていた月と食い違うため）。
-                    CalendarMonthSpendCard(
-                        days: days, openReport: model.isFutureMonth ? nil : { openReport(days.month.start) }
-                    )
-                    if dynamicTypeSize.isAccessibilitySize {
-                        // 一覧の行に日付とその日の支出があるので、行の下に出す記録には見出しを付けない。
-                        CalendarDayList(model: model, days: days) { dayPanel($0, showsHeader: false) }
-                    } else {
-                        CalendarMonthGrid(model: model, days: days)
-                        if let day = model.selectedSummary {
-                            dayPanel(day, showsHeader: true)
-                        }
-                    }
+        if model.loadFailed {
+            LoadFailedView(retry: { model.reload() })
+        } else if let days = model.days {
+            if dynamicTypeSize.isAccessibilitySize {
+                // 一覧の行に日付とその日の支出があるので、行の下に出す記録には見出しを付けない。
+                CalendarDayList(model: model, days: days) { dayPanel($0, showsHeader: false) }
+            } else {
+                CalendarMonthGrid(model: model, days: days)
+                if let day = model.selectedSummary {
+                    dayPanel(day, showsHeader: true)
                 }
             }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        // 上へ流れた数字やカレンダーが、題とボタンの後ろで透けて重ならないよう、上ははっきりした効果にする（月のまとめと同じ）。
-        .scrollEdgeEffectStyle(.hard, for: .top)
-        // 下は画面の端まで流す（ページの入れ物は下の安全領域の手前で切るので、そのままだとホームインジケータの上で記録が途切れて
-        // 見える）。いちばん下の中身は、スクロールすれば安全領域の上まで上がる。
-        .ignoresSafeArea(.container, edges: .bottom)
-        .background(Theme.background)
-        .safeAreaBar(edge: .top, spacing: 0) {
-            CalendarPageHeader(
-                title: model.shortMonthTitle,
-                spokenTitle: model.monthTitle,
-                isShowingToday: model.isShowingToday,
-                showConversation: showConversation,
-                showPreviousMonth: { model.showMonth(offset: -1) },
-                showNextMonth: { model.showMonth(offset: 1) },
-                showToday: { model.showThisMonth() }
-            )
-            // ホームの帯と同じく、上に常に出ている帯なので文字の大きさに上限を設ける（下のカレンダーの場所を残すため）。
-            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         }
     }
 
@@ -76,172 +43,8 @@ struct LedgerCalendarView: View {
             calendar: model.calendar,
             edit: { if let entry = model.entry(for: $0) { edit(entry) } },
             requestDelete: { if let entry = model.entry(for: $0) { requestDelete(entry) } },
-            makeRecurring: { if let entry = model.entry(for: $0) { makeRecurring(entry) } }
+            makeRecurring: makeRecurring.map { make in { if let entry = model.entry(for: $0) { make(entry) } } }
         )
-    }
-}
-
-// MARK: - 上の帯
-
-/// ページの上の帯。左に会話へ戻るボタン、真ん中に月の題と前後の月のボタン、右に「今日」。1 行に収まらなければ 2 行にする。
-private struct CalendarPageHeader: View {
-    /// 月の題（略した形）。
-    let title: String
-    /// 読み上げる月の題（略さない形）。
-    let spokenTitle: String
-    let isShowingToday: Bool
-    let showConversation: () -> Void
-    let showPreviousMonth: () -> Void
-    let showNextMonth: () -> Void
-    let showToday: () -> Void
-
-    var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                conversationButton
-                Spacer(minLength: 0)
-                monthSwitcher
-                Spacer(minLength: 0)
-                todayButton
-            }
-            VStack(spacing: 4) {
-                HStack {
-                    conversationButton
-                    Spacer(minLength: 8)
-                    todayButton
-                }
-                monthSwitcher
-            }
-        }
-        .padding(.horizontal)
-        .padding(.top, 4)
-        .padding(.bottom, 8)
-    }
-
-    /// 会話へ戻るボタン（右へスワイプするのと同じ）。2 枚目のページから戻る道を、スワイプのほかにも見える形で置く（VoiceOver でも
-    /// 戻れるように）。記号だけのガラスの丸（ホームの帯の歯車と同じ形）。
-    private var conversationButton: some View {
-        Button(action: showConversation) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.body.weight(.medium))
-                .foregroundStyle(Theme.ink)
-                .frame(width: 30, height: 30)
-        }
-        .buttonStyle(.glass)
-        .buttonBorderShape(.circle)
-        .accessibilityLabel("会話")
-        .accessibilityHint("記録と質問の会話に戻ります")
-        .accessibilityIdentifier(AccessibilityID.CalendarPage.conversationButton)
-    }
-
-    private var monthSwitcher: some View {
-        HStack(spacing: 4) {
-            Button(action: showPreviousMonth) {
-                chevron("chevron.left")
-            }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .accessibilityLabel("前の月")
-            Text(verbatim: title)
-                .font(.headline)
-                .foregroundStyle(Theme.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .accessibilityLabel(Text(verbatim: spokenTitle))
-                .accessibilityAddTraits(.isHeader)
-            Button(action: showNextMonth) {
-                chevron("chevron.right")
-            }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .accessibilityLabel("次の月")
-        }
-    }
-
-    /// 今月の今日へ戻るボタン。今日を見ているときは押せない（押しても何も変わらないため）。
-    private var todayButton: some View {
-        Button(action: showToday) {
-            Text("今日")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(isShowingToday ? Theme.inkSecondary : Theme.accentText)
-                .frame(minHeight: 30)
-        }
-        .buttonStyle(.glass)
-        .buttonBorderShape(.capsule)
-        .disabled(isShowingToday)
-    }
-
-    /// 前後の月の矢印（月のまとめの月送りと同じ形）。
-    private func chevron(_ name: String) -> some View {
-        Image(systemName: name)
-            .font(.body.weight(.semibold))
-            .foregroundStyle(Theme.ink)
-            .frame(width: 30, height: 30)
-    }
-}
-
-// MARK: - 使った額
-
-/// その月に使った額（支出の合計）を大きく出す。収入があれば下に小さく 1 行。月のまとめへの小さな入口。
-private struct CalendarMonthSpendCard: View {
-    let days: LedgerCalendarMonth
-    /// 月のまとめを開く。nil なら入口を出さない（先の月）。
-    let openReport: (() -> Void)?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("使った額")
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.inkSecondary)
-                Text(verbatim: YenFormatter.string(from: days.expense))
-                    .font(.largeTitle.bold())
-                    .monospacedDigit()
-                    .foregroundStyle(Theme.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                    .contentTransition(.numericText())
-                // 収入は使った額と取り違えないよう、小さく、収入の色で（あるときだけ）。
-                if days.income > 0 {
-                    Text("収入 \(YenFormatter.string(from: days.income))")
-                        .font(.footnote)
-                        .monospacedDigit()
-                        .foregroundStyle(Theme.income)
-                }
-            }
-            // 見出し・額・収入を 1 つの要素として読ませる。
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier(AccessibilityID.CalendarPage.monthSpend)
-            if let openReport {
-                HStack {
-                    Spacer(minLength: 0)
-                    ReportLink(action: openReport)
-                }
-            }
-        }
-        .reportCard()
-    }
-}
-
-/// 月のまとめ（⑦）への入口。「›」で横に進むことを示す。
-private struct ReportLink: View {
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                Text("月のまとめ")
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .accessibilityHidden(true)
-            }
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(Theme.accentText)
-            .frame(minHeight: 44)
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(AccessibilityID.CalendarPage.reportLink)
     }
 }
 
@@ -486,7 +289,8 @@ private struct CalendarDayPanel: View {
     let calendar: Calendar
     let edit: (LedgerCalendarModel.DayRecord) -> Void
     let requestDelete: (LedgerCalendarModel.DayRecord) -> Void
-    let makeRecurring: (LedgerCalendarModel.DayRecord) -> Void
+    /// nil なら長押しに「毎月くり返す」を出さない。
+    let makeRecurring: ((LedgerCalendarModel.DayRecord) -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -505,7 +309,7 @@ private struct CalendarDayPanel: View {
                     edit: { edit(record) },
                     requestDelete: { requestDelete(record) },
                     // くり返しの記録から記録したものは、もうくり返しているので出さない（会話の返事と同じ）。
-                    makeRecurring: record.isRecurring ? nil : { makeRecurring(record) }
+                    makeRecurring: record.isRecurring ? nil : makeRecurring.map { make in { make(record) } }
                 )
             }
         }

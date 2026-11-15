@@ -66,6 +66,7 @@ struct RecordedReplyLayoutTests {
         #expect(Double(amount.height) < Double(memo.height) * 1.5)
     }
 
+    /// 直前の送信の返事（見出しを出す）で、チャットで直して「取り消す」を引っ込めても、カードの高さは変わらない。
     @Test("返事のカードの高さは「取り消す」の有無で変わらない（標準の文字）")
     func undoButtonDoesNotChangeTheCardHeight() throws {
         let context = try TestSupport.makeContext()
@@ -74,10 +75,25 @@ struct RecordedReplyLayoutTests {
         try context.save()
         let send = try #require(EntrySend.sends(from: [entry]).first)
 
-        let withUndo = Self.size(of: Self.card(send, canUndo: true), width: 370)
-        let withoutUndo = Self.size(of: Self.card(send, canUndo: false), width: 370)
+        let withUndo = Self.size(of: Self.card(send, canUndo: true, showsStatus: true), width: 370)
+        let withoutUndo = Self.size(of: Self.card(send, canUndo: false, showsStatus: true), width: 370)
 
         #expect(withUndo.height == withoutUndo.height)
+    }
+
+    /// 過去の返事には見出し（「記録しました」）を出さず、直前の返事より低い（同じ見出しが会話に並ばないように）。
+    @Test("過去の返事は見出しを出さない")
+    func pastReplyHasNoHeader() throws {
+        let context = try TestSupport.makeContext()
+        let entry = TestSupport.entry(memo: "ランチ", spentAt: TestSupport.now, createdAt: TestSupport.now)
+        context.insert(entry)
+        try context.save()
+        let send = try #require(EntrySend.sends(from: [entry]).first)
+
+        let latest = Self.size(of: Self.card(send, canUndo: false, showsStatus: true), width: 370)
+        let past = Self.size(of: Self.card(send, canUndo: false), width: 370)
+
+        #expect(past.height < latest.height)
     }
 
     /// 割り勘の記録は、品目（「焼肉」）だけを見出しにし、説明を文にして行の下に添える。見出しが短くなるので、金額は品目と同じ行に

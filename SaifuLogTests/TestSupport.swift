@@ -93,22 +93,7 @@ struct StubAnswerer: QuestionAnswering {
     }
 }
 
-/// 書き方を差し替えられる、月のまとめの AI の一言の書き手（HomeModel・RecapRemarkModel に渡す）。呼ばれた回数も数える。
-struct StubRemarkWriter: RecapRemarkWriting {
-    let calls = CallCounter()
-    let body: @Sendable (String) async throws -> String
-
-    init(_ body: @escaping @Sendable (String) async throws -> String) {
-        self.body = body
-    }
-
-    func remark(from facts: String) async throws -> String {
-        calls.increment()
-        return try await body(facts)
-    }
-}
-
-/// 開けるまで待たせる門。AI の一言の書き手を途中で止め、書いている間に数字の文が替わる場面を作る。
+/// 開けるまで待たせる門。AI の答えを途中で止め、待っている間の場面を作る。
 ///
 /// Task が取り消されても待ち続ける（取り消しで早く抜けると、古い書き手と新しい書き手の書き終える順をテストで決められないため）。
 final class Gate: Sendable {

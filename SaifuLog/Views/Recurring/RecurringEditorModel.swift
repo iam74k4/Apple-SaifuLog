@@ -23,6 +23,8 @@ final class RecurringEditorModel: Identifiable {
     var category: EntryCategory
     /// 毎月の何日か（1〜31。31 は月末）。
     var dayOfMonth: Int
+    /// 払うカードの ID。カードでなければ空。収入では使わない（保存するのは空）。
+    var cardID: String
     /// 今月の記録する日を過ぎているとき、今月の分も記録するか（作るときだけ）。
     var includesThisMonth = false
     /// 保存・やめるに失敗した（アラートを出す）。
@@ -53,13 +55,14 @@ final class RecurringEditorModel: Identifiable {
         let isIncome: Bool
         let category: EntryCategory
         let dayOfMonth: Int
+        let cardID: String
         let includesThisMonth: Bool
     }
 
     private var fields: Fields {
         Fields(
             amount: EntryAmountInput.amount(from: amountText), memo: memo, isIncome: isIncome, category: category,
-            dayOfMonth: dayOfMonth,
+            dayOfMonth: dayOfMonth, cardID: cardID,
             includesThisMonth: includesThisMonth
         )
     }
@@ -98,6 +101,7 @@ final class RecurringEditorModel: Identifiable {
         isIncome = draft.isIncome
         category = draft.category
         dayOfMonth = draft.dayOfMonth
+        cardID = draft.cardID
         original = nil
         self.notBefore = notBefore
         schedule = nil
@@ -125,6 +129,7 @@ final class RecurringEditorModel: Identifiable {
         isIncome = draft.isIncome
         category = draft.category
         dayOfMonth = draft.dayOfMonth
+        cardID = draft.cardID
         original = draft
         notBefore = nil
         schedule = row.rule.map { ($0.startMonth, $0.lastRecordedMonth) }
@@ -154,7 +159,7 @@ final class RecurringEditorModel: Identifiable {
         guard case .success(let amount) = EntryAmountInput.validate(amountText) else { return nil }
         return RecurringDraft(
             amount: amount, memo: memo.trimmingCharacters(in: .whitespacesAndNewlines), isIncome: isIncome,
-            category: isIncome ? .other : category, dayOfMonth: dayOfMonth
+            category: isIncome ? .other : category, dayOfMonth: dayOfMonth, cardID: isIncome ? "" : cardID
         )
     }
 

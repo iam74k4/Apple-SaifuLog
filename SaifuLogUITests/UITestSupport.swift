@@ -362,19 +362,19 @@ extension XCUIApplication {
         XCTFail("「\(title)」から前の画面に戻れません。いまの画面:\n\(debugDescription)", file: file, line: line)
     }
 
-    /// 会話を左へスワイプして、カレンダーのページを出す。
+    /// 月の画面（月のまとめ）を出している間に、上のバーの切り替えで「カレンダー」にする。
     ///
-    /// 画面の上の方（会話の行のあたり）をなぞる。真ん中からなぞると、キーボードを出しているときに入力欄の上から始まることがあり、
-    /// 入力欄の操作（カーソルの移動）に取られうるため。
-    func showCalendarPage(file: StaticString = #filePath, line: UInt = #line) {
-        let spend = element(AccessibilityID.CalendarPage.monthSpend)
-        for _ in 0..<3 where !spend.isHittableNow {
-            let start = coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.35))
-            let end = coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.35))
-            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .fast, thenHoldForDuration: 0)
-            if spend.waitUntilHittable(timeout: 3) { return }
-        }
-        XCTAssertTrue(spend.isHittableNow, "カレンダーのページが出ません", file: file, line: line)
+    /// 切り替えのボタンは表示の文ではなく並び（2 つ目）で押す（英語の画面でも同じに押せるように）。
+    func showMonthCalendar(file: StaticString = #filePath, line: UInt = #line) {
+        let picker = segmentedControls[AccessibilityID.Report.tabPicker]
+        XCTAssertTrue(picker.waitForExistence(timeout: UITestTimeout.ui), "月の画面の切り替えがありません", file: file, line: line)
+        let calendarTab = picker.buttons.element(boundBy: 1)
+        XCTAssertTrue(calendarTab.waitUntilHittable(), "切り替えの「カレンダー」が押せません", file: file, line: line)
+        calendarTab.tap()
+        XCTAssertTrue(
+            element(AccessibilityID.CalendarPage.day(1)).waitForExistence(timeout: UITestTimeout.ui),
+            "カレンダーが出ません。いまの画面:\n\(debugDescription)", file: file, line: line
+        )
     }
 
     /// いま出ているリスト（設定など）を上へ送り、`element` が押せるところに出るまで送る。出なければ false。
@@ -460,6 +460,11 @@ extension XCUIElement {
     /// 文（label）に `text` を含むまで待つ。
     func waitForLabel(containing text: String, timeout: TimeInterval = UITestTimeout.ui) -> Bool {
         wait(until: NSPredicate(format: "label CONTAINS %@", text), timeout: timeout)
+    }
+
+    /// 文（label）が `text` と違うものになるまで待つ（月を替えたときの題など）。
+    func waitForLabel(notEqualTo text: String, timeout: TimeInterval = UITestTimeout.ui) -> Bool {
+        wait(until: NSPredicate(format: "label != %@", text), timeout: timeout)
     }
 
     /// 文（label）か値（value）に `text` を含むまで待つ。設定の行のように、右に出す値を名前と分けて読む要素に使う。

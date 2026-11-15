@@ -15,7 +15,7 @@ App Store Connect の「英語（米国）」のローカライズに入れる�
 | アプリ名 | 30 文字 | 8 文字 |
 | サブタイトル | 30 文字 | 18 文字 |
 | プロモーション用テキスト | 170 文字 | 152 文字 |
-| 説明 | 4,000 文字 | 3,820 文字（改行を含む） |
+| 説明 | 4,000 文字 | 3,736 文字（改行を含む） |
 | キーワード | 100 バイト | 89 バイト |
 | 著作権 | — | 14 文字 |
 
@@ -60,7 +60,7 @@ ONE-LINE ENTRY
 • Splits, totals, and what’s left are calculated by the app, not by the AI.
 • Undo right after each entry; tap any entry to edit it, or touch and hold to delete.
 • If a category is unclear, the reply asks and remembers. Housing and clothing categories are built in, and you can create your own.
-• Replies show how many times and how much you spent in that category this month. With Apple Intelligence, on-device AI writes a short note from the same numbers.
+• Replies show how many times and how much you spent in that category this month, and what’s left of your budget.
 
 CATEGORIES AND CHAT FIXES
 • Categories come from what you wrote, chose, or logged before, and store names like “ローソン.”
@@ -82,10 +82,10 @@ RECEIPTS
 QUESTIONS ABOUT YOUR SPENDING
 • Ask in the same field, like “今月カフェいくら?” (how much on cafés this month?). The app calculates the answer, compares it with the previous period, shows a six-month trend, and suggests follow-up questions.
 
-BUDGET, CALENDAR, AND SUMMARY
+BUDGET, SUMMARY, AND CALENDAR
 • The top of the home screen shows what you’ve spent this month and, with a monthly budget, what’s left.
-• Swipe left for a calendar of what you spent each day. Tap a day to see and edit its entries.
-• The monthly summary shows what you spent, what’s left of your budget, spending by category, and, for past months, the change from the month before. With Apple Intelligence, it adds a short AI note.
+• Tap it for the monthly summary: what you spent, what’s left of your budget, spending by category, and, for past months, the change from the month before.
+• Switch the summary to Calendar to see what you spent each day. Tap a day to see and edit its entries.
 
 EXPORT, SYNC, AND PRIVACY
 • Export your records as a CSV file, and import it again, for example on a new iPhone.
@@ -105,7 +105,7 @@ Privacy Policy: https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md
 ```
 
 - **予算は月の全体の 1 つだけ:** カテゴリ別の予算はやめた（2026-11-13）。カテゴリごとに予算を決められるようには書かない（日本語と同じ）。
-- **字数:** 機能を足したときに上限を超えたので、各節を短くまとめた（2026-10-01。カレンダーを足した 2026-10-02 と、チャットでの直しを足した 2026-11-13 にも詰めた。同じ日に声の入力・週のふりかえり・プレミアムなどを外した）。足すときは、ほかの節を詰めて 4,000 文字に収める。
+- **字数:** 機能を足したときに上限を超えたので、各節を短くまとめた（2026-10-01。カレンダーを足した 2026-10-02 と、チャットでの直しを足した 2026-11-13 にも詰めた。同じ日に声の入力・週のふりかえり・プレミアムなどを外した。2026-11-15 に AI の一言の文を外した）。足すときは、ほかの節を詰めて 4,000 文字に収める。
 - **料金:** すべて無料で、App 内課金は無い（2026-11-13 にプレミアムと 14 日間の体験をやめた。`docs/design.md` §6）。配信は日本だけ
   （`../release-flow.md` の「一度だけの準備」の 5。アプリは円だけを扱う。円以外の通貨は `docs/design.md` §13 で未決）。
 - **例文:** 入力の例は日本語のまま書き、意味を英語で括弧に添える（アプリの画面の例も日本語のまま出している）。
@@ -130,5 +130,5 @@ expense,spending,tracker,receipt,money,yen,japanese,chat,private,cash,diary,spli
 App Store Connect に入れる（[`metadata.ja.md`](metadata.ja.md) の「スクリーンショット」）。
 
 英語の画面でも、記録の品目・質問・レシートの品名は日本語で写る（アプリは日本語の入力を読むため。説明の最初に書いている）。
-英語の画面では、記録の返事・質問の答え・月のまとめの **AI の一言を写していない**（端末内 AI は一言を日本語で書くので、英語の画面に
-日本語の文が混ざる。AI の使えない端末と同じく一言の無い形にした）。
+英語の画面のホームでは、記録を 1 つ送った返事を写さない（送る文が日本語の吹き出しになり、英語の画面に日本語の文が混ざるため。
+タイムラインと帯をそのまま写す）。
