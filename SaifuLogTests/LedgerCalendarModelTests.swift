@@ -4,39 +4,35 @@ import SwiftData
 import Testing
 @testable import SaifuLog
 
-/// カレンダーのページ（今月を開く・日を選ぶ・月を替える・ほかの端末で消えた記録・日付の変わり目）。
+/// 月の画面のカレンダー（月に合わせる・今日を選ぶ・日を選ぶ・ほかの端末で消えた記録・週の始まり）。
 @MainActor
 struct LedgerCalendarModelTests {
-    /// カレンダーのモデルと、その保存先・時計・読み上げの代わり。
+    /// カレンダーのモデルと、その保存先・時計の代わり。
     @MainActor
     final class Fixture {
         let context: ModelContext
         /// 今日（既定は 2026-09-28 12:00 の月曜）。
         var now = TestSupport.now
-        private(set) var announcements: [String] = []
         private(set) var model: LedgerCalendarModel!
 
         init() throws {
             context = try TestSupport.makeContext()
-            model = LedgerCalendarModel(
-                store: EntryStore(context: context),
-                now: { [unowned self] in now },
-                announce: { [unowned self] in announcements.append($0) }
-            )
+            model = LedgerCalendarModel(store: EntryStore(context: context), now: { [unowned self] in now })
         }
 
         func insert(_ entries: Entry...) throws {
             try EntryStore(context: context).insert(entries)
         }
 
-        /// 画面の暦を渡して開く（ホームが出たとき）。
-        func open() {
-            model.configure(calendar: TestSupport.calendar)
+        /// 月の画面が見せている月に合わせて読む（月の画面を開いたとき・月を替えたとき）。
+        func show(_ date: Date = TestSupport.now, calendar: Calendar = TestSupport.calendar) {
+            model.follow(monthContaining: date, calendar: calendar)
+            model.reload()
         }
     }
 
-    /// 開くと今月を見せて今日を選び、今日の記録を使った日時の順に出す。日ごとの集計は月の記録だけを数える。
-    @Test func opensThisMonthAndSelectsToday() throws {
+    /// 今月なら今日を選び、今日の記録を使った日時の順に出す。日ごとの集計は月の記録だけを数える。
+    @Test func showsThisMonthAndSelectsToday() throws {
         let fixture = try Fixture()
         try fixture.insert(
             TestSupport.entry(amount: 850, memo: "ランチ", spentAt: TestSupport.date(2026, 9, 28, hour: 12)),
@@ -45,12 +41,10 @@ struct LedgerCalendarModelTests {
             TestSupport.entry(amount: 3_000, memo: "先月", spentAt: TestSupport.date(2026, 8, 31, hour: 10))
         )
 
-        fixture.open()
+        fixture.show()
 
         let model = try #require(fixture.model)
         #expect(model.month == ReportPeriod.thisMonth.interval(now: TestSupport.now, calendar: TestSupport.calendar))
-        #expect(model.isCurrentMonth)
-        #expect(model.isShowingToday)
         #expect(model.selectedDay == TestSupport.date(2026, 9, 28))
         #expect(model.selectedRecords.map(\.memo) == ["パン", "ランチ"])
         #expect(model.selectedSummary?.expense == 1_150)
@@ -64,6 +58,20 @@ struct LedgerCalendarModelTests {
         #expect(!model.isFuture(days.days[26]))
     }
 
+    /// ほかの月に合わせると、選んだ日を外し（日を押すまで選ばない）、その月の記録だけを数える。
+    @Test func followsOtherMonthWithoutSelection() throws {
+        let fixture = try Fixture()
+        try fixture.insert(TestSupport.entry(amount: 3_000, memo: "先月", spentAt: TestSupport.date(2026, 8, 31, hour: 10)))
+        fixture.show()
+
+        fixture.show(TestSupport.date(2026, 8, 10))
+
+        #expect(fixture.model.month?.start == TestSupport.date(2026, 8, 1))
+        #expect(fixture.model.selectedDay == nil)
+        #expect(fixture.model.selectedRecords.isEmpty)
+        #expect(fixture.model.days?.expense == 3_000)
+    }
+
     /// 日を選ぶと、その日の記録を出す。
     @Test func selectsDay() throws {
         let fixture = try Fixture()
@@ -71,51 +79,18 @@ struct LedgerCalendarModelTests {
             TestSupport.entry(amount: 1_200, memo: "本", spentAt: TestSupport.date(2026, 9, 27, hour: 10)),
             TestSupport.entry(amount: 850, memo: "ランチ", spentAt: TestSupport.date(2026, 9, 28, hour: 12))
         )
-        fixture.open()
+        fixture.show()
 
         fixture.model.select(try #require(fixture.model.days?.days[26]))
 
         #expect(fixture.model.selectedDay == TestSupport.date(2026, 9, 27))
         #expect(fixture.model.selectedRecords.map(\.memo) == ["本"])
-        #expect(!fixture.model.isShowingToday)
     }
 
-    /// 前後の月へ替えると選んだ日を外す。替えた月を読み上げる。「今日」で今月の今日に戻る。
-    @Test func switchesMonths() throws {
-        let fixture = try Fixture()
-        fixture.open()
-
-        fixture.model.showMonth(offset: -1)
-
-        #expect(fixture.model.month?.start == TestSupport.date(2026, 8, 1))
-        #expect(fixture.model.selectedDay == nil)
-        #expect(fixture.model.selectedRecords.isEmpty)
-        #expect(!fixture.model.isCurrentMonth)
-        #expect(fixture.announcements == [fixture.model.monthTitle])
-
-        #expect(!fixture.model.isFutureMonth)
-        fixture.model.showMonth(offset: 2)
-        #expect(fixture.model.isFutureMonth)
-
-        fixture.model.showThisMonth()
-
-        #expect(fixture.model.month?.start == TestSupport.date(2026, 9, 1))
-        #expect(!fixture.model.isFutureMonth)
-        #expect(fixture.model.selectedDay == TestSupport.date(2026, 9, 28))
-        #expect(fixture.model.isCurrentMonth)
-        #expect(fixture.announcements.count == 3)
-
-        // 今月を見ているときの「今日」は、月を読み上げない（月は替わらないため）。
-        fixture.model.select(try #require(fixture.model.days?.days.first))
-        fixture.model.showThisMonth()
-        #expect(fixture.model.isShowingToday)
-        #expect(fixture.announcements.count == 3)
-    }
-
-    /// 保存先に足した記録は、読み直すと出る（ホームは保存の知らせで読み直す）。
+    /// 保存先に足した記録は、読み直すと出る（月の画面は保存の知らせで読み直す）。
     @Test func reloadPicksUpNewRecords() throws {
         let fixture = try Fixture()
-        fixture.open()
+        fixture.show()
         #expect(fixture.model.selectedRecords.isEmpty)
 
         try fixture.insert(TestSupport.entry(amount: 850, memo: "ランチ", spentAt: TestSupport.date(2026, 9, 28, hour: 12)))
@@ -129,7 +104,7 @@ struct LedgerCalendarModelTests {
     @Test func recordDeletedElsewhereIsNotReturned() throws {
         let fixture = try Fixture()
         try fixture.insert(TestSupport.entry(spentAt: TestSupport.date(2026, 9, 28, hour: 9)))
-        fixture.open()
+        fixture.show()
         let record = try #require(fixture.model.selectedRecords.first)
         #expect(fixture.model.entry(for: record)?.persistentModelID == record.id)
 
@@ -142,48 +117,15 @@ struct LedgerCalendarModelTests {
         #expect(fixture.model.selectedRecords.isEmpty)
     }
 
-    /// 日付が変わったら、今日を見ていれば今日を選び直し、今月を見ていて月が替われば新しい月を見せる。ほかの日・ほかの月を
-    /// 見ていたら、そのまま。
-    @Test func followsTodayAcrossDays() throws {
-        let fixture = try Fixture()
-        fixture.now = TestSupport.date(2026, 9, 30, hour: 23)
-        fixture.open()
-        #expect(fixture.model.selectedDay == TestSupport.date(2026, 9, 30))
-
-        fixture.now = TestSupport.date(2026, 10, 1, hour: 7)
-        fixture.model.refreshToday()
-        #expect(fixture.model.month?.start == TestSupport.date(2026, 10, 1))
-        #expect(fixture.model.selectedDay == TestSupport.date(2026, 10, 1))
-        #expect(fixture.model.isCurrentMonth)
-
-        fixture.now = TestSupport.date(2026, 10, 2, hour: 7)
-        fixture.model.refreshToday()
-        #expect(fixture.model.selectedDay == TestSupport.date(2026, 10, 2))
-
-        fixture.model.select(try #require(fixture.model.days?.days.first))
-        fixture.now = TestSupport.date(2026, 10, 3, hour: 7)
-        fixture.model.refreshToday()
-        #expect(fixture.model.selectedDay == TestSupport.date(2026, 10, 1))
-
-        fixture.model.showMonth(offset: -1)
-        fixture.now = TestSupport.date(2026, 11, 1, hour: 7)
-        fixture.model.refreshToday()
-        #expect(fixture.model.month?.start == TestSupport.date(2026, 9, 1))
-    }
-
-    /// 暦の週の始まりが変わると、1 日の前の空きを数え直す。
+    /// 暦の週の始まりに合わせて、1 日の前の空きを数える。
     @Test func followsWeekStart() throws {
         let fixture = try Fixture()
-        fixture.open()
-        #expect(fixture.model.days?.leadingBlankCount == 2)
-
         var monday = TestSupport.calendar
         monday.firstWeekday = 2
-        fixture.model.configure(calendar: monday)
 
-        // 2026-09-01（火）は、月曜から 1 日空ける。見ていた月と選んだ日はそのまま。
+        fixture.show(calendar: monday)
+
+        // 2026-09-01（火）は、月曜から 1 日空ける。
         #expect(fixture.model.days?.leadingBlankCount == 1)
-        #expect(fixture.model.month?.start == TestSupport.date(2026, 9, 1))
-        #expect(fixture.model.selectedDay == TestSupport.date(2026, 9, 28))
     }
 }

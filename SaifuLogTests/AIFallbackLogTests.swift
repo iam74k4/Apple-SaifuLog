@@ -44,33 +44,33 @@ struct AIFallbackLogTests {
     @Test("結果が無かっただけのときは回数だけを増やし、最後のエラーは変えない")
     func recordsNoResultWithoutChangingLastError() {
         let log = AIFallbackLog(now: { TestSupport.now })
-        log.record(.failed(PlainError.unavailable), in: .recap)
+        log.record(.failed(PlainError.unavailable), in: .chatCommand)
 
         log.record(.noResult, in: .question)
         log.record(.noResult, in: .question)
 
         let snapshot = log.snapshot
-        #expect(snapshot.fallbacks == [.recap: 1, .question: 2])
+        #expect(snapshot.fallbacks == [.chatCommand: 1, .question: 2])
         #expect(snapshot.totalFallbacks == 3)
-        #expect(snapshot.lastError?.feature == .recap)
+        #expect(snapshot.lastError?.feature == .chatCommand)
     }
 
     /// 上限（`AITimeouts`）を見直すときに、どの機能がどのくらい時間切れになったかを見る。
     @Test("時間切れは、AI の結果を使わなかった回数と時間切れの回数に数え、最後のエラーは変えない")
     func recordsTimeoutWithoutChangingLastError() {
         let log = AIFallbackLog(now: { TestSupport.now })
-        log.record(.failed(PlainError.unavailable), in: .recap)
+        log.record(.failed(PlainError.unavailable), in: .chatCommand)
 
         log.record(.timedOut(.seconds(6)), in: .entry)
         log.record(.timedOut(.seconds(15)), in: .receipt)
         log.record(.timedOut(.seconds(6)), in: .entry)
 
         let snapshot = log.snapshot
-        #expect(snapshot.fallbacks == [.recap: 1, .entry: 2, .receipt: 1])
+        #expect(snapshot.fallbacks == [.chatCommand: 1, .entry: 2, .receipt: 1])
         #expect(snapshot.timeouts == [.entry: 2, .receipt: 1])
         #expect(snapshot.totalFallbacks == 4)
         #expect(snapshot.totalTimeouts == 3)
-        #expect(snapshot.lastError?.feature == .recap)
+        #expect(snapshot.lastError?.feature == .chatCommand)
     }
 
     /// 月のまとめの一言とレシートの整えは、投げられたエラーから理由を決めて残す（`AIFallbackReason(error:)`）。
@@ -78,11 +78,11 @@ struct AIFallbackLogTests {
     func reasonFromErrorSeparatesTimeouts() {
         let log = AIFallbackLog(now: { TestSupport.now })
 
-        log.record(AIFallbackReason(error: DeadlineExceeded(timeout: .seconds(8))), in: .recap)
+        log.record(AIFallbackReason(error: DeadlineExceeded(timeout: .seconds(8))), in: .chatCommand)
         log.record(AIFallbackReason(error: PlainError.unavailable), in: .receipt)
 
-        #expect(log.snapshot.fallbacks == [.recap: 1, .receipt: 1])
-        #expect(log.snapshot.timeouts == [.recap: 1])
+        #expect(log.snapshot.fallbacks == [.chatCommand: 1, .receipt: 1])
+        #expect(log.snapshot.timeouts == [.chatCommand: 1])
         #expect(log.snapshot.lastError?.feature == .receipt)
     }
 

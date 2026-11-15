@@ -68,7 +68,9 @@ struct LedgerExporter: Sendable {
         guard !records.isEmpty else { return .empty }
         // 作ったカテゴリの名前で書く（読めなければ、組み込みのカテゴリの名前と「その他」で書く）。
         let catalog = (try? context.fetch(FetchDescriptor<CustomCategory>())).map(CategoryCatalog.init(rows:)) ?? .builtIn
-        let data = LedgerCSVWriter.data(records, language: language, timeZone: calendar.timeZone, catalog: catalog)
+        // 払ったカードの名前で書く（読めなければ、支払いの列を空にする）。
+        let cards = (try? context.fetch(FetchDescriptor<CreditCard>())).map(CreditCard.resolved) ?? []
+        let data = LedgerCSVWriter.data(records, language: language, timeZone: calendar.timeZone, catalog: catalog, cards: cards)
         try Task.checkCancellation()
 
         let folder = directory.appending(path: UUID().uuidString, directoryHint: .isDirectory)

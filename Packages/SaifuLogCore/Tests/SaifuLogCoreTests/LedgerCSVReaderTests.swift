@@ -271,4 +271,28 @@ struct LedgerCSVImportTests {
             base.addingTimeInterval(0.002),
         ])
     }
+    // MARK: - 支払い
+
+    @Test("支払いの列のカードの名前を、いまのカードで戻す。列の無い前の版のファイルも読む")
+    func readsPaymentColumn() throws {
+        let cards = [PaymentCard(id: "rakuten", name: "楽天カード", closingDay: 31, paymentDay: 27)]
+        let text = """
+            日付,時刻,種類,カテゴリ,品目,金額,送った文,支払い
+            2026-09-28,12:00,支出,食費,ランチ,850,ランチ 850,楽天カード
+            2026-09-28,12:30,支出,カフェ,コーヒー,400,コーヒー 400,
+            2026-09-28,13:00,支出,カフェ,ケーキ,500,ケーキ 500,知らないカード
+            2026-09-28,14:00,収入,,給料,250000,給料 25万,楽天カード
+            """
+        let result = try LedgerCSVReader.read(text: text, timeZone: LedgerCSVReaderTests.tokyo, cards: cards)
+        #expect(result.issues.isEmpty)
+        #expect(result.rows.map(\.cardID) == ["rakuten", nil, nil, nil])
+
+        let legacy = """
+            日付,時刻,種類,カテゴリ,品目,金額,送った文
+            2026-09-28,12:00,支出,食費,ランチ,850,ランチ 850
+            """
+        let old = try LedgerCSVReader.read(text: legacy, timeZone: LedgerCSVReaderTests.tokyo, cards: cards)
+        #expect(old.issues.isEmpty)
+        #expect(old.rows.map(\.cardID) == [nil])
+    }
 }

@@ -47,30 +47,7 @@ struct CategoryEntriesView: View {
         .background(Theme.background)
         .navigationTitle(catalog.label(for: category))
         .navigationBarTitleDisplayMode(.inline)
-        // item で出す（閉じる間も中身を保つ。ホームの「直す」と同じ）。閉じると editing は nil に戻る。
-        .sheet(item: $model.editing) { editing in
-            EditEntrySheet(model: editing)
-        }
-        // 長押しの「削除」の確認（ホームの記録の削除と同じ文）。
-        .confirmationDialog(
-            "この記録を削除しますか？",
-            isPresented: showsDeletionConfirmation,
-            titleVisibility: .visible,
-            presenting: model.pendingDeletion
-        ) { pending in
-            Button("削除", role: .destructive) { model.delete(pending) }
-        } message: { pending in
-            Text("\(pending.summary)の記録を削除します。この操作は取り消せません。")
-        }
-        .alert("削除できませんでした", isPresented: $model.showsDeleteFailure) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("保存に失敗しました。もう一度お試しください。")
-        }
-    }
-
-    private var showsDeletionConfirmation: Binding<Bool> {
-        Binding(get: { model.pendingDeletion != nil }, set: { if !$0 { model.pendingDeletion = nil } })
+        .modifier(ReportEntryModals(model: model, isActive: true))
     }
 
     /// 期間・そのカテゴリの合計と割合・件数。合計と割合は内訳の行と同じ値（`MonthlyReport` の内訳）を出す。
@@ -100,7 +77,7 @@ struct CategoryEntriesView: View {
 }
 
 /// 一覧の 1 件。品目（無ければカテゴリ名）と日付、金額。押すと「直す」のシートを開く。
-private struct CategoryEntryRow: View {
+struct CategoryEntryRow: View {
     let entry: Entry
     /// 今日。日付に年を添えるかの基準。
     let today: Date
@@ -169,5 +146,50 @@ private struct CategoryEntryRow: View {
         format.calendar = calendar
         format.timeZone = calendar.timeZone
         return format
+    }
+}
+
+/// 月の画面と、そこから進むカテゴリの記録の一覧で出す「直す」のシートと削除の確認・失敗の知らせ。
+///
+/// 両方の画面が `MonthlyReportModel` の同じ状態を見るので、一覧を出している間は月の画面の側を止める（`isActive`。
+/// 2 つの画面が同じシートを同時に出そうとしないように）。
+struct ReportEntryModals: ViewModifier {
+    @Bindable var model: MonthlyReportModel
+    let isActive: Bool
+
+    func body(content: Content) -> some View {
+        content
+            // item で出す（閉じる間も中身を保つ。ホームの「直す」と同じ）。閉じると editing は nil に戻る。
+            .sheet(item: editing) { editing in
+                EditEntrySheet(model: editing)
+            }
+            // 長押しの「削除」の確認（ホームの記録の削除と同じ文）。
+            .confirmationDialog(
+                "この記録を削除しますか？",
+                isPresented: showsDeletionConfirmation,
+                titleVisibility: .visible,
+                presenting: model.pendingDeletion
+            ) { pending in
+                Button("削除", role: .destructive) { model.delete(pending) }
+            } message: { pending in
+                Text("\(pending.summary)の記録を削除します。この操作は取り消せません。")
+            }
+            .alert("削除できませんでした", isPresented: showsDeleteFailure) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("保存に失敗しました。もう一度お試しください。")
+            }
+    }
+
+    private var editing: Binding<EditEntryModel?> {
+        Binding(get: { isActive ? model.editing : nil }, set: { model.editing = $0 })
+    }
+
+    private var showsDeletionConfirmation: Binding<Bool> {
+        Binding(get: { isActive && model.pendingDeletion != nil }, set: { if !$0 { model.pendingDeletion = nil } })
+    }
+
+    private var showsDeleteFailure: Binding<Bool> {
+        Binding(get: { isActive && model.showsDeleteFailure }, set: { model.showsDeleteFailure = $0 })
     }
 }

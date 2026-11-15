@@ -652,7 +652,6 @@ struct ICloudSyncTests {
             store: EntryStore(context: container.mainContext),
             pendingWrites: host.pendingWrites,
             storeHost: host,
-            makeRemarkWriter: { nil },
             now: { TestSupport.now },
             announce: { _ in }
         )

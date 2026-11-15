@@ -11,6 +11,7 @@ struct EditEntrySheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.categoryCatalog) private var catalog
+    @Environment(\.paymentCards) private var cards
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable {
@@ -25,9 +26,16 @@ struct EditEntrySheet: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("キャンセル", role: .cancel) {
+                        Button(role: .close) {
                             if model.requestClose() { dismiss() }
                         }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(role: .confirm) {
+                            if model.save() { dismiss() }
+                        }
+                        .disabled(!model.canSave)
+                        .accessibilityIdentifier(AccessibilityID.EditEntry.saveButton)
                     }
                 }
                 .alert(
@@ -86,6 +94,10 @@ struct EditEntrySheet: View {
                 kindSection
                 if !model.isIncome {
                     categorySection
+                    // カードを登録していなければ出さない（カードを使わない人に、使わない欄を見せないため）。
+                    if !cards.isEmpty || !model.cardID.isEmpty {
+                        paymentSection
+                    }
                 }
                 dateSection
                 deleteButton
@@ -98,14 +110,9 @@ struct EditEntrySheet: View {
         // 上へ流れた文や大きな金額が、ツールバーのボタンの後ろで透けて重ならないよう、上ははっきりした効果にする（ホームの帯と同じ）。
         .scrollEdgeEffectStyle(.hard, for: .top)
         .background(Theme.background)
-        // 保存のボタンは画面の下に置き続ける。金額の数字のキーボードには確定のキーが無いので、キーボードを出したまま
-        // 押せる場所に置く（予算を決める画面と同じ）。
-        // 下の帯は safeAreaBar に置き、中身がその下を流れるようにする（地を塗らない。スクロール端の効果が下端をぼかす。ホームの入力欄と同じ）。
-        .safeAreaBar(edge: .bottom, spacing: 0) {
-            saveButton
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-        }
+        // 閉じると保存は、iOS 26 の標準の形（左上の ×・右上の ✓）にする。前は文字の「キャンセル」と、下に浮く大きな「保存」で、
+        // 押せない間は灰色の塊になって中身（日付の欄）を隠し、シートごとに保存の場所も違った。右上の ✓ は、数字のキーボードを
+        // 出したままでも押せる（数字のキーボードには確定のキーが無い）。
     }
 
     /// 送った文。読み取りと見比べて、どこを直せばよいかを分かりやすくする。例の文と同じく訳さない（利用者が打った文）。
@@ -194,34 +201,17 @@ struct EditEntrySheet: View {
         }
     }
 
-    /// 支出か収入か。AI が「もらった」「返金」などを読み違えたときに直せるようにする。
-    ///
-    /// アクセシビリティサイズの文字では縦に積む。横に並べて収まるかで選ぶ（ViewThatFits）と、選んだ側に付く
-    /// チェックの印の幅までは見込まれず、「収 / 入」のように語の途中で折り返されるため。
-    @ViewBuilder
+    /// 支出か収入か。AI が「もらった」「返金」などを読み違えたときに直せるようにする。標準の切り替え（セグメント）にする（前は
+    /// 枠とチェックの大きなタイルを 2 つ並べていた。2 択は切り替えのほうが小さく、どちらを選んでいるかもひと目で分かる）。見出しは
+    /// 付けない（「支出」「収入」で分かる）。
     private var kindSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            SectionLabel("種類")
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(spacing: 8) { kindChoices }
-            } else {
-                HStack(spacing: 8) { kindChoices }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var kindChoices: some View {
-        ChoiceChip(isSelected: !model.isIncome) {
-            model.isIncome = false
+        Picker(selection: $model.isIncome) {
+            Text("支出").tag(false)
+            Text("収入").tag(true)
         } label: {
-            Text("支出")
+            Text("種類")
         }
-        ChoiceChip(isSelected: model.isIncome) {
-            model.isIncome = true
-        } label: {
-            Text("収入")
-        }
+        .pickerStyle(.segmented)
     }
 
     /// カテゴリ。組み込みの 10 種と作ったカテゴリを色と記号つきで並べ、1 つを選ぶ。アクセシビリティサイズの文字では 1 列にする。
@@ -247,6 +237,14 @@ struct EditEntrySheet: View {
                 .font(.footnote)
                 .foregroundStyle(Theme.inkSecondary)
             }
+        }
+    }
+
+    /// 払ったカード（現金・その他か、登録したカード）。カードの記録は、設定の「カード」で締めごとに数える。
+    private var paymentSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SectionLabel("支払い")
+            CardPickerMenu(cardID: $model.cardID)
         }
     }
 
@@ -288,23 +286,6 @@ struct EditEntrySheet: View {
         .foregroundStyle(Theme.danger)
         .accessibilityIdentifier(AccessibilityID.EditEntry.deleteButton)
         .padding(.top, 8)
-    }
-
-    private var saveButton: some View {
-        Button {
-            if model.save() { dismiss() }
-        } label: {
-            Text("保存")
-                .fontWeight(.semibold)
-                // 押せるときは主の塗りの上なので onAccent（Theme の説明）。押せないときは灰色のガラスの上なので、
-                // 補足の文字の色にする（予算を決める画面・送信ボタンと同じ）。
-                .foregroundStyle(model.canSave ? Theme.onAccent : Theme.inkSecondary)
-                .frame(maxWidth: .infinity, minHeight: 44)
-        }
-        .buttonStyle(.glassProminent)
-        .tint(Theme.accentFill)
-        .disabled(!model.canSave)
-        .accessibilityIdentifier(AccessibilityID.EditEntry.saveButton)
     }
 
     private var showsFailure: Binding<Bool> {
@@ -377,8 +358,9 @@ struct CategoryLabel: View {
                 .font(.system(size: iconSize * 0.5, weight: .semibold))
                 .foregroundStyle(Theme.onCategory)
                 .frame(width: iconSize, height: iconSize)
-                .background(catalog.color(for: category), in: .circle)
-                // 丸はダークでもライトの色で塗る（EntryBubble と同じ理由）。
+                // 形はホームの返事の行の印と同じ角の丸い四角にそろえる。
+                .background(catalog.color(for: category), in: .rect(cornerRadius: iconSize * 0.28))
+                // 印はダークでもライトの色で塗る（EntryBubble と同じ理由）。
                 .environment(\.colorScheme, .light)
                 .accessibilityHidden(true)
             catalog.label(for: category)

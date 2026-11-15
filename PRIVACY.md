@@ -2,7 +2,7 @@
 
 **SaifuLog（サイフログ）**
 
-最終更新日 / Last updated: 2026-11-14
+最終更新日 / Last updated: 2026-11-15
 
 施行日 / Effective date: 初回リリース時に確定します / To be set at the first release
 
@@ -32,7 +32,7 @@
 
 ### 入力した家計の記録
 
-金額、日付、カテゴリ、メモ、入力した文章といった記録と、利用者が決めた予算の金額は、iOS の
+金額、日付、カテゴリ、メモ、入力した文章、払ったカード（下の「登録したクレジットカード」の番号）といった記録と、利用者が決めた予算の金額は、iOS の
 標準的な仕組み（SwiftData）を用いて、お使いの iPhone の中の本アプリ専用の領域に保存されます。設定の「iCloud で同期」が
 オフ（既定）のあいだは、この iPhone の中にのみ保存されます。オンにした場合の取り扱いは、下の「iCloud での同期」のとおりです。
 
@@ -40,8 +40,8 @@ iPhone のバックアップ（iCloud バックアップや、Mac・PC へのバ
 場合、記録はバックアップの一部として保存されることがあります。これは Apple が提供する
 iOS の機能で、開発者はその内容を見られません。
 
-記録は 1 件ずつ、アプリの中で直したり削除したりできます（タイムラインの記録か、月のまとめのカテゴリ別の記録の一覧の
-記録を押して開く画面で直すか「この記録を削除」、またはタイムラインの記録を長押しして「削除」）。直した金額・品目・支出か収入か・カテゴリ・日付は、元の記録に
+記録は 1 件ずつ、アプリの中で直したり削除したりできます（タイムラインの記録か、月のまとめのカテゴリ別の記録の一覧やカレンダーの
+記録を押して開く画面で直すか「この記録を削除」、またはタイムラインの記録を長押しして「削除」）。直した金額・品目・支出か収入か・カテゴリ・払ったカード・日付は、元の記録に
 上書きして保存します。入力した文章は直しても元のまま残り、直す画面に見比べるために表示します。入力した文章を消すには、
 その記録を削除してください（1 回の入力から複数の記録ができたときは、そのすべてを削除すると消えます）。
 予算は、予算を決める画面の「予算をなくす」で、確認のうえ設定なしに戻せます。
@@ -69,25 +69,23 @@ Apple Intelligence を使えない端末では、端末内のキーワード辞�
 ### 家計への質問
 
 記録と同じ入力欄で家計について質問したとき（「今月カフェいくら?」など）、答えの数字は本アプリがお使いの iPhone の中の
-記録から計算します。質問の文の読み取りと、答えに添える一言の作成には、Apple Intelligence を使える端末では Foundation Models を、
-使えない端末では端末内のキーワード辞書を用います。**質問の文や記録、計算した答えを外部へ送信することはありません。**
+記録から計算します。質問の文の読み取り（期間・知りたいこと・カテゴリを選ぶこと）には、Apple Intelligence を使える端末では
+Foundation Models を、使えない端末では端末内のキーワード辞書を用います。Foundation Models を用いるときは、本アプリが計算した答えの文も
+端末内 AI に返しますが、AI が書く文は答えに使いません。この処理もお使いの iPhone の上で行い、**質問の文や記録、計算した答えを
+外部へ送信することはありません。**
 
 質問と答えは記録として保存せず、アプリを起動している間だけアプリのメモリの中に置きます（アプリを開き直すと消えます）。
 
-### 記録の返事の一言
+### 記録の返事
 
-ひとこと入力で記録した直後に、Apple Intelligence を使える端末では、いま記録した支出（品目・金額・カテゴリ）、そのカテゴリの今月の
-合計と件数、今月の支出の合計と件数、予算の残りを本アプリがお使いの iPhone の中で計算して文にし、その文を Foundation Models に渡して
-一言を書かせます。この処理もお使いの iPhone の上で行い、**記録や計算した数字、一言を外部へ送信することはありません。** 一言は保存せず、
-アプリを起動している間だけアプリのメモリの中に置きます。どの端末でも、同じ計算で作った一行（そのカテゴリの今月の件数と合計、
-予算の残り）を返事に出します。これも本アプリがお使いの iPhone の中で計算したもので、外部へ送信することはありません。
+ひとこと入力で記録した直後の返事には、そのカテゴリの今月の件数と合計と、予算の残りの一行を出します。本アプリがお使いの iPhone の
+中の記録から計算して書くもので、端末内 AI には渡さず、**外部へ送信することもありません。** この一行は保存しません。
 
 ### 月のまとめ
 
 月のまとめの数字（使った額・収入・収支・前の月との差・カテゴリ別の内訳・予算の残り）は、本アプリがお使いの iPhone の中の記録から
-計算します。Apple Intelligence を使える端末では、計算した数字を並べた文を Foundation Models に渡して一言を書かせますが、この処理もお使いの
-iPhone の上で行います。**記録や計算した数字、一言を外部へ送信することはありません。** 一言は保存せず、アプリを起動している
-間だけアプリのメモリの中に置きます。
+計算し、日ごとに使った額のカレンダーも同じ記録から数えます。端末内 AI には渡さず、**記録や計算した数字を外部へ送信することは
+ありません。**
 
 ### 覚えたカテゴリ（修正の記憶）
 
@@ -106,8 +104,8 @@ iPhone の上で行います。**記録や計算した数字、一言を外部�
 設定の「カテゴリ」や記録の返事から作ったカテゴリ（名前・記号・色・並び順・作った日時・直した日時）は、上の「入力した家計の記録」と
 同じ場所（お使いの iPhone の中の本アプリ専用の保存先。「iCloud で同期」をオンにしているときは、記録と同じく暗号化フィールドとして
 利用者自身の iCloud にも）に保存し、**開発者や第三者へ送信することはありません。** 記録にはカテゴリの名前ではなく、作ったカテゴリを
-見分ける番号だけを保存します。記録のカテゴリを端末内 AI に選ばせるときと、記録の返事の一言、月のまとめの一言、質問の答えの一言を
-端末内 AI に書かせるときは、ほかのカテゴリと同じく作ったカテゴリの名前も渡しますが、この処理もお使いの iPhone の上で行います。CSV に書き出すときは、カテゴリの列に作ったカテゴリの名前を
+見分ける番号だけを保存します。記録のカテゴリを端末内 AI に選ばせるときと、質問の答えの文を端末内 AI に返すときは、ほかのカテゴリと
+同じく作ったカテゴリの名前も渡しますが、この処理もお使いの iPhone の上で行います。CSV に書き出すときは、カテゴリの列に作ったカテゴリの名前を
 書きます。カテゴリを削除すると、そのカテゴリの記録は「その他」になります。
 
 ### くり返しの記録
@@ -118,6 +116,16 @@ iPhone の上で行います。**記録や計算した数字、一言を外部�
 決めた日を過ぎてアプリを開いたときに、本アプリがお使いの iPhone の中で記録を作ります（サーバーは使いません）。作った記録は、ほかの記録と
 同じく保存し、どの決まりのどの月の分かを見分ける印を付けます（iCloud で同期している端末どうしで同じ月を二重に記録したときに、1 件にまとめるため）。
 決まりをやめても、作った記録は残ります。
+
+### 登録したクレジットカード
+
+設定の「カード」で登録したカード（利用者が付けた名前・締め日・引き落とし日・翌月か翌々月か・いつものカードか・並び順・作った日時・
+直した日時）は、上の「入力した家計の記録」と同じ場所（お使いの iPhone の中の本アプリ専用の保存先。「iCloud で同期」をオンにしているときは、
+記録と同じく暗号化フィールドとして利用者自身の iCloud にも）に保存し、**開発者や第三者へ送信することはありません。** カード番号・有効期限・
+暗証番号などのカードの情報は、入力していただくことも保存することもありません。カード会社や金融機関とつながることもありません。
+記録には、どのカードで払ったかを見分ける番号だけを保存します。カードごとの利用額と引き落としの額は、保存した記録から本アプリがお使いの
+iPhone の中で数えます。CSV に書き出すときは、支払いの列にカードの名前を書きます。カードを削除すると、そのカードの記録は
+「現金・その他」になります（記録そのものは残ります）。
 
 ### レシート・スクリーンショットの取り扱い
 
@@ -153,7 +161,7 @@ iPhone のロック中は金額を隠します。アプリのロックをオン�
 ### CSV 書き出し
 
 設定の画面で利用者が「CSV ファイルを書き出す」を押したときだけ、選んだ期間（今月・先月・今年・すべて）の
-記録（日付・時刻・支出か収入か・カテゴリ（作ったカテゴリはその名前）・品目・金額・入力した文章）を CSV ファイルにします。ファイルは
+記録（日付・時刻・支出か収入か・カテゴリ（作ったカテゴリはその名前）・品目・金額・入力した文章・払ったカードの名前）を CSV ファイルにします。ファイルは
 iOS の共有の画面に渡され、**利用者が選んだ共有先（アプリ、「ファイル」の保存先、AirDrop など）にだけ渡ります。**
 本アプリが自動で書き出したり、外部へ送信したりすることはありません。開発者へ送信することもありません。
 
@@ -164,7 +172,7 @@ iOS の共有の画面に渡され、**利用者が選んだ共有先（アプ�
 ### CSV の読み込み
 
 設定の画面で利用者が「CSV から読み込む」を押し、iOS のファイルの選択の画面で選んだファイルだけを、お使いの iPhone の中で読みます。
-読めるのは本アプリが書き出した形の CSV ファイルです。読んだ記録（日付・時刻・支出か収入か・カテゴリ・品目・金額・入力した文章）は、
+読めるのは本アプリが書き出した形の CSV ファイルです。読んだ記録（日付・時刻・支出か収入か・カテゴリ・品目・金額・入力した文章・払ったカード（登録してあるカードの名前と同じときだけ））は、
 件数を確かめていただいた後に、上の「入力した家計の記録」と同じ場所に保存します。**選んだファイルとその中身を外部へ送信することは
 ありません。** 開発者へ送信することもありません。本アプリは選んだファイルをアプリの中に残さず、読み終えたら手放します（元のファイルは
 選んだ場所にそのまま残ります）。
@@ -172,7 +180,7 @@ iOS の共有の画面に渡され、**利用者が選んだ共有先（アプ�
 ### iCloud での同期（任意）
 
 設定の「iCloud で同期」は、既定ではオフです。利用者がオンにしたときだけ、記録（金額・日付・カテゴリ・メモ・入力した文章など、
-上の「入力した家計の記録」と同じもの）と予算の金額と覚えたカテゴリと作ったカテゴリとくり返しの記録を、Apple の iCloud の利用者自身の領域（CloudKit の非公開データベース）に
+上の「入力した家計の記録」と同じもの）と予算の金額と覚えたカテゴリと作ったカテゴリとくり返しの記録と登録したカードを、Apple の iCloud の利用者自身の領域（CloudKit の非公開データベース）に
 保存し、同じ Apple アカウントでサインインしている端末どうしでそろえます。オンにした時点でお使いの端末にある記録も、iCloud に
 保存されます。上に書いた iPhone 自体のバックアップとは別の機能です。
 
@@ -181,7 +189,8 @@ iOS の共有の画面に渡され、**利用者が選んだ共有先（アプ�
   適用されます。
 - **暗号化について。** 記録と予算の中身（本アプリが保存する項目のすべて。金額・収入か支出か・日付・カテゴリ・メモ・入力した
   文章・入力の方法（文字・レシート・くり返しの記録など）・記録した日時と、予算の対象・金額・決めた日時と、覚えたカテゴリの言葉・カテゴリ・覚えた日時と、
-  作ったカテゴリの名前・記号・色・並び順・作った日時・直した日時と、くり返しの記録の決まりのすべての項目と記録に付けた印）は、
+  作ったカテゴリの名前・記号・色・並び順・作った日時・直した日時と、くり返しの記録の決まりのすべての項目と記録に付けた印と、
+  登録したカードのすべての項目と記録に付けた払ったカードの番号）は、
   CloudKit の暗号化フィールドとして、お使いの端末の中で暗号化してから iCloud に保存します。Apple の「高度なデータ保護」をオンにしている場合は、エンドツーエンドで
   暗号化され、暗号の鍵は利用者の信頼できるデバイスだけが持ちます。オフの場合（標準のデータ保護）は、通信中と Apple のサーバー上で
   暗号化され、暗号の鍵は Apple が管理します。記録の件数や、iCloud に保存・変更した日時などの管理用の情報は、暗号化フィールドに
@@ -262,8 +271,8 @@ done by Apple's own system, not by the app itself.
 
 ### Your Records
 
-Your records, such as amounts, dates, categories, notes, and the text you entered, and the
-budget amount you set are stored on your own iPhone, in an area reserved for this app, using the
+Your records, such as amounts, dates, categories, notes, the text you entered, and the card you paid with (the number that
+identifies a card you registered; see Registered Credit Cards below), and the budget amount you set are stored on your own iPhone, in an area reserved for this app, using the
 standard iOS mechanism (SwiftData). While Sync with iCloud in Settings is off (the default), they are
 stored only on this iPhone. When it is on, they are handled as described in Sync with iCloud below.
 
@@ -272,7 +281,7 @@ records may be included in that backup. This is an iOS feature provided by Apple
 developer cannot see its contents.
 
 You can edit or delete your records one by one in the app (tap a record in the timeline, or
-in a category's list in the monthly summary, to edit it or choose Delete This Record, or
+in a category's list or the calendar in the monthly summary, to edit it or choose Delete This Record, or
 long-press a record in the timeline and choose Delete). When you edit
 a record, the amount, item, expense or income, category, and date you set overwrite the
 original values. The text you entered stays as it was, and the edit screen shows it (as What
@@ -305,31 +314,27 @@ anywhere.**
 ### Questions About Your Spending
 
 When you ask about your spending in the same field you use for records (for example, "今月カフェいくら?"), the app
-calculates the numbers in the answer from the records on your own iPhone. Reading your question and writing the short note
-added to the answer are done with Apple's Foundation Models framework on devices where Apple Intelligence is available, and
-with an on-device keyword dictionary otherwise. **Your question, your records, and the calculated answer are never sent
-anywhere.**
+calculates the numbers in the answer from the records on your own iPhone. Reading your question (choosing the period, what you
+want to know, and the category) is done with Apple's Foundation Models framework on devices where Apple Intelligence is available,
+and with an on-device keyword dictionary otherwise. When Foundation Models is used, the app also returns the text of the answer it
+calculated to the on-device AI, but any text the AI writes is not used in the answer. This also happens on your own iPhone. **Your
+question, your records, and the calculated answer are never sent anywhere.**
 
 Questions and answers are not saved as records. They are kept only in the app's memory while the app is running and disappear
 when you reopen the app.
 
-### The Note in a Reply to an Entry
+### Replies to Entries
 
-Right after you record something with a one-line entry, on devices that can use Apple Intelligence, the app calculates on your own
-iPhone the spending you just recorded (item, amount, category), this month's total and count for that category, this month's total
-spending and count, and what is left of your budget, puts them into a text, and passes that text to Apple's Foundation Models framework
-to write a short note; this also happens on your own iPhone. **Your records, the calculated numbers, and the note are never sent
-anywhere.** The note is not saved; it is kept only in the app's memory while the app is running. On every device, the reply also shows a
-line made by the same calculation (this month's count and total for that category, and what is left of your budget). The app calculates it
-on your own iPhone and never sends it anywhere.
+Right after you record something with a one-line entry, the reply shows a line with this month's count and total for that category and
+what is left of your budget. The app calculates and writes it from the records on your own iPhone; it is not passed to the on-device AI
+and **is never sent anywhere.** This line is not saved.
 
 ### The Monthly Summary
 
 The numbers in the monthly summary (spending, income, net, the difference from the month before, spending by category, and the
-remaining budget) are calculated by the app from the records on your own iPhone. On devices where Apple Intelligence is available, the app passes a
-text listing the calculated numbers to Apple's Foundation Models framework to write a short note; this also happens on your own
-iPhone. **Your records, the calculated numbers, and the note are never sent anywhere.** The note is not saved; it is kept only in
-the app's memory while the app is running.
+remaining budget) are calculated by the app from the records on your own iPhone, and the calendar of what you spent each day is
+counted from the same records. They are not passed to the on-device AI, and **your records and the calculated numbers are never sent
+anywhere.**
 
 ### Learned Categories (Remembered Corrections)
 
@@ -350,8 +355,8 @@ Categories you create in Categories in Settings or from a reply (their names, sy
 last edited) are stored in the same place as your records described above (in an area reserved for this app on your iPhone, and, when
 Sync with iCloud is on, also in your own iCloud as encrypted fields, like your records). **They are never sent to the developer or to
 any third party.** Each record stores only an identifier of the category you created, not its name. When the app asks the on-device AI
-to choose the category of an entry, or to write a remark for a reply to an entry, for the monthly summary or for an answer to a question,
-the names of categories you created are passed along with the other categories, and this also happens on your iPhone. When you export a CSV file, the category column
+to choose the category of an entry, or returns the text of an answer to a question to the on-device AI, the names of categories you
+created are passed along with the other categories, and this also happens on your iPhone. When you export a CSV file, the category column
 contains the name of the category you created. If you delete a category, its records move to Other.
 
 ### Recurring Entries
@@ -364,6 +369,17 @@ developer or to any third party.** When you open the app on or after the chosen 
 is involved). The created records are stored like your other records, with a marker that tells which rule and month each one is for (so
 that if two of your devices synced with iCloud both record the same month, they can be merged into one). Stopping a rule keeps the records
 already created.
+
+### Registered Credit Cards
+
+The cards you register in Cards in Settings (the name you give each card, the closing day, the payment day, whether payment is the
+next month or the month after, whether it is your usual card, the order, and when it was created and last edited) are stored in the same
+place as your records described above (in an area reserved for this app on your iPhone, and, when Sync with iCloud is on, also in your
+own iCloud as encrypted fields, like your records). **They are never sent to the developer or to any third party.** The app never asks
+for or stores card details such as the card number, expiration date, or PIN, and it never connects to card companies or financial
+institutions. A record stores only a number that tells which registered card you paid with. The usage and payment amounts for each card
+are calculated by the app on your iPhone from your saved records. When you export a CSV file, the card's name is written in the payment
+column. If you delete a card, its records become "Cash / other" (the records themselves remain).
 
 ### Receipts and Screenshots
 
@@ -404,7 +420,8 @@ file is created even if you don't add a widget (it contains only the figures abo
 
 Only when you tap Export CSV File in Settings, the records in the period you choose (this
 month, last month, this year, or all) are written to a CSV file, including the date, time,
-expense or income, category (for a category you created, its name), item, amount, and the text you entered. The file is handed to the
+expense or income, category (for a category you created, its name), item, amount, the text you entered, and the name of the card you
+paid with. The file is handed to the
 iOS share sheet and **goes only to the destination you choose there (an app, a location in
 Files, AirDrop, and so on).** The app never exports or sends your records on its own, and
 nothing is sent to the developer.
@@ -418,14 +435,15 @@ quits while the share sheet is open, it is deleted the next time you open Settin
 
 Only when you tap Import CSV File in Settings and choose a file in the iOS file picker, the app reads that file on your own iPhone. It
 reads CSV files in the format the app exports. After you confirm the number of entries, the entries it read (date, time, expense or
-income, category, item, amount, and the text you entered) are saved in the same place as your records described above. **The file and
+income, category, item, amount, the text you entered, and the card you paid with, only when it matches the name of a card you
+registered) are saved in the same place as your records described above. **The file and
 its contents are never sent anywhere,** and nothing is sent to the developer. The app doesn't keep the file; it lets go of it after
 reading (the original file stays where you chose it).
 
 ### Sync with iCloud (Optional)
 
 Sync with iCloud in Settings is off by default. Only when you turn it on, your records (the same items as in Your Records
-above, such as amounts, dates, categories, notes, and the text you entered), budget amounts, learned categories, categories you create, and recurring entries are saved in your own space in
+above, such as amounts, dates, categories, notes, and the text you entered), budget amounts, learned categories, categories you create, recurring entries, and registered cards are saved in your own space in
 Apple's iCloud (the CloudKit private database) and kept in sync across devices signed in to the same Apple Account. Records
 already on your device when you turn it on are saved to iCloud as well. This is separate from the iPhone backup described above.
 
@@ -435,8 +453,8 @@ already on your device when you turn it on are saved to iCloud as well. This is 
 - **About encryption.** The contents of your records and budgets (every item the app saves: amounts, whether each is income or an
   expense, dates, categories, notes, the text you entered, how it was entered (text, receipt, a recurring entry, and so on), when it was recorded,
   each budget's target, amount, and when it was set, each learned category's words, category, and when it was learned, and each
-  category you create's name, symbol, color, order, and when it was created and last edited, and every item of each recurring entry rule
-  and the marker on records created from it) are
+  category you create's name, symbol, color, order, and when it was created and last edited, every item of each recurring entry rule
+  and the marker on records created from it, and every item of each registered card and the number on each record that tells which card it was paid with) are
   saved to iCloud as CloudKit encrypted fields, encrypted on your
   device first. If Apple's Advanced Data Protection is on, they are end-to-end encrypted, and only your trusted devices have the
   keys. If it is off (standard data protection), they are encrypted in transit and on Apple's servers, and Apple manages the keys.

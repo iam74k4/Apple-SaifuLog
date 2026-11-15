@@ -6,18 +6,18 @@ import Synchronization
 
 /// 端末内 AI（Foundation Models のツール呼び出し）で家計への質問に答える。
 ///
-/// モデルには、質問を読んで `queryLedger` ツールの引数（期間・知りたいこと・カテゴリの選択肢だけ）を選ばせ、ツールの結果から
-/// 一言の要約文を書かせるだけにする。数字はツールの中でコア（`LedgerQuestionAnswerer`）が計算する。ツールの引数に自由な数を
+/// モデルには、質問を読んで `queryLedger` ツールの引数（期間・知りたいこと・カテゴリの選択肢だけ）を選ばせるだけにする。数字は
+/// ツールの中でコア（`LedgerQuestionAnswerer`）が計算する。ツールの引数に自由な数を
 /// 受け取らないのは、端末内のモデルが数を作ったり書き換えたりすることがあるため（直近 N 日の N も文からコードが読む）。
 ///
 /// - 答えられない書き方（「去年」「9/26」など）を含む質問は、モデルに渡さずに読めない質問にする（聞かれていない期間の数字を
 ///   答えないため）。
 /// - モデルがツールを呼ばなかったら失敗として投げ、呼び出し側（`FallbackQuestionAnswerer`）がキーワード辞書で答え直す。ツールを
-///   呼んだ後に一言の生成が失敗したとき（安全のための拒否など）は、ツールの答えを定型文で返す（答えの数字はもう計算してあるため）。
-/// - モデルの一言は記号で飾らない一文にそろえ、ツールの結果に無い数字があれば、一言を捨てて定型文にする
-///   （`AnswerSentenceCheck.checked`。照合はコアで確かめる）。
+///   呼んだ後に続きの生成が失敗したとき（安全のための拒否など）は、ツールの答えを返す（答えの数字はもう計算してあるため）。
+/// - モデルがツールの後に書く文は使わない（回答カードの大きな数字を言い直すだけで、新しいことを伝えないため。前は一言として
+///   カードに添えていた）。
 struct FoundationModelsQuestionAnswerer: QuestionAnswering {
-    /// モデルに質問を渡し、ツールを使わせて一言を返させる。テストでモデルの代わりを渡す（ツールを直接呼んで一言を返す）。
+    /// モデルに質問を渡し、ツールを使わせる。テストでモデルの代わりを渡す（ツールを直接呼ぶ）。返した文は使わない。
     typealias Respond = @Sendable (_ question: String, _ tool: LedgerQuestionTool) async throws -> String
 
     var respond: Respond = Self.respondWithModel
@@ -27,17 +27,13 @@ struct FoundationModelsQuestionAnswerer: QuestionAnswering {
         guard !reading.hasUnsupportedPart else { return .unreadable }
         let recorder = LedgerToolRecorder()
         let tool = LedgerQuestionTool(reading: reading, ledger: ledger, now: now, calendar: calendar, recorder: recorder)
-        let sentence: String?
         do {
-            sentence = try await respond(text, tool)
+            _ = try await respond(text, tool)
         } catch let error where !(error is CancellationError) && recorder.latest != nil {
-            sentence = nil
+            // ツールを呼んだ後の失敗は、答えに使わない文の失敗なので無視する。
         }
         guard let result = recorder.latest else { throw QuestionAIError.toolNotCalled }
-        let remark: QuestionRemark = sentence
-            .flatMap { AnswerSentenceCheck.checked($0, facts: result.facts) }
-            .map(QuestionRemark.ai) ?? .fixed
-        return .answered(result.answer, remark: remark)
+        return .answered(result.answer)
     }
 
     /// 本物のモデルで答えさせる。質問ごとに新しいセッションにする（前の質問の文脈を引きずらせないため）。
@@ -73,7 +69,7 @@ struct LedgerQuestionTool: Tool {
     let ledger: QuestionLedger
     let now: Date
     let calendar: Calendar
-    /// 計算した答えを、画面に出すために残す（モデルの一言とは別に、この答えの数字をそのまま出す）。
+    /// 計算した答えを、画面に出すために残す（この答えの数字をそのまま出す）。
     let recorder: LedgerToolRecorder
 
     func call(arguments: LedgerQueryArguments) async throws -> String {
@@ -88,11 +84,11 @@ struct LedgerQuestionTool: Tool {
 
 /// ツールが計算した答えを残す。ツールはメインスレッドの外で呼ばれるので、錠で守る。
 ///
-/// モデルが何度か呼んだときは、最後の答えを使う（一言もその答えと突き合わせる）。
+/// モデルが何度か呼んだときは、最後の答えを使う。
 final class LedgerToolRecorder: Sendable {
     struct Recorded: Sendable {
         let answer: LedgerAnswer
-        /// モデルに渡したツールの結果の文。一言の数字の照合に使う。
+        /// モデルに渡したツールの結果の文。
         let facts: String
     }
 

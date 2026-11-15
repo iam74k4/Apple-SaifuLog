@@ -14,7 +14,7 @@ import SwiftData
 /// - 保存先はメモリの上だけにし、架空の記録と予算を入れる（利用者の記録のファイル default.store を開かない）。
 /// - 設定（UserDefaults）は専用の領域（`defaultsSuiteName`）を毎回空にして使う（利用者の設定に触れない）。
 /// - 初回の案内を出さず、診断画面のボタン（帯の聴診器）など開発用の表示を出さない。
-/// - 端末や AI によって変わるもの（AI の一言・レシートの文字認識）は、決まった中身にする
+/// - 端末や AI によって変わるもの（読み取り・質問の答え方・レシートの文字認識）は、決まった中身にする
 ///   （どれも実際のアプリが出しうる中身にする）。
 /// - 「いま」は撮影の月の 15 日の 20:30 に置き、日付はそこから相対で作る（`pinnedNow(on:calendar:)`）。月のどの日に撮っても
 ///   同じ画面になるようにする。
@@ -30,7 +30,7 @@ final class ScreenshotDemo {
         case report
         /// レシートの読み取り結果のシート。
         case receipt
-        /// カレンダーのページ（今月に使った額・月のカレンダー・今日の記録）。
+        /// 月の画面のカレンダー（今月に使った額・月のカレンダー・今日の記録）。
         case calendar
     }
 
@@ -69,9 +69,9 @@ final class ScreenshotDemo {
     /// デモの「いま」（撮影の月の 15 日の 20:30）。記録と予算はここから相対で作る。
     let now: Date
     let calendar: Calendar
-    /// AI の一言を添えるか。一言は端末内 AI が日本語で書く（AI への指示が日本語）ので、日本語の画面だけにする。英語の画面では
-    /// AI の使えない端末と同じく一言を添えない（英語の画面に日本語の一言が混ざると、訳し忘れに見えるため）。
-    let showsAIRemarks: Bool
+    /// ホームの画面で、記録を 1 つ送って返事（「取り消す」と今月の状況の一行）を写すか。送る文は日本語なので、日本語の画面だけに
+    /// する（英語の画面に日本語の吹き出しが混ざると、訳し忘れに見えるため）。
+    let sendsSampleRecord: Bool
     /// デモの設定の置き場所（`defaultsSuiteName` の領域）。
     let defaults: UserDefaults
     /// 設定の領域の名前（テストの後片づけで領域ごと消す）。
@@ -94,7 +94,7 @@ final class ScreenshotDemo {
     /// - Parameters:
     ///   - launchedAt: 起動した瞬間（この月の 15 日をデモの「いま」にする）。
     ///   - calendar: 日付の区切りの暦（端末の暦）。
-    ///   - uiLanguage: 画面の言語（`Bundle.main.preferredLocalizations.first`）。日本語のときだけ AI の一言を添える。
+    ///   - uiLanguage: 画面の言語（`Bundle.main.preferredLocalizations.first`）。日本語のときだけ、ホームの画面で記録を 1 つ送る。
     ///   - defaultsSuiteName: 設定の領域。テストで別の領域にする。
     init(
         configuration: Configuration,
@@ -107,7 +107,7 @@ final class ScreenshotDemo {
         self.calendar = calendar
         self.launchedAt = launchedAt
         now = Self.pinnedNow(on: launchedAt, calendar: calendar)
-        showsAIRemarks = uiLanguage?.hasPrefix("ja") ?? false
+        sendsSampleRecord = uiLanguage?.hasPrefix("ja") ?? false
         // 領域が作れないのは、名前がアプリの Bundle ID か NSGlobalDomain のときだけ（決め打ちの名前なので起きない）。起きたら
         // 止める（standard に書いて利用者の設定を書き換えないため。DEBUG のビルドだけのコード）。
         guard let defaults = UserDefaults(suiteName: defaultsSuiteName) else {
@@ -181,10 +181,9 @@ final class ScreenshotDemo {
         )
     }
 
-    /// ホームのモデル。設定・時計・解析・質問の答え方・AI の一言・レシートの読み取りを、デモのものに差し替える。
+    /// ホームのモデル。設定・時計・解析・質問の答え方・レシートの読み取りを、デモのものに差し替える。
     func makeHomeModel(context: ModelContext, pendingWrites: PendingStoreWrites, storeHost: StoreHost?) -> HomeModel {
         let clock = makeClock()
-        let writesRemarks = showsAIRemarks
         let receiptLines = ScreenshotDemoReceipt.lines(now: now, calendar: calendar)
         return HomeModel(
             store: EntryStore(context: context),
@@ -194,9 +193,8 @@ final class ScreenshotDemo {
             makeParser: { now, calendar in RuleBasedParser(calendar: calendar, now: { now }) },
             makeCategoryRefiner: { nil },
             makeCommandInterpreter: { nil },
-            makeAnswerer: { ScreenshotDemoAnswerer(writesRemark: writesRemarks) },
-            makeRemarkWriter: { writesRemarks ? ScreenshotDemoRemarkWriter() : nil },
-            makeRecordRemarkWriter: { writesRemarks ? ScreenshotDemoRecordRemarkWriter() : nil },
+            // 質問もキーワード辞書で答える（AI の使えない端末と同じ）。
+            makeAnswerer: { RuleBasedQuestionAnswerer() },
             receiptReader: ReceiptReader(recognize: { _ in receiptLines }, makeRefiner: { nil }),
             canUseDocumentCamera: false,
             now: clock,
@@ -211,12 +209,11 @@ final class ScreenshotDemo {
         Self.logger.notice("\(Self.marker, privacy: .public): \(self.screen.rawValue, privacy: .public)")
         switch screen {
         case .home:
-            // 記録を 1 つ送り、返事に端末内 AI の一言が添わるところを写す（一言は日本語の画面だけ。英語の画面ではタイムラインと
-            // 帯をそのまま写す）。
-            guard showsAIRemarks else { break }
+            // 記録を 1 つ送り、返事に「取り消す」と今月の状況の一行が出るところを写す（日本語の画面だけ。英語の画面では
+            // タイムラインと帯をそのまま写す）。
+            guard sendsSampleRecord else { break }
             home.draft = Self.homeRecordText
             await home.send(calendar: calendar)?.value
-            await home.replyRemarkTask?.value
         case .ask:
             for question in Self.questions {
                 home.draft = question
@@ -224,19 +221,19 @@ final class ScreenshotDemo {
             }
         case .report:
             home.presentMonthlyReport(calendar: calendar)
-            // AI の一言（日本語の画面）を書き終えてから、下の端へ送らせる。カテゴリ別のグラフと金額の行を写すため（上から
-            // 開くと、一言と数字と予算のカードに押されて、グラフが画面の下で切れ、金額の行は写らない）。一言を待つのは、
-            // 送った後に上に一言のカードが出て、中身の高さが変わらないようにするため。
-            await home.monthlyReport?.remark.currentTask?.value
+            // 下の端へ送らせる。カテゴリ別のグラフと金額の行を写すため（上から開くと、数字と予算のカードに押されて、グラフが
+            // 画面の下で切れ、金額の行は写らない）。
             home.monthlyReport?.screenshotScrollsToBottom = true
         case .receipt:
             await home.readReceipt([ScreenshotDemoReceipt.image()], source: .photos, calendar: calendar).value
         case .calendar:
-            home.page = .calendar
+            // 月の画面を開き、カレンダーの見方にする（日ごとに使った額と今日の記録）。
+            home.presentMonthlyReport(calendar: calendar)
+            home.monthlyReport?.tab = .calendar
         }
     }
 
-    /// ホームの画面で送る記録（返事に AI の一言を添えて写す）。
+    /// ホームの画面で送る記録（返事の「取り消す」と今月の状況の一行を写す）。
     nonisolated static let homeRecordText = "カフェラテ 480"
 
     /// 質問の画面で送る質問（ようこそとタイムラインの例と同じ書き方）。デモの「いま」は月の半ばなので、今月を聞く。

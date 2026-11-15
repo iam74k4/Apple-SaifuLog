@@ -4,7 +4,7 @@ import SwiftData
 
 /// 初回の案内（① ようこそ → ホーム）の状態と操作。
 ///
-/// 画面（`OnboardingView`・`WelcomeView`）から切り離し、設定の置き場所（UserDefaults）・AI の可否を差し替えて
+/// 画面（`OnboardingView`・`WelcomeView`）から切り離し、設定の置き場所（UserDefaults）を差し替えて
 /// SaifuLogTests で確かめられるようにしている。
 @MainActor
 @Observable
@@ -13,26 +13,10 @@ final class OnboardingModel {
     private(set) var isCompleted = false
 
     @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private let currentAIStatus: @MainActor () -> OnDeviceAIStatus
 
-    /// - Parameters:
-    ///   - defaults: 案内を終えたことを書く先。テストでは使い捨ての領域を渡す。
-    ///   - aiStatus: この端末でいま AI を使えるか。テストで差し替える。
-    init(
-        defaults: UserDefaults = .standard,
-        aiStatus: @escaping @MainActor () -> OnDeviceAIStatus = { EntryParserFactory.aiStatus }
-    ) {
+    /// - Parameter defaults: 案内を終えたことを書く先。テストでは使い捨ての領域を渡す。
+    init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        self.currentAIStatus = aiStatus
-    }
-
-    /// この端末でいま AI を使えるか。
-    ///
-    /// 覚えておかずに読むたびに確かめる。案内を見ている間にも、設定で Apple Intelligence をオンにしたり、モデルの
-    /// ダウンロードが済んだりして変わるため（Foundation Models の `SystemLanguageModel` は Observable なので、
-    /// 画面の描画の中で読めば、変わったときに描き直される）。
-    var aiStatus: OnDeviceAIStatus {
-        currentAIStatus()
     }
 
     /// ① の「はじめる」。案内を終える。

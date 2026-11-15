@@ -25,7 +25,7 @@ struct QuestionExchange: Identifiable, Equatable {
         /// 答えを計算している（AI だと 1 秒以上かかることがある）。
         case answering
         /// 答えた。
-        case answered(LedgerAnswer, remark: QuestionRemark?)
+        case answered(LedgerAnswer)
         /// 読めなかった。質問の例を出す。
         case unreadable
         /// 記録か質問か決められなかった（金額と質問の語が両方ある）。記録しない。
@@ -55,15 +55,19 @@ struct QuestionExchange: Identifiable, Equatable {
         case noAmount
         /// 保存先を読めなかった。
         case loadFailed
+        /// カードの利用額・引き落としの質問に答えた（`CardQuestion`）。
+        case cardAnswered(CardAnswer)
+        /// カードの引き落としを書いた文で、確認で「記録しない」を選んだ。記録していない（カードの支出は使った日に数えているため）。
+        case cardBillNotRecorded
 
         /// 質問として読んだ文か。記録か質問か決められなかった文・記録を直そうとする文・金額の無い文は、質問として扱っていない
         /// ので、VoiceOver でも「質問」と名乗らない（下の案内と食い違うため）。
         var isQuestion: Bool {
             switch self {
             case .unclear, .correction, .noAmount, .recategorized, .amountChanged, .removed, .commandAsked, .commandCancelled,
-                 .budgetSet, .noTarget, .splitNotChanged:
+                 .budgetSet, .noTarget, .splitNotChanged, .cardBillNotRecorded:
                 false
-            case .answering, .answered, .unreadable, .loadFailed: true
+            case .answering, .answered, .unreadable, .loadFailed, .cardAnswered: true
             }
         }
     }

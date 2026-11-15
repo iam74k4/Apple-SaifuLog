@@ -63,7 +63,8 @@ final class SettingsModel {
     /// 閉じてよいかを決める。`HomeModel.receive`）。書き出しの途中と、カテゴリ・くり返しの記録を消す確認・覚えたカテゴリを
     /// すべて忘れる確認も数える（閉じると、書き出しを黙ってやめ、確かめている途中の操作が消えるため。`close`）。
     var isPresentingSheet: Bool {
-        budgetSetup != nil || categoryList.editor != nil || recurringList.editor != nil
+        budgetSetup != nil || categoryList.editor != nil || recurringList.editor != nil || cardList.editor != nil
+            || cardList.pendingDeletion != nil
             || iCloudSyncConfirmation != nil || sharedFile != nil || isExporting
             || categoryList.pendingDeletion != nil || recurringList.pendingDeletion != nil
             || learnedCategories.showsForgetAllConfirmation
@@ -79,6 +80,9 @@ final class SettingsModel {
 
     /// 「くり返しの記録」（毎月同じ記録の一覧。足す・直す・やめる）の状態と操作。
     let recurringList: RecurringListModel
+
+    /// 「カード」（登録したクレジットカードの一覧。登録する・直す・削除する、締めごとの利用額）の状態と操作。
+    let cardList: CardListModel
 
     @ObservationIgnored private var exportTask: Task<Void, Never>?
     @ObservationIgnored private var importTask: Task<Void, Never>?
@@ -98,6 +102,8 @@ final class SettingsModel {
     ///   - budgetStore: 予算の読み書き。渡さなければ `context` を使う。
     ///   - categories: いまのカテゴリの一覧。アプリはホームと同じもの（作ったカテゴリをホームにもすぐ出すため）を渡す。
     ///     渡さなければ `context` から読む。
+    ///   - cards: いまのカードの一覧。アプリはホームと同じもの（登録したカードを、ホームの記録にもすぐ使うため）を渡す。
+    ///     渡さなければ `context` から読む。
     ///   - storeHost: 保存先を開いたもの。「iCloud で同期」の切り替えを頼む。渡さなければ iCloud の節を出さない。
     ///   - accountStatus: iCloud のアカウントの状態の問い合わせ。テストでは CloudKit に問い合わせない値に差し替える
     ///     （iCloud の entitlement の無いテストのプロセスで `CKContainer` を作ると落ちるため）。
@@ -110,10 +116,13 @@ final class SettingsModel {
     ///   - now: 書き出す期間の基準とファイル名の日付。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる（予算を決める画面に渡す）。
     ///   - recurringDidChange: くり返しの記録を足した・直した・やめたあとに呼ぶ（ホームが、記録する日を過ぎた分をすぐ記録する）。
+    ///   - entryDidSave: カードの締めの記録の一覧から直した記録を渡して呼ぶ（ホームが「取り消す」を片づける）。
+    ///   - entryDidDelete: カードの締めの記録の一覧から消した記録の ID を渡して呼ぶ（ホームが「取り消す」の対象から外す）。
     init(
         context: ModelContext,
         budgetStore: BudgetStore? = nil,
         categories: CategoryCatalogModel? = nil,
+        cards: CardCatalogModel? = nil,
         storeHost: StoreHost? = nil,
         accountStatus: @escaping @MainActor () async -> ICloudAccountStatus = { await ICloudAccountStatus.current() },
         entryStore: EntryStore? = nil,
@@ -123,7 +132,9 @@ final class SettingsModel {
         bundleInfo: [String: Any] = Bundle.main.infoDictionary ?? [:],
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
-        recurringDidChange: @escaping @MainActor () -> Void = {}
+        recurringDidChange: @escaping @MainActor () -> Void = {},
+        entryDidSave: @escaping @MainActor (Entry) -> Void = { _ in },
+        entryDidDelete: @escaping @MainActor (PersistentIdentifier) -> Void = { _ in }
     ) {
         self.budgetStore = budgetStore ?? BudgetStore(context: context)
         self.entryStore = entryStore ?? EntryStore(context: context)
@@ -133,6 +144,10 @@ final class SettingsModel {
         let categories = categories ?? CategoryCatalogModel(store: categoryStore)
         self.categories = categories
         self.categoryList = CategoryListModel(store: categoryStore, categories: categories, announce: announce)
+        self.cardList = CardListModel(
+            cards: cards ?? CardCatalogModel(store: CreditCardStore(context: context, now: now)), context: context, now: now,
+            announce: announce, entryDidSave: entryDidSave, entryDidDelete: entryDidDelete
+        )
         self.recurringList = RecurringListModel(
             store: RecurringEntryStore(context: context, now: now), now: now, announce: announce, didChange: recurringDidChange
         )

@@ -3,8 +3,8 @@ import Observation
 import SaifuLogCore
 import SwiftData
 
-/// 「月のまとめ」（⑦）の状態と操作。表示する月と月送り、その月の数字（`MonthlyReport`）、カテゴリごとの記録の一覧、
-/// 一覧から開く「直す」（⑥）のシート。
+/// 「月のまとめ」（⑦。月の画面）の状態と操作。表示する月と月送り、「内訳」と「カレンダー」の切り替え、その月の数字
+/// （`MonthlyReport`）、カテゴリごとの記録の一覧、日ごとのカレンダー（`LedgerCalendarModel`）、記録から開く「直す」（⑥）のシート。
 ///
 /// 画面（`MonthlyReportView`）から切り離し、保存先・時計・読み上げを差し替えて SaifuLogTests で確かめられるようにしている。
 /// 数字の計算はコア（`MonthlyReport`）に任せ、ここでは読み込みと月の行き来だけを受け持つ。
@@ -27,6 +27,12 @@ final class MonthlyReportModel {
     private(set) var earliestSpentAt: Date?
     /// 表示している月の記録（支出と収入）。
     private(set) var monthEntries: [Entry] = []
+    /// 表示している月の支出を、払ったカードごとに分けた合計（カードを登録していれば出す）。
+    private(set) var paymentBreakdown: PaymentBreakdown?
+    /// 出している見方（内訳かカレンダー）。月を替えてもそのまま。
+    var tab: Tab = .breakdown
+    /// 「カレンダー」の日ごとの集計と選んだ日の記録。月はこの画面の月に合わせる。
+    let days: LedgerCalendarModel
     /// 記録の一覧を出しているカテゴリ（横に進む）。一覧を閉じると画面が nil に戻す。
     var selectedCategory: EntryCategory?
     /// 「直す」のシートで直している記録の状態と操作。シートを閉じると画面が nil に戻す。
@@ -35,8 +41,6 @@ final class MonthlyReportModel {
     var pendingDeletion: HomeModel.PendingDeletion?
     /// 消せなかった（保存に失敗した）ことを知らせているか。
     var showsDeleteFailure = false
-    /// 使った額の下に添える AI の一言（AI が使える端末だけ）。
-    let remark: RecapRemarkModel
     #if DEBUG
     /// まとめを下の端（カテゴリ別のグラフと金額の行）まで送るか。撮影用のデモ（`ScreenshotDemo`）が、月のまとめの
     /// スクリーンショットを撮るときだけ使う（DEBUG のビルドだけ）。
@@ -47,6 +51,10 @@ final class MonthlyReportModel {
     let calendar: Calendar
 
     @ObservationIgnored private let store: EntryStore
+    /// いまのカードの一覧（支払い方法の内訳に使う）。無ければ内訳を出さない。
+    @ObservationIgnored private let cards: CardCatalogModel?
+    /// カレンダーの記録の長押しの「毎月くり返す」（ホームがくり返しの記録を作るシートを出す）。nil なら出さない。
+    @ObservationIgnored let makeRecurring: (@MainActor (Entry) -> Void)?
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
     @ObservationIgnored private let didSave: @MainActor (Entry) -> Void
@@ -56,34 +64,38 @@ final class MonthlyReportModel {
     ///   - calendar: 月の区切りの暦。ホームと同じ暦を渡す（ホームの今月の合計と同じ月でまとめるため）。
     ///   - month: 開く月に入る日時（質問の回答カードから先月を開くときなど）。nil なら今月。今月より先の月は今月にする
     ///     （月送りで今月より先へ進めないのと同じ）。
-    ///   - remark: AI の一言の状態と書かせ方。渡さなければ一言を添えない（テストとプレビュー用）。ホームは 1 つを持ち続けて
-    ///     毎回渡す（開き直すたびに作ると、書いた結果を覚えておけず、同じ月でも毎回 AI を呼ぶため）。
     ///   - now: 今日の基準。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる。テストで読み上げる文を集める。
     ///   - didSave: ここから開いた「直す」で保存できたあとに呼ぶ（ホームが「取り消す」を片づける）。
     ///   - didDelete: ここから開いた「直す」で削除できたあとに、消した記録の ID を渡して呼ぶ（ホームが「取り消す」の対象から外す）。
+    ///   - makeRecurring: カレンダーの記録の長押しの「毎月くり返す」で、その記録を渡して呼ぶ。nil なら出さない。
     init(
         store: EntryStore,
+        cards: CardCatalogModel? = nil,
         calendar: Calendar,
         month anchor: Date? = nil,
-        remark: RecapRemarkModel? = nil,
         now: @escaping () -> Date = { .now },
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
         didSave: @escaping @MainActor (Entry) -> Void = { _ in },
-        didDelete: @escaping @MainActor (PersistentIdentifier) -> Void = { _ in }
+        didDelete: @escaping @MainActor (PersistentIdentifier) -> Void = { _ in },
+        makeRecurring: (@MainActor (Entry) -> Void)? = nil
     ) {
         let today = now()
+        self.makeRecurring = makeRecurring
         self.store = store
+        self.cards = cards
         self.calendar = calendar
         self.now = now
         self.announce = announce
         self.didSave = didSave
         self.didDelete = didDelete
-        self.remark = remark ?? RecapRemarkModel(makeWriter: { nil })
         self.today = today
         // 暦で月を区切れないことは実際には無いが、そのときは数字を出さない（report が nil のまま）。
-        self.month = ReportPeriod.thisMonth.interval(now: min(anchor ?? today, today), calendar: calendar)
+        let month = ReportPeriod.thisMonth.interval(now: min(anchor ?? today, today), calendar: calendar)
             ?? DateInterval(start: today, duration: 0)
+        self.month = month
+        days = LedgerCalendarModel(store: store, now: now)
+        days.follow(monthContaining: month.start, calendar: calendar)
         reload()
     }
 
@@ -97,6 +109,17 @@ final class MonthlyReportModel {
     /// 次の月へ進めるか。今月より先には進めない（先の日付の記録があっても）。
     var canShowNextMonth: Bool {
         today >= month.end
+    }
+
+    /// 今月を見ているか（下のバーの「今月」を出さない）。
+    var isCurrentMonth: Bool {
+        month.start <= today && today < month.end
+    }
+
+    /// 今月へ戻る（下のバーの「今月」）。
+    func showThisMonth() {
+        guard !isCurrentMonth, let current = ReportPeriod.thisMonth.interval(now: today, calendar: calendar) else { return }
+        show(current)
     }
 
     /// 表示している月の見出し（「2026年9月」「September 2026」）。月を区切ったのと同じ暦・時間帯で書く。
@@ -126,14 +149,16 @@ final class MonthlyReportModel {
     private func show(_ newMonth: DateInterval) {
         month = newMonth
         selectedCategory = nil
+        days.follow(monthContaining: newMonth.start, calendar: calendar)
         reload()
         announce(monthTitle)
     }
 
     // MARK: - 読み込み
 
-    /// 表示している月の数字を読み直す。
+    /// 表示している月の数字とカレンダーを読み直す。
     func reload() {
+        days.reload()
         let context = store.context
         do {
             // 前の月との差を出すので、前の月の記録もいっしょに読む。
@@ -151,16 +176,15 @@ final class MonthlyReportModel {
             )
             let month = month
             monthEntries = records.filter { $0.spentAt >= month.start && $0.spentAt < month.end }
+            // カードを登録していて、この月にカードの記録があるときだけ、支払い方法の内訳を出す（カードを使わない人に出さないため）。
+            let breakdown = cards.map { PaymentBreakdown(records: monthEntries, interval: month, cards: $0.cards) }
+            paymentBreakdown = breakdown?.hasCardRecords == true ? breakdown : nil
             loadFailed = false
-            // 数字の文が変わったときだけ書き直す（同じ月を読み直すたびに AI を呼ばない）。
-            // AI に渡す文にも作ったカテゴリの名前を書く（読めなければ組み込みの名前だけ）。
-            let catalog = (try? CustomCategoryStore(context: store.context).catalog()) ?? .builtIn
-            remark.update(facts: report.flatMap { RecapFacts.text(for: $0, calendar: calendar, catalog: catalog) })
         } catch {
             report = nil
             monthEntries = []
+            paymentBreakdown = nil
             loadFailed = true
-            remark.update(facts: nil)
         }
     }
 
@@ -245,6 +269,16 @@ extension MonthlyReportModel {
         // ホームの「取り消す」の対象からも外す（⑥ から消したときと同じ）。
         didDelete(pending.id)
         announce(String(localized: "削除しました: \(pending.summary)"))
+    }
+}
+
+extension MonthlyReportModel {
+    /// 月の画面の見方。
+    enum Tab: Hashable {
+        /// 予算とカテゴリ別の内訳（支払い方法の内訳も）。
+        case breakdown
+        /// 日ごとに使った額のカレンダーと、選んだ日の記録。
+        case calendar
     }
 }
 

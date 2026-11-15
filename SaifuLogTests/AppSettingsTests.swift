@@ -16,8 +16,9 @@ struct AppSettingsTests {
         #expect(AppSettings.appLockEnabled.key == "appLock.enabled")
         #expect(AppSettings.correctionHintShownCount.key == "replyHint.correction.shownCount")
         #expect(AppSettings.hasCorrectedEntry.key == "replyHint.correction.done")
-        #expect(AppSettings.calendarHintShownCount.key == "replyHint.calendar.shownCount")
-        #expect(AppSettings.hasOpenedCalendar.key == "replyHint.calendar.done")
+        // やめたカレンダーのヒントのキーは、ほかの設定に使い回さない（前の版の値が端末に残っているため）。
+        #expect(!AppSettings.allKeys.contains("replyHint.calendar.shownCount"))
+        #expect(!AppSettings.allKeys.contains("replyHint.calendar.done"))
     }
 
     /// 初回の案内はまだ終えていない、iCloud 同期はオフ（利用者が選んだときだけ同期する）、が既定。

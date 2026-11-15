@@ -79,10 +79,25 @@ public enum LedgerCSVWriter {
     static let lineBreak = "\r\n"
 
     /// 見出しの行の値。
+    ///
+    /// 最後の「支払い」（払ったカードの名前。現金・その他は空）は、カードを足したときに後ろに足した列。読み込みは、この列の無い
+    /// 前の版のファイルも読む（`LedgerCSVReader`）。
     public static func header(language: Language) -> [String] {
+        legacyHeader(language: language) + [paymentHeader(language: language)]
+    }
+
+    /// 「支払い」の列を足す前の見出し。
+    static func legacyHeader(language: Language) -> [String] {
         switch language {
         case .japanese: ["日付", "時刻", "種類", "カテゴリ", "品目", "金額", "送った文"]
         case .english: ["Date", "Time", "Type", "Category", "Item", "Amount", "What you sent"]
+        }
+    }
+
+    private static func paymentHeader(language: Language) -> String {
+        switch language {
+        case .japanese: "支払い"
+        case .english: "Payment"
         }
     }
 
@@ -136,9 +151,12 @@ public enum LedgerCSVWriter {
     }
 
     /// CSV の本文（BOM なし）。記録は渡された順に書く（並べ替えと絞り込みは `records(_:in:now:calendar:)`）。
+    ///
+    /// - Parameter cards: いまのカードの一覧（支払いの列に名前を書く）。一覧に無いカードを指す記録と、カードの無い記録は空にする。
     public static func text<Records: Sequence>(
-        _ records: Records, language: Language, timeZone: TimeZone, catalog: CategoryCatalog = .builtIn
+        _ records: Records, language: Language, timeZone: TimeZone, catalog: CategoryCatalog = .builtIn, cards: [PaymentCard] = []
     ) -> String where Records.Element: LedgerCSVRecord {
+        let cardNames = Dictionary(cards.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
         let calendar = gregorian(timeZone: timeZone)
         var text = line(header(language: language))
         for record in records {
@@ -155,6 +173,7 @@ public enum LedgerCSVWriter {
                 // 数字だけなので数式にならず、数として合計できるよう、先頭に ' を付けない。
                 String(record.amount.magnitude),
                 record.originalText,
+                (record as? any CardLedgerRecord).flatMap { cardNames[$0.cardID] } ?? "",
             ])
         }
         return text
@@ -162,9 +181,9 @@ public enum LedgerCSVWriter {
 
     /// 書き出すファイルの中身（BOM ＋ CSV の本文）。
     public static func data<Records: Sequence>(
-        _ records: Records, language: Language, timeZone: TimeZone, catalog: CategoryCatalog = .builtIn
+        _ records: Records, language: Language, timeZone: TimeZone, catalog: CategoryCatalog = .builtIn, cards: [PaymentCard] = []
     ) -> Data where Records.Element: LedgerCSVRecord {
-        Data(byteOrderMark) + Data(text(records, language: language, timeZone: timeZone, catalog: catalog).utf8)
+        Data(byteOrderMark) + Data(text(records, language: language, timeZone: timeZone, catalog: catalog, cards: cards).utf8)
     }
 
     /// 書き出すファイルの名前（`saifulog-20260928.csv`）。日付は書き出した日（渡された時間帯の西暦）。

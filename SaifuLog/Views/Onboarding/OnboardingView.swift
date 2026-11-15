@@ -10,7 +10,7 @@ struct OnboardingView: View {
 
     var body: some View {
         // 関数をそのまま渡さず閉包で包む（画面の関数は MainActor に属し、そのまま `() -> Void` に渡すと Swift 6 で弾かれうるため）。
-        WelcomeView(aiStatus: model.aiStatus, start: { finish() })
+        WelcomeView(start: { finish() })
     }
 
     /// 案内を終えて、ホームに切り替える（`AppRootView` が ① を消してホームを出す）。

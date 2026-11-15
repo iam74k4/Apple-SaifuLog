@@ -33,19 +33,16 @@ enum AppSettings {
     static let correctionHintShownCount = AppSetting(key: "replyHint.correction.shownCount", defaultValue: 0)
     /// チャットか直す画面で一度でも記録を直したか（直し方を知っているので、もうヒントを出さない）。
     static let hasCorrectedEntry = AppSetting(key: "replyHint.correction.done", defaultValue: false)
-    /// 記録の返事の下に、カレンダーのページのヒントを出した回数。
-    static let calendarHintShownCount = AppSetting(key: "replyHint.calendar.shownCount", defaultValue: 0)
-    /// カレンダーのページを一度でも開いたか（入口を知っているので、もうヒントを出さない）。
-    static let hasOpenedCalendar = AppSetting(key: "replyHint.calendar.done", defaultValue: false)
 
     /// すべての設定のキー。重なりが無いことをテストで確かめる。
     ///
     /// 前の版の「週の始まり」のキー（"weekStart"）は使わない（週の始まりは端末の設定に合わせるようにした。前の版で選んだ値が
-    /// 端末に残っているので、別の設定に使い回すと読み違える）。
+    /// 端末に残っているので、別の設定に使い回すと読み違える）。カレンダーのヒントのキー（"replyHint.calendar.shownCount"・
+    /// "replyHint.calendar.done"）も同じく使わない（カレンダーを月の画面に移し、ヒントをやめた）。
     static var allKeys: [String] {
         [
             hasCompletedOnboarding.key, iCloudSyncEnabled.key, appLockEnabled.key,
-            correctionHintShownCount.key, hasCorrectedEntry.key, calendarHintShownCount.key, hasOpenedCalendar.key,
+            correctionHintShownCount.key, hasCorrectedEntry.key,
         ]
     }
 }

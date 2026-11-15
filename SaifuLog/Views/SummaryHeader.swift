@@ -18,10 +18,6 @@ struct SummaryHeader: View {
     var openReport: (() -> Void)?
     /// 設定へ進む。nil なら歯車のボタンを出さない（プレビューなど）。
     var openSettings: (() -> Void)?
-    /// カレンダーのページを出す（VoiceOver の操作「カレンダー」）。左へのスワイプで出るページなので、帯にボタンは置かない
-    /// （ボタンとページで同じ入口が重なるため）。VoiceOver ではページを送るスワイプが見つけにくいので、数字の要素の操作に置く。
-    /// nil なら操作を出さない（プレビューなど）。
-    var openCalendar: (() -> Void)?
     /// 低い帯にするか（入力欄にキーボードを出している間）。見出しの行に使った額だけを並べ、大きな数字とバーを出さない。
     /// キーボードが画面の下の半分ほどを占める間も帯が同じ高さのままだと、送った記録の返事の「取り消す」やカテゴリの聞き返しが
     /// 帯の下に隠れたため（iPhone 17 Pro のシミュレータ）。
@@ -74,7 +70,6 @@ struct SummaryHeader: View {
             .accessibilityLabel(title)
             .accessibilityValue(Text(verbatim: spokenFigures))
             .accessibilityHint("月のまとめを開きます")
-            .accessibilityActions { calendarAction }
             .accessibilitySortPriority(1)
             .accessibilityIdentifier(AccessibilityID.Home.monthFigures)
         } else {
@@ -82,17 +77,8 @@ struct SummaryHeader: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(title)
                 .accessibilityValue(Text(verbatim: spokenFigures))
-                .accessibilityActions { calendarAction }
-                .accessibilitySortPriority(1)
+                    .accessibilitySortPriority(1)
                 .accessibilityIdentifier(AccessibilityID.Home.monthFigures)
-        }
-    }
-
-    /// VoiceOver の操作「カレンダー」（`openCalendar` を渡したとき）。
-    @ViewBuilder
-    private var calendarAction: some View {
-        if let openCalendar {
-            Button("カレンダー", action: openCalendar)
         }
     }
 
@@ -310,7 +296,6 @@ struct MonthSummaryHeader: View {
     private let calendar: Calendar
     private let openReport: () -> Void
     private let openSettings: () -> Void
-    private let openCalendar: (() -> Void)?
     /// 低い帯にするか（入力欄にキーボードを出している間。`SummaryHeader.isCompact`）。
     private let isCompact: Bool
     @Query private var records: [Entry]
@@ -325,14 +310,12 @@ struct MonthSummaryHeader: View {
         calendar: Calendar,
         openReport: @escaping () -> Void,
         openSettings: @escaping () -> Void,
-        openCalendar: (() -> Void)? = nil,
         isCompact: Bool = false
     ) {
         self.today = today
         self.calendar = calendar
         self.openReport = openReport
         self.openSettings = openSettings
-        self.openCalendar = openCalendar
         self.isCompact = isCompact
         _records = Query(Entry.monthDescriptor(containing: today, calendar: calendar))
     }
@@ -344,7 +327,6 @@ struct MonthSummaryHeader: View {
             budget: figures.budget,
             openReport: openReport,
             openSettings: openSettings,
-            openCalendar: openCalendar,
             isCompact: isCompact
         )
         // 帯と同じ数字をウィジェットに渡す（数字が変わったときと、出たとき）。

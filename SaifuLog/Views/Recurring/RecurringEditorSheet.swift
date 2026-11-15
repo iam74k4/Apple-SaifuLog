@@ -11,6 +11,7 @@ struct RecurringEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.categoryCatalog) private var catalog
+    @Environment(\.paymentCards) private var cards
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable {
@@ -25,9 +26,16 @@ struct RecurringEditorSheet: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("キャンセル", role: .cancel) {
+                        Button(role: .close) {
                             if model.requestClose() { dismiss() }
                         }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(role: .confirm) {
+                            if model.save() { dismiss() }
+                        }
+                        .disabled(!model.canSave)
+                        .accessibilityIdentifier(AccessibilityID.Recurring.saveButton)
                     }
                 }
                 .alert(
@@ -75,6 +83,13 @@ struct RecurringEditorSheet: View {
                 kindSection
                 if !model.isIncome {
                     categorySection
+                    // カードを登録していれば、払うカードを選べる（サブスクをカードで払うとき）。
+                    if !cards.isEmpty || !model.cardID.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            SectionLabel("支払い")
+                            CardPickerMenu(cardID: $model.cardID)
+                        }
+                    }
                 }
                 daySection
                 scheduleSection
@@ -90,13 +105,9 @@ struct RecurringEditorSheet: View {
         // 上へ流れた文や大きな金額が、ツールバーのボタンの後ろで透けて重ならないよう、上ははっきりした効果にする（ホームの帯と同じ）。
         .scrollEdgeEffectStyle(.hard, for: .top)
         .background(Theme.background)
-        // 保存のボタンは画面の下に置き続ける（直すシート・予算を決める画面と同じ。数字のキーボードには確定のキーが無いため）。
-        // 下の帯は safeAreaBar に置き、中身がその下を流れるようにする（地を塗らない。スクロール端の効果が下端をぼかす。ホームの入力欄と同じ）。
-        .safeAreaBar(edge: .bottom, spacing: 0) {
-            saveButton
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-        }
+        // 閉じると保存は、iOS 26 の標準の形（左上の ×・右上の ✓）にする。前は文字の「キャンセル」と、下に浮く大きな「保存」で、
+        // 押せない間は灰色の塊になって中身（日付の欄）を隠し、シートごとに保存の場所も違った。右上の ✓ は、数字のキーボードを
+        // 出したままでも押せる（数字のキーボードには確定のキーが無い）。
     }
 
     private var amountSection: some View {
@@ -155,30 +166,16 @@ struct RecurringEditorSheet: View {
         }
     }
 
-    @ViewBuilder
+    /// 支出か収入か。標準の切り替え（セグメント）にする（前は枠とチェックの大きなタイルを 2 つ並べていた。2 択は切り替えのほうが
+    /// 小さく、どちらを選んでいるかもひと目で分かる）。見出しは付けない（「支出」「収入」で分かる）。
     private var kindSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            SectionLabel("種類")
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(spacing: 8) { kindChoices }
-            } else {
-                HStack(spacing: 8) { kindChoices }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var kindChoices: some View {
-        ChoiceChip(isSelected: !model.isIncome) {
-            model.isIncome = false
+        Picker(selection: $model.isIncome) {
+            Text("支出").tag(false)
+            Text("収入").tag(true)
         } label: {
-            Text("支出")
+            Text("種類")
         }
-        ChoiceChip(isSelected: model.isIncome) {
-            model.isIncome = true
-        } label: {
-            Text("収入")
-        }
+        .pickerStyle(.segmented)
     }
 
     private var categorySection: some View {
@@ -280,21 +277,6 @@ struct RecurringEditorSheet: View {
         }
         .foregroundStyle(Theme.danger)
         .padding(.top, 8)
-    }
-
-    private var saveButton: some View {
-        Button {
-            if model.save() { dismiss() }
-        } label: {
-            Text("保存")
-                .fontWeight(.semibold)
-                .foregroundStyle(model.canSave ? Theme.onAccent : Theme.inkSecondary)
-                .frame(maxWidth: .infinity, minHeight: 44)
-        }
-        .buttonStyle(.glassProminent)
-        .tint(Theme.accentFill)
-        .disabled(!model.canSave)
-        .accessibilityIdentifier(AccessibilityID.Recurring.saveButton)
     }
 
     private var showsFailure: Binding<Bool> {

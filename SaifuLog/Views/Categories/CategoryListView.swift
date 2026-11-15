@@ -2,7 +2,7 @@ import SaifuLogCore
 import SwiftData
 import SwiftUI
 
-/// 設定の「カテゴリ」。組み込みのカテゴリと作ったカテゴリの一覧。作ったカテゴリは押すと直せ、左へのスワイプで削除し、
+/// 設定の「カテゴリ」。作ったカテゴリの一覧。押すと直せ、左へのスワイプで削除し、
 /// 「編集」で並べ替える。いちばん下から「覚えたカテゴリ」（修正の記憶の一覧）へ進む（カテゴリの決まり方のことなので、
 /// 設定の行を分けずにここにまとめた）。
 ///
@@ -16,7 +16,6 @@ struct CategoryListView: View {
     var body: some View {
         List {
             customSection
-            builtInSection
             if let learnedCategories {
                 learnedSection(learnedCategories)
             }
@@ -72,11 +71,6 @@ struct CategoryListView: View {
 
     private var customSection: some View {
         Section {
-            if model.customs.isEmpty {
-                Text("まだ作ったカテゴリはありません。交際・ペット・子どもなど、よく使う分け方を作れます。")
-                    .foregroundStyle(Theme.inkSecondary)
-                    .listRowBackground(Theme.surface)
-            }
             ForEach(model.customs) { info in
                 customRow(info)
                     // 削除は確かめてから（記録が「その他」になるため）。破壊の役割にすると、確かめる前に行が消えて見えるので、
@@ -107,10 +101,8 @@ struct CategoryListView: View {
             .accessibilityHint("名前・色・記号を決めて、新しいカテゴリを作ります")
             .accessibilityIdentifier(AccessibilityID.Categories.createButton)
             .listRowBackground(Theme.surface)
-        } header: {
-            Text("作ったカテゴリ")
-                .foregroundStyle(Theme.inkSecondary)
         } footer: {
+            // 説明はこの 1 つだけにする（はじめからあるカテゴリの一覧は、押しても何もできないのでやめた）。
             Text(customFooter)
                 .foregroundStyle(Theme.inkSecondary)
         }
@@ -118,7 +110,7 @@ struct CategoryListView: View {
 
     private var customFooter: LocalizedStringResource {
         if model.canCreate {
-            "「衣服 3000」のようにカテゴリの名前を書いて送ると、そのカテゴリで記録します。\(CategoryCatalog.maximumCustomCount) 個まで作れます。"
+            "「衣服 3000」のように送ると、そのカテゴリで記録します。"
         } else {
             "作れるのは \(CategoryCatalog.maximumCustomCount) 個までです。使わないカテゴリを削除すると、新しく作れます。"
         }
@@ -142,29 +134,6 @@ struct CategoryListView: View {
             .contentShape(.rect)
         }
         .accessibilityHint("名前・色・記号を直します")
-    }
-
-    // MARK: - 組み込みのカテゴリ
-
-    private var builtInSection: some View {
-        Section {
-            ForEach(EntryCategory.builtIns) { category in
-                HStack(spacing: 12) {
-                    CategoryIcon(category: category)
-                    Text(category.label)
-                        .foregroundStyle(Theme.ink)
-                }
-                .frame(minHeight: 44)
-                .accessibilityElement(children: .combine)
-                .listRowBackground(Theme.surface)
-            }
-        } header: {
-            Text("はじめからあるカテゴリ")
-                .foregroundStyle(Theme.inkSecondary)
-        } footer: {
-            Text("はじめからあるカテゴリは、名前を変えたり削除したりできません。どれにも当てはまらない記録は「その他」になります。")
-                .foregroundStyle(Theme.inkSecondary)
-        }
     }
 
     // MARK: - 覚えたカテゴリ
@@ -196,9 +165,6 @@ struct CategoryListView: View {
             }
             .accessibilityHint("覚えた言葉とカテゴリの一覧を開きます")
             .listRowBackground(Theme.surface)
-        } footer: {
-            Text("記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。")
-                .foregroundStyle(Theme.inkSecondary)
         }
     }
 

@@ -1,22 +1,21 @@
 import XCTest
 
-/// ホームから行く画面（カレンダーのページ・月のまとめ・設定とその先の一覧とシート・書き出し）を、画面を押して確かめる。
+/// ホームから行く画面（月の画面の内訳とカレンダー・設定とその先の一覧とシート・書き出し）を、画面を押して確かめる。
 final class ScreensUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
 
-    /// 会話を左へスワイプするとカレンダーのページが出て、月に使った額と、選んだ日の記録が見える。会話のボタンで戻れる。
+    /// 帯の数字から月の画面へ進み、切り替えでカレンダーにすると、選んだ日の記録が見える。
     @MainActor
-    func testCalendarPageShowsMonthSpendAndDayRecords() {
+    func testMonthCalendarShowsDayRecords() {
         let app = launchApp()
 
         app.send("ランチ 850")
         XCTAssertTrue(app.replyRow(containing: "ランチ").waitForExistence(timeout: UITestTimeout.ui))
 
-        app.showCalendarPage()
-        let spend = app.element(AccessibilityID.CalendarPage.monthSpend)
-        XCTAssertTrue(spend.waitForLabel(containing: "¥850"))
+        app.openMonthlyReport()
+        app.showMonthCalendar()
 
         // UI テストの「いま」は 15 日（`UITestMode`）。記録の無い 14 日を選ぶと記録は無く、15 日を選ぶと記録の行が出る。
         let day14 = app.element(AccessibilityID.CalendarPage.day(14))
@@ -26,17 +25,15 @@ final class ScreensUITests: XCTestCase {
         XCTAssertTrue(noRecords.waitForExistence(timeout: UITestTimeout.ui))
         app.element(AccessibilityID.CalendarPage.day(15)).tap()
         XCTAssertTrue(noRecords.waitForNonExistence(timeout: UITestTimeout.ui))
-        // 選んだ日の記録はカレンダーの下に出る。画面の下の端にかかっていれば、少し送る。会話のページの同じ行も残っていることが
-        // あるので、押せる行があるかで見る。
+        // 選んだ日の記録はカレンダーの下に出る。画面の下の端にかかっていれば、少し送る。
         let rows = app.replyRows(containing: "ランチ")
         if !rows.hasHittableElement {
             app.swipeUp(velocity: .slow)
         }
         XCTAssertTrue(rows.hasHittableElement, "選んだ日の記録の行が出ません")
 
-        app.element(AccessibilityID.CalendarPage.conversationButton).tap()
+        app.goBack()
         XCTAssertTrue(app.inputField.waitUntilHittable())
-        XCTAssertFalse(spend.isHittableNow)
     }
 
     /// 帯の数字から月のまとめへ進み、戻るでホームに戻る。
@@ -50,6 +47,32 @@ final class ScreensUITests: XCTestCase {
         app.goBack()
         XCTAssertTrue(bar.waitForNonExistence(timeout: UITestTimeout.ui))
         XCTAssertTrue(app.inputField.waitUntilHittable())
+    }
+
+    /// 月の画面の下のバーで前の月へ戻ると「今月」が出て、押すと今月に戻る（今月を見ている間は出さない）。
+    @MainActor
+    func testMonthlyReportSwitchesMonthsFromBottomBar() {
+        let app = launchApp(AppLaunch(seed: .demo))
+
+        app.openMonthlyReport()
+        let title = app.element(AccessibilityID.Report.monthTitle)
+        XCTAssertTrue(title.waitForExistence(timeout: UITestTimeout.ui))
+        let currentTitle = title.label
+        let thisMonth = app.element(AccessibilityID.Report.thisMonth)
+        XCTAssertFalse(thisMonth.exists)
+        let previous = app.element(AccessibilityID.Report.previousMonth)
+        XCTAssertTrue(previous.waitUntilHittable())
+        previous.tap()
+
+        XCTAssertTrue(
+            title.waitForLabel(notEqualTo: currentTitle), "前の月へ移りません。いまの画面:\n\(app.debugDescription)"
+        )
+        // 「今月」は下のバーのガラスの中にあり、手では押せるのに、XCUITest は上に重なる中身の層を見て押せないと判定することがある。
+        // あることを確かめて、ボタンの真ん中を押す。
+        XCTAssertTrue(thisMonth.waitForExistence(timeout: UITestTimeout.ui), "「今月」が出ません。いまの画面:\n\(app.debugDescription)")
+        thisMonth.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(thisMonth.waitForNonExistence(timeout: UITestTimeout.ui))
+        XCTAssertEqual(title.label, currentTitle)
     }
 
     /// 設定の行がそろい、月の予算を決める・カテゴリを作る・くり返しの記録を足すができる。
@@ -128,6 +151,50 @@ final class ScreensUITests: XCTestCase {
         ] {
             XCTAssertTrue(app.scrollToHittable(app.element(identifier)), "設定の行がありません: \(identifier)")
         }
+    }
+
+    /// カード: 設定の「カード」でカードを登録し、「カードで」と書いて送った記録が、いつものカード（最初の 1 枚）の今の締めの
+    /// 利用額に入る。カードの引き落としを書いた文は、記録する前に確かめる（「記録しない」なら記録しない）。
+    @MainActor
+    func testCardsRegisterAndCountCardRecords() {
+        let app = launchApp()
+
+        app.openSettings()
+        let cardsRow = app.element(AccessibilityID.Settings.cards)
+        XCTAssertTrue(app.scrollToHittable(cardsRow))
+        cardsRow.tap()
+        let add = app.element(AccessibilityID.Cards.addButton)
+        XCTAssertTrue(add.waitUntilHittable())
+        add.tap()
+        let name = app.element(AccessibilityID.Cards.nameField)
+        XCTAssertTrue(name.waitUntilHittable())
+        app.type("楽天カード", into: AccessibilityID.Cards.nameField)
+        let save = app.element(AccessibilityID.Cards.saveButton)
+        XCTAssertTrue(save.waitUntilEnabled())
+        save.tap()
+        XCTAssertTrue(name.waitForNonExistence(timeout: UITestTimeout.ui))
+        let row = app.element(AccessibilityID.Cards.row)
+        XCTAssertTrue(row.waitForExistence(timeout: UITestTimeout.ui))
+        XCTAssertTrue(row.label.contains("楽天カード"), row.label)
+        app.goBack()
+        app.goBack()
+
+        app.send("ランチ 850 カードで")
+        let reply = app.replyRow(containing: "ランチ")
+        XCTAssertTrue(reply.waitForExistence(timeout: UITestTimeout.ui))
+
+        // カードの引き落としは、記録する前に確かめる。
+        app.send("クレカ引き落とし 50000")
+        let skip = app.alerts.buttons["記録しない"]
+        XCTAssertTrue(skip.waitForExistence(timeout: UITestTimeout.ui))
+        skip.tap()
+        XCTAssertTrue(app.element(labeled: "引き落としは記録していません").waitForExistence(timeout: UITestTimeout.ui))
+        XCTAssertTrue(app.monthFigures.waitForValue(containing: "¥850"))
+
+        app.openSettings()
+        XCTAssertTrue(app.scrollToHittable(cardsRow))
+        cardsRow.tap()
+        XCTAssertTrue(row.waitForText(containing: "¥850"), row.label)
     }
 
     /// 記録の CSV 書き出し: 期間を選ぶと書き出して共有の画面を出す（知らせは出ない）。共有の画面は閉じてみるが、閉じられたかは

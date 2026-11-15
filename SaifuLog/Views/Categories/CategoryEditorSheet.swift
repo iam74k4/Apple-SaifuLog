@@ -32,12 +32,12 @@ struct CategoryEditorSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") {
+                    Button(role: .close) {
                         if model.requestClose() { dismiss() }
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
+                    Button(role: .confirm) {
                         if model.save() { dismiss() }
                     }
                     .disabled(!model.canSave)

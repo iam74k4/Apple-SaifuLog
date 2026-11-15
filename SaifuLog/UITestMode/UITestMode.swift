@@ -16,7 +16,7 @@ import SwiftData
 /// - 設定（UserDefaults）は専用の領域を毎回空にして使う（利用者の設定に触れない）。初回の案内は終えたことにする
 ///   （`-SaifuLogUITestFirstRun YES` なら出す）。
 /// - ロックと iCloud 同期はオフ（シミュレータでは認証も iCloud のアカウントの確かめもできないため）。
-/// - 端末内 AI を使わない（読み取り・カテゴリの聞き直し・チャットの操作・質問・一言）。キーワード辞書とコアの計算だけにして、
+/// - 端末内 AI を使わない（読み取り・カテゴリの聞き直し・チャットの操作・質問）。キーワード辞書とコアの計算だけにして、
 ///   端末によって読み方や答えが変わらないようにする（AI が無くても記録できるアプリであることの確かめにもなる）。
 /// - 「いま」は撮影用のデモと同じく、その月の 15 日の 20:30 に置く（月の初めや終わりに走らせても、同じ日付の画面にする）。
 /// - 診断画面のボタンを出さない（App Store へ出すビルドと同じ画面を確かめる）。
@@ -155,7 +155,7 @@ final class UITestMode {
     /// 初回の案内。出さないなら nil。AI の可否は「使えない」に決める（端末によって案内の文が変わらないように）。
     func makeOnboardingModel() -> OnboardingModel? {
         guard configuration.showsOnboarding else { return nil }
-        return OnboardingModel(defaults: defaults, aiStatus: { .unavailable })
+        return OnboardingModel(defaults: defaults)
     }
 
     /// ホームのモデル。時計・解析・質問の答え方・レシートの読み取りを、UI テストのものに差し替え、端末内 AI を使わない。
@@ -169,8 +169,6 @@ final class UITestMode {
             makeCategoryRefiner: { nil },
             makeCommandInterpreter: { nil },
             makeAnswerer: { RuleBasedQuestionAnswerer() },
-            makeRemarkWriter: { nil },
-            makeRecordRemarkWriter: { nil },
             receiptReader: ReceiptReader(recognize: { _ in receiptLines }, makeRefiner: { nil }),
             canUseDocumentCamera: false,
             now: makeClock(),

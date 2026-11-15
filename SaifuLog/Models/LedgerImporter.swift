@@ -41,10 +41,12 @@ struct LedgerImporter: Sendable {
     func preview(fileAt url: URL, timeZone: TimeZone, catalog: CategoryCatalog) async throws -> Preview {
         let data = try Self.readFile(at: url)
         try Task.checkCancellation()
-        let result = try LedgerCSVReader.read(data, timeZone: timeZone, catalog: catalog)
+        let context = ModelContext(container)
+        // 支払いの列は、いまのカードの名前で戻す（無いカードの名前は、カードの無い記録にする）。
+        let cards = (try? context.fetch(FetchDescriptor<CreditCard>())).map(CreditCard.resolved) ?? []
+        let result = try LedgerCSVReader.read(data, timeZone: timeZone, catalog: catalog, cards: cards)
         try Task.checkCancellation()
         willRead?()
-        let context = ModelContext(container)
         let existing = try context.fetch(FetchDescriptor<Entry>()).map {
             LedgerCSVImport.Key(spentAt: $0.spentAt, amount: $0.amount, isIncome: $0.isIncome, category: $0.category, memo: $0.memo)
         }
@@ -85,6 +87,9 @@ struct LedgerImporter: Sendable {
                 source: .imported,
                 originalText: row.originalText
             )
+        }.enumerated().map { index, entry in
+            entry.cardID = rows[index].cardID ?? ""
+            return entry
         }
     }
 }

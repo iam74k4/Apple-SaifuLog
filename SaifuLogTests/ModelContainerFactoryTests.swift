@@ -46,7 +46,7 @@ struct ModelContainerFactoryTests {
     @Test func schemaListsModelTypes() throws {
         let container = try ModelContainerFactory.makeInMemoryContainer()
 
-        #expect(Set(container.schema.entities.map(\.name)) == ["Entry", "Budget", "LearnedCategory", "CustomCategory", "RecurringEntry"])
+        #expect(Set(container.schema.entities.map(\.name)) == ["Entry", "Budget", "LearnedCategory", "CustomCategory", "RecurringEntry", "CreditCard"])
     }
 
     /// 予算のモデルを足す前の保存先（記録のモデルだけ）を開いても、記録はそのまま読め、予算を書き込める。
@@ -234,7 +234,7 @@ struct ModelContainerFactoryTests {
     @Test func modelsSatisfyCloudKitConstraints() throws {
         let model = try #require(NSManagedObjectModel.makeManagedObjectModel(for: ModelContainerFactory.modelTypes))
 
-        #expect(Set(model.entities.compactMap(\.name)) == ["Entry", "Budget", "LearnedCategory", "CustomCategory", "RecurringEntry"])
+        #expect(Set(model.entities.compactMap(\.name)) == ["Entry", "Budget", "LearnedCategory", "CustomCategory", "RecurringEntry", "CreditCard"])
         #expect(Self.cloudKitViolations(in: model).isEmpty, "\(Self.cloudKitViolations(in: model))")
         // SwiftData の Schema の側でも、一意の属性が無い。
         for entity in ModelContainerFactory.schema.entities {
@@ -303,7 +303,7 @@ struct ModelContainerFactoryTests {
     @Test func syncedAttributesAreCloudEncrypted() throws {
         let model = try #require(NSManagedObjectModel.makeManagedObjectModel(for: ModelContainerFactory.modelTypes))
 
-        #expect(Set(model.entities.compactMap(\.name)) == ["Entry", "Budget", "LearnedCategory", "CustomCategory", "RecurringEntry"])
+        #expect(Set(model.entities.compactMap(\.name)) == ["Entry", "Budget", "LearnedCategory", "CustomCategory", "RecurringEntry", "CreditCard"])
         #expect(Self.unencryptedAttributes(in: model).isEmpty, "\(Self.unencryptedAttributes(in: model))")
         #expect(Self.unencryptedAttributes(in: ModelContainerFactory.schema).isEmpty, "\(Self.unencryptedAttributes(in: ModelContainerFactory.schema))")
         // 内容にあたる項目を名指しでも確かめる（検査の数え方を誤って、項目を見ずに空を返していないか）。

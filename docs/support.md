@@ -34,7 +34,8 @@
 入力欄に戻します。
 
 **日ごとにいくら使ったかを見たいです。**
-ホームの会話を左へスワイプすると、カレンダーが出ます。日を押すと、その日の記録が出ます。
+ホームの上の「今月使った額」を押して月のまとめを開き、上の「カレンダー」に切り替えると、日ごとに使った額が出ます。
+日を押すと、その日の記録が出ます。月は画面の下の ‹ › で替えられます。
 
 **ウィジェットで今月の額を見たいです。**
 ホーム画面かロック画面を長押しして「編集」（ロック画面は「カスタマイズ」）から、サイフログの「今月使った額」を足してください。
@@ -55,7 +56,7 @@ iPhone の「設定」→「サイフログ」で、カメラの許可を変え�
 **機種変更のとき、記録を新しい iPhone に移したいです。**
 どちらかの方法で移せます。
 - 「iCloud で同期」: 前の iPhone でオンにして同期が済んでから、新しい iPhone でも同じ Apple アカウントでオンにします。
-- CSV ファイル: 前の iPhone で、設定の「記録を書き出す」から「すべて」を書き出して「ファイル」などに保存し、新しい iPhone の
+- CSV ファイル: 前の iPhone で、設定の「CSV ファイルを書き出す」から「すべて」を書き出して「ファイル」などに保存し、新しい iPhone の
   設定の「CSV から読み込む」でそのファイルを選びます。同じ記録がすでにあれば、重ねて入れません。
 
 iPhone 全体のバックアップ（iCloud バックアップやパソコンへのバックアップ）から戻したときも、記録は戻ります。
@@ -99,7 +100,8 @@ Tap an entry to edit its amount, item, category, and date. Right after sending, 
 and puts your text back in the entry field.
 
 **How do I see how much I spent each day?**
-Swipe left on the home conversation to show the calendar. Tap a day to see its entries.
+Tap Spent This Month at the top of the home screen to open the Monthly Summary, then switch to Calendar at the top to see how much
+you spent each day. Tap a day to see its entries. Use ‹ › at the bottom of the screen to change the month.
 
 **I want to see this month's spending in a widget.**
 Touch and hold the Home Screen and tap Edit (or touch and hold the Lock Screen and tap Customize), then add SaifuLog's “Spent This
@@ -121,7 +123,7 @@ default). You can also export your records as a CSV file (Export CSV File in Set
 Use either of these:
 - Sync with iCloud: turn it on on your old iPhone and let it finish syncing, then turn it on on the new iPhone with the same Apple
   Account.
-- A CSV file: on your old iPhone, export All from Export Entries in Settings and save the file (for example, in Files). On the new
+- A CSV file: on your old iPhone, choose All from Export CSV File in Settings and save the file (for example, in Files). On the new
   iPhone, choose the file with Import CSV File in Settings. Entries that are already there aren't added twice.
 
 Restoring a full iPhone backup (iCloud Backup or a backup on your computer) also restores your entries.

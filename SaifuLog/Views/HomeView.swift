@@ -12,11 +12,10 @@ import UIKit
 ///
 /// 入力欄の左のカメラのボタンから、レシートを撮るか写真から選んで読み取り（④）、読み取り結果（⑤）のシートで確かめて記録する。
 ///
-/// 会話を左へスワイプすると、カレンダーのページ（月に使った額・日ごとに使った額・選んだ日の記録。`LedgerCalendarView`）が
-/// 出る。帯にカレンダーのボタンは置かない（スワイプで出るページと入口が重なるため）。
+/// 日ごとに使った額のカレンダーは、帯の「今月使った額」から進む月の画面（月のまとめ）の切り替えにある。
 ///
-/// 状態と操作（送信・質問・レシート・取り消し・直す・削除・予算を決める画面と月のまとめと設定の出し入れ・
-/// ページの切り替え）は `HomeModel` が持つ。ここは表示と、
+/// 状態と操作（送信・質問・レシート・取り消し・直す・削除・予算を決める画面と月のまとめと設定の出し入れ）は
+/// `HomeModel` が持つ。ここは表示と、
 /// 環境（文字の大きさ・前面かどうか）に合わせた出し方だけを受け持つ。
 struct HomeView: View {
     @Environment(\.calendar) private var calendar
@@ -56,7 +55,7 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            pages
+            timeline
                 .toolbar(.hidden, for: .navigationBar)
                 .alert(
                     model.storeFailure?.title ?? Text(verbatim: ""),
@@ -82,6 +81,18 @@ struct HomeView: View {
                     Button("キャンセル", role: .cancel) { model.cancelCommand(pending) }
                 } message: { pending in
                     Text(pending.question.detail)
+                }
+                // カードの引き落としを書いた文は、記録する前に確かめる（`HomeModel.pendingCardBill`。カードの支出は使った日に数えて
+                // いるので、引き落としも記録すると二重になる）。既定は「記録しない」。
+                .alert(
+                    Text("カードの引き落としを記録しますか？"),
+                    isPresented: showsCardBillConfirmation,
+                    presenting: model.pendingCardBill
+                ) { pending in
+                    Button("記録しない", role: .cancel) { model.cancelCardBill(pending) }
+                    Button("記録する") { model.confirmCardBill(pending) }
+                } message: { _ in
+                    Text("カードで払った支出は、使った日に記録して数えています。その記録があれば、引き落としも記録すると二重になります。")
                 }
                 // item で出す（閉じる間も中身を保つ。isPresented にして中身を budgetSetup から作ると、閉じる動きの
                 // 途中で budgetSetup が nil になり、空のシートが下りていくため）。閉じると budgetSetup は nil に戻る。
@@ -129,8 +140,6 @@ struct HomeView: View {
                     ReceiptResultSheet(model: result)
                 }
                 .onAppear {
-                    // カレンダーのページに画面の暦を渡し、今月を読んでおく（左へスワイプしたときに、すぐ出せるように）。
-                    model.calendarPage.configure(calendar: calendar)
                     // モデルは初回の案内より前に作っている（`AppRootView`）。案内の間に日付が変わっていても今日で数えるよう、読み直す。
                     model.refreshToday()
                     // 記録する日を過ぎたくり返しの記録を記録する（前面に戻ったとき・日付が変わったときは下）。
@@ -145,7 +154,7 @@ struct HomeView: View {
                     deliver: deliverQuickActions, contentDidShow: catchUpAfterShowingContent
                 ))
                 // 家計の画面を隠しているか（ロックの画面）をモデルに伝える。隠している間は、読み取りが裏で終わっても、くり返しの
-                // 記録を記録せず、返事の一言も読み上げない（`HomeModel.hidesContent`）。
+                // 記録を記録しない（`HomeModel.hidesContent`）。
                 .onChange(of: hidesContent, initial: true) { _, hides in
                     model.hidesContent = hides
                 }
@@ -153,18 +162,10 @@ struct HomeView: View {
                 .onChange(of: model.isPresentingOtherScreen) { _, presenting in
                     if !presenting { deliverQuickActions() }
                 }
-                // 端末の週の始まりや時間帯の設定を変えると画面の暦が変わるので、カレンダーの並びを変えた後の暦で決め直す。
-                .onChange(of: calendar) { _, calendar in
-                    model.calendarPage.configure(calendar: calendar)
-                }
-                // ページが替わったら、VoiceOver に知らせ、新しいページの最初の要素から読ませる（スワイプでもボタンでも）。
-                .onChange(of: model.page) {
-                    VoiceOver.screenChanged()
-                }
-                // 保存先に書き込まれたら、カテゴリの一覧・カレンダー・聞き返しを読み直す（記録を足した・直した・消したとき）。
+                // 保存先に書き込まれたら、カテゴリの一覧・カードの一覧・聞き返しを読み直す（記録を足した・直した・消したとき）。
                 .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { _ in
                     model.categories.reload()
-                    model.calendarPage.reload()
+                    model.cards.reload()
                     model.refreshCategoryQuestions()
                 }
                 // iCloud で届いたほかの端末の変更でも読み直す（didSave にならないため。帯とタイムラインは @Query が追う）。
@@ -172,12 +173,9 @@ struct HomeView: View {
                 .onReceive(StoreChanges.remote) { _ in
                     // ほかの端末で消された記録を、取り消す・聞き返しの対象から外す（消えた記録を指し続けないように）。
                     model.forgetRecordsDeletedElsewhere()
-                    // ほかの端末の記録や予算が届いて、返事の一言が書いた今月の数字と食い違ったら外す（この端末の保存でも知らせが
-                    // 届くので、数字が変わったときだけ。`reviewReplyRemarkAfterRemoteChange`）。
-                    model.reviewReplyRemarkAfterRemoteChange(calendar: calendar)
                     model.removeDuplicateRecurringEntries()
                     model.categories.reload()
-                    model.calendarPage.reload()
+                    model.cards.reload()
                     model.refreshCategoryQuestions()
                 }
                 #if DEBUG || INTERNAL_DIAGNOSTICS
@@ -219,28 +217,8 @@ struct HomeView: View {
         }
         // カテゴリの一覧（作ったカテゴリの名前・記号・色）を、ホームから開くすべての画面とシートに渡す。
         .environment(\.categoryCatalog, model.categories.catalog)
-    }
-
-    /// 会話（1 枚目）とカレンダー（2 枚目）。左右のスワイプで行き来し、カレンダーからは「会話」のボタンでも戻れる。
-    /// VoiceOver では、帯の数字の要素の操作「カレンダー」でも開ける（ページを送るスワイプが見つけにくいため）。
-    ///
-    /// ナビゲーションの根元に置き、横に進む画面（月のまとめ・設定）とシートは、どちらのページからも同じものを出す。
-    private var pages: some View {
-        TabView(selection: $model.page) {
-            timeline
-                .tag(HomeModel.Page.conversation)
-            LedgerCalendarView(
-                model: model.calendarPage,
-                showConversation: { withAnimation { model.page = .conversation } },
-                edit: { model.presentEdit($0, calendar: calendar) },
-                requestDelete: { model.requestDelete($0) },
-                makeRecurring: { model.presentRecurringCreation(from: $0, calendar: calendar) },
-                openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) }
-            )
-            .tag(HomeModel.Page.calendar)
-        }
-        .tabViewStyle(.page(indexDisplayMode: .never))
-        .background(Theme.background)
+        // カードの一覧も同じく、ホームから開くすべての画面とシートに渡す（カードを選ぶ欄と、返事の行のカードの名前）。
+        .environment(\.paymentCards, model.cards.cards)
     }
 
     private var timeline: some View {
@@ -258,6 +236,9 @@ struct HomeView: View {
                     // 上限は入力欄のボタンの記号（`InputBar` のカメラと送信）と同じ AX1（前は AX5 で帯（上の安全領域を含む）が画面の
                     // 3 分の 1 を超えた）。
                     .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                    // 帯は画面の地で塗る（上の安全領域まで）。スクロール端の効果だけでは、背の高い帯の上の方で、流れた記録の色や
+                    // 金額が大きな数字の後ろにうっすら透けた。帯の下の端で記録が切れて見えるのは、効果（.hard）がぼかす。
+                    .background(Theme.background, ignoresSafeAreaEdges: .top)
             }
             .safeAreaBar(edge: .bottom, spacing: 0) {
                 bottomBar
@@ -275,7 +256,6 @@ struct HomeView: View {
                 latestEntryIDs: Set(model.justRecordedIDs),
                 canUndoLatest: model.canUndo,
                 askingCategory: model.categoryQuestionIDs,
-                replyRemark: model.replyRemark,
                 replyHint: model.replyHint,
                 showMore: { model.showMoreTimeline() },
                 undo: { model.undoLastRecord() },
@@ -287,8 +267,7 @@ struct HomeView: View {
                 fillDraft: { model.fillDraft($0) },
                 openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
                 setBudget: { model.presentBudgetSetup() },
-                askFollowUp: { model.askFollowUp($0, calendar: calendar) },
-                openCalendar: { withAnimation { model.page = .calendar } }
+                askFollowUp: { model.askFollowUp($0, calendar: calendar) }
             )
     }
 
@@ -299,7 +278,6 @@ struct HomeView: View {
             calendar: calendar,
             openReport: { model.presentMonthlyReport(calendar: calendar) },
             openSettings: { model.presentSettings() },
-            openCalendar: { withAnimation { model.page = .calendar } },
             isCompact: isTyping
         )
     }
@@ -321,7 +299,8 @@ struct HomeView: View {
                 recorded: model.recordedItems,
                 edit: { model.presentEdit($0, calendar: calendar) },
                 focusRequest: model.inputFocusRequest,
-                isOnScreen: model.page == .conversation,
+                // 月のまとめ・設定へ横に進んだら、キーボードを閉じる。
+                isOnScreen: model.monthlyReport == nil && model.settings == nil,
                 focusChanged: { focused in
                     isTyping = focused
                     // 打ち始めたら、端末内 AI のモデルを前もって読み込む（送ったときに読み込みを待たないように）。
@@ -398,6 +377,14 @@ struct HomeView: View {
     private var showsCommandConfirmation: Binding<Bool> {
         Binding(get: { model.pendingCommand != nil }, set: { if !$0 { model.pendingCommand = nil } })
     }
+
+    /// ボタンを押さずに閉じられたら（押すと先に nil になる）、「記録しない」と同じにする（送った文を入力欄に戻す）。
+    private var showsCardBillConfirmation: Binding<Bool> {
+        Binding(
+            get: { model.pendingCardBill != nil },
+            set: { if !$0, let pending = model.pendingCardBill { model.cancelCardBill(pending) } }
+        )
+    }
 }
 
 /// 保存先への書き込みの失敗を利用者に知らせる文。
@@ -439,14 +426,12 @@ private struct EntryTimeline: View {
     let questions: [QuestionExchange]
     /// 記録として送り、読み取っている文（読み取りが終わるまで、いちばん下に送った文と「読み取っています…」を出す）。
     let pendingRecord: HomeModel.PendingRecord?
-    /// 直前の送信で記録したもの。これを含む送信の返事にだけ、今月の状況の一行・聞き返し・一言（と、取り消せるなら「取り消す」）を出す。
+    /// 直前の送信で記録したもの。これを含む送信の返事にだけ、今月の状況の一行・聞き返し（と、取り消せるなら「取り消す」）を出す。
     let latestEntryIDs: Set<PersistentIdentifier>
     /// 直前の送信の返事に「取り消す」を出すか（チャットで金額を直した後は出さない。`HomeModel.canUndo`）。
     let canUndoLatest: Bool
     /// カテゴリを聞き返している記録。その記録の行の下にカテゴリのボタンを出す。
     let askingCategory: Set<PersistentIdentifier>
-    /// 直前の送信の返事に添える、端末内 AI の一言（`HomeModel.replyRemark`）。
-    let replyRemark: HomeModel.ReplyRemark?
     let showMore: () -> Void
     let undo: () -> Void
     let edit: (Entry) -> Void
@@ -464,8 +449,6 @@ private struct EntryTimeline: View {
     let askFollowUp: (QuestionFollowUp) -> Void
     /// 直前の記録の返事の下に出すヒント（`HomeModel.replyHint`）。
     let replyHint: ReplyHints.Hint?
-    /// カレンダーのページを出す（カレンダーのヒントを押したとき）。
-    let openCalendar: () -> Void
 
     @Environment(\.calendar) private var calendar
     @Query private var recentEntries: [Entry]
@@ -479,7 +462,6 @@ private struct EntryTimeline: View {
         latestEntryIDs: Set<PersistentIdentifier>,
         canUndoLatest: Bool,
         askingCategory: Set<PersistentIdentifier>,
-        replyRemark: HomeModel.ReplyRemark?,
         replyHint: ReplyHints.Hint? = nil,
         showMore: @escaping () -> Void,
         undo: @escaping () -> Void,
@@ -491,8 +473,7 @@ private struct EntryTimeline: View {
         fillDraft: @escaping (String) -> Void,
         openReport: @escaping (Date) -> Void,
         setBudget: @escaping () -> Void,
-        askFollowUp: @escaping (QuestionFollowUp) -> Void,
-        openCalendar: @escaping () -> Void = {}
+        askFollowUp: @escaping (QuestionFollowUp) -> Void
     ) {
         self.limit = limit
         self.canShowMore = canShowMore
@@ -502,7 +483,6 @@ private struct EntryTimeline: View {
         self.latestEntryIDs = latestEntryIDs
         self.canUndoLatest = canUndoLatest
         self.askingCategory = askingCategory
-        self.replyRemark = replyRemark
         self.showMore = showMore
         self.undo = undo
         self.edit = edit
@@ -515,7 +495,6 @@ private struct EntryTimeline: View {
         self.setBudget = setBudget
         self.askFollowUp = askFollowUp
         self.replyHint = replyHint
-        self.openCalendar = openCalendar
         _recentEntries = Query(Entry.timelineDescriptor(limit: limit))
     }
 
@@ -607,15 +586,14 @@ private struct EntryTimeline: View {
                     case .sentText(let send):
                         SentTextBubble(send: send)
                     case .reply(let send):
-                        // 直前の送信の返事にだけ、「取り消す」と AI の一言か今月の状況の一行と聞き返しを出す（同じ間。`ReplyStatusLine`）。
+                        // 直前の送信の返事にだけ、「取り消す」と今月の状況の一行と聞き返しを出す（同じ間。`ReplyStatusLine`）。
                         let isLatest = isLatestSend(send)
                         RecordedReplyCard(
                             send: send, today: today, canUndo: isLatest && canUndoLatest, showsStatus: isLatest,
                             askingCategory: isLatest ? askingCategory : [],
-                            remark: isLatest ? remark(for: send) : nil,
                             hint: isLatest ? replyHint : nil,
                             undo: undo, edit: edit, requestDelete: requestDelete, chooseCategory: chooseCategory,
-                            createCategory: createCategory, makeRecurring: makeRecurring, openCalendar: openCalendar
+                            createCategory: createCategory, makeRecurring: makeRecurring
                         )
                         // 送信のいちばん下（返事のカード）の位置を知らせる。
                         .reportsTimelineFrame(.row(send.id))
@@ -654,14 +632,6 @@ private struct EntryTimeline: View {
     /// 直前の送信か（直前の送信で記録したものを含む）。
     private func isLatestSend(_ send: EntrySend) -> Bool {
         !latestEntryIDs.isEmpty && send.entries.contains { latestEntryIDs.contains($0.persistentModelID) }
-    }
-
-    /// その送信の返事に添える一言（一言を書いた記録がこの送信のものなら）。
-    private func remark(for send: EntrySend) -> String? {
-        guard let replyRemark, send.entries.contains(where: { replyRemark.entryIDs.contains($0.persistentModelID) }) else {
-            return nil
-        }
-        return replyRemark.text
     }
 }
 

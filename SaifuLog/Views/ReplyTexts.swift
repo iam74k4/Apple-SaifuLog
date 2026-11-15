@@ -39,9 +39,8 @@ enum ReplyTexts {
 
     /// 直前の送信の支出のカテゴリの、今月の件数と合計（「カフェは今月 3 件・¥1,350」）。
     ///
-    /// コードが数えた数字なので、Apple Intelligence の無い端末でも出す（AI の一言は同じ数字から書かせ、照合に通ったときだけ
-    /// この一行と今月の状況の一行の代わりに出す。`HomeModel.replyRemark`）。前は予算を決めていない端末では、返事が「記録しました」と
-    /// 行だけになり、記録したことのほかに何も返らなかった（AI の無い端末は多い）。
+    /// コードが数えた数字なので、どの端末でも出す。前は予算を決めていない端末では、返事が「記録しました」と行だけになり、
+    /// 記録したことのほかに何も返らなかった。
     static func categoryTally(categoryName: String, count: Int, total: Int) -> ReplySentence {
         let amount = YenFormatter.string(from: total)
         return ReplySentence(

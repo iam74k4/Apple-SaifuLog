@@ -101,7 +101,7 @@ struct SettingsModelTests {
         let file = try #require(model.sharedFile)
         #expect(file.recordCount == amounts.count)
         let lines = try Self.lines(of: file.url)
-        #expect(lines.first == "日付,時刻,種類,カテゴリ,品目,金額,送った文")
+        #expect(lines.first == "日付,時刻,種類,カテゴリ,品目,金額,送った文,支払い")
         // 金額の欄（6 列目）。使った日時の古い順に並ぶ。
         #expect(lines.dropFirst().map { String($0.split(separator: ",", omittingEmptySubsequences: false)[5]) }
             == amounts.map(String.init))
@@ -141,8 +141,8 @@ struct SettingsModelTests {
 
         let lines = try Self.lines(of: try #require(model.sharedFile?.url))
         #expect(lines == [
-            "Date,Time,Type,Category,Item,Amount,What you sent",
-            "2026-09-28,12:00,Income,,給料,250000,給料 250000",
+            "Date,Time,Type,Category,Item,Amount,What you sent,Payment",
+            "2026-09-28,12:00,Income,,給料,250000,給料 250000,",
         ])
     }
 

@@ -8,12 +8,11 @@ import Testing
 /// メモリの上の保存先と、使い捨ての UserDefaults の領域で確かめる。
 @MainActor
 struct OnboardingModelTests {
-    /// OnboardingModel と、その保存先・設定の置き場所・AI の可否の代わり。
+    /// OnboardingModel と、その保存先・設定の置き場所の代わり。
     @MainActor
     final class Fixture {
         let context: ModelContext
         let defaults: UserDefaults
-        var aiStatus = OnDeviceAIStatus.available
         private let suiteName = "OnboardingModelTests.\(UUID().uuidString)"
 
         init() throws {
@@ -33,7 +32,7 @@ struct OnboardingModelTests {
         }
 
         func makeModel() -> OnboardingModel {
-            OnboardingModel(defaults: defaults, aiStatus: { [unowned self] in aiStatus })
+            OnboardingModel(defaults: defaults)
         }
 
         var hasCompletedOnboarding: Bool {
@@ -140,22 +139,10 @@ struct OnboardingModelTests {
         #expect(!fixture.needsOnboarding())
     }
 
-    /// AI の可否は覚えておかず、読むたびに確かめる（案内を見ている間に Apple Intelligence をオンにしても変わる）。
-    @Test func aiStatusIsReadEachTime() throws {
-        let fixture = try Fixture()
-        fixture.aiStatus = .appleIntelligenceNotEnabled
-        let model = fixture.makeModel()
-        #expect(model.aiStatus == .appleIntelligenceNotEnabled)
-
-        fixture.aiStatus = .available
-
-        #expect(model.aiStatus == .available)
-    }
-
     // MARK: - 入力の例
 
-    /// ようこその例は、AI が無くてもキーワード辞書で書いたとおりに記録・回答できる（AI が使えない端末の案内が
-    /// 「上の例のような書き方なら、AI がなくても記録や質問ができる」と言うため）。例を差し替えたら、ここも合わせる。
+    /// ようこその例は、AI が無くてもキーワード辞書で書いたとおりに記録・回答できる（AI が使えない端末でも、例のとおりに書けば
+    /// 記録や質問ができるように）。例を差し替えたら、ここも合わせる。
     /// 確かめるのは記録のされ方に書いたもの（金額・日付・割り勘の人数・件数、質問なら記録しないことと何を答えるか）だけ。
     /// カテゴリは AI が使える端末ではモデルの答えになりうるので、記録のされ方に書かず、ここでも確かめない。
     @Test func examplesAreRecordableWithoutAI() async throws {
@@ -184,11 +171,10 @@ struct OnboardingModelTests {
             == LedgerQuestion(period: .thisMonth, metric: .categoryExpense, category: .cafe))
     }
 
-    /// 例と AI の案内の文は、英語の表に訳がある（String Catalog のキーと食い違うと、英語の画面に日本語が出る）。
+    /// 例の文は、英語の表に訳がある（String Catalog のキーと食い違うと、英語の画面に日本語が出る）。
     @Test func welcomeTextsAreLocalized() throws {
         let english = try LocalizationTests.bundle(for: "en")
         let resources = WelcomeExample.all.map(\.result)
-            + OnDeviceAIStatus.allCases.flatMap { [$0.title, $0.message] }
 
         for resource in resources {
             let key = resource.key

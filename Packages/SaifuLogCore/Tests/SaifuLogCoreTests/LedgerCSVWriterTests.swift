@@ -45,9 +45,9 @@ struct LedgerCSVWriterTests {
         let text = Self.text([CSVRecord(), CSVRecord(amount: 400, category: .cafe, memo: "カフェ")])
 
         #expect(text == """
-            日付,時刻,種類,カテゴリ,品目,金額,送った文\r
-            2026-09-28,12:00,支出,食費,ランチ,850,ランチ 850\r
-            2026-09-28,12:00,支出,カフェ,カフェ,400,ランチ 850\r
+            日付,時刻,種類,カテゴリ,品目,金額,送った文,支払い\r
+            2026-09-28,12:00,支出,食費,ランチ,850,ランチ 850,\r
+            2026-09-28,12:00,支出,カフェ,カフェ,400,ランチ 850,\r
 
             """)
         // CR を伴わない LF の改行が無い（どの LF も CR の直後にある）。
@@ -59,9 +59,9 @@ struct LedgerCSVWriterTests {
 
     @Test("記録が無ければ、見出しの行だけを書く")
     func headerOnlyWhenEmpty() {
-        #expect(Self.text([]) == "日付,時刻,種類,カテゴリ,品目,金額,送った文\r\n")
+        #expect(Self.text([]) == "日付,時刻,種類,カテゴリ,品目,金額,送った文,支払い\r\n")
         let data = LedgerCSVWriter.data([CSVRecord](), language: .english, timeZone: Self.tokyo)
-        #expect(data == Data([0xEF, 0xBB, 0xBF]) + Data("Date,Time,Type,Category,Item,Amount,What you sent\r\n".utf8))
+        #expect(data == Data([0xEF, 0xBB, 0xBF]) + Data("Date,Time,Type,Category,Item,Amount,What you sent,Payment\r\n".utf8))
     }
 
     // MARK: - エスケープ
@@ -84,7 +84,7 @@ struct LedgerCSVWriterTests {
         let record = CSVRecord(memo: "ランチ", originalText: "ランチ 850\nカフェ, 400")
         let text = Self.text([record])
 
-        #expect(text.hasSuffix(",ランチ,850,\"ランチ 850\nカフェ, 400\"\r\n"))
+        #expect(text.hasSuffix(",ランチ,850,\"ランチ 850\nカフェ, 400\",\r\n"))
         #expect(Self.lines(text).count == 2)
     }
 
@@ -115,7 +115,7 @@ struct LedgerCSVWriterTests {
 
         let line = Self.lines(Self.text([record]))[1]
 
-        #expect(line == "2026-09-28,12:00,支出,食費,'=cmd|' /C calc'!A0,850,'-1+1 ランチ 850")
+        #expect(line == "2026-09-28,12:00,支出,食費,'=cmd|' /C calc'!A0,850,'-1+1 ランチ 850,")
     }
 
     @Test("金額の列は符号なしの数字だけにする（桁区切りも ¥ も付けない）")
@@ -144,10 +144,10 @@ struct LedgerCSVWriterTests {
         let lines = Self.lines(Self.text(records, language: .japanese))
 
         #expect(lines == [
-            "日付,時刻,種類,カテゴリ,品目,金額,送った文",
-            "2026-09-28,12:00,支出,光熱・通信,スマホ,1200,スマホ 1200",
+            "日付,時刻,種類,カテゴリ,品目,金額,送った文,支払い",
+            "2026-09-28,12:00,支出,光熱・通信,スマホ,1200,スマホ 1200,",
             // 収入はカテゴリで分けていないので、カテゴリの欄は空にする。
-            "2026-09-28,12:00,収入,,給料,250000,給料 25万",
+            "2026-09-28,12:00,収入,,給料,250000,給料 25万,",
         ])
     }
 
@@ -161,9 +161,9 @@ struct LedgerCSVWriterTests {
         let lines = Self.lines(Self.text(records, language: .english))
 
         #expect(lines == [
-            "Date,Time,Type,Category,Item,Amount,What you sent",
-            "2026-09-28,12:00,Expense,Café,コーヒー,400,コーヒー 400",
-            "2026-09-28,12:00,Income,,返金,500,返金 -500",
+            "Date,Time,Type,Category,Item,Amount,What you sent,Payment",
+            "2026-09-28,12:00,Expense,Café,コーヒー,400,コーヒー 400,",
+            "2026-09-28,12:00,Income,,返金,500,返金 -500,",
         ])
     }
 
@@ -305,6 +305,34 @@ struct LedgerCSVWriterTests {
         let lines = Self.lines(Self.text(records))
 
         #expect(lines.count == 10_001)
-        #expect(lines.last == "2026-09-28,14:46,支出,食費,ランチ,10000,ランチ 850")
+        #expect(lines.last == "2026-09-28,14:46,支出,食費,ランチ,10000,ランチ 850,")
     }
+    // MARK: - 支払い
+
+    @Test("支払いの列には払ったカードの名前を書く。カードの無い記録と、一覧に無いカードの記録は空")
+    func writesCardNames() {
+        let cards = [PaymentCard(id: "rakuten", name: "楽天カード", closingDay: 31, paymentDay: 27)]
+        let records = [
+            CardCSVRecord(cardID: "rakuten"),
+            CardCSVRecord(cardID: ""),
+            CardCSVRecord(cardID: "gone"),
+        ]
+
+        let lines = Self.lines(LedgerCSVWriter.text(records, language: .japanese, timeZone: Self.tokyo, cards: cards))
+
+        #expect(lines.dropFirst().map { $0.split(separator: ",", omittingEmptySubsequences: false).last.map(String.init) }
+            == ["楽天カード", "", ""])
+    }
+}
+
+/// 払ったカードを持つ、CSV のテストで使う記録。
+private struct CardCSVRecord: LedgerCSVRecord, CardLedgerRecord {
+    var amount = 850
+    var isIncome = false
+    var category: EntryCategory = .food
+    var spentAt = Fixture.now
+    var memo = "ランチ"
+    var originalText = "ランチ 850"
+    var createdAt = Fixture.now
+    var cardID: String
 }

@@ -3,10 +3,14 @@ import SwiftData
 import SwiftUI
 import UIKit
 
-/// ⑦ 月のまとめ。何にいくら使ったかを一目で分かるようにする月の報告。ホームの帯（今月の合計）から横に進む。
+/// ⑦ 月のまとめ（月の画面）。何にいくら使ったかを一目で分かるようにする月の報告。ホームの帯（今月の合計）から横に進む。
 ///
-/// 上に月送り（前の月・次の月）、その下に月に使った額（大きく）と前の月との差（終わった月だけ）、収入があれば収入と収支の
-/// 小さな 1 行、AI の一言（AI が使える端末だけ）、予算の進み（予算を当てはめる月だけ）、カテゴリ別の内訳（割合の帯と行）を並べる。
+/// 上のバーに「内訳」と「カレンダー」の切り替え、下に浮くバーに月送り（前の月・月の題・次の月と「今月」）を置き、ガラスは
+/// この 2 つのバーにだけ使う（Liquid Glass は中身の層に使わない）。中身は、月に使った額（大きく）と前の月との差（終わった
+/// 月だけ）、収入があれば収入と収支の小さな 1 行を共通に出し、その下に、内訳なら予算の進み（予算を当てはめる月だけ）と
+/// カテゴリ別の内訳（割合の帯と行）、カレンダーなら日ごとに使った額と選んだ日の記録（`MonthCalendarContent`）を並べる。
+/// 前はカレンダーを、ホームを左へスワイプした別のページにしていたが、見えない入口で見つけにくく、同じ月を 2 つの画面で
+/// 見せていたので、この画面の切り替えにまとめた。
 /// 「いくら使ったか」がすぐ分かるよう、平均や日割りの目安のような副次的な数字は出さない（質問で聞ける）。
 /// 行を押すと、その月のそのカテゴリの記録の一覧へ進む。
 ///
@@ -25,7 +29,6 @@ struct MonthlyReportView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                MonthSwitcher(model: model)
                 content
             }
             .foregroundStyle(Theme.ink)
@@ -50,6 +53,13 @@ struct MonthlyReportView: View {
         .navigationBarTitleDisplayMode(.inline)
         // ホームはナビゲーションバーを隠しているので、ここでは戻るボタンのために出す。
         .toolbar(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                TabPicker(tab: $model.tab)
+            }
+            MonthSwitcher(model: model)
+        }
+        .modifier(ReportEntryModals(model: model, isActive: model.selectedCategory == nil))
         .navigationDestination(item: $model.selectedCategory) { category in
             CategoryEntriesView(model: model, category: category)
         }
@@ -79,66 +89,95 @@ struct MonthlyReportView: View {
             if report.recordCount == 0 {
                 EmptyMonthView(isCurrentMonth: report.timing == .current)
             } else {
-                // 使った額を先に出し、一言はその下に添える（一言は AI が書くまで少し遅れて出るので、上に置くと数字のカードが
-                // 下へずれて読みにくいため）。
+                // 使った額は、内訳とカレンダーのどちらの見方でも同じ場所に出す（切り替えても数字が動かないように）。
                 SummaryCard(report: report)
-                if model.remark.state != .none {
-                    RecapRemarkView(state: model.remark.state)
-                        .reportCard()
+                switch model.tab {
+                case .breakdown:
+                    if let budget = report.budget {
+                        BudgetCard(report: report, budget: budget)
+                    }
+                    BreakdownCard(breakdown: report.breakdown, select: { model.showEntries(in: $0) })
+                    if let payments = model.paymentBreakdown {
+                        PaymentBreakdownCard(breakdown: payments)
+                    }
+                case .calendar:
+                    MonthCalendarContent(
+                        model: model.days,
+                        edit: { model.presentEdit($0) },
+                        requestDelete: { model.requestDelete($0) },
+                        makeRecurring: model.makeRecurring
+                    )
                 }
-                if let budget = report.budget {
-                    BudgetCard(report: report, budget: budget)
-                }
-                BreakdownCard(breakdown: report.breakdown, select: { model.showEntries(in: $0) })
             }
         }
     }
 }
 
-// MARK: - 月送り
+// MARK: - 見方と月送り
 
-/// 前の月・月の見出し・次の月。今月より先と、記録のある最初の月より前には進めない（ボタンを押せなくする）。
-private struct MonthSwitcher: View {
-    let model: MonthlyReportModel
+/// 上のバーの「内訳」と「カレンダー」の切り替え（同じ月の 2 つの見方。HIG の切り替えの使いどころ）。
+private struct TabPicker: View {
+    @Binding var tab: MonthlyReportModel.Tab
 
     var body: some View {
-        HStack(spacing: 8) {
-            Button(action: model.showPreviousMonth) {
-                chevron("chevron.left", isEnabled: model.canShowPreviousMonth)
+        Picker(selection: $tab) {
+            Text("内訳").tag(MonthlyReportModel.Tab.breakdown)
+            Text("カレンダー").tag(MonthlyReportModel.Tab.calendar)
+        } label: {
+            Text("見方")
+        }
+        .pickerStyle(.segmented)
+        .fixedSize()
+        .accessibilityIdentifier(AccessibilityID.Report.tabPicker)
+    }
+}
+
+/// 下に浮くバーの月送り。前の月・月の題・次の月を 1 つのガラスにまとめて真ん中に置き、今月でなければ右に「今月」を置く。
+/// 今月より先と、記録のある最初の月より前には進めない（ボタンを押せなくする）。
+///
+/// 片手で届く下に置く（前は中身の上に置いていて、戻るボタンの真下に「前の月」の ‹ が縦に並び、押し間違えやすかった）。
+private struct MonthSwitcher: ToolbarContent {
+    let model: MonthlyReportModel
+
+    var body: some ToolbarContent {
+        ToolbarSpacer(.flexible, placement: .bottomBar)
+        ToolbarItem(placement: .bottomBar) {
+            HStack(spacing: 4) {
+                Button(action: model.showPreviousMonth) {
+                    chevron("chevron.left")
+                }
+                .disabled(!model.canShowPreviousMonth)
+                .accessibilityLabel("前の月")
+                .accessibilityIdentifier(AccessibilityID.Report.previousMonth)
+                Text(verbatim: model.monthTitle)
+                    .font(.headline)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .padding(.horizontal, 8)
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityIdentifier(AccessibilityID.Report.monthTitle)
+                Button(action: model.showNextMonth) {
+                    chevron("chevron.right")
+                }
+                .disabled(!model.canShowNextMonth)
+                .accessibilityLabel("次の月")
+                .accessibilityIdentifier(AccessibilityID.Report.nextMonth)
             }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .disabled(!model.canShowPreviousMonth)
-            .accessibilityLabel("前の月")
-            Text(verbatim: model.monthTitle)
-                .font(.title3.bold())
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.7)
-                .frame(maxWidth: .infinity)
-                .accessibilityAddTraits(.isHeader)
-            Button(action: model.showNextMonth) {
-                chevron("chevron.right", isEnabled: model.canShowNextMonth)
+        }
+        ToolbarSpacer(.flexible, placement: .bottomBar)
+        if !model.isCurrentMonth {
+            ToolbarItem(placement: .bottomBar) {
+                Button("今月", action: model.showThisMonth)
+                    .accessibilityIdentifier(AccessibilityID.Report.thisMonth)
             }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .disabled(!model.canShowNextMonth)
-            .accessibilityLabel("次の月")
         }
     }
 
-    /// 矢印は墨にする。画面の根元で色を墨に決めていて、押せないときに
-    /// システムが薄くしてくれないので、押せないときの薄い色はここで付ける。
-    ///
-    /// ボタンはガラスの丸にする（ナビゲーションバーの戻るボタンと同じ形。ガラスの余白を足して 44pt 四方になる大きさ）。
-    /// 矢印の大きさには上限（AX1）を設ける（丸は 30pt 四方のままなので、それより大きな文字では矢印が丸からはみ出したため。
-    /// ホームの帯の歯車と同じ）。
-    private func chevron(_ name: String, isEnabled: Bool) -> some View {
+    /// 矢印。押せる範囲を 44pt 四方にする（記号だけだと、押せる範囲が記号の大きさしか無かった）。
+    private func chevron(_ name: String) -> some View {
         Image(systemName: name)
-            .font(.body.weight(.semibold))
-            .foregroundStyle(isEnabled ? Theme.ink : Theme.inkSecondary.opacity(0.4))
-            .frame(width: 30, height: 30)
-            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+            .frame(width: 44, height: 44)
+            .contentShape(.rect)
     }
 }
 
@@ -290,6 +329,50 @@ struct ReportRow: View {
             // 金額は桁の途中で改行させない。
             .lineLimit(1)
             .minimumScaleFactor(0.5)
+    }
+}
+
+// MARK: - 支払い方法の内訳
+
+/// 支払い方法の内訳（カードごとと、現金・その他）。使った日の月で数えた額で、カードの引き落としの額（締めごと）とは違う
+/// （引き落としの額は設定の「カード」に出す）。
+struct PaymentBreakdownCard: View {
+    let breakdown: PaymentBreakdown
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("支払い方法")
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+            VStack(spacing: 0) {
+                ForEach(breakdown.rows) { row in
+                    if row.id != breakdown.rows.first?.id {
+                        Divider()
+                    }
+                    HStack(spacing: 10) {
+                        Image(systemName: row.card == nil ? "banknote" : "creditcard")
+                            .foregroundStyle(Theme.inkSecondary)
+                            .accessibilityHidden(true)
+                        Group {
+                            if let card = row.card {
+                                Text(verbatim: card.name)
+                            } else {
+                                Text("現金・その他")
+                            }
+                        }
+                        Spacer(minLength: 8)
+                        Text(YenFormatter.string(from: row.amount))
+                            .monospacedDigit()
+                    }
+                    .frame(minHeight: 44)
+                    .accessibilityElement(children: .combine)
+                }
+            }
+            Text("使った日の月で数えた額です。カードの引き落としの額は、設定の「カード」で見られます。")
+                .font(.footnote)
+                .foregroundStyle(Theme.inkSecondary)
+        }
+        .reportCard()
     }
 }
 
@@ -455,8 +538,9 @@ struct CategoryIcon: View {
             .font(.system(size: size * 0.5, weight: .semibold))
             .foregroundStyle(Theme.onCategory)
             .frame(width: size, height: size)
-            .background(catalog.color(for: category), in: .circle)
-            // 丸はダークでもライトの色で塗る（EntryBubble と同じ理由。ダークの色に白い記号は読めない）。
+            // 形はホームの返事の行の印と同じ角の丸い四角にそろえる（前は丸で、画面によって形が違った）。
+            .background(catalog.color(for: category), in: .rect(cornerRadius: size * 0.28))
+            // 印はダークでもライトの色で塗る（EntryBubble と同じ理由。ダークの色に白い記号は読めない）。
             .environment(\.colorScheme, .light)
             .accessibilityHidden(true)
     }

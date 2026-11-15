@@ -16,16 +16,22 @@ struct ReceiptResultSheet: View {
         NavigationStack {
             content
                 .navigationTitle("レシートの読み取り")
+                // 記録する件数と合計（金額の無い行があれば、その知らせ）は題の下に添える（前は下の帯に「記録する」のボタンと並べていた）。
+                .navigationSubtitle(subtitle)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        // シートを閉じるボタンの専用のキーにする（英語では Close。VoiceOver の操作の「閉じる」などは Dismiss と訳すことが
-                        // あり、同じキーにすると言い方が合わなくなるため）。
-                        Button {
+                        Button(role: .close) {
                             if model.requestClose() { dismiss() }
-                        } label: {
-                            Text(Self.closeTitle)
                         }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(role: .confirm) {
+                            model.requestRecord()
+                        }
+                        .disabled(!model.canRecord)
+                        .accessibilityLabel(Text("記録する"))
+                        .accessibilityIdentifier(AccessibilityID.Receipt.recordButton)
                     }
                 }
                 .alert("記録できませんでした", isPresented: $model.showsSaveFailure) {
@@ -59,11 +65,14 @@ struct ReceiptResultSheet: View {
         .background(SheetDismissAttemptObserver { model.showsDiscardConfirmation = true })
     }
 
-    /// シートを閉じるボタンの名前（記録せずに閉じる）。
-    static let closeTitle = LocalizedStringResource(
-        "閉じる（レシートの読み取り）", defaultValue: "閉じる",
-        comment: "レシートの読み取り結果のシート（⑤）の、記録せずにシートを閉じるボタン"
-    )
+    /// 題の下の一行。金額の無い行があればその知らせ、無ければ記録する件数と合計。
+    private var subtitle: Text {
+        if model.hasInvalidAmount {
+            return Text("金額が入っていない行があります")
+        }
+        guard model.recordCount > 0 else { return Text(verbatim: "") }
+        return Text("\(model.recordCount)件・\(YenFormatter.string(from: model.linesTotal))")
+    }
 
     @ViewBuilder
     private var content: some View {
@@ -213,6 +222,10 @@ private struct ReceiptReadyView: View {
                 if model.mode == .single {
                     singleCategorySection
                 }
+                // カードを登録していれば、払ったカードを選べる（支払いの行から決めたものを入れておく）。
+                if !model.cards.isEmpty {
+                    paymentSection
+                }
                 linesSection
                 reconciliationSection
                 Text("画像はこの iPhone の中で読み取り、保存も送信もしません。レシートの文字の全体も保存せず、記録には記録する品目（品名・金額・カテゴリ）と日付、店名と合計の要約だけを残します。")
@@ -224,17 +237,12 @@ private struct ReceiptReadyView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollDismissesKeyboard(.interactively)
-        // 上へ流れた文がツールバーのボタンの後ろで透けないよう、上ははっきりした効果にする（ホームの帯と同じ）。下の帯にも
-        // 記録する件数と合計の文を置くので、下も同じにする（やわらかい効果では、文の後ろで品目の行が透けて読みにくかった）。
-        .scrollEdgeEffectStyle(.hard, for: [.top, .bottom])
+        // 上へ流れた文がツールバーのボタンの後ろで透けないよう、上ははっきりした効果にする（ホームの帯と同じ）。
+        .scrollEdgeEffectStyle(.hard, for: .top)
         .background(Theme.background)
-        // 記録のボタンは画面の下に置き続ける（金額の数字のキーボードには確定のキーが無いので、キーボードを出したまま押せるように）。
-        // 下の帯は safeAreaBar に置き、中身がその下を流れるようにする（地を塗らない。スクロール端の効果が下端をぼかす。ホームの入力欄と同じ）。
-        .safeAreaBar(edge: .bottom, spacing: 0) {
-            recordBar
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-        }
+        // 閉じると保存は、iOS 26 の標準の形（左上の ×・右上の ✓）にする。前は文字の「キャンセル」と、下に浮く大きな「保存」で、
+        // 押せない間は灰色の塊になって中身（日付の欄）を隠し、シートごとに保存の場所も違った。右上の ✓ は、数字のキーボードを
+        // 出したままでも押せる（数字のキーボードには確定のキーが無い）。
     }
 
     // MARK: 店名と日付
@@ -264,35 +272,28 @@ private struct ReceiptReadyView: View {
 
     // MARK: 記録のしかた
 
+    /// 品目ごとか、まとめて 1 件か。標準の切り替え（セグメント）にする（前は枠とチェックの大きなタイルを 2 つ並べていた）。
     private var modeSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ReceiptSectionLabel("記録のしかた")
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(spacing: 8) { modeChoices }
-            } else {
-                HStack(spacing: 8) { modeChoices }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var modeChoices: some View {
-        ReceiptChoiceButton(isSelected: model.mode == .perItem) {
-            model.mode = .perItem
+        Picker(selection: $model.mode) {
+            Text("品目ごと").tag(ReceiptRecordMode.perItem)
+            Text("まとめて1件").tag(ReceiptRecordMode.single)
         } label: {
-            Text("品目ごとに記録")
+            Text("記録のしかた")
         }
-        ReceiptChoiceButton(isSelected: model.mode == .single) {
-            model.mode = .single
-        } label: {
-            Text("まとめて1件で記録")
-        }
+        .pickerStyle(.segmented)
     }
 
     private var singleCategorySection: some View {
         VStack(alignment: .leading, spacing: 6) {
             ReceiptSectionLabel("カテゴリ")
             ReceiptCategoryMenu(category: $model.singleCategory)
+        }
+    }
+
+    private var paymentSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ReceiptSectionLabel("支払い")
+            CardPickerMenu(cardID: $model.cardID)
         }
     }
 
@@ -385,40 +386,6 @@ private struct ReceiptReadyView: View {
         }
     }
 
-    // MARK: 記録する
-
-    private var recordBar: some View {
-        VStack(spacing: 6) {
-            if model.hasInvalidAmount {
-                Label {
-                    Text("金額が入っていない行があります。金額を入れるか、行を外してください。")
-                } icon: {
-                    Image(systemName: "exclamationmark.circle.fill")
-                }
-                .font(.footnote)
-                .foregroundStyle(Theme.danger)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            } else if model.recordCount > 0 {
-                Text("記録する件数: \(model.recordCount)件（\(YenFormatter.string(from: model.linesTotal))）")
-                    .font(.footnote)
-                    .foregroundStyle(Theme.inkSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            Button {
-                model.requestRecord()
-            } label: {
-                Text("記録する")
-                    .fontWeight(.semibold)
-                    // 押せるときは主の塗りの上なので onAccent（Theme の説明）。押せないときは灰色のガラスの上なので補足の文字の色。
-                    .foregroundStyle(model.canRecord ? Theme.onAccent : Theme.inkSecondary)
-                    .frame(maxWidth: .infinity, minHeight: 44)
-            }
-            .buttonStyle(.glassProminent)
-            .tint(Theme.accentFill)
-            .disabled(!model.canRecord)
-            .accessibilityIdentifier(AccessibilityID.Receipt.recordButton)
-        }
-    }
 }
 
 // MARK: - 品目の行
@@ -511,7 +478,7 @@ private struct ReceiptLineRow: View {
         }
     }
 
-    /// 数量・値引き・軽減税率・外したことの注記。
+    /// 数量・値引き・外したことの注記。軽減税率の印は出さない（記録には関わらず、どの食品にも付いて行を長くするだけのため）。
     private var note: Text? {
         var parts: [String] = []
         if let quantity = line.quantity, let unitPrice = line.unitPrice {
@@ -519,9 +486,6 @@ private struct ReceiptLineRow: View {
         }
         if line.discount > 0 {
             parts.append(String(localized: "値引 \(YenFormatter.string(from: line.discount))"))
-        }
-        if line.isReducedTaxRate {
-            parts.append(String(localized: "軽減税率"))
         }
         if !line.isIncluded {
             parts.append(String(localized: "外した"))
@@ -593,39 +557,6 @@ private struct ReceiptSectionLabel: View {
             .font(.subheadline)
             .foregroundStyle(Theme.inkSecondary)
             .accessibilityAddTraits(.isHeader)
-    }
-}
-
-/// 選べるもの（記録のしかた）。選んだものは墨の枠とチェックの印で示す（色だけに頼らない。主の塗りは記録するボタンにだけ使う）。
-private struct ReceiptChoiceButton<Content: View>: View {
-    let isSelected: Bool
-    let action: () -> Void
-    @ViewBuilder let label: Content
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                label
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(.body.weight(.semibold))
-                        .accessibilityHidden(true)
-                }
-            }
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .background(Theme.surface, in: .rect(cornerRadius: 12))
-            .overlay {
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(isSelected ? Theme.ink : .clear, lineWidth: 2)
-            }
-            .contentShape(.rect(cornerRadius: 12))
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
