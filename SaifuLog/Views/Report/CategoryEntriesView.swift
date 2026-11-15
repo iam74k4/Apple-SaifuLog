@@ -1,22 +1,22 @@
 import SaifuLogCore
 import SwiftUI
 
-/// 月のまとめ（⑦）の内訳の行から進む、その期間のそのカテゴリの支出の記録の一覧。
+/// 月のまとめ（⑦）の内訳の行から進む、その月のそのカテゴリ（支払い方法の内訳の行からは、その払い方）の支出の記録の一覧。
 ///
 /// 読むための一覧で、並べ替えはしない。記録を押すと「直す」（⑥）のシートを開き、そこで直したり消したりできる（直して
 /// カテゴリや期間が変わった記録は、一覧から外れる）。長押しのメニューと VoiceOver の操作からも直す・削除できる（ホームと
 /// カレンダーの記録と同じ。削除は確認つき）。並びは使った日時の新しい順。
 struct CategoryEntriesView: View {
     @Bindable var model: MonthlyReportModel
-    let category: EntryCategory
+    let filter: ReportEntryFilter
 
     @Environment(\.categoryCatalog) private var catalog
 
     var body: some View {
-        let entries = model.entries(in: category)
+        let entries = model.entries(for: filter)
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                header(count: entries.count)
+                header(entries: entries)
                 if entries.isEmpty {
                     Text("この月の記録はありません")
                         .foregroundStyle(Theme.inkSecondary)
@@ -45,19 +45,32 @@ struct CategoryEntriesView: View {
         // 上へ流れた合計や記録が、題と戻るボタンの後ろで透けて重ならないよう、上ははっきりした効果にする（月のまとめと同じ）。
         .scrollEdgeEffectStyle(.hard, for: .top)
         .background(Theme.background)
-        .navigationTitle(catalog.label(for: category))
+        .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .modifier(ReportEntryModals(model: model, isActive: true))
     }
 
-    /// 期間・そのカテゴリの合計と割合・件数。合計と割合は内訳の行と同じ値（`MonthlyReport` の内訳）を出す。
-    private func header(count: Int) -> some View {
-        let item = model.report?.breakdown.item(for: category)
+    /// 題（カテゴリの名前か、払ったカードの名前・「現金・その他」）。
+    private var title: Text {
+        switch filter {
+        case .category(let category): catalog.label(for: category)
+        case .payment(let cardID): model.cardName(for: cardID).map { Text(verbatim: $0) } ?? Text("現金・その他")
+        }
+    }
+
+    /// 期間・合計・件数（カテゴリなら割合も）。カテゴリの合計と割合は内訳の行と同じ値（`MonthlyReport` の内訳）を出す。
+    private func header(entries: [Entry]) -> some View {
+        let item: CategoryBreakdown.Item? = if case .category(let category) = filter {
+            model.report?.breakdown.item(for: category)
+        } else {
+            nil
+        }
+        let total = item?.amount ?? entries.reduce(0) { $0 + $1.amount }
         return VStack(alignment: .leading, spacing: 4) {
             Text(verbatim: model.monthTitle)
                 .font(.subheadline)
                 .foregroundStyle(Theme.inkSecondary)
-            Text(verbatim: YenFormatter.string(from: item?.amount ?? 0))
+            Text(verbatim: YenFormatter.string(from: total))
                 .font(.largeTitle.bold())
                 .monospacedDigit()
                 .lineLimit(1)
@@ -67,7 +80,7 @@ struct CategoryEntriesView: View {
                     Text(verbatim: item.percentText)
                         .accessibilityLabel(Text(verbatim: item.spokenPercent))
                 }
-                Text("\(count) 件")
+                Text("\(entries.count) 件")
             }
             .font(.footnote)
             .foregroundStyle(Theme.inkSecondary)
@@ -117,11 +130,13 @@ struct CategoryEntryRow: View {
 
     private var titleAndDate: some View {
         VStack(alignment: .leading, spacing: 2) {
-            // 品目が無ければカテゴリ名（吹き出しの見出しと同じ）。
-            if entry.memo.isEmpty {
+            // 品目が無ければカテゴリ名（吹き出しの見出しと同じ）。割り勘などの説明を書き足した記録は、説明を除いた品目だけを
+            // 出す（ホームの返事の行と同じ。前は「焼肉（4人で割り勘・総額 ¥12,000・立替 ¥9,000）」のまま出て、金額が下の行に落ちた）。
+            let item = RecordedReplyRow<Entry>.text(of: entry).item
+            if item.isEmpty {
                 catalog.label(for: entry.category)
             } else {
-                Text(verbatim: entry.memo)
+                Text(verbatim: item)
             }
             Text(entry.spentAt, format: dateFormat)
                 .font(.caption)

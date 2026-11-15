@@ -126,7 +126,8 @@ struct CreditCardTests {
 
         #expect(try fixture.entries().isEmpty)
         #expect(fixture.model.pendingCardBill == nil)
-        #expect(fixture.model.draft == "クレカ引き落とし 50000")
+        // 記録しないと選んだので、送った文は入力欄に戻さない。
+        #expect(fixture.model.draft.isEmpty)
         #expect(fixture.lastQuestionState == .cardBillNotRecorded)
     }
 
@@ -245,6 +246,59 @@ struct CreditCardTests {
         let rows = try #require(report.paymentBreakdown?.rows)
         #expect(rows.map(\.card?.id) == ["jcb", nil])
         #expect(rows.map(\.amount) == [850, 300])
+
+        // 内訳の行から、その払い方の記録の一覧へ進める（現金・その他は空の ID）。
+        #expect(report.entries(paidWith: "jcb").map(\.amount) == [850])
+        #expect(report.entries(paidWith: "").map(\.amount) == [300])
+        report.showEntries(paidWith: "jcb")
+        #expect(report.selectedFilter == .payment(cardID: "jcb"))
+        #expect(report.cardName(for: "jcb") == "JCB")
+        #expect(report.cardName(for: "") == nil)
+    }
+
+    // MARK: - カードを登録する前の「カードで」
+
+    /// カードを登録していないのに「カードで」と書いたら、返事でカードを登録すれば数えられることを伝える（記録はカードなし）。
+    @Test func cardWordWithoutCardsSuggestsRegistering() async throws {
+        let fixture = try Fixture()
+        await fixture.send("スタバ 650 カードで")
+
+        #expect(try fixture.entries().map(\.cardID) == [""])
+        #expect(fixture.model.replyHint == .registerCard)
+
+        await fixture.send("ランチ 850")
+        #expect(fixture.model.replyHint != .registerCard)
+    }
+
+    /// いつものカードを登録したら、前に「カードで」と書いた支出を、そのカードの記録にするかを尋ね、選べばそうする。
+    /// 現金と書いたもの・払い方の無いもの・収入は尋ねない。
+    @Test func registeringCardOffersLinkingEarlierRecords() throws {
+        let context = try TestSupport.makeContext()
+        func record(_ text: String, income: Bool = false) -> Entry {
+            Entry(
+                amount: 650, isIncome: income, category: .cafe, memo: "スタバ", spentAt: TestSupport.date(2026, 9, 3),
+                createdAt: TestSupport.date(2026, 9, 3), source: .text, originalText: text
+            )
+        }
+        let card = record("スタバ 650 カードで")
+        try EntryStore(context: context).insert([
+            card, record("ランチ 850 現金で"), record("ランチ 850"), record("返金 650 カードで", income: true),
+        ])
+        let catalog = CardCatalogModel(store: CreditCardStore(context: context))
+        let list = CardListModel(cards: catalog, context: context, now: { TestSupport.now }, announce: { _ in })
+        let rakuten = try #require(try registerCards(in: context).first)
+        catalog.reload()
+
+        list.offerLinking(to: rakuten)
+        let link = try #require(list.pendingLink)
+        #expect(link.entryIDs == [card.persistentModelID])
+
+        list.confirmLink(link)
+        #expect(list.pendingLink == nil)
+        #expect(card.cardID == rakuten.id)
+        // ほかのカード（いつものカードでない JCB）では尋ねない。
+        list.offerLinking(to: try #require(catalog.cards.last))
+        #expect(list.pendingLink == nil)
     }
 
     // MARK: - くり返しとレシート

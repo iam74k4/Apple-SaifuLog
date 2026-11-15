@@ -26,7 +26,7 @@ struct CardListView: View {
                 }
             }
         }
-        .sheet(item: $model.editor) { editor in
+        .sheet(item: $model.editor, onDismiss: { model.editorDidDismiss() }) { editor in
             CardEditorSheet(model: editor)
         }
         .confirmationDialog(
@@ -42,6 +42,17 @@ struct CardListView: View {
             } else {
                 Text("記録は消えません。")
             }
+        }
+        // カードを登録する前に「カードで」「楽天カードで」と書いた記録を、登録したカードの記録にするか尋ねる。
+        .alert(
+            Text("カードで払ったと書いた記録が \(model.pendingLink?.entryIDs.count ?? 0) 件あります"),
+            isPresented: showsLinkConfirmation,
+            presenting: model.pendingLink
+        ) { link in
+            Button("このカードにする") { model.confirmLink(link) }
+            Button("そのまま", role: .cancel) {}
+        } message: { link in
+            Text("「\(link.card.name)」の記録にしますか？")
         }
         .alert(
             model.failure == .load ? Text("読み込めませんでした") : Text("保存できませんでした"),
@@ -159,6 +170,10 @@ struct CardListView: View {
 
     private var showsDeletionConfirmation: Binding<Bool> {
         Binding(get: { model.pendingDeletion != nil }, set: { if !$0 { model.pendingDeletion = nil } })
+    }
+
+    private var showsLinkConfirmation: Binding<Bool> {
+        Binding(get: { model.pendingLink != nil }, set: { if !$0 { model.pendingLink = nil } })
     }
 
     private var showsFailure: Binding<Bool> {

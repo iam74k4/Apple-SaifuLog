@@ -29,12 +29,15 @@ final class MonthlyReportModel {
     private(set) var monthEntries: [Entry] = []
     /// 表示している月の支出を、払ったカードごとに分けた合計（カードを登録していれば出す）。
     private(set) var paymentBreakdown: PaymentBreakdown?
-    /// 出している見方（内訳かカレンダー）。月を替えてもそのまま。
-    var tab: Tab = .breakdown
+    /// 出している見方（内訳かカレンダー）。月を替えてもそのまま。替えたらホームに知らせ、次に開くときもその見方で開く。
+    var tab: Tab = .breakdown {
+        didSet { if tab != oldValue { tabDidChange(tab) } }
+    }
+    @ObservationIgnored private let tabDidChange: @MainActor (Tab) -> Void
     /// 「カレンダー」の日ごとの集計と選んだ日の記録。月はこの画面の月に合わせる。
     let days: LedgerCalendarModel
-    /// 記録の一覧を出しているカテゴリ（横に進む）。一覧を閉じると画面が nil に戻す。
-    var selectedCategory: EntryCategory?
+    /// 記録の一覧を出している絞り方（カテゴリか払い方。横に進む）。一覧を閉じると画面が nil に戻す。
+    var selectedFilter: ReportEntryFilter?
     /// 「直す」のシートで直している記録の状態と操作。シートを閉じると画面が nil に戻す。
     var editing: EditEntryModel?
     /// 記録の一覧の長押しで消そうとしている記録（確認を出している間）。
@@ -69,6 +72,8 @@ final class MonthlyReportModel {
     ///   - didSave: ここから開いた「直す」で保存できたあとに呼ぶ（ホームが「取り消す」を片づける）。
     ///   - didDelete: ここから開いた「直す」で削除できたあとに、消した記録の ID を渡して呼ぶ（ホームが「取り消す」の対象から外す）。
     ///   - makeRecurring: カレンダーの記録の長押しの「毎月くり返す」で、その記録を渡して呼ぶ。nil なら出さない。
+    ///   - tab: 開くときの見方（ホームが前に選んだ見方を覚えて渡す。前は毎回「内訳」から開き、カレンダーを選び直していた）。
+    ///   - tabDidChange: 見方を替えたときに呼ぶ（ホームが覚える）。
     init(
         store: EntryStore,
         cards: CardCatalogModel? = nil,
@@ -78,9 +83,13 @@ final class MonthlyReportModel {
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) },
         didSave: @escaping @MainActor (Entry) -> Void = { _ in },
         didDelete: @escaping @MainActor (PersistentIdentifier) -> Void = { _ in },
-        makeRecurring: (@MainActor (Entry) -> Void)? = nil
+        makeRecurring: (@MainActor (Entry) -> Void)? = nil,
+        tab: Tab = .breakdown,
+        tabDidChange: @escaping @MainActor (Tab) -> Void = { _ in }
     ) {
         let today = now()
+        self.tab = tab
+        self.tabDidChange = tabDidChange
         self.makeRecurring = makeRecurring
         self.store = store
         self.cards = cards
@@ -148,7 +157,7 @@ final class MonthlyReportModel {
     /// 「前の月」「次の月」のボタンを押しても、フォーカスはボタンに残り、どの月になったかが読まれないため。
     private func show(_ newMonth: DateInterval) {
         month = newMonth
-        selectedCategory = nil
+        selectedFilter = nil
         days.follow(monthContaining: newMonth.start, calendar: calendar)
         reload()
         announce(monthTitle)
@@ -208,7 +217,38 @@ final class MonthlyReportModel {
 
     /// そのカテゴリの記録の一覧へ進む。
     func showEntries(in category: EntryCategory) {
-        selectedCategory = category
+        selectedFilter = .category(category)
+    }
+
+    /// 表示している月の、その払い方の支出の記録（並びはカテゴリの一覧と同じ）。`cardID` が空なら現金・その他（一覧に無いカードの
+    /// 記録も含む。支払い方法の内訳と同じ数え方）。
+    func entries(paidWith cardID: String) -> [Entry] {
+        let known = Set(cards?.cards.map(\.id) ?? [])
+        return monthEntries
+            .filter { entry in
+                guard !entry.isIncome else { return false }
+                let paidCard = known.contains(entry.cardID) ? entry.cardID : ""
+                return paidCard == cardID
+            }
+            .sorted { a, b in a.spentAt != b.spentAt ? a.spentAt > b.spentAt : a.createdAt > b.createdAt }
+    }
+
+    /// その払い方の記録の一覧へ進む（支払い方法の内訳の行）。`cardID` が空なら現金・その他。
+    func showEntries(paidWith cardID: String) {
+        selectedFilter = .payment(cardID: cardID)
+    }
+
+    /// 絞り方に合う記録。
+    func entries(for filter: ReportEntryFilter) -> [Entry] {
+        switch filter {
+        case .category(let category): entries(in: category)
+        case .payment(let cardID): entries(paidWith: cardID)
+        }
+    }
+
+    /// 払い方の名前（カードの名前。現金・その他や一覧に無いカードなら nil）。
+    func cardName(for cardID: String) -> String? {
+        cards?.card(id: cardID)?.name
     }
 
     /// 一覧の記録から「直す」のシートを出す。直したり消したりしたら読み直す（数字と一覧をすぐ合わせるため）。
@@ -280,6 +320,14 @@ extension MonthlyReportModel {
         /// 日ごとに使った額のカレンダーと、選んだ日の記録。
         case calendar
     }
+}
+
+/// 月の画面から進む記録の一覧の絞り方。
+enum ReportEntryFilter: Hashable {
+    /// カテゴリ別の内訳の行から。
+    case category(EntryCategory)
+    /// 支払い方法の内訳の行から（空は現金・その他）。
+    case payment(cardID: String)
 }
 
 /// ホームから横に進む先（`navigationDestination(item:)`）として渡すため、同じインスタンスかどうかで比べる。

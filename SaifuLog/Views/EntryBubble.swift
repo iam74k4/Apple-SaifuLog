@@ -166,6 +166,8 @@ struct FallbackLayout {
 protocol LedgerEntryDisplaying: LedgerRecord {
     /// 品目（メモ）。
     var memo: String { get }
+    /// 払ったカードの ID（`CreditCard.cardID`）。空は現金・その他。
+    var cardID: String { get }
 }
 
 extension Entry: LedgerEntryDisplaying {}

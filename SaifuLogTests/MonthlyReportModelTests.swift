@@ -217,11 +217,11 @@ struct MonthlyReportModelTests {
         )
         let model = fixture.makeModel()
         model.showEntries(in: .food)
-        #expect(model.selectedCategory == .food)
+        #expect(model.selectedFilter == .category(.food))
 
         model.showPreviousMonth()
 
-        #expect(model.selectedCategory == nil)
+        #expect(model.selectedFilter == nil)
     }
 
     // MARK: - 記録の変化

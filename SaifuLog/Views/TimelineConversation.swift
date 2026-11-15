@@ -44,7 +44,7 @@ struct EntrySend: Identifiable {
 // MARK: - 自分の吹き出し
 
 /// 自分が送ったもの（送った文・質問）の吹き出し。右に寄せ、灰色の面（`Theme.userBubble`）に墨の文字で出す。左に寄せる返事の
-/// カード（面の色と細い枠）とは、寄せる側と色で見分ける。前の配色の山吹で塗っていた時期もあったが、送るたびに山吹の大きな塊が並んで、
+/// 吹き出し（空色。`replyBubbleSurface`）とは、寄せる側と色で見分ける。前の配色の山吹で塗っていた時期もあったが、送るたびに山吹の大きな塊が並んで、
 /// 送信ボタンや予算の進捗バーより目立ったため、灰色にした（デザイン案の質問の画面と同じ考え方）。押せるものではない。
 struct UserMessageBubble: View {
     let text: String
@@ -65,9 +65,10 @@ struct UserMessageBubble: View {
             .accessibilityLabel(accessibilityLabel)
     }
 
-    /// 吹き出しの形。右下の角だけを小さくして、自分の側（右）から出た吹き出しに見せる。
+    /// 吹き出しの形。右上の角だけを小さくして、自分の側（右）から出た吹き出しに見せる（返事の吹き出しは左上。チャットのアプリの
+    /// ように、話した側の上の角をとがらせる。前は右下で、返事はとがった角の無いカードだった）。
     static var shape: UnevenRoundedRectangle {
-        UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18, bottomTrailingRadius: 6, topTrailingRadius: 18)
+        UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18, bottomTrailingRadius: 18, topTrailingRadius: 6)
     }
 
     @ViewBuilder
@@ -135,7 +136,7 @@ struct PendingRecordView: View {
                     .foregroundStyle(Theme.inkSecondary)
             }
             .accessibilityElement(children: .combine)
-            .replyCardSurface()
+            .replyBubbleSurface()
             .leadingReply()
         }
     }
@@ -144,7 +145,7 @@ struct PendingRecordView: View {
 // MARK: - アプリの返事
 
 /// 送信へのアプリの返事（記録したもの）のカード。左に寄せる（右の自分の吹き出しと見分けるため）。質問の回答カードと
-/// 同じ見た目（`replyCardSurface`）。
+/// 同じ見た目（`replyBubbleSurface`）。
 ///
 /// 直前の送信とくり返しの記録には、見出しに「記録しました」（2 件以上なら件数も）を出し、直前の送信なら右に「取り消す」を出す。「取り消す」は時間では
 /// 引っ込めない（次の文を送る・取り消す・その記録を直す・記録先を切り替える・開き直すまで。`HomeModel.canUndo`）。記録ごとに
@@ -209,7 +210,7 @@ struct RecordedReplyCard: View {
             }
         }
         // 見出しは 44pt の高さの真ん中に文字があるので、上の余白を詰めて、下の余白とつり合わせる。
-        .replyCardSurface(topPadding: showsHeader ? 2 : 12)
+        .replyBubbleSurface(topPadding: showsHeader ? 0 : 10)
         .leadingReply()
     }
 
@@ -270,10 +271,10 @@ struct CategoryQuestionView: View {
                 }
             }
             .scrollIndicators(.hidden)
-            // カードの左右の余白（`replyCardSurface`）の外まで送れるようにする。余白の内側で切ると、右の端のボタンが途中で
+            // 吹き出しの左右の余白（`replyBubbleSurface`）の外まで送れるようにする。余白の内側で切ると、右の端のボタンが途中で
             // 切れて見えるため。並べ始めはほかの行と同じ位置にそろえる。
-            .contentMargins(.horizontal, 16, for: .scrollContent)
-            .padding(.horizontal, -16)
+            .contentMargins(.horizontal, ReplyBubble.horizontalPadding, for: .scrollContent)
+            .padding(.horizontal, -ReplyBubble.horizontalPadding)
             if CategoryMemory.key(for: item) != nil {
                 Text("選ぶと、次から「\(item)」の記録にも使います。")
                     .font(.caption)
@@ -302,8 +303,8 @@ struct CategoryQuestionView: View {
             .frame(minHeight: 36)
             .background {
                 Capsule()
-                    .fill(Theme.background)
-                    .stroke(Theme.track, lineWidth: 1)
+                    .fill(Theme.replyControl)
+                    .stroke(Theme.replyRule, lineWidth: 1)
             }
             // 見た目は 36pt の高さにし、押せる範囲は上下の余白まで広げて 44pt にする。
             .padding(.vertical, 4)
@@ -330,8 +331,8 @@ struct CategoryQuestionView: View {
             .frame(minHeight: 36)
             .background {
                 Capsule()
-                    .fill(Theme.background)
-                    .stroke(Theme.track, lineWidth: 1)
+                    .fill(Theme.replyControl)
+                    .stroke(Theme.replyRule, lineWidth: 1)
             }
             .padding(.vertical, 4)
             .contentShape(.rect)
@@ -476,6 +477,7 @@ struct RecordedReplyRow<Record: LedgerEntryDisplaying>: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
     @Environment(\.categoryCatalog) private var catalog
+    @Environment(\.paymentCards) private var cards
     @ScaledMetric(relativeTo: .body) private var tileSize = 36
 
     private var showsTile: Bool {
@@ -552,10 +554,13 @@ struct RecordedReplyRow<Record: LedgerEntryDisplaying>: View {
 
     private func content(title: String) -> some View {
         // 品目が無いときは見出しが種別なので、下の行に種別は繰り返さない（同じ語が 2 回出て、VoiceOver でも 2 回読まれるため）。
-        let kind = title.isEmpty ? nil : entry.kindText(in: catalog)
+        // 払ったカードがあれば、種別に続けて名前を添える（前は直す画面を開かないと、カードで払った記録になったか分からなかった）。
+        let kindParts = [title.isEmpty ? nil : entry.kindText(in: catalog), cardName].compactMap(\.self)
+        let kind = kindParts.isEmpty ? nil : kindParts.joined(separator: "・")
         let date = dateText
         return LeadingStack(spacing: 2) {
-            SplitRowLayout(spacing: 8, stackedSpacing: 2, alwaysStacks: title.contains(where: \.isNewline)) {
+            // 品目と金額の間は 16pt 空ける（吹き出しは中身の幅に合わせるので、この間がそのまま品目と金額の間になる）。
+            SplitRowLayout(spacing: 16, stackedSpacing: 2, alwaysStacks: title.contains(where: \.isNewline)) {
                 Text(verbatim: title.isEmpty ? entry.kindText(in: catalog) : title)
                     .font(.body.weight(.semibold))
                     .foregroundStyle(Theme.ink)
@@ -590,6 +595,12 @@ struct RecordedReplyRow<Record: LedgerEntryDisplaying>: View {
         } else if let text = kind ?? date {
             Text(verbatim: text)
         }
+    }
+
+    /// 払ったカードの名前。カードで払っていない・一覧に無いカード（ほかの端末で消した）なら nil。
+    private var cardName: String? {
+        guard !entry.cardID.isEmpty else { return nil }
+        return cards.first { $0.id == entry.cardID }?.name
     }
 
     /// 使った日（送った日と違うときだけ）。今年でなければ年も添える。
@@ -672,9 +683,9 @@ private struct ReplyStatusLine: View {
 
     private func lines(_ sentences: [ReplySentence]) -> some View {
         LeadingStack(spacing: 10) {
-            // 記録の行と分けて、返事の終わりに添えた一行だと分かるようにする（カードの枠と同じ色の細い線）。
+            // 記録の行と分けて、返事の終わりに添えた一行だと分かるようにする（吹き出しの中の細い線）。
             Rectangle()
-                .fill(Theme.track)
+                .fill(Theme.replyRule)
                 .frame(height: 1)
                 .accessibilityHidden(true)
             LeadingStack(spacing: 4) {
@@ -716,6 +727,10 @@ struct ReplyHintLine: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(Text("ヒント: 違っていたら「それ日用品」「さっきのを900に直して」と送れば直せます"))
                 .accessibilityIdentifier(AccessibilityID.Reply.correctionHint)
+        case .registerCard:
+            label(Text("設定の「カード」でカードを登録すると、「カードで」の記録をカードごとに数えます"), systemImage: "creditcard")
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text("ヒント: 設定の「カード」でカードを登録すると、「カードで」の記録をカードごとに数えます"))
         }
     }
 
@@ -777,21 +792,23 @@ struct TimelineDayHeader: View {
 // MARK: - 見た目
 
 extension View {
-    /// アプリからの返事のカード（記録しました・質問の回答）の面。面の色の角丸に、細い枠を付ける。
-    /// 幅は置いた場所いっぱいに広げ、中身は左に寄せる。
+    /// アプリからの返事（記録しました・質問の回答・案内）の吹き出し。空色の面（`Theme.replyBubble`）で、左上の角だけを小さくする
+    /// （左の側から出た吹き出しに見せる。自分の吹き出しは右上）。
     ///
-    /// - Parameter topPadding: 上の余白。見出しが 44pt の高さを持つカード（記録しました）は詰める。
-    func replyCardSurface(topPadding: CGFloat = 12) -> some View {
-        self
-            .padding(EdgeInsets(top: topPadding, leading: 16, bottom: 12, trailing: 16))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            // 面と背景の色の差は小さい（ライトは白と白に近い灰色）ので、枠でカードの形を見せる。面と枠は 1 つの形で描く（重ねて
-            // 描くと、カードごとに形が 2 つになり、行をすべて測るタイムラインを開くのが遅くなったため）。
-            .background {
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(Theme.surface)
-                    .stroke(Theme.track, lineWidth: 1)
-            }
+    /// 幅は中身に合わせ、置いた場所より広くはしない（`ReplyBubbleWidth`。2026-11-16）。前は置いた場所いっぱいに広げた白いカードで、
+    /// 「ランチ ¥850」の 1 行でも画面の幅の大きな面になり、品目と金額の間が大きく空いていた。中身が長ければ置いた場所の幅で折り返す。
+    ///
+    /// - Parameter topPadding: 上の余白。見出しが 44pt の高さを持つ返事（記録しました）は詰める。
+    func replyBubbleSurface(topPadding: CGFloat = 10) -> some View {
+        ReplyBubbleWidth {
+            self.padding(
+                EdgeInsets(
+                    top: topPadding, leading: ReplyBubble.horizontalPadding, bottom: 10, trailing: ReplyBubble.horizontalPadding
+                )
+            )
+        }
+        // 面は 1 つの形で描く（枠は付けない。空色が地と見分けられるため。形を重ねると、行をすべて測るタイムラインを開くのが遅くなる）。
+        .background(Theme.replyBubble, in: ReplyBubble.shape)
     }
 
     /// アプリからの返事として左に寄せ、右に余白を残す（アクセシビリティサイズの文字では幅を使わせる）。
@@ -802,6 +819,66 @@ extension View {
     /// 自分が送ったものとして右に寄せ、左に余白を残す（アクセシビリティサイズの文字では幅を使わせる）。
     func trailingMessage() -> some View {
         modifier(MessageSideMargin(margin: .leading))
+    }
+}
+
+/// 返事の吹き出しの寸法と形。
+enum ReplyBubble {
+    /// 吹き出しの左右の余白（中の横に送れるボタンの並びも、この幅だけ外まで送る）。
+    static let horizontalPadding: CGFloat = 14
+
+    /// 左上の角だけを小さくした形（自分の吹き出し `UserMessageBubble.shape` と左右を入れ替えた形）。
+    static var shape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 18, bottomTrailingRadius: 18, topTrailingRadius: 18)
+    }
+}
+
+/// 吹き出しの幅を中身に合わせる並べ方。中身が 1 行で収まる幅（幅を決めずに測った幅）と、置いた場所の幅の狭い方を中身に
+/// 提案する。中身は提案された幅いっぱいに並ぶ（返事の行は品目を左、金額を右の端に置く）ので、2 件の返事でも金額の列がそろう。
+///
+/// `.fixedSize` にしないのは、長い文を置いた場所の幅で折り返させるため。幅を決めずに測るのは中身ごとに 1 回だけにする
+/// （タイムラインは行をすべて測るので、測り直しを増やさない）。
+struct ReplyBubbleWidth: Layout {
+    struct Cache {
+        var idealWidth: CGFloat?
+    }
+
+    func makeCache(subviews: Subviews) -> Cache {
+        Cache()
+    }
+
+    func updateCache(_ cache: inout Cache, subviews: Subviews) {
+        cache.idealWidth = nil
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) -> CGSize {
+        guard let content = subviews.first else { return .zero }
+        let width = fittingWidth(of: content, proposal: proposal, cache: &cache)
+        return content.sizeThatFits(ProposedViewSize(width: width, height: nil))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) {
+        subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(width: bounds.width, height: nil))
+    }
+
+    // 揃えの位置を中身に問い合わせない（`LeadingStack` と同じ。問い合わせると行の中まで測り直す）。
+    func explicitAlignment(
+        of guide: HorizontalAlignment, in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache
+    ) -> CGFloat? {
+        nil
+    }
+
+    func explicitAlignment(
+        of guide: VerticalAlignment, in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache
+    ) -> CGFloat? {
+        nil
+    }
+
+    private func fittingWidth(of content: LayoutSubview, proposal: ProposedViewSize, cache: inout Cache) -> CGFloat {
+        let ideal = cache.idealWidth ?? content.sizeThatFits(.unspecified).width
+        cache.idealWidth = ideal
+        guard let available = proposal.width, available.isFinite else { return ideal }
+        return min(ideal, available)
     }
 }
 

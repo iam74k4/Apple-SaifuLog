@@ -255,6 +255,23 @@ struct PaymentLinkerTests {
     func cardBill(text: String, isBill: Bool) {
         #expect(Self.linker.isCardBill(text) == isBill)
     }
+
+    @Test("文が指すカード: 払い方が 1 つのカードに決まるときだけ。カードの語は、登録したカードが無くても見る")
+    func cardFromText() {
+        #expect(Self.linker.cardID(forText: "スタバ 650 カードで") == "rakuten")
+        #expect(Self.linker.cardID(forText: "ランチ 850 エポスで") == "epos")
+        #expect(Self.linker.cardID(forText: "ランチ 850 現金で") == nil)
+        #expect(Self.linker.cardID(forText: "ランチ 850") == nil)
+        #expect(Self.linker.cardID(forText: "コーヒー 400 カードで パン 300 現金で") == nil)
+
+        let none = PaymentLinker(cards: [])
+        #expect(none.cardID(forText: "スタバ 650 カードで") == nil)
+        #expect(none.mentionsCard("スタバ 650 カードで"))
+        #expect(none.mentionsCard("ランチ 850 クレカ払い"))
+        #expect(!none.mentionsCard("ランチ 850 現金で"))
+        #expect(!none.mentionsCard("図書カード 1000"))
+        #expect(!none.mentionsCard("ランチ 850"))
+    }
 }
 
 @Suite("カードの質問")

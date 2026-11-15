@@ -97,6 +97,8 @@ final class HomeModel {
     private(set) var inputFocusRequest = 0
     /// 「月のまとめ」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
     var monthlyReport: MonthlyReportModel?
+    /// 月のまとめで前に選んだ見方（内訳かカレンダー）。次に開くときもその見方で開く。
+    @ObservationIgnored private(set) var reportTab: MonthlyReportModel.Tab = .breakdown
     /// 「設定」（横に進む画面）の状態と操作。出していなければ nil（ホームへ戻ると画面が nil に戻す）。
     var settings: SettingsModel? {
         didSet {
@@ -516,7 +518,8 @@ final class HomeModel {
             }
             // 文に書いた払い方（「楽天カードで」「カードで」「現金で」）から払ったカードを決め、品目から払い方の言葉を除く
             // （`PaymentLinker`。AI と辞書のどちらで読んだ記録にも当てる）。カテゴリを決める前に除き、品目の言葉でカテゴリを引く。
-            let linked = PaymentLinker(cards: cards.cards).link(parsed, text: text)
+            let linker = PaymentLinker(cards: cards.cards)
+            let linked = linker.link(parsed, text: text)
             // 作ったカテゴリの名前・覚えたカテゴリ・過去の記録のいつものカテゴリ・店の名前の辞書を、AI と辞書のどちらで読んだ
             // 記録にも当てる（`CategoryResolver`）。覚えや過去の記録を読めなくても、記録は止めない。
             let catalog = categories.catalog
@@ -558,7 +561,13 @@ final class HomeModel {
             announceRecorded(
                 recorded, today: sentAt, calendar: calendar, asksCategory: recorded.contains(where: \.needsCategoryReview)
             )
-            replyHint = hints?.nextHint()
+            // カードを登録していないのに「カードで」と書いた支出は、カードの記録にならない（黙って無視していた）。登録すれば
+            // カードごとに数えられることを、その返事にだけ伝える（直し方のヒントより先に）。
+            if cards.cards.isEmpty, recorded.contains(where: { !$0.isIncome }), linker.mentionsCard(text) {
+                replyHint = .registerCard
+            } else {
+                replyHint = hints?.nextHint()
+            }
         }
     }
 
@@ -657,12 +666,12 @@ final class HomeModel {
         )
     }
 
-    /// 確認で「記録しない」を押した。送った文と、記録しなかった理由をタイムラインに出し、文を入力欄に戻す（書き直して送れるように）。
+    /// 確認で「記録しない」を押した。送った文と、記録しなかったことをタイムラインに出す。
     /// 直前の送信の「取り消す」と聞き返しは引っ込めない（記録していないので、前の返事はまだ直前の返事のまま）。
     func cancelCardBill(_ pending: PendingCardBill) {
         if pendingCardBill?.id == pending.id { pendingCardBill = nil }
         appendQuestion(pending.text, askedAt: pending.sentAt, state: .cardBillNotRecorded)
-        restoreDraft(pending.text)
+        // 送った文は入力欄に戻さない（記録しないと選んだので用は済んでいる。戻すと、送り直しても同じ確認が出るだけだった）。
         announce(String(localized: "引き落としは記録していません"))
     }
 
@@ -1446,7 +1455,10 @@ final class HomeModel {
             didSave: { [weak self] entry in self?.finishEditing(entry) },
             didDelete: { [weak self] id in self?.forgetJustRecorded(id) },
             // カレンダーの記録の長押しの「毎月くり返す」（シートはホームが出す。会話の返事の行と同じ）。
-            makeRecurring: { [weak self] entry in self?.presentRecurringCreation(from: entry, calendar: calendar) }
+            makeRecurring: { [weak self] entry in self?.presentRecurringCreation(from: entry, calendar: calendar) },
+            // 前に選んだ見方（内訳かカレンダー）で開き、替えたら覚える（アプリを開いている間）。
+            tab: reportTab,
+            tabDidChange: { [weak self] tab in self?.reportTab = tab }
         )
     }
 

@@ -44,6 +44,23 @@ public struct PaymentLinker: Sendable {
         }
     }
 
+    /// 文に書いた払い方が指すカード（払い方が 1 つに決まり、それがカードのときだけ）。現金・ほかの払い方・払い方の無い文は nil。
+    ///
+    /// カードを登録する前に「カードで」と書いた記録を、あとで登録したカードの記録にしてよいかを見るのに使う（`link` と同じ読み方）。
+    public func cardID(forText text: String) -> String? {
+        let chars = Array(TextNormalizer.normalize(text))
+        let kinds = mentions(in: chars, requireRightBoundary: true).filter { $0.isRemovable(in: chars) }.map(\.kind)
+        return Self.singleChoice(kinds).flatMap(cardID(for:))
+    }
+
+    /// 文にカードで払ったと書いてあるか（「カードで」「クレカで」「VISAカードで」、登録したカードの名前）。登録したカードが無くても見る。
+    ///
+    /// カードを登録していない人が「カードで」と書いたときに、カードを登録すればカードごとに数えられることを伝えるのに使う。
+    public func mentionsCard(_ text: String) -> Bool {
+        let chars = Array(TextNormalizer.normalize(text))
+        return mentions(in: chars, requireRightBoundary: true).contains { $0.isRemovable(in: chars) && $0.kind.isCard }
+    }
+
     /// 文がカードの引き落とし（請求の支払い）を書いたものか。カードの支出は使った日に数えるので、引き落としを記録すると二重に
     /// 数える。記録する前に確かめるのに使う（金額があるかは呼び出し側が見る）。
     ///

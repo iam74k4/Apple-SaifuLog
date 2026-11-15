@@ -59,9 +59,9 @@ struct MonthlyReportView: View {
             }
             MonthSwitcher(model: model)
         }
-        .modifier(ReportEntryModals(model: model, isActive: model.selectedCategory == nil))
-        .navigationDestination(item: $model.selectedCategory) { category in
-            CategoryEntriesView(model: model, category: category)
+        .modifier(ReportEntryModals(model: model, isActive: model.selectedFilter == nil))
+        .navigationDestination(item: $model.selectedFilter) { filter in
+            CategoryEntriesView(model: model, filter: filter)
         }
         // 保存先に書き込まれたら読み直す。まとめを開く直前に送った文の読み取り（AI だと 1 秒以上かかる）が、
         // 開いた後に記録されることがあるため。ここから直したり消したりしたときは、モデルが自分で読み直す。
@@ -98,7 +98,7 @@ struct MonthlyReportView: View {
                     }
                     BreakdownCard(breakdown: report.breakdown, select: { model.showEntries(in: $0) })
                     if let payments = model.paymentBreakdown {
-                        PaymentBreakdownCard(breakdown: payments)
+                        PaymentBreakdownCard(breakdown: payments, select: { model.showEntries(paidWith: $0) })
                     }
                 case .calendar:
                     MonthCalendarContent(
@@ -338,39 +338,52 @@ struct ReportRow: View {
 /// （引き落としの額は設定の「カード」に出す）。
 struct PaymentBreakdownCard: View {
     let breakdown: PaymentBreakdown
+    /// 行を押した（その払い方の記録の一覧へ進む）。現金・その他は空の ID。
+    let select: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("支払い方法")
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
+            // 説明の文は付けない（カテゴリ別の内訳と同じく、行を押せば記録が見られる。前は数え方の説明を下に添えていた）。
             VStack(spacing: 0) {
                 ForEach(breakdown.rows) { row in
                     if row.id != breakdown.rows.first?.id {
                         Divider()
                     }
-                    HStack(spacing: 10) {
-                        Image(systemName: row.card == nil ? "banknote" : "creditcard")
-                            .foregroundStyle(Theme.inkSecondary)
-                            .accessibilityHidden(true)
-                        Group {
-                            if let card = row.card {
-                                Text(verbatim: card.name)
-                            } else {
-                                Text("現金・その他")
+                    Button {
+                        select(row.card?.id ?? "")
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: row.card == nil ? "banknote" : "creditcard")
+                                .foregroundStyle(Theme.inkSecondary)
+                                .accessibilityHidden(true)
+                            Group {
+                                if let card = row.card {
+                                    Text(verbatim: card.name)
+                                } else {
+                                    Text("現金・その他")
+                                }
                             }
+                            .foregroundStyle(Theme.ink)
+                            Spacer(minLength: 8)
+                            Text(YenFormatter.string(from: row.amount))
+                                .monospacedDigit()
+                                .foregroundStyle(Theme.ink)
+                            Image(systemName: "chevron.right")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(Theme.inkSecondary)
+                                .accessibilityHidden(true)
                         }
-                        Spacer(minLength: 8)
-                        Text(YenFormatter.string(from: row.amount))
-                            .monospacedDigit()
+                        .frame(minHeight: 44)
+                        .contentShape(.rect)
                     }
-                    .frame(minHeight: 44)
+                    .buttonStyle(.plain)
                     .accessibilityElement(children: .combine)
+                    .accessibilityHint("この払い方の記録の一覧を開きます")
                 }
             }
-            Text("使った日の月で数えた額です。カードの引き落としの額は、設定の「カード」で見られます。")
-                .font(.footnote)
-                .foregroundStyle(Theme.inkSecondary)
         }
         .reportCard()
     }

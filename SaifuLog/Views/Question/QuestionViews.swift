@@ -44,7 +44,7 @@ private struct QuestionReplyCard: View {
     var body: some View {
         content
             .foregroundStyle(Theme.ink)
-            .replyCardSurface()
+            .replyBubbleSurface()
             .leadingReply()
     }
 
@@ -110,7 +110,7 @@ private struct QuestionReplyCard: View {
         case .budgetSet(let amount):
             NoticeContent(
                 title: "月の予算を決めました",
-                message: "今月から \(YenFormatter.string(from: amount)) にしました。ホームの上に、今月あといくら使えるかを出します。"
+                message: "今月から \(YenFormatter.string(from: amount)) にしました。"
             )
         case .recategorized(let item, let category, let remembered):
             NoticeContent(
@@ -126,7 +126,7 @@ private struct QuestionReplyCard: View {
         case .cardBillNotRecorded:
             NoticeContent(
                 title: "引き落としは記録していません",
-                message: "カードで払った支出は、使った日に記録して数えています。引き落としも記録すると二重になるので、記録しませんでした。引き落としの額は、設定の「カード」で見られます。"
+                message: "引き落としの額は、設定の「カード」で見られます。"
             )
         }
     }
@@ -345,7 +345,7 @@ struct AnswerTrendChart: View {
                             .frame(maxWidth: .infinity, alignment: .center)
                             .frame(height: barAreaHeight, alignment: .bottom)
                         Rectangle()
-                            .fill(Theme.track)
+                            .fill(Theme.replyRule)
                             .frame(height: 1)
                     }
                     Text(verbatim: monthLabel(point))
@@ -401,8 +401,8 @@ struct FollowUpQuestions: View {
                             .frame(minHeight: 36)
                             .background {
                                 Capsule()
-                                    .fill(Theme.background)
-                                    .stroke(Theme.track, lineWidth: 1)
+                                    .fill(Theme.replyControl)
+                                    .stroke(Theme.replyRule, lineWidth: 1)
                             }
                             // 見た目は 36pt、押せる範囲は 44pt（カテゴリの聞き返しのボタンと同じ）。
                             .padding(.vertical, 4)
@@ -414,9 +414,9 @@ struct FollowUpQuestions: View {
             }
         }
         .scrollIndicators(.hidden)
-        // カードの左右の余白の外まで送れるようにする（カテゴリの聞き返しのボタンと同じ）。
-        .contentMargins(.horizontal, 16, for: .scrollContent)
-        .padding(.horizontal, -16)
+        // 吹き出しの左右の余白の外まで送れるようにする（カテゴリの聞き返しのボタンと同じ）。
+        .contentMargins(.horizontal, ReplyBubble.horizontalPadding, for: .scrollContent)
+        .padding(.horizontal, -ReplyBubble.horizontalPadding)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text("続けて聞く"))
     }
@@ -537,7 +537,7 @@ private struct NoticeContent: View {
                             .font(.subheadline.weight(.semibold))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(Theme.background, in: .rect(cornerRadius: 12))
+                            .background(Theme.replyControl, in: .rect(cornerRadius: 12))
                             .accessibilityLabel(Text("入力例: \(example)"))
                     }
                 }

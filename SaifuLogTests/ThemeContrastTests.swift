@@ -49,6 +49,15 @@ struct ThemeContrastTests {
         .init(name: "onAccent / accentFill", foreground: Palette.onAccent, background: Palette.accentFill),
         // タイムラインの自分の吹き出し（送った文・質問）の文字。
         .init(name: "ink / userBubble", foreground: Palette.ink, background: Palette.userBubble),
+        // タイムラインのアプリの返事の吹き出し（空色）の文字。見出し・品目・金額・日付・今月のようす・注意・収入の金額を載せる。
+        .init(name: "ink / replyBubble", foreground: Palette.ink, background: Palette.replyBubble),
+        .init(name: "inkSecondary / replyBubble", foreground: Palette.inkSecondary, background: Palette.replyBubble),
+        .init(name: "accentText / replyBubble", foreground: Palette.accentText, background: Palette.replyBubble),
+        .init(name: "danger / replyBubble", foreground: Palette.danger, background: Palette.replyBubble),
+        .init(name: "income / replyBubble", foreground: Palette.income, background: Palette.replyBubble),
+        // 吹き出しの中のボタン（カテゴリの聞き返し・続けて聞く質問）と入力例の文字。
+        .init(name: "ink / replyControl", foreground: Palette.ink, background: Palette.replyControl),
+        .init(name: "accentText / replyControl", foreground: Palette.accentText, background: Palette.replyControl),
     ]
 
     @Test(arguments: textCombinations, Mode.allCases)
@@ -75,7 +84,8 @@ struct ThemeContrastTests {
     }
 
     /// 地・面・文字・主の塗りは色味を持たない灰色（赤・緑・青が同じ値）にする（「白 × 墨」の決め事。docs/design.md §7）。
-    /// 色はカテゴリ・収入・注意の意味のある色にだけ使い、画面の土台に色味を足さないため。
+    /// 色はカテゴリ・収入・注意の意味のある色と、アプリの返事の吹き出しの空色（`replyBubble` とその中の `replyControl`・
+    /// `replyRule`。ここには並べない）にだけ使い、画面の土台に色味を足さないため。
     @Test(arguments: Mode.allCases)
     func baseColorsAreNeutralGray(mode: Mode) {
         let tokens: [(String, ColorPair)] = [
@@ -164,6 +174,9 @@ struct ThemeContrastTests {
             ("accentFill", Theme.accentFill, Palette.accentFill),
             ("onAccent", Theme.onAccent, Palette.onAccent),
             ("userBubble", Theme.userBubble, Palette.userBubble),
+            ("replyBubble", Theme.replyBubble, Palette.replyBubble),
+            ("replyControl", Theme.replyControl, Palette.replyControl),
+            ("replyRule", Theme.replyRule, Palette.replyRule),
             ("danger", Theme.danger, Palette.danger),
             ("dangerFill", Theme.dangerFill, Palette.dangerFill),
             ("track", Theme.track, Palette.track),
