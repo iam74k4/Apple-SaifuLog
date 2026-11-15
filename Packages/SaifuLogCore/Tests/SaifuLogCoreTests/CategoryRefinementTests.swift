@@ -39,6 +39,11 @@ struct CategoryRefinementTests {
     static let clothes = CustomCategoryInfo(id: "clothes", name: "衣服", symbolName: "tshirt", colorIndex: 0)
     static let customCatalog = CategoryCatalog(customs: [clothes])
 
+    /// 時間切れを確かめないテストの上限。すぐ返す AI の代わりでも、CI では並んで動くほかのテストに押されて 5 秒の上限を
+    /// 使い切り、2 件目を聞けずに落ちた（develop でも 5 秒の上限のところを 2.8 秒かかっていた）。答えはすぐ返るので、
+    /// 長くしてもテストは遅くならない。
+    static let ampleTimeout: Duration = .seconds(120)
+
     /// 振り分けてから（`CategoryResolver`）聞き直す。
     private static func resolved(
         _ entries: [ParsedEntry], memory: CategoryMemory = CategoryMemory(), catalog: CategoryCatalog = .builtIn
@@ -179,7 +184,7 @@ struct CategoryRefinementTests {
         let entries = [Self.expense("ジンギスカン"), Self.expense("なぞの品"), Self.expense("ランチ", 850, .food)]
 
         let refined = try await CategoryRefinement.refine(
-            Self.resolved(entries), classifier: classifier, timeout: .seconds(5), onFallback: log.report
+            Self.resolved(entries), classifier: classifier, timeout: Self.ampleTimeout, onFallback: log.report
         )
 
         #expect(refined.map(\.category) == [.food, .other, .food])
@@ -196,7 +201,7 @@ struct CategoryRefinementTests {
 
         let refined = try await CategoryRefinement.refine(
             Self.resolved([Self.expense("Tシャツ", 2_000, .daily), Self.expense("ジンギスカン")], catalog: Self.customCatalog),
-            catalog: Self.customCatalog, classifier: classifier, timeout: .seconds(5)
+            catalog: Self.customCatalog, classifier: classifier, timeout: Self.ampleTimeout
         )
 
         #expect(refined.map(\.category) == [Self.clothes.category, .food])
@@ -210,7 +215,7 @@ struct CategoryRefinementTests {
         let entries = [Self.expense("ランチ", 850, .food), ParsedEntry(amount: 250_000, category: .other, isIncome: true, memo: "給料")]
 
         let refined = try await CategoryRefinement.refine(
-            Self.resolved(entries), classifier: StubClassifier(log: log), timeout: .seconds(5)
+            Self.resolved(entries), classifier: StubClassifier(log: log), timeout: Self.ampleTimeout
         )
 
         #expect(refined == entries)
@@ -223,7 +228,7 @@ struct CategoryRefinementTests {
         let classifier = StubClassifier(answers: ["b": "交通"], failing: ["a"], log: log)
 
         let refined = try await CategoryRefinement.refine(
-            Self.resolved([Self.expense("a"), Self.expense("b")]), classifier: classifier, timeout: .seconds(5),
+            Self.resolved([Self.expense("a"), Self.expense("b")]), classifier: classifier, timeout: Self.ampleTimeout,
             onFallback: log.report
         )
 
