@@ -99,17 +99,25 @@ struct CardEditorSheet: View {
                 .foregroundStyle(Theme.inkSecondary)
             FlowLayout(spacing: 8) {
                 ForEach(model.availablePresets, id: \.name) { preset in
+                    // 選んだ候補は墨の枠で囲む（前は押しても印が付かず、名前の欄を見ないと選べたか分からなかった）。
+                    let isSelected = model.name == preset.name
                     Button {
                         model.choosePreset(name: preset.name, closingDay: preset.closingDay, paymentDay: preset.paymentDay)
                     } label: {
                         Text(verbatim: preset.name)
-                            .font(.subheadline)
+                            .font(.subheadline.weight(isSelected ? .semibold : .regular))
                             .padding(.horizontal, 14)
                             .frame(minHeight: 40)
                             .background(Theme.surface, in: .capsule)
+                            .overlay {
+                                if isSelected {
+                                    Capsule().strokeBorder(Theme.ink, lineWidth: 1.5)
+                                }
+                            }
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(Theme.ink)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
         }

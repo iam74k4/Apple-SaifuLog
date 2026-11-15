@@ -13,6 +13,9 @@ struct ReplyHints {
     enum Hint: Equatable, Sendable {
         /// チャットでの直し方。
         case correction
+        /// カードを登録すれば「カードで」の記録をカードごとに数えられること（カードを登録していないのに「カードで」と書いたとき。
+        /// 数えて出し分けるヒントではなく、その返事にだけ出す）。
+        case registerCard
     }
 
     /// それぞれのヒントを出す、記録の返事の回数の上限。

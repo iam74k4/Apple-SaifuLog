@@ -9,7 +9,7 @@ import UIKit
 /// ライトとダークは iOS の設定に従う（アプリ内に外観の設定は置かない）。
 ///
 /// 地はライトが白に近い灰色、ダークが黒で、色味を持たせない（アプリのアイコンの地と財布と同じ白と黒）。色はカテゴリ・収入・注意の
-/// 意味のある色と設定の行の印にだけ使い、画面の操作の色は墨と白にする（2026-10-02 に「墨 × 山吹」から替えた。山吹は白地で 1.8:1 しか無く、
+/// 意味のある色と設定の行の印、アプリの返事の吹き出しの空色（`replyBubble`。2026-11-16）にだけ使い、画面の操作の色は墨と白にする（2026-10-02 に「墨 × 山吹」から替えた。山吹は白地で 1.8:1 しか無く、
 /// 送信ボタンや主ボタンの形が地から見分けにくかったため）。
 ///
 /// 使い分け:
@@ -23,7 +23,7 @@ import UIKit
 enum Theme {
     /// 画面の背景。
     static let background = Palette.background.color
-    /// アプリの返事のカード（記録しました・質問の回答）など、背景の上に載せる面。
+    /// 背景の上に載せる面（設定の行・シートの欄など）。
     static let surface = Palette.surface.color
     /// 本文の文字（墨）。
     static let ink = Palette.ink.color
@@ -36,6 +36,14 @@ enum Theme {
     /// タイムラインの自分の吹き出し（送った文・質問）の面。墨の文字を載せる。背景とアプリの返事のカード（面）の
     /// どちらとも見分けられる灰色にする。
     static let userBubble = Palette.userBubble.color
+    /// タイムラインのアプリの返事（記録しました・質問の回答・案内）の吹き出しの面。淡い空色に墨の文字を載せる（2026-11-16）。
+    /// 前は自分の吹き出しと同じ色味の無い白い面に細い枠を付けたカードで、どちらが話しているかを寄せる側でしか見分けられず、
+    /// 会話が灰色一色に見えたため、チャットのアプリのように返事の側にだけ色を付けた。
+    static let replyBubble = Palette.replyBubble.color
+    /// 返事の吹き出しの中に置くボタン（カテゴリの聞き返し・続けて聞く質問）と入力例の面。空色の上で形が見えるようにする。
+    static let replyControl = Palette.replyControl.color
+    /// 返事の吹き出しの中の細い線（今月のようすの一行の上の線・推移の棒の基準線・中のボタンの枠）。
+    static let replyRule = Palette.replyRule.color
     /// 文字の強調の色（Assets の AccentColor。値は `Palette.accentText` と同じにしてあり、テストで照合する）。
     static let accentText = Color.accentColor
     /// 注意の色（予算オーバーなど）。アイコンと文字を必ず添える。
@@ -77,12 +85,17 @@ enum Palette {
     static let accentFill = ColorPair(light: 0x111111, dark: 0xF5F5F5)
     static let onAccent = ColorPair(light: 0xFFFFFF, dark: 0x111111)
     static let userBubble = ColorPair(light: 0xEBEBEB, dark: 0x2C2C2C)
+    /// 返事の吹き出しは淡い空色（ダークは夜の空の紺）。墨・補足の文字・注意・収入の文字が 4.5:1 以上で読める明るさにしてある。
+    static let replyBubble = ColorPair(light: 0xDBEAFB, dark: 0x1B2C44)
+    static let replyControl = ColorPair(light: 0xFFFFFF, dark: 0x2A3F5C)
+    static let replyRule = ColorPair(light: 0xBFD3EC, dark: 0x30486A)
     /// Assets の AccentColor と同じ値にする（二か所にあるので、テストで食い違いを止める）。
     static let accentText = ColorPair(light: 0x111111, dark: 0xF5F5F5)
     static let danger = ColorPair(light: 0xB3261E, dark: 0xFF8A80)
     static let dangerFill = ColorPair(light: 0xB3261E, dark: 0xB3261E)
     static let track = ColorPair(light: 0xE5E5E5, dark: 0x2E2E2E)
-    static let income = ColorPair(light: 0x2E7D4F, dark: 0x7FD1A0)
+    /// ライトは空色の返事の吹き出しの上でも 4.5:1 以上になる濃さにする（2026-11-16 に 0x2E7D4F から濃くした）。
+    static let income = ColorPair(light: 0x276B43, dark: 0x7FD1A0)
     /// カテゴリの丸と返事の行の印はダークでもライトの色で塗る（EntryBubble・RecordedReplyRow）ので、記号は両方とも白にする。
     static let onCategory = ColorPair(light: 0xFFFFFF, dark: 0xFFFFFF)
 

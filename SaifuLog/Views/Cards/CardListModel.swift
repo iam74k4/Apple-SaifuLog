@@ -15,6 +15,10 @@ final class CardListModel {
     var editor: CardEditorModel?
     /// 削除の確認に出しているカード。出していなければ nil。
     var pendingDeletion: PendingDeletion?
+    /// 登録したカードの記録にするかを尋ねている、前に「カードで」と書いた記録。尋ねていなければ nil。
+    var pendingLink: PendingLink?
+    /// いま閉じようとしている登録のシートで登録したカード（シートが閉じきってから尋ねる。閉じる途中に確認を出すと出せないため）。
+    @ObservationIgnored private var createdCard: PaymentCard?
     /// 読み書きの失敗（アラートを出す）。
     var failure: Failure?
     /// カードごとの今の締めと次の引き落とし（一覧に出す）。読めなければ空。
@@ -81,9 +85,50 @@ final class CardListModel {
     /// カードを登録するシートを出す。
     func presentCreation() {
         guard canCreate else { return }
-        editor = CardEditorModel(mode: .create, store: store, cards: cards, announce: announce) { [weak self] _ in
+        editor = CardEditorModel(mode: .create, store: store, cards: cards, announce: announce) { [weak self] card in
             self?.reload()
+            self?.createdCard = card
         }
+    }
+
+    /// 登録・直すのシートが閉じきった。登録したカードがあれば、前の記録をそのカードの記録にするか尋ねる。
+    func editorDidDismiss() {
+        guard let card = createdCard else { return }
+        createdCard = nil
+        offerLinking(to: card)
+    }
+
+    /// 登録したカードが指す、前の記録を探す（カードを登録する前に「カードで」「楽天カードで」と書いた支出で、まだカードの記録に
+    /// なっていないもの）。あれば、そのカードの記録にするかを尋ねる（`pendingLink`）。
+    ///
+    /// 黙ってカードの記録にはしない（ほかのカードで払ったつもりのこともあるため）。前は尋ねもせず、登録した後も「現金・その他」に
+    /// 数えたままだった。
+    func offerLinking(to card: PaymentCard) {
+        let linker = PaymentLinker(cards: cards)
+        let descriptor = FetchDescriptor<Entry>(predicate: #Predicate { $0.cardID == "" && !$0.isIncome })
+        guard let candidates = try? context.fetch(descriptor) else { return }
+        let ids = candidates
+            .filter { linker.cardID(forText: $0.originalText) == card.id }
+            .map(\.persistentModelID)
+        guard !ids.isEmpty else { return }
+        pendingLink = PendingLink(card: card, entryIDs: ids)
+    }
+
+    /// 尋ねた記録を、そのカードの記録にする。確かめている間にほかの端末で消された記録は飛ばす。
+    func confirmLink(_ link: PendingLink) {
+        pendingLink = nil
+        let entries = link.entryIDs.compactMap { context.model(for: $0) as? Entry }.filter { !$0.isDeleted }
+        guard !entries.isEmpty else { return }
+        for entry in entries { entry.cardID = link.card.id }
+        do {
+            try context.save()
+        } catch {
+            context.rollback()
+            failure = .save
+            return
+        }
+        reload()
+        announce(String(localized: "\(entries.count) 件を「\(link.card.name)」の記録にしました"))
     }
 
     /// カードを直すシートを出す。
@@ -164,6 +209,13 @@ final class CardListModel {
         /// このカードの記録の件数（「現金・その他」になる件数）。
         let entryCount: Int
 
+        var id: String { card.id }
+    }
+
+    /// 登録したカードの記録にするかを尋ねている記録。
+    struct PendingLink: Identifiable, Equatable {
+        let card: PaymentCard
+        let entryIDs: [PersistentIdentifier]
         var id: String { card.id }
     }
 

@@ -227,8 +227,9 @@ struct HomeView: View {
             // 帯と入力欄は safeAreaBar に置き、記録がその下を流れるようにする（iOS 26 のスクロール端の効果が、帯と入力欄の
             // 下で記録をぼかす）。帯は前は画面の背景の色で塗り、下端に細い線を引いていた（塗った帯の下では効果が隠れたため）。
             // やわらかい効果（既定の .soft）では帯の下の方で記録が透け、予算の行が読みにくくなった。上ははっきりした効果
-            // （.hard）にする。下（入力欄）は既定のまま。
-            .scrollEdgeEffectStyle(.hard, for: .top)
+            // （.hard）にする。下（入力欄）も同じにする（やわらかい効果では、入力欄の後ろで返事の文字やカテゴリの色が透け、
+            // 入力欄の文字と重なって読めなかった）。
+            .scrollEdgeEffectStyle(.hard, for: [.top, .bottom])
             .safeAreaBar(edge: .top, spacing: 0) {
                 header
                     // 合計は画面の上に常に出ている帯なので、文字の大きさに上限を設ける。最大の文字サイズの
@@ -706,7 +707,8 @@ private struct TimelineScrollView<Content: View>: View {
             }
         }
         .defaultScrollAnchor(.bottom)
-        .scrollDismissesKeyboard(.interactively)
+        // タイムラインを少しでも動かしたら、キーボードを閉じる（前はキーボードまで引き下げたときだけ閉じ、閉じ方が分からなかった）。
+        .scrollDismissesKeyboard(.immediately)
         // スクロールの枠は帯と入力欄の間（安全領域の中）に置かれるので、枠の位置が行の見える範囲になる。
         .reportsTimelineFrame(.viewport)
     }
@@ -846,15 +848,15 @@ private struct EmptyTimelineView: View {
                 .accessibilityIdentifier(AccessibilityID.Home.emptyTimeline)
             Text("下の入力欄に、こんなふうに送るだけで記録できます。")
                 .foregroundStyle(Theme.inkSecondary)
-            examples(Self.recordExamples)
+            examples(HomeExamples.record)
             Text("同じ入力欄で、家計について聞くこともできます。")
                 .foregroundStyle(Theme.inkSecondary)
                 .padding(.top, 4)
-            examples(Self.questionExamples)
+            examples(HomeExamples.question)
             Text("月の予算も、同じ入力欄で決められます。")
                 .foregroundStyle(Theme.inkSecondary)
                 .padding(.top, 4)
-            examples(Self.budgetExamples)
+            examples(HomeExamples.budget)
         }
         .foregroundStyle(Theme.ink)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -888,12 +890,6 @@ private struct EmptyTimelineView: View {
         }
     }
 
-    /// 入力の例は日本語のまま見せる（解析が日本語の入力を前提にしているため、訳さない）。
-    private static let recordExamples = ["ランチ 850", "昨日 焼肉12000 4人で割り勘", "給料 25万"]
-    /// 質問の例（ようこその 3 つ目の例と同じ）。
-    private static let questionExamples = ["今月カフェいくら?"]
-    /// 月の予算を決める例（チャットの操作 `ChatCommand.setMonthlyBudget` に読める文）。
-    private static let budgetExamples = ["今月の予算を5万にして"]
 }
 
 #Preview {

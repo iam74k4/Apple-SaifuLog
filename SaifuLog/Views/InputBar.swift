@@ -60,11 +60,17 @@ struct InputBar: View {
             if let scanReceipt {
                 receiptButton(scanReceipt)
             }
-            // 1 行の入力欄にする。複数行にすると Return が改行になり、チャットのように送れないため。
-            TextField(text: $text, prompt: prompt) {
+            // 長い文は 4 行まで伸ばす（前は 1 行のまま横に流れ、「昨日 焼肉12000 4人で割り勘」くらいでも文の頭が隠れて、
+            // 送る前に見直せなかった）。複数行の入力欄では Return が改行になるので、末尾に足された改行を送る合図にする
+            // （`sendOnReturn`。チャットのように Return で送れるまま）。
+            TextField(text: $text, prompt: prompt, axis: .vertical) {
                 fieldLabel
             }
+            .lineLimit(1...4)
             .foregroundStyle(Theme.ink)
+            .onChange(of: text) { old, new in
+                sendOnReturn(old: old, new: new)
+            }
             .focused($isFocused)
             .accessibilityFocused($isAccessibilityFocused)
             .onChange(of: focusRequest) {
@@ -75,9 +81,11 @@ struct InputBar: View {
                 if !onScreen { isFocused = false }
             }
             .submitLabel(.send)
+            // 外付けのキーボードの Return は改行を入れず、確定（submit）として届く。ここでも送る（画面のキーボードの Return は
+            // 改行として届くので `sendOnReturn` で送る。両方が届いても、送ると文が空になるので 2 回は送らない）。
             .onSubmit {
+                guard canSend else { return }
                 send()
-                // Return で送るとキーボードが閉じる。続けて記録できるよう、入力欄にとどまる。
                 isFocused = true
             }
             // 記録も質問も同じ入力欄に打つ（記録か質問かはアプリが見分ける）。
@@ -95,6 +103,8 @@ struct InputBar: View {
             }
             // 入力欄は高さ 44pt 以上にし、文字の周りの余白（ガラスの枠の中）を押してもフォーカスが入るようにする。
             // 文字の部分だけが押せる範囲だと、高さが 22pt ほどしかないため。
+            // 2 行以上に伸びたときに、文字が枠の上下に付かないよう、上下にも余白を取る（1 行のときは 44pt のまま）。
+            .padding(.vertical, 6)
             .frame(minHeight: 44)
             .padding(.horizontal, 16)
             .contentShape(.rect(cornerRadius: 22))
@@ -103,6 +113,16 @@ struct InputBar: View {
 
             sendButton
         }
+    }
+
+    /// Return で打った改行（文の末尾に 1 つだけ足された改行）なら、改行を取って送る。貼り付けた文の改行や、文の途中で打った
+    /// 改行は残す（改行で分けた記録は、分けて記録するため）。送ったあとも、続けて記録できるよう入力欄にとどまる。
+    private func sendOnReturn(old: String, new: String) {
+        guard new.hasSuffix("\n"), new.dropLast() == old[...] else { return }
+        text = old
+        guard canSend else { return }
+        send()
+        isFocused = true
     }
 
     private var sendButton: some View {

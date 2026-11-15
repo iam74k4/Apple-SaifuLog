@@ -25,13 +25,16 @@ struct ReceiptResultSheet: View {
                             if model.requestClose() { dismiss() }
                         }
                     }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button(role: .confirm) {
-                            model.requestRecord()
+                    // ✓ は読み取れたときだけ出す（読み取っている間や読めなかったときは記録するものが無く、押せない ✓ が残っていた）。
+                    if model.state == .ready {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(role: .confirm) {
+                                model.requestRecord()
+                            }
+                            .disabled(!model.canRecord)
+                            .accessibilityLabel(Text("記録する"))
+                            .accessibilityIdentifier(AccessibilityID.Receipt.recordButton)
                         }
-                        .disabled(!model.canRecord)
-                        .accessibilityLabel(Text("記録する"))
-                        .accessibilityIdentifier(AccessibilityID.Receipt.recordButton)
                     }
                 }
                 .alert("記録できませんでした", isPresented: $model.showsSaveFailure) {
@@ -145,10 +148,13 @@ private struct ReceiptUnreadableView: View {
                         if source == .photos {
                             tip("写真が iCloud にだけあるときは、インターネットにつながった状態で選び直してください。", systemImage: "icloud")
                         }
+                    } else if source == .photos {
+                        // 写真から選んだときは、撮り方ではなく選ぶ画像のこつを出す（前は写真を選んだのにも「撮ってください」と出ていた）。
+                        tip("金額の書かれたレシートの画像を選んでください。", systemImage: "photo")
+                        tip("レシート全体が写り、文字がはっきり読める画像を選んでください。", systemImage: "doc.text.magnifyingglass")
                     } else {
                         tip("明るい場所で、レシート全体が枠に入るように撮ってください。", systemImage: "sun.max")
                         tip("しわや折り目を伸ばし、影が入らないようにしてください。", systemImage: "hand.raised")
-                        tip("金額の書かれたレシートの画像を選んでください。", systemImage: "photo")
                     }
                 }
                 // 閉じるのは左上の「閉じる」から（同じボタンを 2 つ並べない）。主の塗りは使わない（記録するボタンにだけ使う）。

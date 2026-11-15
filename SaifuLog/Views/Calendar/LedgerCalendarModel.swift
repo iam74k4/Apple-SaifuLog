@@ -23,6 +23,8 @@ final class LedgerCalendarModel {
         let memo: String
         let spentAt: Date
         let createdAt: Date
+        /// 払ったカードの ID（空は現金・その他）。
+        let cardID: String
         /// くり返しの記録から記録したものか（行の長押しに「毎月くり返す」を出さない）。
         let isRecurring: Bool
 
@@ -34,6 +36,7 @@ final class LedgerCalendarModel {
             memo = entry.memo
             spentAt = entry.spentAt
             createdAt = entry.createdAt
+            cardID = entry.cardID
             isRecurring = entry.source == .recurring
         }
     }

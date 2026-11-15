@@ -141,44 +141,36 @@ struct OnboardingModelTests {
 
     // MARK: - 入力の例
 
-    /// ようこその例は、AI が無くてもキーワード辞書で書いたとおりに記録・回答できる（AI が使えない端末でも、例のとおりに書けば
-    /// 記録や質問ができるように）。例を差し替えたら、ここも合わせる。
-    /// 確かめるのは記録のされ方に書いたもの（金額・日付・割り勘の人数・件数、質問なら記録しないことと何を答えるか）だけ。
-    /// カテゴリは AI が使える端末ではモデルの答えになりうるので、記録のされ方に書かず、ここでも確かめない。
-    @Test func examplesAreRecordableWithoutAI() async throws {
+    /// 記録の無いホームの例は、AI が無くてもキーワード辞書で書いたとおりに記録・回答できる（AI が使えない端末でも、例のとおりに
+    /// 書けば記録や質問ができるように）。例を差し替えたら、ここも合わせる。カテゴリは AI が使える端末ではモデルの答えになりうるので
+    /// 確かめない。
+    @Test func homeExamplesWorkWithoutAI() async throws {
         let parser = RuleBasedParser(calendar: TestSupport.calendar, now: { TestSupport.now })
-        let examples = WelcomeExample.all
-        try #require(examples.count == 3)
-
         func intent(_ text: String) -> InputIntent {
             InputIntentClassifier.classify(text, now: TestSupport.now, calendar: TestSupport.calendar)
         }
+        try #require(HomeExamples.record.count == 3)
 
-        #expect(intent(examples[0].text) == .record)
-        let lunch = try await parser.parse(examples[0].text)
+        #expect(HomeExamples.record.allSatisfy { intent($0) == .record })
+        let lunch = try await parser.parse(HomeExamples.record[0])
         #expect(lunch.map(\.amount) == [850])
         #expect(lunch.map(\.daysAgo) == [0])
-
-        #expect(intent(examples[1].text) == .record)
-        let yakiniku = try await parser.parse(examples[1].text)
+        let yakiniku = try await parser.parse(HomeExamples.record[1])
         #expect(yakiniku.map(\.amount) == [3_000])
         #expect(yakiniku.map(\.daysAgo) == [1])
         #expect(yakiniku.map(\.splitCount) == [4])
+        let salary = try await parser.parse(HomeExamples.record[2])
+        #expect(salary.map(\.amount) == [250_000])
+        #expect(salary.map(\.isIncome) == [true])
 
-        // 3 つ目は質問。記録にはならず、今月のカフェの支出として答える。
-        #expect(intent(examples[2].text) == .question)
-        #expect(QuestionParser.question(from: examples[2].text, now: TestSupport.now, calendar: TestSupport.calendar)
+        // 質問は記録にならず、今月のカフェの支出として答える。
+        let question = try #require(HomeExamples.question.first)
+        #expect(intent(question) == .question)
+        #expect(QuestionParser.question(from: question, now: TestSupport.now, calendar: TestSupport.calendar)
             == LedgerQuestion(period: .thisMonth, metric: .categoryExpense, category: .cafe))
-    }
 
-    /// 例の文は、英語の表に訳がある（String Catalog のキーと食い違うと、英語の画面に日本語が出る）。
-    @Test func welcomeTextsAreLocalized() throws {
-        let english = try LocalizationTests.bundle(for: "en")
-        let resources = WelcomeExample.all.map(\.result)
-
-        for resource in resources {
-            let key = resource.key
-            #expect(english.localizedString(forKey: key, value: nil, table: nil) != key, "\(key) の英語の訳が無い")
-        }
+        // 予算の例は、チャットの操作として読む。
+        let budget = try #require(HomeExamples.budget.first)
+        #expect(ChatCommandReader.command(in: budget, now: TestSupport.now, calendar: TestSupport.calendar) == .setMonthlyBudget(50_000))
     }
 }

@@ -468,6 +468,17 @@
         }
       }
     },
+    "%lld 件を「%@」の記録にしました" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changed %lld records to “%@”"
+          }
+        }
+      }
+    },
     "%lld 件（くり返しの記録）" : {
       "comment" : "設定の「くり返しの記録」の行の右に出す、くり返しの記録の数。%lld は数",
       "localizations" : {
@@ -987,6 +998,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enter an amount of ¥1 or more."
+          }
+        }
+      }
+    },
+    "「%@」の記録にしますか？" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record them on “%@”?"
           }
         }
       }
@@ -1538,6 +1560,17 @@
         }
       }
     },
+    "このカードにする" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use This Card"
+          }
+        }
+      }
+    },
     "このカードの記録 %lld 件は「現金・その他」になります。記録そのものは消えません。" : {
       "comment" : "カードを削除する確認の本文。%lld は、そのカードの記録の件数",
       "localizations" : {
@@ -1590,6 +1623,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This file only had entries that are already here (%1$lld) and rows that couldn’t be read (%2$lld)."
+          }
+        }
+      }
+    },
+    "この払い方の記録の一覧を開きます" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the records paid this way"
           }
         }
       }
@@ -1799,6 +1843,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Forget All"
+          }
+        }
+      }
+    },
+    "そのまま" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave As Is"
           }
         }
       }
@@ -2389,17 +2444,6 @@
         }
       }
     },
-    "カードで払った支出は、使った日に記録して数えています。引き落としも記録すると二重になるので、記録しませんでした。引き落としの額は、設定の「カード」で見られます。" : {
-      "comment" : "カードの引き落としを記録しなかったときの返事のカードの本文",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Card spending is counted on the day you use the card, so recording the withdrawal would count it twice. Nothing was recorded. You can see withdrawal amounts in Settings > Cards."
-          }
-        }
-      }
-    },
     "カードの引き落としを記録しますか？" : {
       "comment" : "カードの引き落としを書いた文を送ったときの確認の見出し",
       "localizations" : {
@@ -2626,6 +2670,17 @@
         }
       }
     },
+    "ヒント: 設定の「カード」でカードを登録すると、「カードで」の記録をカードごとに数えます" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tip: Register a card in Cards in Settings to count “カードで” records by card"
+          }
+        }
+      }
+    },
     "ビルドの種類" : {
       "comment" : "社内テスト用と開発用（DEBUG）のビルドだけの診断画面。社内テスト用か DEBUG かの項目名",
       "localizations" : {
@@ -2692,6 +2747,17 @@
         }
       }
     },
+    "レシート全体が写り、文字がはっきり読める画像を選んでください。" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose an image that shows the whole receipt with clear text."
+          }
+        }
+      }
+    },
     "ロックは、iPhone の設定でパスコードを設定すると使えるようになります。" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2736,13 +2802,13 @@
         }
       }
     },
-    "使った日の月で数えた額です。カードの引き落としの額は、設定の「カード」で見られます。" : {
-      "comment" : "月のまとめの「支払い方法」の説明",
+    "今月から %@ にしました。" : {
+      "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Amounts are counted by the month you spent them. You can see card withdrawal amounts in Settings > Cards."
+            "value" : "Set to %@ starting this month."
           }
         }
       }
@@ -2754,6 +2820,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Breakdown"
+          }
+        }
+      }
+    },
+    "カードで払ったと書いた記録が %lld 件あります" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have %lld records noted as paid by card"
           }
         }
       }
@@ -2831,6 +2908,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Household"
+          }
+        }
+      }
+    },
+    "引き落としの額は、設定の「カード」で見られます。" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can see payment amounts in Cards in Settings."
           }
         }
       }
@@ -3319,17 +3407,6 @@
         }
       }
     },
-    "今日の日付で ¥850 を記録" : {
-      "comment" : "ようこその画面。入力の例「ランチ 850」がどう記録されるか。カテゴリは書かない（AI とキーワード辞書で変わりうるため）",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Recorded for today, ¥850"
-          }
-        }
-      }
-    },
     "今日より先の日付です。予定の記録でなければ、日付を確かめてください。" : {
       "comment" : "直すシートで今日より先の日付を選んだときの注意（保存はできる）",
       "localizations" : {
@@ -3363,17 +3440,6 @@
         }
       }
     },
-    "今月から %@ にしました。ホームの上に、今月あといくら使えるかを出します。" : {
-      "comment" : "チャットの文で月の予算を決めた後の返事のカードの本文。%@ は予算の金額",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Set to %@ from this month. The top of Home shows how much is left this month."
-          }
-        }
-      }
-    },
     "今月から %@ にします。" : {
       "comment" : "端末内 AI が選んだ予算を決める操作の確認の本文。%@ は予算の金額",
       "localizations" : {
@@ -3381,17 +3447,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The budget will be %@ from this month."
-          }
-        }
-      }
-    },
-    "今月のカフェの支出を答える（記録はしない）" : {
-      "comment" : "ようこその画面。入力の例「今月カフェいくら?」（質問）がどう扱われるか",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Answers how much you spent at cafés this month (nothing is recorded)"
           }
         }
       }
@@ -3971,6 +4026,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your records stay."
+          }
+        }
+      }
+    },
+    "設定の「カード」でカードを登録すると、「カードで」の記録をカードごとに数えます" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Register a card in Cards in Settings to count “カードで” records by card"
           }
         }
       }
@@ -4972,17 +5038,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "yesterday at this time"
-          }
-        }
-      }
-    },
-    "昨日の日付で、1人分の ¥3,000 を記録" : {
-      "comment" : "ようこその画面。入力の例「昨日 焼肉12000 4人で割り勘」がどう記録されるか",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Recorded for yesterday as your share, ¥3,000"
           }
         }
       }

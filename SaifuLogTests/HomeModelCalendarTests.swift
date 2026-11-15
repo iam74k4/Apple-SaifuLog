@@ -47,6 +47,18 @@ struct HomeModelCalendarTests {
         #expect(report.days.month?.start == TestSupport.date(2026, 9, 1))
     }
 
+    /// 見方を替えたら覚え、次に月の画面を開くときもその見方で開く（前は毎回「内訳」から開いた）。
+    @Test func reportRemembersTab() throws {
+        let fixture = try Fixture()
+        fixture.model.presentMonthlyReport(calendar: TestSupport.calendar)
+        try #require(fixture.model.monthlyReport).tab = .calendar
+        fixture.model.monthlyReport = nil
+
+        fixture.model.presentMonthlyReport(calendar: TestSupport.calendar)
+
+        #expect(fixture.model.monthlyReport?.tab == .calendar)
+    }
+
     /// カレンダーの記録の長押しの「毎月くり返す」は、ホームのくり返しの記録を作るシートを出す。
     @Test func calendarMakeRecurringOpensEditor() async throws {
         let fixture = try Fixture()
