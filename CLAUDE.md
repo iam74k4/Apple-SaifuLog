@@ -277,8 +277,10 @@ docs: add privacy policy
 - `make build-tests` — アプリ側のテスト（`SaifuLogTests/`、Swift Testing）と UI テスト（`SaifuLogUITests/`）を
   `xcodebuild build-for-testing` でビルドする（汎用のシミュレータ向け、署名なし）。`make build` はスキームの build アクション
   （SaifuLog だけ）なので、テストのターゲットが壊れても `make build` だけでは気づけない
-- `make test-app` — アプリ側のテストをシミュレータで動かす（`build-tests` の後に `test-without-building`、
-  `-only-testing:SaifuLogTests`。本物の端末内 AI の答え方のテスト `AIEvaluationTests` は `-skip-testing` で外す）。
+- `make test-app` — アプリ側のテストとウィジェットのテストをシミュレータで動かす（`build-tests` の後に `test-without-building`、
+  `-only-testing:SaifuLogTests` と `-only-testing:SaifuLogWidgetsTests`。ウィジェットのテスト（`SaifuLogWidgetsTests/`）は、拡張は
+  @testable import できないので、拡張のソース（入口の `@main` を除く）と String Catalog をテストのバンドルにそのまま入れ、出す文と数字
+  （`MonthSpendPresentation`。英語の訳も）・予定の並び（`MonthSpendProvider`）・大きさ × 状態 × 文字の大きさで描けるかを見る。本物の端末内 AI の答え方のテスト `AIEvaluationTests` は `-skip-testing` で外す）。
   SwiftData の保存・読み込みの条件や保存の失敗の扱い、保存先の開き方、
   画面のモデル（`HomeModel`）の操作など、コアに置けない部分。
   機種は `scripts/pick-simulator.sh` が、いちばん新しい iOS の iPhone を選ぶ（`TEST_DESTINATION=…` で上書きできる）
@@ -292,7 +294,8 @@ docs: add privacy policy
   iCloud 同期はオフ・診断のボタンなし。`-SaifuLogUITestFirstRun YES` で初回の案内から、`-SaifuLogUITestReceipt YES` で決まった
   レシートの ⑤ を開く）、初回の案内・記録と取り消し・カテゴリの聞き返し・チャットの操作・質問・直す・削除・カレンダー・
   月のまとめ・設定とその先・CSV の書き出し・レシート・アクセシビリティの検査（`performAccessibilityAudit`。要素の説明と押せる
-  範囲）・いちばん大きな文字を押して確かめる。要素は表示の文ではなく名前（`SaifuLog/App/AccessibilityID.swift`。UI テストの
+  範囲）・いちばん大きな文字・ウィジェットを押したときの URL（`XCUIApplication.open`）・英語とダークの外観（`AppLaunch.language`・
+  `XCUIDevice.shared.appearance`。終わったらライトに戻す）を押して確かめる。要素は表示の文ではなく名前（`SaifuLog/App/AccessibilityID.swift`。UI テストの
   ターゲットにも同じファイルを入れる）で探す。画面に要素を足したり作り替えたりしたら、名前を付け直して UI テストも直す。
   待つときは決まった時間眠らず、要素の状態を待つ。CI のシミュレータは遅く揺れるので、入力欄はフォーカスが入るまで押し直してから
   打ち（`focusField`）、落ちたテストは xcodebuild が 1 回だけ動かし直す（`-retry-tests-on-failure -test-iterations 2`）。CI で
@@ -307,11 +310,15 @@ docs: add privacy policy
   Mac（macOS 26 以降）で Apple Intelligence をオンにし、モデルを入れ終えてから動かす。使えなければ飛ばさずに失敗する
   （`REQUIRE_AI_EVALUATION=1`）。CI のランナーでは Apple Intelligence を使えず、モデルの答えは揺れるので、`make ci` と build.yml には
   入れない。指示文・`@Guide`・AI に渡すもの・`AITimeouts` を変えたときと、リリースの前に通す（件ごとの答えと時間はログの表に出る）
+- `make coverage-report` — テストのカバレッジの表（コアのテスト・アプリのテストとウィジェットのテスト・UI テストの、行の割合と
+  置き場所ごとの割合と割合の低いファイル）を Markdown で出す（`scripts/coverage-report.py`）。先に `COVERAGE=YES` でテストを動かす
+  （`make test COVERAGE=YES`・`make build-tests COVERAGE=YES`・`make test-app COVERAGE=YES`・`make test-ui COVERAGE=YES`。結果は
+  `build/TestResults/`）。CI は実行のまとめ（Summary）に書く。合否には使わない（テストの無いところを見つけるための数字）
 - `make check-strings` — `make build` が書き出した Debug の .stringsdata と `Localizable.xcstrings` を突き合わせ、
   足りないキー・使われていないキー・en の無いキー・ja と en の書式指定子の不一致があれば止まる（`scripts/check-strings.py`）
 - `make ci` — 必須チェック `build`（build.yml）と同じ 9 種類（`make build`・`make check-strings`・`make test`・`make build-tests`・
   `make test-app`・`make test-ui`・`make test-app-ios26`・`make check-version`・`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を
-  順に通す。
+  順に通す（テストは `COVERAGE=YES` で動かし、UI テストの後に `make coverage-report` で表を出す）。
   アプリ側のテストは最新 iOS と iOS 26.2 の両方で動かす（SwiftData などの動作の違いも確かめる）。
   **`make build` が通るだけでは CI が通るとは限らない。** PR の前はこれを通す
 - `make clean` / `make open` — 生成物の削除 / Xcode で開く
