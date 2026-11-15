@@ -15,7 +15,7 @@ App Store Connect の「英語（米国）」のローカライズに入れる�
 | アプリ名 | 30 文字 | 8 文字 |
 | サブタイトル | 30 文字 | 18 文字 |
 | プロモーション用テキスト | 170 文字 | 152 文字 |
-| 説明 | 4,000 文字 | 3,736 文字（改行を含む） |
+| 説明 | 4,000 文字 | 3,980 文字（改行を含む） |
 | キーワード | 100 バイト | 89 バイト |
 | 著作権 | — | 14 文字 |
 
@@ -59,13 +59,18 @@ ONE-LINE ENTRY
 • On iPhone models that support Apple Intelligence, on-device AI reads your text; otherwise a keyword dictionary does, so you can always record.
 • Splits, totals, and what’s left are calculated by the app, not by the AI.
 • Undo right after each entry; tap any entry to edit it, or touch and hold to delete.
-• If a category is unclear, the reply asks and remembers. Housing and clothing categories are built in, and you can create your own.
-• Replies show how many times and how much you spent in that category this month, and what’s left of your budget.
+• If a category is unclear, the reply asks and remembers. You can also create your own categories.
+• Replies also show this month’s total for that category and what’s left of your budget.
 
 CATEGORIES AND CHAT FIXES
 • Categories come from what you wrote, chose, or logged before, and store names like “ローソン.”
-• On iPhone models that support Apple Intelligence, on-device AI sorts unknown items, including into categories you created.
+• On iPhone models that support Apple Intelligence, on-device AI sorts unknown items, even into categories you created.
 • After an entry, send “それ日用品” (that’s daily goods), “さっきのを900に直して” (make it 900), or “さっきの消して” (delete it). “今月の予算を5万にして” sets the budget. When on-device AI reads a fix worded another way, SaifuLog asks before changing anything.
+
+CREDIT CARDS
+• In Settings > Cards, add a card’s name, closing day, and payment day. No card numbers needed.
+• Send “ランチ 850 楽天カードで” (lunch on Rakuten Card) to record it on that card, then see each card’s spending this period and its next withdrawal.
+• Spending counts on the day you use the card, and SaifuLog asks before recording a card withdrawal to avoid counting it twice.
 
 AUTOMATIC MONTHLY ENTRIES
 • Rent, subscriptions, or salary can be recorded automatically each month.
@@ -74,22 +79,21 @@ SIRI AND SHORTCUTS
 • Say “Record in SaifuLog” or “Ask SaifuLog” to Siri. Both also work from Shortcuts and the Action button.
 
 WIDGETS
-• See what you've spent this month and what's left of your budget on the Home Screen and Lock Screen. Lock Screen widgets hide the amounts while your iPhone is locked, and no widget shows amounts while app lock is on. Tap to open the entry field.
+• Home Screen and Lock Screen widgets show this month’s spending and budget left. Amounts are hidden on the Lock Screen while your iPhone is locked, and everywhere while app lock is on. Tap to open the entry field.
 
 RECEIPTS
-• Photograph a receipt or pick a screenshot. SaifuLog reads the store, date, items, and total, sorts items into categories, and checks the total. Images are never saved or sent.
+• Photograph a receipt or pick a screenshot. SaifuLog reads the store, date, items, and total, sorts items by category, and checks the total. Images are never saved or sent.
 
 QUESTIONS ABOUT YOUR SPENDING
-• Ask in the same field, like “今月カフェいくら?” (how much on cafés this month?). The app calculates the answer, compares it with the previous period, shows a six-month trend, and suggests follow-up questions.
+• Ask in the same field, like “今月カフェいくら?” (how much on cafés this month?). The app calculates the answer, compares it with the previous period, and adds a six-month trend and follow-up questions.
 
 BUDGET, SUMMARY, AND CALENDAR
-• The top of the home screen shows what you’ve spent this month and, with a monthly budget, what’s left.
-• Tap it for the monthly summary: what you spent, what’s left of your budget, spending by category, and, for past months, the change from the month before.
+• The top of the home screen shows what you’ve spent this month and, with a monthly budget, what’s left. Tap it for the monthly summary: spending by category and payment method, budget left, and, for past months, the change from the month before.
 • Switch the summary to Calendar to see what you spent each day. Tap a day to see and edit its entries.
 
 EXPORT, SYNC, AND PRIVACY
-• Export your records as a CSV file, and import it again, for example on a new iPhone.
-• Sync with iCloud keeps records and budgets the same on your devices (off by default). The developer can’t see your iCloud data.
+• Export records as a CSV file and import them again, such as on a new iPhone.
+• Sync with iCloud (off by default) keeps your records the same on your devices. The developer can’t see your iCloud data.
 • Lock the app with Face ID, Touch ID, or your passcode.
 • No analytics, no ads, no tracking. The developer receives no data from the app.
 
@@ -105,7 +109,7 @@ Privacy Policy: https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md
 ```
 
 - **予算は月の全体の 1 つだけ:** カテゴリ別の予算はやめた（2026-11-13）。カテゴリごとに予算を決められるようには書かない（日本語と同じ）。
-- **字数:** 機能を足したときに上限を超えたので、各節を短くまとめた（2026-10-01。カレンダーを足した 2026-10-02 と、チャットでの直しを足した 2026-11-13 にも詰めた。同じ日に声の入力・週のふりかえり・プレミアムなどを外した。2026-11-15 に AI の一言の文を外した）。足すときは、ほかの節を詰めて 4,000 文字に収める。
+- **字数:** 機能を足したときに上限を超えたので、各節を短くまとめた（2026-10-01。カレンダーを足した 2026-10-02 と、チャットでの直しを足した 2026-11-13 にも詰めた。同じ日に声の入力・週のふりかえり・プレミアムなどを外した。2026-11-15 に AI の一言の文を外した。2026-11-16 にクレジットカードの節を足し、記録の返事・ウィジェット・質問・月のまとめ・書き出しと同期の文を詰めた。月のまとめの 2 行は 1 行にまとめた）。いまは上限まで 20 文字しかない。足すときは、ほかの節を詰めて 4,000 文字に収める。
 - **料金:** すべて無料で、App 内課金は無い（2026-11-13 にプレミアムと 14 日間の体験をやめた。`docs/design.md` §6）。配信は日本だけ
   （`../release-flow.md` の「一度だけの準備」の 5。アプリは円だけを扱う。円以外の通貨は `docs/design.md` §13 で未決）。
 - **例文:** 入力の例は日本語のまま書き、意味を英語で括弧に添える（アプリの画面の例も日本語のまま出している）。
