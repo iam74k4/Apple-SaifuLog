@@ -12,6 +12,7 @@
 #     make test-ui              画面を操作する UI テストをシミュレータで動かす（TEST_DESTINATION で宛先を変えられる）
 #     make test-ai              本物の端末内 AI の答え方のテストを動かす（Apple Intelligence をオンにした Mac で。CI には入れない）
 #     make check-strings        String Catalog とコードの文字列の整合を確かめる（make build の後に）
+#     make coverage-report      テストのカバレッジの表（COVERAGE=YES でテストを動かした後に）
 #     make ci                   CI（build.yml）と同じ 9 つ（build / check-strings / test / build-tests / test-app /
 #                               test-ui / test-app-ios26 / check-version / 署名なしの archive）
 #     make open                 生成して Xcode で開く
@@ -44,6 +45,18 @@ DERIVED_DATA := build/DerivedData
 # xcodebuild に足す引数（例: make build XCODEBUILD_FLAGS=-quiet）。
 XCODEBUILD_FLAGS ?=
 
+# テストのカバレッジを取るか（YES / NO）。YES なら、アプリのテストと UI テストを xcodebuild -enableCodeCoverage YES で動かし、
+# 結果（.xcresult）を TEST_RESULTS に残す。コアは make core-coverage で別に取る。make coverage-report が表にする（CI の build.yml と
+# make ci は YES）。合否には使わない（テストの無いところを見つけるための数字）。
+# make build-tests と make test-app / test-ui には同じ値を渡す（違うとテストのビルドが作り直しになる）。
+COVERAGE ?= NO
+TEST_RESULTS := build/TestResults
+COVERAGE_FLAGS = $(if $(filter YES,$(COVERAGE)),-enableCodeCoverage YES)
+# アプリのテストと UI テストの結果を残す場所（COVERAGE=YES のときだけ）。iOS 26 の版のアプリのテストでは残さない
+# （いちばん新しい iOS の結果を上書きしないため。make test-app-ios26 が空にして渡す）。
+APP_RESULT_BUNDLE ?= $(if $(filter YES,$(COVERAGE)),$(TEST_RESULTS)/app-tests.xcresult)
+UI_RESULT_BUNDLE ?= $(if $(filter YES,$(COVERAGE)),$(TEST_RESULTS)/ui-tests.xcresult)
+
 # アプリのテスト（SaifuLogTests）を動かすシミュレータ。渡さなければ、入っているシミュレータから
 # いちばん新しい iOS の iPhone を選ぶ（scripts/pick-simulator.sh）。機種の名前を決め打ちすると、
 # CI のランナーのイメージや手元の Xcode でその機種が無くなった日に落ちるため。
@@ -57,7 +70,7 @@ IOS26_TEST_OS ?= 26.2
 # 例: make test-app-ios26 IOS26_TEST_DESTINATION='platform=iOS Simulator,OS=26.2,name=iPhone 17 Pro'
 IOS26_TEST_DESTINATION ?= $(shell ./scripts/pick-simulator.sh $(IOS26_TEST_OS) 2>/dev/null)
 
-.PHONY: all generate build build-tests test test-app test-app-ios26 test-ui test-ai print-ios26-os check-strings ci open clean check-xcodegen
+.PHONY: all generate build build-tests test core-coverage test-app test-app-ios26 test-ui test-ai print-ios26-os check-strings coverage-report ci open clean check-xcodegen
 
 all: build
 
@@ -89,6 +102,13 @@ build: generate
 test:
 	swift test --package-path $(CORE_PACKAGE)
 
+# コアのテストのカバレッジを取る（make coverage-report の表のため。合否は make test で見る）。時間を測るテスト（上限の時間までに
+# 返るか。withDeadline・AI からルールベースへの切り替え・カテゴリの聞き直し）は外す。計測を入れると遅くなり、並べて動かす
+# ほかのテストに押されて決めた時間を超え、CI で落ちたため（それらのファイルの割合は、そのぶん低く出る）。
+CORE_COVERAGE_SKIP := DeadlineTests|FallbackEntryParserTests|CategoryRefinementTests
+core-coverage:
+	swift test --package-path $(CORE_PACKAGE) --enable-code-coverage --skip '$(CORE_COVERAGE_SKIP)'
+
 # アプリのテスト（SaifuLogTests）と UI テスト（SaifuLogUITests）、スキームのテストに入っている全ターゲットをビルドする
 # （動かさない）。make build はスキームの build アクション（SaifuLog だけ）なので、テストのターゲットがコンパイルできなく
 # なっても通ってしまう。宛先と引数は make build と同じ（汎用のシミュレータ・署名なし・SIM_ARCHS だけ）。
@@ -100,16 +120,20 @@ build-tests: generate
 		-derivedDataPath $(DERIVED_DATA) \
 		ARCHS=$(SIM_ARCHS) \
 		CODE_SIGNING_ALLOWED=NO \
+		$(COVERAGE_FLAGS) \
 		$(XCODEBUILD_FLAGS)
 
 # アプリのテストをシミュレータで動かす。先に build-tests を通し（変わったところだけビルドし直す）、
 # できたものを test-without-building でそのまま動かす。
-# コアのテスト（SaifuLogCoreTests）は make test の swift test で回しているので、ここでは SaifuLogTests だけ。
+# コアのテスト（SaifuLogCoreTests）は make test の swift test で回しているので、ここでは SaifuLogTests とウィジェットの
+# テスト（SaifuLogWidgetsTests）だけ。
 # 本物の端末内 AI の答え方のテスト（AIEvaluationTests）は外す（make test-ai で動かす）。Apple Intelligence を使える Mac では
 # 本物のモデルを呼び、モデルの答えの揺れで make ci の結果が変わるため（CI のランナーでは、外さなくても飛ばされるだけ）。
 # 宛先が id= で決まっているときは、先に起動して起動し終えるまで待つ（simctl bootstatus -b）。起動の途中で
 # テストのアプリを開こうとすると「Busy (Application failed preflight checks)」で落ちることがあるため。
 test-app: build-tests
+	@# 結果の置き場所に前の結果があると xcodebuild が止まるので、先に消す（置き場所は build/ の中の決まった名前だけ）。
+	@if [ -n "$(APP_RESULT_BUNDLE)" ]; then rm -rf "$(APP_RESULT_BUNDLE)"; mkdir -p "$(TEST_RESULTS)"; fi
 	@test -n "$(TEST_DESTINATION)" || { echo "error: アプリのテストを動かすシミュレータがありません。TEST_DESTINATION で宛先を渡してください。"; exit 1; }
 	@udid=$$(printf '%s\n' '$(TEST_DESTINATION)' | sed -n 's/.*id=\([0-9A-Fa-f-]*\).*/\1/p'); \
 		if [ -n "$$udid" ]; then xcrun simctl bootstatus "$$udid" -b >/dev/null; fi
@@ -119,7 +143,10 @@ test-app: build-tests
 		-destination '$(TEST_DESTINATION)' \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:SaifuLogTests \
+		-only-testing:SaifuLogWidgetsTests \
 		-skip-testing:SaifuLogTests/AIEvaluationTests \
+		$(COVERAGE_FLAGS) \
+		$(if $(APP_RESULT_BUNDLE),-resultBundlePath $(APP_RESULT_BUNDLE)) \
 		$(XCODEBUILD_FLAGS)
 
 # 画面を操作する UI テスト（SaifuLogUITests。XCUITest）をシミュレータで動かす。make test-app と同じく build-tests の
@@ -131,6 +158,7 @@ test-app: build-tests
 # シミュレータは遅く、アプリを開けない（プロセスが作られない）ことや、押した入力欄にフォーカスが入らないことがあり、同じテストが
 # 次の実行では通ったため。動かし直したテストは xcodebuild の出力に残る。
 test-ui: build-tests
+	@if [ -n "$(UI_RESULT_BUNDLE)" ]; then rm -rf "$(UI_RESULT_BUNDLE)"; mkdir -p "$(TEST_RESULTS)"; fi
 	@test -n "$(TEST_DESTINATION)" || { echo "error: UI テストを動かすシミュレータがありません。TEST_DESTINATION で宛先を渡してください。"; exit 1; }
 	@udid=$$(printf '%s\n' '$(TEST_DESTINATION)' | sed -n 's/.*id=\([0-9A-Fa-f-]*\).*/\1/p'); \
 		if [ -n "$$udid" ]; then xcrun simctl bootstatus "$$udid" -b >/dev/null; fi
@@ -142,6 +170,8 @@ test-ui: build-tests
 		-only-testing:SaifuLogUITests \
 		-retry-tests-on-failure \
 		-test-iterations 2 \
+		$(COVERAGE_FLAGS) \
+		$(if $(UI_RESULT_BUNDLE),-resultBundlePath $(UI_RESULT_BUNDLE)) \
 		$(XCODEBUILD_FLAGS)
 
 # 本物の端末内 AI（Foundation Models）の答え方のテスト（SaifuLogTests/AIEvaluation/ の AIEvaluationTests）だけを動かす
@@ -168,7 +198,7 @@ test-app-ios26:
 		echo "       IOS26_TEST_DESTINATION で宛先を渡してください。"; \
 		exit 1; \
 	}
-	$(MAKE) test-app TEST_DESTINATION='$(IOS26_TEST_DESTINATION)'
+	$(MAKE) test-app TEST_DESTINATION='$(IOS26_TEST_DESTINATION)' APP_RESULT_BUNDLE=
 
 # iOS 26 での互換性を確かめる iOS の版を書く。CI の build.yml が、その版のシミュレータを用意するのに使う
 # （版を Makefile の 1 か所だけに書くため）。
@@ -189,6 +219,15 @@ check-strings:
 		--catalog SaifuLogWidgets/Localizable.xcstrings \
 		--stringsdata-dir $(DERIVED_DATA)/Build/Intermediates.noindex/SaifuLog.build/Debug-iphonesimulator/SaifuLogWidgets.build/Objects-normal
 
+# テストのカバレッジの表（コアのテスト・アプリのテスト・UI テスト）を Markdown で出す（make core-coverage と、COVERAGE=YES で
+# アプリのテストと UI テストを動かした後に）。
+# 割合と、割合の低いファイルを並べる（scripts/coverage-report.py）。CI は実行のまとめ（Summary）にも書く。合否には使わない。
+coverage-report:
+	@python3 scripts/coverage-report.py \
+		--core-json "$$(swift test --package-path $(CORE_PACKAGE) --show-codecov-path)" \
+		--xcresult "アプリのテスト=$(TEST_RESULTS)/app-tests.xcresult" \
+		--xcresult "UI テスト=$(TEST_RESULTS)/ui-tests.xcresult"
+
 # 必須チェック build（.github/workflows/build.yml）と同じ確認を手元で通す。make build が
 # 通っても、CI はテスト（コア・アプリ。アプリは iOS 26 でも。画面を操作する UI テストも）・版の検査・提出用のアーカイブまで
 # 見るので、それだけでは足りない。
@@ -199,10 +238,12 @@ ci:
 	$(MAKE) build
 	$(MAKE) check-strings
 	$(MAKE) test
-	$(MAKE) build-tests
-	$(MAKE) test-app
-	$(MAKE) test-ui
-	$(MAKE) test-app-ios26
+	$(MAKE) build-tests COVERAGE=YES
+	$(MAKE) test-app COVERAGE=YES
+	$(MAKE) test-ui COVERAGE=YES
+	$(MAKE) core-coverage
+	$(MAKE) coverage-report
+	$(MAKE) test-app-ios26 COVERAGE=YES
 	$(MAKE) check-version
 	$(MAKE) archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999
 

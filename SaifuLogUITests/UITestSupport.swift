@@ -20,14 +20,52 @@ struct AppLaunch {
     var opensReceipt = false
     /// 文字の大きさ（`UIContentSizeCategory` の値。例: "UICTContentSizeCategoryAccessibilityXXXL"）。nil なら端末のまま。
     var contentSizeCategory: String?
+    /// 画面の言語。既定は日本語（期待する文を日本語で書いているため。ランナーのシミュレータは英語のことが多い）。
+    var language: Language = .japanese
 
-    /// 起動引数。画面の言語と地域は日本語に決める（期待する文を日本語で書いているため。ランナーのシミュレータは英語のことが多い）。
+    /// 画面の言語と地域、と画面の題名（ナビゲーションバーを名前で探すため）。
+    enum Language {
+        case japanese
+        case english
+
+        var code: String {
+            switch self {
+            case .japanese: "ja"
+            case .english: "en"
+            }
+        }
+
+        var locale: String {
+            switch self {
+            case .japanese: "ja_JP"
+            case .english: "en_US"
+            }
+        }
+
+        /// 設定（⑧）の題名。
+        var settingsTitle: String {
+            switch self {
+            case .japanese: "設定"
+            case .english: "Settings"
+            }
+        }
+
+        /// 月のまとめ（⑦）の題名。
+        var reportTitle: String {
+            switch self {
+            case .japanese: "月のまとめ"
+            case .english: "Monthly Summary"
+            }
+        }
+    }
+
+    /// 起動引数。
     var arguments: [String] {
         var arguments = [
             "-SaifuLogUITest", "YES",
             "-SaifuLogUITestSeed", seed.rawValue,
-            "-AppleLanguages", "(ja)",
-            "-AppleLocale", "ja_JP",
+            "-AppleLanguages", "(\(language.code))",
+            "-AppleLocale", language.locale,
         ]
         if firstRun {
             arguments += ["-SaifuLogUITestFirstRun", "YES"]
@@ -100,10 +138,18 @@ extension XCUIApplication {
         if !sendButton.waitUntilEnabled(timeout: 3) {
             print("送信のボタンが押せないので、改行で打った文を確定させます: \(text)")
             inputField.typeText("\n")
-            if inputField.wait(until: NSPredicate(format: "value != %@", text), timeout: 3) {
-                // 改行で送られた（入力欄が空いた）。
-                return
-            }
+            // 改行で送られた（入力欄が空いた）か、確定して送信のボタンが押せるようになるまで待つ。CI の遅いシミュレータでは、
+            // 改行で送られて入力欄が空くまでに 3 秒より長くかかり、送れていないと読んで、空いた入力欄の送信のボタンを待って
+            // 落ちたことがあった。
+            let deadline = Date().addingTimeInterval(UITestTimeout.ui)
+            repeat {
+                if (inputField.value as? String) != text {
+                    return
+                }
+                if sendButton.waitUntilEnabled(timeout: 1) {
+                    break
+                }
+            } while Date() < deadline
         }
         // CI の遅いシミュレータでは、初めてキーボードを出した後しばらくアプリが落ち着かず、確定した文が送信のボタンに届くまで
         // 10 秒ほどかかったことがあった。
@@ -232,10 +278,10 @@ extension XCUIApplication {
     /// 歯車を押して月のまとめが開いたら、押し間違いの不具合として失敗にする（前は帯の数字の的が歯車の真下まで広がっていて、
     /// CI で歯車を押したのに月のまとめが開いた。帯を左右の列に分けて直した。`SummaryHeader.wideRow`）。CI の遅いシミュレータでは
     /// 押しても何も開かないことがあったので、ホームのままなら 1 回だけ押し直す（ログに残す）。
-    func openSettings(file: StaticString = #filePath, line: UInt = #line) {
+    func openSettings(language: AppLaunch.Language = .japanese, file: StaticString = #filePath, line: UInt = #line) {
         let button = element(AccessibilityID.Home.settingsButton)
-        let bar = navigationBars["設定"]
-        let report = navigationBars["月のまとめ"]
+        let bar = navigationBars[language.settingsTitle]
+        let report = navigationBars[language.reportTitle]
         XCTAssertTrue(button.waitUntilHittable(timeout: UITestTimeout.launch), "設定のボタンが押せません", file: file, line: line)
         button.tap()
         if !bar.waitForExistence(timeout: UITestTimeout.ui) {
@@ -257,9 +303,9 @@ extension XCUIApplication {
     /// あった（CI で 2 回続けて。帯の下に会話の文が重なっていた）。押せるかの判定は、画面のその点にある要素をアクセシビリティから
     /// 問い合わせて決まり、帯の下に重なった会話の文が返ることがあるため。そのときは数字の真ん中を押し（指で押すときと同じく、
     /// 画面に見えている帯が受ける）、月のまとめが開くことで届くことを確かめる。押せないと読まれたことはログに残す。
-    func openMonthlyReport(file: StaticString = #filePath, line: UInt = #line) {
+    func openMonthlyReport(language: AppLaunch.Language = .japanese, file: StaticString = #filePath, line: UInt = #line) {
         let figures = monthFigures
-        let report = navigationBars["月のまとめ"]
+        let report = navigationBars[language.reportTitle]
         XCTAssertTrue(figures.waitForExistence(timeout: UITestTimeout.launch), "帯の数字がありません", file: file, line: line)
         if figures.waitUntilHittable(timeout: 5) {
             figures.tap()
@@ -271,6 +317,23 @@ extension XCUIApplication {
             report.waitForExistence(timeout: UITestTimeout.ui), "帯の数字を押しても月のまとめが開きません。いまの画面:\n\(debugDescription)",
             file: file, line: line
         )
+    }
+
+    /// 入力欄にキーボードのフォーカスが入っている要素（入っていなければ無い）。
+    var focusedInputField: XCUIElement {
+        descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ AND hasKeyboardFocus == true", AccessibilityID.Home.inputField))
+            .firstMatch
+    }
+
+    /// URL でアプリを開く（ウィジェットを押したときと同じ）。開いてよいかを iOS が聞いてきたら「開く」を押す。
+    func openURL(_ url: URL) {
+        open(url)
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let allow = springboard.buttons.matching(NSPredicate(format: "label IN %@", ["開く", "Open"])).firstMatch
+        if allow.waitForExistence(timeout: 3) {
+            allow.tap()
+        }
     }
 
     /// ナビゲーションで一つ前の画面へ戻る。

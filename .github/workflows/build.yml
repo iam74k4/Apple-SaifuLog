@@ -116,7 +116,8 @@ jobs:
       # コンパイルできなくなっても通ってしまう。汎用の宛先なので、ランナーのシミュレータには左右されない。
       - name: アプリのテストをビルド
         if: ${{ !cancelled() }}
-        run: make build-tests
+        # カバレッジの計測を入れてビルドする（下のテストと同じ COVERAGE を渡す。違うと作り直しになる）。
+        run: make build-tests COVERAGE=YES
 
       # SwiftData の保存と読み込みの条件、保存の失敗の扱い、AI の区間ごとの呼び出しなど、コアに置けない部分の
       # テストをシミュレータで動かす。機種は決め打ちせず、ランナーにある iPhone のシミュレータから
@@ -126,7 +127,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p build/logs
-          make test-app 2>&1 | tee build/logs/app-test.log
+          make test-app COVERAGE=YES 2>&1 | tee build/logs/app-test.log
 
       # 画面を操作する UI テスト（SaifuLogUITests。XCUITest）。初回の案内・記録と取り消し・カテゴリの聞き返し・チャットの操作・
       # 質問・直す・削除・カレンダー・月のまとめ・設定・書き出し・レシート・アクセシビリティの検査・大きな文字を、画面を押して
@@ -138,7 +139,18 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p build/logs
-          make test-ui 2>&1 | tee build/logs/ui-test.log
+          make test-ui COVERAGE=YES 2>&1 | tee build/logs/ui-test.log
+
+      # テストのカバレッジ（コア・アプリのテストとウィジェットのテスト・UI テスト）を、実行のまとめ（Summary）とログに表で出す
+      # （make coverage-report。scripts/coverage-report.py）。テストの無いところを見つけるための数字で、合否には使わない
+      # （表を作れなくても build は落とさない）。
+      - name: テストのカバレッジ
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        # コアのカバレッジは、時間を測るテストを外して別に取る（make core-coverage。合否は上の「コアのテスト」で見る）。
+        run: |
+          make core-coverage
+          make coverage-report | tee -a "$GITHUB_STEP_SUMMARY"
 
       # 上のテストで起動したシミュレータ（いちばん新しい iOS）を止める。UI テストの後に動かしたままだと、次の iOS 26 の
       # シミュレータの起動に 10 分以上かかり、xcodebuild がそのシミュレータを見つけられずに止まったことがある（ランナーの
@@ -160,7 +172,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p build/logs
-          make test-app-ios26 2>&1 | tee build/logs/app-test-ios26.log
+          make test-app-ios26 COVERAGE=YES 2>&1 | tee build/logs/app-test-ios26.log
 
       # Config/Base.xcconfig と CHANGELOG.md が食い違ったまま main へ進むと、
       # App Store のリリースノートが別バージョンのものになる。

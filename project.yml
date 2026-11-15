@@ -171,6 +171,28 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).Tests
         GENERATE_INFOPLIST_FILE: YES
 
+  # ウィジェットの拡張のテスト。拡張のソース（入口の @main の SaifuLogWidgetBundle.swift を除く）と、拡張に入れる共有のファイル・
+  # String Catalog をそのまま入れて確かめる（拡張は @testable import できないため）。出す文と数字（MonthSpendPresentation。英語の訳も）・
+  # 予定の並び（MonthSpendProvider）・大きさごとに描けるか（MonthSpendContent）を見る。ホストのアプリは要らない（保存先も画面も使わない）。
+  # make build-tests でビルドし、make test-app で SaifuLogTests と一緒に動かす。
+  SaifuLogWidgetsTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: SaifuLogWidgetsTests
+      - path: SaifuLogWidgets/MonthSpendWidget.swift
+      - path: SaifuLogWidgets/MonthSpendPresentation.swift
+      - path: SaifuLogWidgets/Localizable.xcstrings
+      - path: SaifuLog/Widgets/WidgetSnapshotFile.swift
+      - path: SaifuLog/Widgets/WidgetLink.swift
+    dependencies:
+      - package: SaifuLogCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).WidgetsTests
+        GENERATE_INFOPLIST_FILE: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+
   # 画面を操作する UI テスト（XCUITest）。アプリを起動引数 -SaifuLogUITest で開き（DEBUG のビルドだけの UITestMode。
   # メモリの上の保存先・キーワード辞書・決まった「いま」）、主な画面と流れ（初回の案内・記録と取り消し・カテゴリの聞き返し・
   # チャットの操作・質問・直す・削除・カレンダー・月のまとめ・設定・レシート・アクセシビリティの検査・大きな文字）を押して確かめる。
@@ -205,6 +227,7 @@ schemes:
       targets:
         - package: SaifuLogCore/SaifuLogCoreTests
         - SaifuLogTests
+        - SaifuLogWidgetsTests
         - SaifuLogUITests
     archive:
       config: Release
