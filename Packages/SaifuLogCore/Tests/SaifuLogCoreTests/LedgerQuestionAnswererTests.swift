@@ -236,13 +236,6 @@ struct LedgerQuestionAnswererTests {
         #expect(try #require(Self.answer(.lastMonth, .remainingBudget, budget: plan)).value == .budgetNotApplicable)
     }
 
-    @Test("カテゴリ別の予算は数えない（全体の予算だけ）")
-    func categoryBudgetIgnored() throws {
-        let plan = BudgetPlan(byCategory: [.cafe: 5_000])
-
-        #expect(try #require(Self.answer(.thisMonth, .remainingBudget, category: .cafe, budget: plan)).value == .noBudget)
-    }
-
     // MARK: - 期間
 
     @Test("直近 N 日は、今日を含めて N 日（今日の終わりまで）。範囲の外は答えない")

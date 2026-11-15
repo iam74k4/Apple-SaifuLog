@@ -10,21 +10,13 @@ import UIKit
 /// タイムラインは会話の形にする。送った文を右寄せの自分の吹き出しに、アプリの返事（記録しました・質問の答え）を左寄せの
 /// カードに、送った順に出す（質問とその答えは保存しない）。記録の直後の「取り消す」は、その返事の見出しに出す。
 ///
-/// 週が替わって最初に開いたときは、先週のふりかえりのカードも同じタイムラインに出す（アプリからの返事として、出した時点の位置に）。
-///
 /// 入力欄の左のカメラのボタンから、レシートを撮るか写真から選んで読み取り（④）、読み取り結果（⑤）のシートで確かめて記録する。
 ///
-/// 入力欄の右のマイクのボタンから、話した内容を端末の中で書き起こして入力欄に入れる（送信は利用者が押したときだけ）。
+/// 会話を左へスワイプすると、カレンダーのページ（月に使った額・日ごとに使った額・選んだ日の記録。`LedgerCalendarView`）が
+/// 出る。帯にカレンダーのボタンは置かない（スワイプで出るページと入口が重なるため）。
 ///
-/// 家族と家計を共有しているとき（家計の共有が有効なビルドだけ）は、帯の「自分／家族」で記録先を切り替える。「家族」のときは、
-/// タイムラインに家計の記録（記録した人の名前つき）を、帯に家族の今月の合計を出し、カメラとマイクのボタンは出さない
-/// （レシートと声は v1 では「自分」だけ）。
-///
-/// 会話を左へスワイプすると、カレンダーのページ（日ごとの支出・選んだ日の記録・今日あといくら使えるか。`LedgerCalendarView`）が
-/// 出る（「自分」のときだけ）。帯にカレンダーのボタンは置かない（スワイプで出るページと入口が重なるため）。
-///
-/// 状態と操作（送信・質問・レシート・取り消し・直す・削除・予算を決める画面と月のまとめと設定とプレミアムの出し入れ・
-/// 先週のふりかえり・ページの切り替え）は `HomeModel` が持つ。ここは表示と、
+/// 状態と操作（送信・質問・レシート・取り消し・直す・削除・予算を決める画面と月のまとめと設定の出し入れ・
+/// ページの切り替え）は `HomeModel` が持つ。ここは表示と、
 /// 環境（文字の大きさ・前面かどうか）に合わせた出し方だけを受け持つ。
 struct HomeView: View {
     @Environment(\.calendar) private var calendar
@@ -33,7 +25,6 @@ struct HomeView: View {
     @Environment(AppLock.self) private var appLock: AppLock?
     /// Siri・ショートカットからの頼みの受け箱（アプリで 1 つ）。
     private var quickActions: QuickActionInbox { .shared }
-    @Environment(\.openURL) private var openURL
 
     @State private var model: HomeModel
     /// 写真の選択で選んだもの。読み取りに渡したら nil に戻す（写真はメモリの上で読み、保存しない）。
@@ -52,10 +43,11 @@ struct HomeView: View {
     }
 
     #if DEBUG || INTERNAL_DIAGNOSTICS
-    /// 帯に診断のボタンを出すか。撮影用のデモ（DEBUG のビルドだけ）では出さない。
+    /// 帯に診断のボタンを出すか。撮影用のデモと UI テスト（どちらも DEBUG のビルドだけ）では出さない（App Store へ出すビルドと
+    /// 同じ画面を写し、確かめるため）。
     private var showsDiagnosticsButton: Bool {
         #if DEBUG
-        ScreenshotDemo.current == nil
+        ScreenshotDemo.current == nil && UITestMode.current == nil
         #else
         true
         #endif
@@ -66,11 +58,6 @@ struct HomeView: View {
         NavigationStack {
             pages
                 .toolbar(.hidden, for: .navigationBar)
-                .alert("金額が見つかりませんでした", isPresented: $model.showsNoAmountAlert) {
-                    Button("OK", role: .cancel) {}
-                } message: {
-                    Text("「ランチ 850」のように、金額の数字を入れてください。")
-                }
                 .alert(
                     model.storeFailure?.title ?? Text(verbatim: ""),
                     isPresented: showsStoreFailure,
@@ -79,6 +66,22 @@ struct HomeView: View {
                     Button("OK", role: .cancel) {}
                 } message: { failure in
                     failure.message
+                }
+                // 端末内 AI が選んだチャットの操作は、行う前に確かめる（`HomeModel.pendingCommand`）。ボタンは出した時点の頼みを
+                // 渡す（閉じる動きの間にモデルの値が nil に戻っても、押したほうを行うため）。
+                .alert(
+                    model.pendingCommand.map { Text($0.question.title) } ?? Text(verbatim: ""),
+                    isPresented: showsCommandConfirmation,
+                    presenting: model.pendingCommand
+                ) { pending in
+                    Button(role: pending.question.isDestructive ? .destructive : nil) {
+                        model.confirmCommand(pending)
+                    } label: {
+                        Text(pending.question.confirmLabel)
+                    }
+                    Button("キャンセル", role: .cancel) { model.cancelCommand(pending) }
+                } message: { pending in
+                    Text(pending.question.detail)
                 }
                 // item で出す（閉じる間も中身を保つ。isPresented にして中身を budgetSetup から作ると、閉じる動きの
                 // 途中で budgetSetup が nil になり、空のシートが下りていくため）。閉じると budgetSetup は nil に戻る。
@@ -106,30 +109,6 @@ struct HomeView: View {
                 .navigationDestination(item: $model.settings) { settings in
                     SettingsView(model: settings)
                 }
-                // 先週のふりかえりの内訳も横に進む（まとめと同じ出し方）。
-                .navigationDestination(item: $model.weeklyRecapDetail) { recap in
-                    WeeklyRecapView(model: recap)
-                }
-                .sheet(item: $model.purchaseCheck) { check in
-                    PurchaseCheckView(model: check)
-                }
-                .sheet(isPresented: $model.showsReviewQueue) {
-                    EntryReviewQueueView(model: model)
-                }
-                .sheet(item: $model.walletCapture) { capture in
-                    NavigationStack {
-                        WalletCaptureView(model: capture)
-                            .toolbar {
-                                ToolbarItem(placement: .cancellationAction) {
-                                    Button("閉じる") { model.walletCapture = nil }
-                                }
-                            }
-                    }
-                }
-                // 無料体験が終わった後の最初の起動に、一度だけプレミアム（⑨）を出す（`HomeModel.presentPremiumIfTrialEnded`）。
-                .sheet(item: $model.premiumSheet) { premium in
-                    PremiumSheet(model: premium)
-                }
                 // ④ 撮影（書類カメラ）。閉じきってから読み取りのシートを出す（出し入れが重なると出ないことがあるため）。
                 .fullScreenCover(isPresented: showsDocumentCamera, onDismiss: { model.receiptCaptureDidDismiss(calendar: calendar) }) {
                     DocumentCameraView(
@@ -145,55 +124,17 @@ struct HomeView: View {
                     photoItem = nil
                     readPhoto(item)
                 }
-                // 声の入力でマイクの許可が無い・断られたとき。許可は iOS の設定でしか変えられないので、設定を開くボタンを出す。
-                .alert("マイクを使えません", isPresented: showsMicrophonePermissionAlert) {
-                    Button("設定を開く") {
-                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
-                    }
-                    Button("キャンセル", role: .cancel) {}
-                } message: {
-                    Text("声で入力するには、設定でサイフログのマイクの使用を許可してください。")
-                }
-                // 書き起こしのモデルが無いとき。大きなファイルを Apple からダウンロードするので、始める前に確かめる。
-                .alert(
-                    "日本語の音声モデルをダウンロードしますか？",
-                    isPresented: showsDownloadConfirmation,
-                    presenting: model.voice.downloadConfirmation
-                ) { _ in
-                    Button("ダウンロード") { model.voice.confirmDownload() }
-                    Button("キャンセル", role: .cancel) { model.voice.declineDownload() }
-                } message: { confirmation in
-                    if confirmation.onExpensiveNetwork {
-                        Text("声を文字にするための日本語のモデルを、Apple からこの iPhone にダウンロードします。声や記録は送りません。いまはモバイル回線か低データモードです。大きなファイルなので、Wi‑Fi でのダウンロードをおすすめします。")
-                    } else {
-                        Text("声を文字にするための日本語のモデルを、Apple からこの iPhone にダウンロードします。声や記録は送りません。")
-                    }
-                }
-                // ⑤ 読み取り結果。item で出す（閉じる間も中身を保つ）。閉じきったら、撮り直しやプレミアムの案内を続ける。
+                // ⑤ 読み取り結果。item で出す（閉じる間も中身を保つ）。閉じきったら、撮り直しを続ける。
                 .sheet(item: $model.receiptResult, onDismiss: { model.receiptResultDidDismiss() }) { result in
                     ReceiptResultSheet(model: result)
                 }
-                // ホームが出たときと、購入の事実を読み終えたときに確かめる（前面に戻ったときは下の scenePhase）。
-                // 状態の変化では出さない。アプリを開いたまま体験が終わる瞬間（`PurchaseManager` が描き直させる）に出すと、
-                // 入力の途中でも遮るため。そのときは次に前面に戻ったときに出す（「体験が終わった後の最初の起動」）。
-                .task(id: model.purchases.hasLoadedPurchases) {
-                    model.presentPremiumIfTrialEnded()
-                }
-                // 体験を始めた・買った・返金されたら、ふりかえりと月のまとめの AI の一言を決め直す（体験を始めてホームや月のまとめに
-                // 戻ったら一言が付くように）。
-                .onChange(of: model.purchases.status.unlocksPremium) {
-                    model.premiumStatusDidChange()
-                }
-                // 週が替わって最初に開いたときだけ、先週のふりかえりのカードを出す（前面に戻ったとき・日付が変わったときは下）。
                 .onAppear {
                     // カレンダーのページに画面の暦を渡し、今月を読んでおく（左へスワイプしたときに、すぐ出せるように）。
                     model.calendarPage.configure(calendar: calendar)
                     // モデルは初回の案内より前に作っている（`AppRootView`）。案内の間に日付が変わっていても今日で数えるよう、読み直す。
                     model.refreshToday()
-                    // 記録する日を過ぎたくり返しの記録を記録する（ふりかえりより先に。ふりかえりのカードをいちばん下に出すため）。
+                    // 記録する日を過ぎたくり返しの記録を記録する（前面に戻ったとき・日付が変わったときは下）。
                     recordDueRecurringEntries()
-                    showWeeklyRecapIfDue()
-                    model.refreshQuickPhrases()
                     // 起動の途中（案内の間・保存先を開く前）に受けた Siri・ショートカットの頼みを行う。
                     deliverQuickActions()
                 }
@@ -203,61 +144,45 @@ struct HomeView: View {
                     pending: quickActions.pending, isParsing: model.isParsing, hidesContent: appLock?.hidesContent,
                     deliver: deliverQuickActions, contentDidShow: catchUpAfterShowingContent
                 ))
-                // アプリを開いている間に Apple Pay の支払いを受け取ったら、すぐ記録にする。
-                .onReceive(NotificationCenter.default.publisher(for: PaymentInbox.didReceive)) { _ in deliverQuickActions() }
-                .onChange(of: hidesContent) { _, hides in
-                    if hides { model.cancelPaymentClassification() }
+                // 家計の画面を隠しているか（ロックの画面）をモデルに伝える。隠している間は、読み取りが裏で終わっても、くり返しの
+                // 記録を記録せず、返事の一言も読み上げない（`HomeModel.hidesContent`）。
+                .onChange(of: hidesContent, initial: true) { _, hides in
+                    model.hidesContent = hides
                 }
-                .onDisappear { model.cancelPaymentClassification() }
-                // この端末で声の入力を使えるか（マイクのボタンを出すか）を調べる。前面に戻ったときにも調べ直す（下の scenePhase）。
-                .task {
-                    await model.voice.refreshAvailability()
-                }
-                // ほかの画面やシートを出したら、声の入力を止める（聞き取れた分は入力欄に入れる）。見えない入力欄に向けて
-                // 聞き続けないように。
+                // ほかの画面やシートを閉じたら、待っていた Siri・ショートカットの頼みを行う。
                 .onChange(of: model.isPresentingOtherScreen) { _, presenting in
-                    if presenting { model.voice.stop(.user) } else { deliverQuickActions() }
+                    if !presenting { deliverQuickActions() }
                 }
-                // 週の始まりの設定を変えると画面の暦が変わるので、変えた後の週で決め直す（カレンダーの並びも）。
+                // 端末の週の始まりや時間帯の設定を変えると画面の暦が変わるので、カレンダーの並びを変えた後の暦で決め直す。
                 .onChange(of: calendar) { _, calendar in
-                    model.showWeeklyRecapIfDue(calendar: calendar)
                     model.calendarPage.configure(calendar: calendar)
                 }
-                // カレンダーのページへ移ったら、声の入力を止める（見えない入力欄に向けて聞き続けないように）。VoiceOver には
-                // ページが替わったことを知らせ、新しいページの最初の要素から読ませる（スワイプでもボタンでも）。「この日に記録」で
-                // 会話へ戻るときは知らせない（入力欄へフォーカスを移すため。`InputBar`）。
-                .onChange(of: model.page) { _, page in
-                    if page != .conversation { model.voice.stop(.user) }
-                    if model.consumePageChange() { VoiceOver.screenChanged() }
+                // ページが替わったら、VoiceOver に知らせ、新しいページの最初の要素から読ませる（スワイプでもボタンでも）。
+                .onChange(of: model.page) {
+                    VoiceOver.screenChanged()
                 }
-                // 「家族」に切り替えたらカレンダーのページは無くなる（「自分」の記録だけを出すため）ので、会話に戻す。
-                .onChange(of: model.showsCalendarPage) { _, shows in
-                    if !shows { model.page = .conversation }
-                }
-                // 保存先に書き込まれたら、ふりかえりのカード（と内訳）の数字と、よく使うひとことの候補を読み直す（記録を足した・
-                // 直した・消したとき）。
+                // 保存先に書き込まれたら、カテゴリの一覧・カレンダー・聞き返しを読み直す（記録を足した・直した・消したとき）。
                 .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { _ in
                     model.categories.reload()
-                    model.weeklyRecap?.reload()
-                    model.refreshQuickPhrases()
                     model.calendarPage.reload()
-                    model.refreshPendingReviews()
+                    model.refreshCategoryQuestions()
                 }
                 // iCloud で届いたほかの端末の変更でも読み直す（didSave にならないため。帯とタイムラインは @Query が追う）。
                 // ほかの端末が同じ月のくり返しの記録を記録していたら片づける。
                 .onReceive(StoreChanges.remote) { _ in
                     // ほかの端末で消された記録を、取り消す・聞き返しの対象から外す（消えた記録を指し続けないように）。
                     model.forgetRecordsDeletedElsewhere()
+                    // ほかの端末の記録や予算が届いて、返事の一言が書いた今月の数字と食い違ったら外す（この端末の保存でも知らせが
+                    // 届くので、数字が変わったときだけ。`reviewReplyRemarkAfterRemoteChange`）。
+                    model.reviewReplyRemarkAfterRemoteChange(calendar: calendar)
                     model.removeDuplicateRecurringEntries()
                     model.categories.reload()
-                    model.weeklyRecap?.reload()
-                    model.refreshQuickPhrases()
                     model.calendarPage.reload()
-                    model.refreshPendingReviews()
+                    model.refreshCategoryQuestions()
                 }
                 #if DEBUG || INTERNAL_DIAGNOSTICS
                 .sheet(isPresented: $showsDiagnostics) {
-                    DiagnosticsView(model: DiagnosticsModel(context: modelContext, household: model.household))
+                    DiagnosticsView(model: DiagnosticsModel(context: modelContext))
                 }
                 // 帯の右上に診断のボタンを出させる（渡さなければ出ない）。撮影用のデモでは渡さない（App Store の
                 // スクリーンショットに、App Store 版には無い開発用のボタンを写さないため）。
@@ -273,65 +198,15 @@ struct HomeView: View {
                 } message: { pending in
                     Text("\(pending.summary)の記録を削除します。この操作は取り消せません。")
                 }
-                // 家計の記録の削除。家族の端末からも消えることを添える。
-                .confirmationDialog(
-                    "この記録を削除しますか？",
-                    isPresented: showsHouseholdDeletionConfirmation,
-                    titleVisibility: .visible,
-                    presenting: model.pendingHouseholdDeletion
-                ) { pending in
-                    Button("削除", role: .destructive) { model.deleteHouseholdEntry(pending) }
-                } message: { pending in
-                    Text("\(pending.summary)の家計の記録を削除します。家族の端末からも消えます。この操作は取り消せません。")
-                }
-                // 「家族」のときに質問や読めない文、記録を直そうとする文を送った（家計には記録しない）。送った文は入力欄に戻っている。
-                .alert(
-                    householdInputAlertTitle,
-                    isPresented: showsHouseholdInputAlert,
-                    presenting: model.householdInputAlert
-                ) { _ in
-                    Button("OK", role: .cancel) {}
-                } message: { alert in
-                    switch alert {
-                    case .question:
-                        Text("家族の家計への質問は、まだできません。帯の「自分」に切り替えると、自分の記録について聞けます。")
-                    case .unclear:
-                        Text("「ランチ 850」のように、品目と金額を入れてください。")
-                    case .correction:
-                        Text("記録を直すときは、タイムラインのその記録を押してください。")
-                    }
-                }
-                // 家計の共有の知らせ（招待を受け入れた・家計が消えたなど）。ほかの画面を出している間は、閉じてから出す
-                // （設定の画面を出している間は、設定の画面が出す）。
-                .alert(
-                    model.household?.notice?.title ?? Text(verbatim: ""),
-                    isPresented: showsHouseholdNotice,
-                    presenting: model.household?.notice
-                ) { _ in
-                    Button("OK", role: .cancel) {}
-                } message: { notice in
-                    notice.message
-                }
-                // 家計から抜けた・消えたら「自分」に戻す。
-                .onChange(of: model.showsLedgerSwitch) {
-                    model.householdAvailabilityDidChange()
-                }
                 .onChange(of: scenePhase) { _, phase in
                     switch phase {
                     case .active:
                         model.refreshToday()
+                        // 端末内 AI のモデルを前もって読み込む（裏にいる間に外されていると、最初の送信の読み取りが上限の時間に届き、
+                        // キーワード辞書に戻りやすいため）。
+                        AIPrewarm.prewarmIfAvailable()
                         recordDueRecurringEntries()
-                        // 裏にいる間に受け取った Apple Pay の支払いを記録にする（くり返しの記録の後。返事は後のものが残る）。
                         deliverQuickActions()
-                        model.refreshQuickPhrases()
-                        // 状態が変わらなくても、前面に戻ったときには確かめる（ほかの画面を閉じた後で出せるように）。
-                        model.presentPremiumIfTrialEnded()
-                        showWeeklyRecapIfDue()
-                        Task { await model.voice.refreshAvailability() }
-                    case .background:
-                        model.cancelPaymentClassification()
-                        // 裏に回ったら、聞き取れた分を入力欄へ入れて止める（裏ではマイクを使い続けない）。
-                        model.voice.stop(.background)
                     default:
                         break
                     }
@@ -340,18 +215,13 @@ struct HomeView: View {
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
                     model.refreshToday()
                     recordDueRecurringEntries()
-                    showWeeklyRecapIfDue()
                 }
         }
         // カテゴリの一覧（作ったカテゴリの名前・記号・色）を、ホームから開くすべての画面とシートに渡す。
         .environment(\.categoryCatalog, model.categories.catalog)
-        // 保存先の開き直しなどでホームの画面が片づけられるときは、声の入力をやめる（マイクを開いたままにしない）。
-        .onDisappear {
-            model.voice.cancel()
-        }
     }
 
-    /// 会話（1 枚目）とカレンダー（2 枚目。「自分」のときだけ）。左右のスワイプで行き来し、カレンダーからは「会話」のボタンでも戻れる。
+    /// 会話（1 枚目）とカレンダー（2 枚目）。左右のスワイプで行き来し、カレンダーからは「会話」のボタンでも戻れる。
     /// VoiceOver では、帯の数字の要素の操作「カレンダー」でも開ける（ページを送るスワイプが見つけにくいため）。
     ///
     /// ナビゲーションの根元に置き、横に進む画面（月のまとめ・設定）とシートは、どちらのページからも同じものを出す。
@@ -359,19 +229,15 @@ struct HomeView: View {
         TabView(selection: $model.page) {
             timeline
                 .tag(HomeModel.Page.conversation)
-            if model.showsCalendarPage {
-                LedgerCalendarView(
-                    model: model.calendarPage,
-                    showConversation: { withAnimation { model.page = .conversation } },
-                    recordOnDay: { day in withAnimation { model.prepareDraft(for: day, calendar: calendar) } },
-                    edit: { model.presentEdit($0, calendar: calendar) },
-                    requestDelete: { model.requestDelete($0) },
-                    makeRecurring: { model.presentRecurringCreation(from: $0, calendar: calendar) },
-                    openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
-                    editBudget: { model.presentBudgetSetup() }
-                )
-                .tag(HomeModel.Page.calendar)
-            }
+            LedgerCalendarView(
+                model: model.calendarPage,
+                showConversation: { withAnimation { model.page = .conversation } },
+                edit: { model.presentEdit($0, calendar: calendar) },
+                requestDelete: { model.requestDelete($0) },
+                makeRecurring: { model.presentRecurringCreation(from: $0, calendar: calendar) },
+                openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) }
+            )
+            .tag(HomeModel.Page.calendar)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .background(Theme.background)
@@ -382,16 +248,15 @@ struct HomeView: View {
             .background(Theme.background)
             // 帯と入力欄は safeAreaBar に置き、記録がその下を流れるようにする（iOS 26 のスクロール端の効果が、帯と入力欄の
             // 下で記録をぼかす）。帯は前は画面の背景の色で塗り、下端に細い線を引いていた（塗った帯の下では効果が隠れたため）。
-            // 帯は数字の行が多く背が高いので、やわらかい効果（既定の .soft）では帯の下の方で記録が透け、目安や収入の行が
-            // 読みにくくなった。上ははっきりした効果（.hard）にする。下（入力欄とよく使うひとこと）は既定のまま。
+            // やわらかい効果（既定の .soft）では帯の下の方で記録が透け、予算の行が読みにくくなった。上ははっきりした効果
+            // （.hard）にする。下（入力欄）は既定のまま。
             .scrollEdgeEffectStyle(.hard, for: .top)
             .safeAreaBar(edge: .top, spacing: 0) {
                 header
                     // 合計は画面の上に常に出ている帯なので、文字の大きさに上限を設ける。最大の文字サイズの
                     // ままだと、下の入力欄と合わせて画面の半分以上を占め、タイムラインがほとんど見えなくなるため。
-                    // 上限は入力欄（`InputBar`）と同じ AX1。AX2 では「1日あたり ¥… ・のこり N 日」が 2 行に分かれ、
-                    // AX5 で帯（上の安全領域を含む）が画面の 3 分の 1 を超えた。AX1 なら 1 行に収まり、帯が 50pt ほど
-                    // 低くなる（iPhone 17 Pro のシミュレータ）。
+                    // 上限は入力欄のボタンの記号（`InputBar` のカメラと送信）と同じ AX1（前は AX5 で帯（上の安全領域を含む）が画面の
+                    // 3 分の 1 を超えた）。
                     .dynamicTypeSize(...DynamicTypeSize.accessibility1)
             }
             .safeAreaBar(edge: .bottom, spacing: 0) {
@@ -399,43 +264,19 @@ struct HomeView: View {
             }
     }
 
-    /// 「家族」のときの家計の保存先といまの家計（家計に入っていて、「家族」を選んでいるときだけ）。
-    private var activeHousehold: (container: ModelContainer, zoneName: String)? {
-        guard model.isHouseholdActive, let host = model.household, let container = host.container,
-              let zoneName = host.currentHousehold?.zoneName
-        else { return nil }
-        return (container, zoneName)
-    }
-
-    @ViewBuilder
     private var timelineContent: some View {
-        if let household = activeHousehold {
-            // 家計の記録は家計の保存先から読む（自分の記録の保存先とは別）。
-            HouseholdTimeline(
-                zoneName: household.zoneName,
-                limit: model.timelineLimit,
-                canShowMore: model.canShowMoreTimeline,
-                today: model.today,
-                undoableEntryIDs: Set(model.justRecordedHousehold.map(\.id)),
-                showMore: { model.showMoreTimeline() },
-                undo: { model.undoLastRecord() },
-                edit: { model.presentHouseholdEdit($0, calendar: calendar) },
-                requestDelete: { model.requestHouseholdDelete($0) }
-            )
-            .modelContainer(household.container)
-        } else {
             EntryTimeline(
                 limit: model.timelineLimit,
                 canShowMore: model.canShowMoreTimeline,
                 today: model.today,
                 questions: model.questions,
                 pendingRecord: model.pendingRecord,
-                weeklyRecap: model.weeklyRecap,
                 // 控えた ID を渡す（ほかの端末で消された記録の値に、描くときに触れないため）。
-                undoableEntryIDs: Set(model.justRecordedIDs),
+                latestEntryIDs: Set(model.justRecordedIDs),
+                canUndoLatest: model.canUndo,
                 askingCategory: model.categoryQuestionIDs,
-                classifyingCategory: model.classifyingPaymentIDs,
-                paymentOverlaps: model.paymentOverlaps,
+                replyRemark: model.replyRemark,
+                replyHint: model.replyHint,
                 showMore: { model.showMoreTimeline() },
                 undo: { model.undoLastRecord() },
                 edit: { model.presentEdit($0, calendar: calendar) },
@@ -443,98 +284,53 @@ struct HomeView: View {
                 chooseCategory: { model.chooseCategory($1, for: $0) },
                 createCategory: { model.presentCategoryCreation(for: $0) },
                 makeRecurring: { model.presentRecurringCreation(from: $0, calendar: calendar) },
-                removeOverlap: { model.removeOverlappingPayment(for: $0) },
-                keepOverlap: { model.keepOverlappingPayment(for: $0) },
-                fillDraft: { model.draft = $0 },
+                fillDraft: { model.fillDraft($0) },
                 openReport: { model.presentMonthlyReport(calendar: calendar, month: $0) },
                 setBudget: { model.presentBudgetSetup() },
-                openPremium: { model.presentPremium() },
                 askFollowUp: { model.askFollowUp($0, calendar: calendar) },
-                openWeeklyRecap: { model.presentWeeklyRecapDetail() },
-                // 閉じたときは、上の行がカードのあった所へ下りてくる動きを付ける（出したときは付けない。`TimelineScrollView`）。
-                dismissWeeklyRecap: { withAnimation { model.dismissWeeklyRecap() } }
+                openCalendar: { withAnimation { model.page = .calendar } }
             )
-        }
     }
 
-    /// 上の帯。「家族」のときは家族の今月の合計（予算は v1 では「自分」だけなので出さない。まとめへも進まない）。
-    @ViewBuilder
+    /// 上の帯（今月の合計と予算）。
     private var header: some View {
-        if let household = activeHousehold {
-            HouseholdSummaryHeader(
-                zoneName: household.zoneName,
-                today: model.today,
-                calendar: calendar,
-                ledgerScope: $model.ledgerScope,
-                openSettings: { model.presentSettings() },
-                isCompact: isTyping
-            )
-            .modelContainer(household.container)
-        } else {
-            MonthSummaryHeader(
-                today: model.today,
-                calendar: calendar,
-                editBudget: { model.presentBudgetSetup() },
-                openReport: { model.presentMonthlyReport(calendar: calendar) },
-                openSettings: { model.presentSettings() },
-                openCalendar: { withAnimation { model.page = .calendar } },
-                ledgerScope: model.showsLedgerSwitch ? $model.ledgerScope : nil,
-                isCompact: isTyping
-            )
-        }
+        MonthSummaryHeader(
+            today: model.today,
+            calendar: calendar,
+            openReport: { model.presentMonthlyReport(calendar: calendar) },
+            openSettings: { model.presentSettings() },
+            openCalendar: { withAnimation { model.page = .calendar } },
+            isCompact: isTyping
+        )
     }
 
     private var bottomBar: some View {
         VStack(spacing: 8) {
-            if let notice = model.voice.notice {
-                VoiceNoticeView(notice: notice)
-                    .transition(.opacity)
-                    // 少しの間だけ出す。次の知らせに替わったら数え直す。
-                    .task(id: notice) {
-                        try? await Task.sleep(for: .seconds(5))
-                        if !Task.isCancelled, model.voice.notice == notice { model.voice.notice = nil }
-                    }
-            }
-            // よく使うひとこと。レシートと声と同じく「自分」だけ（家計の記録は候補の元にしていない）。声の入力の間は出さない
-            // （入力欄の代わりに書き起こしを出している間は、入力欄に文を入れられないため）。
-            if !model.isHouseholdActive, model.voice.isActive == false {
-                QuickPhraseBar(
-                    phrases: model.quickPhraseSuggestions,
-                    pick: { model.pickQuickPhrase($0) },
-                    purchaseCheck: model.draft.isEmpty && !isTyping && !model.isParsing
-                        ? { model.presentPurchaseCheck(calendar: calendar) } : nil,
-                    paymentSetup: model.draft.isEmpty && !isTyping && !model.isParsing
-                        ? { model.presentWalletCapture() } : nil,
-                    reviewCount: model.reviewLoadFailed ? nil : model.reviewItems.count,
-                    review: !model.reviewItems.isEmpty || model.reviewLoadFailed ? { model.showsReviewQueue = true } : nil
-                )
-                // 候補は画面の端から端まで送れるようにする（下の入力欄の左右の余白の外まで）。
-                .padding(.horizontal, -16)
-            }
             InputBar(
                 text: $model.draft,
                 isSending: model.isParsing,
                 send: { model.send(calendar: calendar) },
-                // レシートと声の入力は v1 では「自分」だけ（「家族」のときはボタンを出さない）。
-                scanReceipt: model.isHouseholdActive ? nil : { model.requestReceiptScan(calendar: calendar) },
+                scanReceipt: { model.requestReceiptScan() },
                 showsReceiptChoice: $model.showsReceiptSourceChoice,
                 canUseDocumentCamera: model.canUseDocumentCamera,
                 chooseReceiptSource: { model.startReceiptCapture($0) },
                 // 返事の見出しの「取り消す」と行の「直す」に加えて、入力欄の VoiceOver の操作にも出す（送信の後にフォーカスが
                 // 入力欄に戻るので、返事のカードまで移らずに取り消し・直しができるように）。
                 undo: undoAction,
-                recorded: model.canUndo ? model.recordedItems : [],
+                // 「直す: …」は、チャットで金額を直して「取り消す」を引っ込めた後も出す（直前の記録はまだ直せるため）。
+                recorded: model.recordedItems,
                 edit: { model.presentEdit($0, calendar: calendar) },
-                voice: model.isHouseholdActive ? nil : model.voice,
-                targetsHousehold: model.isHouseholdActive,
                 focusRequest: model.inputFocusRequest,
                 isOnScreen: model.page == .conversation,
-                focusChanged: { isTyping = $0 }
+                focusChanged: { focused in
+                    isTyping = focused
+                    // 打ち始めたら、端末内 AI のモデルを前もって読み込む（送ったときに読み込みを待たないように）。
+                    if focused { AIPrewarm.prewarmIfAvailable() }
+                }
             )
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .animation(.default, value: model.voice.notice)
     }
 
     /// アプリのロックが家計の画面を隠しているか（ロック中・前面を離れている・起動したときに読めなかったロックの設定を
@@ -544,14 +340,12 @@ struct HomeView: View {
     }
 
     /// Siri・ショートカットからの頼みを受け取り、行えるなら行う。家計の画面を隠している間は受け取るだけにし、出してから行う
-    /// （ロックの画面の下で記録したり、カメラやマイクを開いたりしないため）。
+    /// （ロックの画面の下で記録したり、カメラを開いたりしないため）。
     private func deliverQuickActions() {
         if let action = quickActions.take() {
             model.receive(action)
         }
         guard scenePhase == .active, !hidesContent else { return }
-        // Apple Pay の支払いの受け箱も、ここで記録にする（ロックを解いた後・読み取りが終わった後にも見るため）。
-        model.importCapturedPayments(calendar: calendar)
         model.performPendingQuickAction(calendar: calendar)
     }
 
@@ -562,18 +356,10 @@ struct HomeView: View {
         model.recordDueRecurringEntries(calendar: calendar)
     }
 
-    /// 週が替わって最初に開いたときだけ、先週のふりかえりのカードを出す。くり返しの記録と同じく、家計の画面を出してから
-    /// （くり返しの記録の後に出し、カードをいちばん下に置く順を保つため）。
-    private func showWeeklyRecapIfDue() {
-        guard !hidesContent else { return }
-        model.showWeeklyRecapIfDue(calendar: calendar)
-    }
-
     /// ロックを解いた（家計の画面を隠すのをやめた）ときに、待っていたものを前面に戻ったときと同じ順で行う。
     private func catchUpAfterShowingContent() {
         recordDueRecurringEntries()
         deliverQuickActions()
-        showWeeklyRecapIfDue()
     }
 
     /// 入力欄の「直前の記録を取り消す」の操作。取り消せるものがあるときだけ渡す。
@@ -601,44 +387,16 @@ struct HomeView: View {
         }
     }
 
-    private var showsMicrophonePermissionAlert: Binding<Bool> {
-        Binding(get: { model.voice.showsPermissionAlert }, set: { model.voice.showsPermissionAlert = $0 })
-    }
-
-    private var showsDownloadConfirmation: Binding<Bool> {
-        Binding(get: { model.voice.downloadConfirmation != nil }, set: { if !$0 { model.voice.downloadConfirmation = nil } })
-    }
-
     private var showsStoreFailure: Binding<Bool> {
-        Binding(get: { model.storeFailure != nil && !model.showsReviewQueue }, set: { if !$0 && !model.showsReviewQueue { model.storeFailure = nil } })
+        Binding(get: { model.storeFailure != nil }, set: { if !$0 { model.storeFailure = nil } })
     }
 
     private var showsDeletionConfirmation: Binding<Bool> {
         Binding(get: { model.pendingDeletion != nil }, set: { if !$0 { model.pendingDeletion = nil } })
     }
 
-    private var showsHouseholdDeletionConfirmation: Binding<Bool> {
-        Binding(get: { model.pendingHouseholdDeletion != nil }, set: { if !$0 { model.pendingHouseholdDeletion = nil } })
-    }
-
-    private var showsHouseholdInputAlert: Binding<Bool> {
-        Binding(get: { model.householdInputAlert != nil }, set: { if !$0 { model.householdInputAlert = nil } })
-    }
-
-    private var householdInputAlertTitle: Text {
-        switch model.householdInputAlert {
-        case .question: Text("家族の家計では質問できません")
-        case .correction: Text("記録は直していません")
-        case .unclear, nil: Text("記録として読めませんでした")
-        }
-    }
-
-    /// 家計の共有の知らせを、ホームで出してよいか（ほかの画面を出している間は出せないので、閉じてから出す）。
-    private var showsHouseholdNotice: Binding<Bool> {
-        Binding(
-            get: { model.household?.notice != nil && !model.isPresentingOtherScreen },
-            set: { if !$0 { model.household?.notice = nil } }
-        )
+    private var showsCommandConfirmation: Binding<Bool> {
+        Binding(get: { model.pendingCommand != nil }, set: { if !$0 { model.pendingCommand = nil } })
     }
 }
 
@@ -650,14 +408,15 @@ extension HomeModel.StoreFailure {
         case .undo: Text("取り消せませんでした")
         case .delete: Text("削除できませんでした")
         case .categoryChoice: Text("カテゴリを変えられませんでした")
-        case .reviewChoice: Text("確認を保存できませんでした")
+        case .amountChange: Text("金額を直せませんでした")
+        case .budgetChange: Text("予算を決められませんでした")
         }
     }
 
     var message: Text {
         switch self {
         case .record: Text("保存に失敗しました。もう一度送ってください。")
-        case .undo, .delete, .categoryChoice, .reviewChoice: Text("保存に失敗しました。もう一度お試しください。")
+        case .undo, .delete, .categoryChoice, .amountChange, .budgetChange: Text("保存に失敗しました。もう一度お試しください。")
         }
     }
 }
@@ -666,8 +425,7 @@ extension HomeModel.StoreFailure {
 ///
 /// 1 回の送信で記録したもの（ひとこと入力の複数件・レシートの品目）を 1 つの送信にまとめ（`EntrySend`。コアの `TimelineSend`）、
 /// 送った文を右寄せの自分の吹き出しに、記録したものを左寄せの返事のカード（「記録しました」）に出す。この起動の間に送った質問と
-/// その答えも、送った順に同じ流れへ差し込む。先週のふりかえりのカードは、出した日時の位置に差し込む（出したときはいちばん下で、
-/// 開いたときに見える。その後に記録すると、その上に流れていく）。暦の日が替わるところには日付の見出しを置く（コアの `TimelineDay`）。
+/// その答えも、送った順に同じ流れへ差し込む。暦の日が替わるところには日付の見出しを置く（コアの `TimelineDay`）。
 ///
 /// 全期間を読むと、記録が増えるほど開くのも描き直すのも遅くなる。読み込む件数は `limit` で区切り（送信ではなく記録の件数で数える）、
 /// さかのぼりたいときは上の「前の記録を表示」で増やす（行はすべて測るので、件数を区切る意味は大きい。`TimelineScrollView`）。
@@ -681,14 +439,14 @@ private struct EntryTimeline: View {
     let questions: [QuestionExchange]
     /// 記録として送り、読み取っている文（読み取りが終わるまで、いちばん下に送った文と「読み取っています…」を出す）。
     let pendingRecord: HomeModel.PendingRecord?
-    let weeklyRecap: WeeklyRecapModel?
-    /// 直前の送信で記録したもの（まだ取り消せるもの）。これを含む送信の返事にだけ「取り消す」を出す。取り消せなければ空。
-    let undoableEntryIDs: Set<PersistentIdentifier>
+    /// 直前の送信で記録したもの。これを含む送信の返事にだけ、今月の状況の一行・聞き返し・一言（と、取り消せるなら「取り消す」）を出す。
+    let latestEntryIDs: Set<PersistentIdentifier>
+    /// 直前の送信の返事に「取り消す」を出すか（チャットで金額を直した後は出さない。`HomeModel.canUndo`）。
+    let canUndoLatest: Bool
     /// カテゴリを聞き返している記録。その記録の行の下にカテゴリのボタンを出す。
     let askingCategory: Set<PersistentIdentifier>
-    let classifyingCategory: Set<PersistentIdentifier>
-    /// Apple Pay の支払いとの重なりを聞き返している記録。その記録の行の下に聞き返しを出す。
-    let paymentOverlaps: [PersistentIdentifier: PaymentOverlapQuestion]
+    /// 直前の送信の返事に添える、端末内 AI の一言（`HomeModel.replyRemark`）。
+    let replyRemark: HomeModel.ReplyRemark?
     let showMore: () -> Void
     let undo: () -> Void
     let edit: (Entry) -> Void
@@ -698,19 +456,16 @@ private struct EntryTimeline: View {
     let createCategory: (Entry) -> Void
     /// その記録の中身で、くり返しの記録を作る画面を開く（長押しの「毎月くり返す」）。
     let makeRecurring: (Entry) -> Void
-    /// 重なりの聞き返しの「Apple Pay の記録を消す」。
-    let removeOverlap: (PersistentIdentifier) -> Void
-    /// 重なりの聞き返しの「別の支払い」。
-    let keepOverlap: (PersistentIdentifier) -> Void
     /// 記録が無いときの案内の入力の例を、入力欄に入れる。
     let fillDraft: (String) -> Void
     let openReport: (Date) -> Void
     let setBudget: () -> Void
-    let openPremium: () -> Void
     /// 回答カードの「続けて聞く質問」を送る（いちばん新しい答えにだけ出す）。
     let askFollowUp: (QuestionFollowUp) -> Void
-    let openWeeklyRecap: () -> Void
-    let dismissWeeklyRecap: () -> Void
+    /// 直前の記録の返事の下に出すヒント（`HomeModel.replyHint`）。
+    let replyHint: ReplyHints.Hint?
+    /// カレンダーのページを出す（カレンダーのヒントを押したとき）。
+    let openCalendar: () -> Void
 
     @Environment(\.calendar) private var calendar
     @Query private var recentEntries: [Entry]
@@ -721,11 +476,11 @@ private struct EntryTimeline: View {
         today: Date,
         questions: [QuestionExchange],
         pendingRecord: HomeModel.PendingRecord?,
-        weeklyRecap: WeeklyRecapModel?,
-        undoableEntryIDs: Set<PersistentIdentifier>,
+        latestEntryIDs: Set<PersistentIdentifier>,
+        canUndoLatest: Bool,
         askingCategory: Set<PersistentIdentifier>,
-        classifyingCategory: Set<PersistentIdentifier>,
-        paymentOverlaps: [PersistentIdentifier: PaymentOverlapQuestion],
+        replyRemark: HomeModel.ReplyRemark?,
+        replyHint: ReplyHints.Hint? = nil,
         showMore: @escaping () -> Void,
         undo: @escaping () -> Void,
         edit: @escaping (Entry) -> Void,
@@ -733,26 +488,21 @@ private struct EntryTimeline: View {
         chooseCategory: @escaping (Entry, EntryCategory) -> Void,
         createCategory: @escaping (Entry) -> Void,
         makeRecurring: @escaping (Entry) -> Void,
-        removeOverlap: @escaping (PersistentIdentifier) -> Void,
-        keepOverlap: @escaping (PersistentIdentifier) -> Void,
         fillDraft: @escaping (String) -> Void,
         openReport: @escaping (Date) -> Void,
         setBudget: @escaping () -> Void,
-        openPremium: @escaping () -> Void,
         askFollowUp: @escaping (QuestionFollowUp) -> Void,
-        openWeeklyRecap: @escaping () -> Void,
-        dismissWeeklyRecap: @escaping () -> Void
+        openCalendar: @escaping () -> Void = {}
     ) {
         self.limit = limit
         self.canShowMore = canShowMore
         self.today = today
         self.questions = questions
         self.pendingRecord = pendingRecord
-        self.weeklyRecap = weeklyRecap
-        self.undoableEntryIDs = undoableEntryIDs
+        self.latestEntryIDs = latestEntryIDs
+        self.canUndoLatest = canUndoLatest
         self.askingCategory = askingCategory
-        self.classifyingCategory = classifyingCategory
-        self.paymentOverlaps = paymentOverlaps
+        self.replyRemark = replyRemark
         self.showMore = showMore
         self.undo = undo
         self.edit = edit
@@ -760,44 +510,38 @@ private struct EntryTimeline: View {
         self.chooseCategory = chooseCategory
         self.createCategory = createCategory
         self.makeRecurring = makeRecurring
-        self.removeOverlap = removeOverlap
-        self.keepOverlap = keepOverlap
         self.fillDraft = fillDraft
         self.openReport = openReport
         self.setBudget = setBudget
-        self.openPremium = openPremium
         self.askFollowUp = askFollowUp
-        self.openWeeklyRecap = openWeeklyRecap
-        self.dismissWeeklyRecap = dismissWeeklyRecap
+        self.replyHint = replyHint
+        self.openCalendar = openCalendar
         _recentEntries = Query(Entry.timelineDescriptor(limit: limit))
     }
 
-    /// タイムラインのやりとりの 1 つ（送信か、読み取っている送信か、質問とその答えか、先週のふりかえり）。
+    /// タイムラインのやりとりの 1 つ（送信か、読み取っている送信か、質問とその答え）。
     private enum Exchange {
         case send(EntrySend)
         case pendingRecord(HomeModel.PendingRecord)
         case question(QuestionExchange)
-        case weeklyRecap(WeeklyRecapModel)
 
-        /// 並べる日時。送信は送った日時（記録した日時）、質問は送った日時、ふりかえりは出した日時。日付の見出しもこの日で決める。
+        /// 並べる日時。送信は送った日時（記録した日時）、質問は送った日時。日付の見出しもこの日で決める。
         var date: Date {
             switch self {
             case .send(let send): send.sentAt
             case .pendingRecord(let pending): pending.sentAt
             case .question(let exchange): exchange.askedAt
-            case .weeklyRecap(let recap): recap.shownAt
             }
         }
     }
 
-    /// 画面に並べる 1 つ（日付の見出し・送った文の吹き出し・記録の返事・質問とその答え・先週のふりかえり）。
+    /// 画面に並べる 1 つ（日付の見出し・送った文の吹き出し・記録の返事・質問とその答え）。
     private enum Item: Identifiable {
         case day(Date)
         case sentText(EntrySend)
         case reply(EntrySend)
         case pendingRecord(HomeModel.PendingRecord)
         case question(QuestionExchange)
-        case weeklyRecap(WeeklyRecapModel)
 
         var id: ItemID {
             switch self {
@@ -806,7 +550,6 @@ private struct EntryTimeline: View {
             case .reply(let send): .reply(send.id)
             case .pendingRecord(let pending): .pendingRecord(pending.id)
             case .question(let exchange): .question(exchange.id)
-            case .weeklyRecap(let recap): .weeklyRecap(recap.id)
             }
         }
     }
@@ -817,15 +560,13 @@ private struct EntryTimeline: View {
         case reply(PersistentIdentifier)
         case pendingRecord(UUID)
         case question(UUID)
-        case weeklyRecap(UUID)
     }
 
-    /// 送信と質問とふりかえりを送った順（古いものが上）に並べ、送信を吹き出しと返事に分け、日が替わるところに見出しを置く。
+    /// 送信と質問を送った順（古いものが上）に並べ、送信を吹き出しと返事に分け、日が替わるところに見出しを置く。
     private var items: [Item] {
         let sends = EntrySend.sends(from: Array(recentEntries.reversed()))
         let exchanges = (sends.map(Exchange.send) + questions.map(Exchange.question)
-            + (pendingRecord.map { [Exchange.pendingRecord($0)] } ?? [])
-            + (weeklyRecap.map { [Exchange.weeklyRecap($0)] } ?? []))
+            + (pendingRecord.map { [Exchange.pendingRecord($0)] } ?? []))
             .sorted { $0.date < $1.date }
         let headers = Set(TimelineDay.headerIndices(for: exchanges.map(\.date), calendar: calendar))
         var items: [Item] = []
@@ -844,8 +585,6 @@ private struct EntryTimeline: View {
                 items.append(.pendingRecord(pending))
             case .question(let exchange):
                 items.append(.question(exchange))
-            case .weeklyRecap(let recap):
-                items.append(.weeklyRecap(recap))
             }
         }
         return items
@@ -854,12 +593,12 @@ private struct EntryTimeline: View {
     var body: some View {
         ScrollViewReader { proxy in
             TimelineScrollView {
-                if recentEntries.isEmpty && questions.isEmpty && pendingRecord == nil && weeklyRecap == nil {
+                if recentEntries.isEmpty && questions.isEmpty && pendingRecord == nil {
                     EmptyTimelineView(fill: fillDraft)
                 }
                 // 読み込んだ件数が上限に届いていれば、まだ前の記録があるかもしれない。
                 if recentEntries.count >= limit {
-                    TimelineOlderRecords(canShowMore: canShowMore, isHousehold: false, showMore: showMore)
+                    TimelineOlderRecords(canShowMore: canShowMore, showMore: showMore)
                 }
                 ForEach(items) { item in
                     switch item {
@@ -868,15 +607,15 @@ private struct EntryTimeline: View {
                     case .sentText(let send):
                         SentTextBubble(send: send)
                     case .reply(let send):
-                        // 直前の送信の返事にだけ、「取り消す」と今月の状況の一行と聞き返しを出す（同じ間。`ReplyStatusLine`）。
-                        let isLatest = canUndo(send)
+                        // 直前の送信の返事にだけ、「取り消す」と AI の一言か今月の状況の一行と聞き返しを出す（同じ間。`ReplyStatusLine`）。
+                        let isLatest = isLatestSend(send)
                         RecordedReplyCard(
-                            send: send, today: today, canUndo: isLatest, showsStatus: isLatest,
-                            askingCategory: isLatest ? askingCategory : [], overlaps: isLatest ? paymentOverlaps : [:],
-                            classifyingCategory: classifyingCategory,
+                            send: send, today: today, canUndo: isLatest && canUndoLatest, showsStatus: isLatest,
+                            askingCategory: isLatest ? askingCategory : [],
+                            remark: isLatest ? remark(for: send) : nil,
+                            hint: isLatest ? replyHint : nil,
                             undo: undo, edit: edit, requestDelete: requestDelete, chooseCategory: chooseCategory,
-                            createCategory: createCategory, makeRecurring: makeRecurring, removeOverlap: removeOverlap,
-                            keepOverlap: keepOverlap
+                            createCategory: createCategory, makeRecurring: makeRecurring, openCalendar: openCalendar
                         )
                         // 送信のいちばん下（返事のカード）の位置を知らせる。
                         .reportsTimelineFrame(.row(send.id))
@@ -885,20 +624,11 @@ private struct EntryTimeline: View {
                             .reportsTimelineFrame(.row(pending.id))
                     case .question(let exchange):
                         QuestionExchangeView(
-                            exchange: exchange, openReport: openReport, setBudget: setBudget, openPremium: openPremium,
+                            exchange: exchange, openReport: openReport, setBudget: setBudget,
                             // 続けて聞く質問は、いちばん新しい答えにだけ出す（前の答えに並べると、タイムラインが候補で埋まるため）。
                             askFollowUp: exchange.id == questions.last?.id ? askFollowUp : nil
                         )
                         .reportsTimelineFrame(.row(exchange.id))
-                    case .weeklyRecap(let recap):
-                        WeeklyRecapCard(model: recap, open: openWeeklyRecap, dismiss: dismissWeeklyRecap, setBudget: setBudget)
-                            .reportsTimelineFrame(.row(recap.id))
-                            // 出し入れの動き（薄く出て消える）はカードにだけ付ける。タイムライン全体に `animation(_:value:)` を
-                            // 付けていたときは、カードを出すたびにほかの行とスクロールの位置まで 0.5 秒ほど動きになり、その間に
-                            // 見える範囲の高さが変わると（開いた直後の帯の高さが決まるまでなど）、下端からずれて止まりうる
-                            // （`TimelineScrollView`。iOS 26.4 のシミュレータでは、下端へ動きなしで送れば全体に付けたままでも
-                            // ずれなかった。CI の iOS 27.0 のシミュレータでカードが 2〜3pt ずれた原因の候補として外した）。
-                            .transition(.opacity.animation(.default))
                     }
                 }
             }
@@ -918,128 +648,20 @@ private struct EntryTimeline: View {
                 guard exchange != nil else { return }
                 proxy.scrollToTimelineBottom()
             }
-            // 開いたまま週が替わってふりかえりのカードが出たら、下端まで送る（開いたときは下端から開くので、そのまま見える）。
-            .onChange(of: weeklyRecap?.id) { _, id in
-                guard id != nil else { return }
-                proxy.scrollToTimelineBottom()
-            }
         }
     }
 
-    /// この送信の返事に「取り消す」を出すか（直前の送信で記録したもので、まだ取り消せるものを含む）。
-    private func canUndo(_ send: EntrySend) -> Bool {
-        !undoableEntryIDs.isEmpty && send.entries.contains { undoableEntryIDs.contains($0.persistentModelID) }
-    }
-}
-
-/// 家族の家計のタイムライン（「家族」のとき）。家計の記録を、記録した日時の新しいものから `limit` 件読み、古い順に並べる。
-/// 吹き出しには記録した人の名前を添える。押すと直し（ほかの人の記録も）、長押しで削除できる。
-///
-/// 家計の記録は送った文を持たないので、自分の記録のタイムラインのような会話の形（送った文と返事のカード）にはしていない
-/// （記録ごとの吹き出しのまま。会話の形にするかは docs/design.md §15 のあとの作業）。記録の直後の「取り消す」だけは、下の
-/// バナーをやめたので、直前に記録した吹き出し（複数件ならいちばん新しいもの）のすぐ下に出す（`HouseholdUndoRow`）。
-///
-/// 家計の保存先（household.store）を読むので、呼び出し側が家計の保存先を環境に渡す（`.modelContainer`）。
-private struct HouseholdTimeline: View {
-    let limit: Int
-    /// 「前の記録を表示」でさらに読み込めるか（読み込む件数が上限に届いていなければ）。
-    let canShowMore: Bool
-    let today: Date
-    /// 直前に家計へ記録したもの（まだ取り消せるもの）の id。その吹き出しの下に「取り消す」を出す。取り消せなければ空。
-    let undoableEntryIDs: Set<UUID>
-    let showMore: () -> Void
-    let undo: () -> Void
-    let edit: (HouseholdEntry) -> Void
-    let requestDelete: (HouseholdEntry) -> Void
-
-    @Query private var recentEntries: [HouseholdEntry]
-
-    init(
-        zoneName: String,
-        limit: Int,
-        canShowMore: Bool,
-        today: Date,
-        undoableEntryIDs: Set<UUID>,
-        showMore: @escaping () -> Void,
-        undo: @escaping () -> Void,
-        edit: @escaping (HouseholdEntry) -> Void,
-        requestDelete: @escaping (HouseholdEntry) -> Void
-    ) {
-        self.limit = limit
-        self.canShowMore = canShowMore
-        self.today = today
-        self.undoableEntryIDs = undoableEntryIDs
-        self.showMore = showMore
-        self.undo = undo
-        self.edit = edit
-        self.requestDelete = requestDelete
-        _recentEntries = Query(HouseholdEntry.timelineDescriptor(zoneName: zoneName, limit: limit))
+    /// 直前の送信か（直前の送信で記録したものを含む）。
+    private func isLatestSend(_ send: EntrySend) -> Bool {
+        !latestEntryIDs.isEmpty && send.entries.contains { latestEntryIDs.contains($0.persistentModelID) }
     }
 
-    /// 「記録しました 取り消す」の行を下に置く吹き出し（直前に記録したもののうち、いちばん新しいもの）。
-    ///
-    /// いちばん下の吹き出しの下に置かないのは、「取り消す」は次の文を送るまで出したままなので、その間に家族の記録が同期で
-    /// 届くと、ほかの人の記録の下に「記録しました 取り消す」が並び、その記録を取り消すように見えるため（押すと消えるのは自分の記録）。
-    private var undoRowAnchor: UUID? {
-        guard !undoableEntryIDs.isEmpty else { return nil }
-        return recentEntries.first { undoableEntryIDs.contains($0.id) }?.id
-    }
-
-    var body: some View {
-        let undoRowAnchor = undoRowAnchor
-        ScrollViewReader { proxy in
-            TimelineScrollView {
-                if recentEntries.isEmpty {
-                    HouseholdEmptyTimelineView()
-                }
-                if recentEntries.count >= limit {
-                    TimelineOlderRecords(canShowMore: canShowMore, isHousehold: true, showMore: showMore)
-                }
-                ForEach(recentEntries.reversed()) { entry in
-                    EntryBubble(
-                        entry: entry, today: today, edit: { edit(entry) }, requestDelete: { requestDelete(entry) },
-                        recorderName: entry.recorderName
-                    )
-                    .reportsTimelineFrame(.row(entry.id))
-                    if entry.id == undoRowAnchor {
-                        HouseholdUndoRow(undo: undo)
-                            .reportsTimelineFrame(.householdUndo)
-                    }
-                }
-            }
-            // いちばん新しい家計の記録が替わったら、下端まで送る（行ではなく中身の下端で、動きを付けない。`scrollToTimelineBottom`）。
-            .onChange(of: recentEntries.first?.id) { _, id in
-                guard id != nil else { return }
-                proxy.scrollToTimelineBottom()
-            }
+    /// その送信の返事に添える一言（一言を書いた記録がこの送信のものなら）。
+    private func remark(for send: EntrySend) -> String? {
+        guard let replyRemark, send.entries.contains(where: { replyRemark.entryIDs.contains($0.persistentModelID) }) else {
+            return nil
         }
-    }
-}
-
-/// 家計のタイムラインの、記録の直後の「記録しました」と「取り消す」（直前に記録した吹き出しの下に右寄せで出す）。
-/// 時間では引っ込めない（次の文を送る・取り消す・その記録を直す・記録先を切り替えるまで。自分の記録の返事と同じ）。
-private struct HouseholdUndoRow: View {
-    let undo: () -> Void
-
-    var body: some View {
-        // 1 行に収まらなければ（アクセシビリティサイズの文字）、「取り消す」を下の行に右寄せで置く。HStack のままだと、AX5 で
-        // 「記録しました」が語の途中で折り返され、「取り消す」が「取り…」に切れた。
-        AdaptiveRowLayout(stacksWhenNeeded: true, spacing: 12, stackAlignment: .trailing) {
-            Text("記録しました")
-                .foregroundStyle(Theme.inkSecondary)
-            Button(action: undo) {
-                // 文字の色は本文と同じ墨（ダークは白）なので、取り消しの記号を添えて、押せるボタンだと分かるようにする。
-                Label("取り消す", systemImage: "arrow.uturn.backward")
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Theme.accentText)
-                    .lineLimit(1)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(.rect)
-            }
-            .accessibilityHint("記録を消して、送った文を入力欄に戻します")
-        }
-        .font(.subheadline)
-        .frame(maxWidth: .infinity, alignment: .trailing)
+        return replyRemark.text
     }
 }
 
@@ -1050,9 +672,6 @@ private struct HouseholdUndoRow: View {
 /// 引っかかるようになるため（`TimelineScrollView`）。
 private struct TimelineOlderRecords: View {
     let canShowMore: Bool
-    /// 家計の記録のタイムラインか。家計の記録は月のまとめにも CSV の書き出しにも出ない（v1 は「自分」だけ）ので、ほかで見られるとは
-    /// 案内しない。
-    let isHousehold: Bool
     let showMore: () -> Void
 
     var body: some View {
@@ -1064,13 +683,7 @@ private struct TimelineOlderRecords: View {
             .font(.subheadline)
             .frame(minHeight: 44)
         } else {
-            Group {
-                if isHousehold {
-                    Text("ホームに出せるのは、新しく記録した方から \(HomeModel.timelineMaxLimit) 件までです。")
-                } else {
-                    Text("ホームに出せるのは、新しく記録した方から \(HomeModel.timelineMaxLimit) 件までです。それより前の記録は、月のまとめのカテゴリの一覧と、設定の「記録を書き出す」で見られます。")
-                }
-            }
+            Text("ホームに出せるのは、新しく記録した方から \(HomeModel.timelineMaxLimit) 件までです。それより前の記録は、左へスワイプしたカレンダーの日ごとの一覧・月のまとめのカテゴリの一覧・設定の「記録を書き出す」で見られます。")
             .font(.footnote)
             .foregroundStyle(Theme.inkSecondary)
             .multilineTextAlignment(.center)
@@ -1080,22 +693,22 @@ private struct TimelineOlderRecords: View {
     }
 }
 
-/// タイムラインのスクロール（自分の記録と家計の記録で共通）。下端から開き、いちばん新しいものを入力欄のすぐ上に出す。
+/// タイムラインのスクロール。下端から開き、いちばん新しいものを入力欄のすぐ上に出す。
 ///
 /// 行は LazyVStack ではなく、すべての行を測る並べ方（`TimelineStack`。VStack と同じ位置に置く）に並べる。LazyVStack は、まだ
 /// 描いていない行の高さを、そのとき描いている行から見積もる。
-/// タイムラインの行は高さがそろわない（送った文の吹き出し・品目の数だけ伸びる返事のカード・回答カード・ふりかえりのカード）ので、描く行が替わるたびに
+/// タイムラインの行は高さがそろわない（送った文の吹き出し・品目の数だけ伸びる返事のカード・回答カード）ので、描く行が替わるたびに
 /// 全体の高さの見積もりが大きく揺れる。下端に合わせる（`defaultScrollAnchor(.bottom)`）と、揺れるたびに位置も同じだけ動いて
 /// 描く行がまた替わり、見える範囲に行が 1 つも無い位置で止まることがあった。開いたときにタイムラインが空に見えた不具合で、
 /// 見える行が少なく見積もりが数行で決まる大きな文字で起きた（シミュレータで、見積もりが 1 万 pt ほど揺れ、行を描かないまま
 /// 止まるのを確かめた。どの文字の大きさで起きるかは記録の中身と画面の幅で変わる）。途中で止まって、いちばん下の行が入力欄に
-/// 隠れることもあった（先週のふりかえりのカード）。すべての行を測れば全体の高さが正しく、下端に正しく合う。
+/// 隠れることもあった（当時あった先週のふりかえりのカード）。すべての行を測れば全体の高さが正しく、下端に正しく合う。
 ///
 /// すべての行を測るぶん開くときの手間は件数に比例するので、読み込む件数を `HomeModel.timelinePageSize` で区切る。
 /// 読み込んだ行は、記録の追加・削除や同期の取り込み、前面に戻ったときにもすべて描き直すので、「前の記録を表示」で読み足せる件数にも
 /// 上限（`HomeModel.timelineMaxLimit`）を設ける。
 ///
-/// 開いた後にいちばん新しいものを足したとき（送信の返事・質問・ふりかえりのカード・家計の記録）は、中身の本当の下端に置いた目印
+/// 開いた後にいちばん新しいものを足したとき（送信の返事・質問）は、中身の本当の下端に置いた目印
 /// （`TimelineBottomMarker`）まで、動きを付けずに送る（`ScrollViewProxy.scrollToTimelineBottom`）。
 /// - 行の id で下端に合わせると、行の下の端が見える範囲の下の端にそろい、その下の余白（`padding()` の 16pt）が見える範囲の外に
 ///   隠れた（中身が画面より高いときだけ。開いたときと、当時あった「取り消す」のバナーが引っ込んだ後は余白が見えるので、送った
@@ -1103,7 +716,7 @@ private struct TimelineOlderRecords: View {
 /// - 動きを付けると、送り先の位置が送り始めたときの見える範囲の高さで決まり、動いている間はその位置に向かい続ける。同じときに
 ///   見える範囲の高さが変わると（声の入力の知らせ。当時は送った記録と一緒に出た「取り消す」のバナーも）、`defaultScrollAnchor(.bottom)`
 ///   が下端に合わせ直す分が打ち消され、変わった分だけ下端からずれて止まった（シミュレータの iOS 26.4 で、送った記録が見える範囲の
-///   下に 36〜129pt はみ出し、声の入力の知らせと同時に出たふりかえりのカードは AX1 と AX5 で 400pt 以上下に隠れた）。動きなしで
+///   下に 36〜129pt はみ出し、当時の声の入力の知らせと同時に出た当時のふりかえりのカードは AX1 と AX5 で 400pt 以上下に隠れた）。動きなしで
 ///   下端に着けば、その後の高さの変化は `defaultScrollAnchor(.bottom)` が下端に合わせ続ける。
 private struct TimelineScrollView<Content: View>: View {
     @ViewBuilder let content: Content
@@ -1179,7 +792,7 @@ private struct TimelineStack: Layout {
 
 /// タイムラインの中身の下端の目印の id（`TimelineScrollView`）。いちばん新しいものまで送るときの行き先。
 ///
-/// いちばん新しいもの（送信の返事・質問・ふりかえりのカード・家計の記録）はいつもいちばん下に並ぶので、下端まで送れば見える。
+/// いちばん新しいもの（送信の返事・質問）はいつもいちばん下に並ぶので、下端まで送れば見える。
 private enum TimelineBottomMarker: Hashable {
     case id
 }
@@ -1201,10 +814,8 @@ private extension ScrollViewProxy {
 enum TimelineFrameKey: Hashable {
     /// 行の見える範囲（帯と入力欄の間）。
     case viewport
-    /// 行。送信の返事のカードは送信の `id`（送信のいちばん古い記録の `persistentModelID`）、家計の記録・質問・ふりかえりは `id`。
+    /// 行。送信の返事のカードは送信の `id`（送信のいちばん古い記録の `persistentModelID`）、質問は `id`。
     case row(AnyHashable)
-    /// 家計のタイムラインの、記録の直後の「記録しました 取り消す」の行（`HouseholdUndoRow`）。
-    case householdUndo
 }
 
 /// タイムラインの行と見える範囲が描かれた位置（ウィンドウの座標）を受け取るもの。
@@ -1248,24 +859,10 @@ private struct TimelineFrameReporter: ViewModifier {
     }
 }
 
-/// 家族の家計にまだ記録が無いときの案内。
-private struct HouseholdEmptyTimelineView: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("家族の家計")
-                .font(.title2.bold())
-            Text("下の入力欄に送ると、家族と共有している家計に記録します。家族が記録したものも、ここに並びます。自分の記録は帯の「自分」に切り替えると見られます。")
-                .foregroundStyle(Theme.inkSecondary)
-        }
-        .foregroundStyle(Theme.ink)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 24)
-    }
-}
-
-/// 記録が 1 件も無いときの案内。入力の例を見せて、何を書けばよいかを伝える。質問も同じ入力欄からできることを添える。
+/// 記録が 1 件も無いときの案内。入力の例を見せて、何を書けばよいかを伝える。質問と月の予算も同じ入力欄からできることを添える。
 ///
-/// 例は押すと入力欄に入る（送るのは利用者）。初めての記録を、打たずに試せるようにするため。
+/// 例は押すと入力欄に入る（送るのは利用者）。初めての記録を、打たずに試せるようにするため。初回の案内では予算を聞かない
+/// （記録を始める前に決めることを求めない）ので、予算の決め方はここで例として見せる。
 private struct EmptyTimelineView: View {
     /// 例を入力欄に入れる。
     let fill: (String) -> Void
@@ -1274,6 +871,9 @@ private struct EmptyTimelineView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("ひとことで記録")
                 .font(.title2.bold())
+                // VoiceOver の見出しの移動で、案内の始まりへ移れるようにする。
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier(AccessibilityID.Home.emptyTimeline)
             Text("下の入力欄に、こんなふうに送るだけで記録できます。")
                 .foregroundStyle(Theme.inkSecondary)
             examples(Self.recordExamples)
@@ -1281,6 +881,10 @@ private struct EmptyTimelineView: View {
                 .foregroundStyle(Theme.inkSecondary)
                 .padding(.top, 4)
             examples(Self.questionExamples)
+            Text("月の予算も、同じ入力欄で決められます。")
+                .foregroundStyle(Theme.inkSecondary)
+                .padding(.top, 4)
+            examples(Self.budgetExamples)
         }
         .foregroundStyle(Theme.ink)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1318,12 +922,14 @@ private struct EmptyTimelineView: View {
     private static let recordExamples = ["ランチ 850", "昨日 焼肉12000 4人で割り勘", "給料 25万"]
     /// 質問の例（ようこその 3 つ目の例と同じ）。
     private static let questionExamples = ["今月カフェいくら?"]
+    /// 月の予算を決める例（チャットの操作 `ChatCommand.setMonthlyBudget` に読める文）。
+    private static let budgetExamples = ["今月の予算を5万にして"]
 }
 
 #Preview {
     // プレビューも、アプリとテストと同じ作り方の保存先（iCloud を切った、メモリの上だけのもの）を使う。
     if let container = try? ModelContainerFactory.makeInMemoryContainer() {
-        HomeView(model: HomeModel(context: container.mainContext, purchases: PurchaseManager(loadPurchases: { [] })))
+        HomeView(model: HomeModel(context: container.mainContext))
             .modelContainer(container)
     }
 }

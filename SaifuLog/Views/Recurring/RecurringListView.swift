@@ -5,10 +5,13 @@ import SwiftUI
 /// 設定の「くり返しの記録」。家賃・サブスク・給料のように毎月同じ記録の一覧。行を押すと直せ、左へのスワイプでやめる。
 ///
 /// 状態と操作は `RecurringListModel` が持つ。ここは表示と、シート・確認・アラートの出し入れだけ。
+/// ほかの端末（iCloud）の変更での読み直しは、下にある設定の画面が受け持つ（`SettingsView`）。
 struct RecurringListView: View {
     @Bindable var model: RecurringListModel
 
     @Environment(\.categoryCatalog) private var catalog
+    /// 行の頭の印の大きさ（文字の大きさに合わせて大きくする）。
+    @ScaledMetric(relativeTo: .body) private var tileSize = 32
 
     var body: some View {
         List {
@@ -40,6 +43,7 @@ struct RecurringListView: View {
                         .contentShape(.rect)
                 }
                 .accessibilityHint("金額と毎月の日を決めて、くり返しの記録を足します")
+                .accessibilityIdentifier(AccessibilityID.Recurring.addButton)
                 .listRowBackground(Theme.surface)
             } footer: {
                 Text("記録する日を過ぎて、最初にアプリを開いたときに記録し、ホームの返事でお知らせします。取り消すと、その月の分はもう記録しません。")
@@ -71,8 +75,6 @@ struct RecurringListView: View {
         } message: {
             Text("もう一度お試しください。")
         }
-        // iCloud で届いたほかの端末のくり返しの記録も一覧に出す。
-        .onReceive(StoreChanges.remote) { _ in model.reload() }
     }
 
     /// 1 行（印・品目・毎月の日とカテゴリ・次に記録する日・金額）。押すと直すシートを開く。
@@ -110,22 +112,29 @@ struct RecurringListView: View {
         return row.isIncome ? String(localized: "収入") : catalog.localizedName(for: row.category)
     }
 
-    /// 「毎月25日・住居・次は11月25日」。
+    /// 「毎月25日・住居・次は11月25日」。品目が無ければ、見出しがカテゴリ名か「収入」なので、ここではくり返さない
+    /// （「収入」「毎月25日・収入・…」と 2 回読まれないように）。
     private func detail(_ row: RecurringListModel.Row) -> Text {
-        let kind = row.isIncome ? String(localized: "収入") : catalog.localizedName(for: row.category)
+        let kind: String? = row.memo.isEmpty
+            ? nil : (row.isIncome ? String(localized: "収入") : catalog.localizedName(for: row.category))
         let every = RecurringTexts.spokenEveryMonth(row.dayOfMonth)
-        if let next = row.nextDate {
-            return Text("\(every)・\(kind)・次は\(next.formatted(.dateTime.month().day()))")
+        let next = row.nextDate?.formatted(.dateTime.month().day())
+        switch (kind, next) {
+        case let (kind?, next?): return Text("\(every)・\(kind)・次は\(next)")
+        case let (nil, next?): return Text("\(every)・次は\(next)")
+        case let (kind?, nil): return Text(verbatim: "\(every)・\(kind)")
+        case (nil, nil): return Text(verbatim: every)
         }
-        return Text(verbatim: "\(every)・\(kind)")
     }
 
     private func tile(_ row: RecurringListModel.Row) -> some View {
         Image(systemName: row.isIncome ? "yensign" : catalog.symbolName(for: row.category))
-            .font(.system(size: 14, weight: .semibold))
+            .font(.system(size: tileSize * 0.44, weight: .semibold))
             .foregroundStyle(Theme.onCategory)
-            .frame(width: 32, height: 32)
-            .background(row.isIncome ? Theme.income : catalog.color(for: row.category), in: .rect(cornerRadius: 9))
+            .frame(width: tileSize, height: tileSize)
+            .background(
+                row.isIncome ? Theme.income : catalog.color(for: row.category), in: .rect(cornerRadius: tileSize * 0.28)
+            )
             // 印はダークでもライトの色で塗る（返事の行と同じ。白い記号を読めるように）。
             .environment(\.colorScheme, .light)
             .accessibilityHidden(true)

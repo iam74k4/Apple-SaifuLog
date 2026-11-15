@@ -57,9 +57,9 @@ public struct FallbackEntryParser: EntryParsing {
     }
 }
 
-/// AI の結果を使わずに、ルールベース（キーワード辞書）で読み直した・答え直した（ふりかえりは定型文だけにした）理由。
+/// AI の結果を使わずに、ルールベース（キーワード辞書）で読み直した・答え直した（月のまとめは一言を添えなかった）理由。
 ///
-/// `FallbackEntryParser` と、アプリの家計への質問の切り替え（`FallbackQuestionAnswerer`）が、呼び出し側に渡す。ふりかえりの一言と
+/// `FallbackEntryParser` と、アプリの家計への質問の切り替え（`FallbackQuestionAnswerer`）が、呼び出し側に渡す。月のまとめの一言と
 /// レシートの品名の整えも、アプリがこの理由で残す（`AIFallbackLog`）。
 public enum AIFallbackReason: Sendable {
     /// AI が失敗した（投げた）。取り消し（`CancellationError`）と時間切れは含まない。

@@ -616,6 +616,8 @@ struct ReceiptLineScannerTests {
         ("スターバックス コーヒー", .cafe),
         ("ダイソー", .daily),
         ("ウエルシア", .daily),
+        ("ユニクロ 銀座店", .clothing),
+        ("ZARA", .clothing),
         ("町の本屋", nil),
     ])
     func storeCategories(name: String, category: EntryCategory?) {

@@ -30,8 +30,8 @@ enum StoreFileProtection {
         }
     ) {
         let folder = storeURL.deletingLastPathComponent()
-        // フォルダにも当てる。後からこの中に保護を指定せずに作るファイルが、Complete を継ぐように（アプリを一度も開く前に
-        // ロック中で Apple Pay の支払いを受け取ると、受け箱がこのフォルダを弱い保護で作る。`PaymentInbox`）。
+        // フォルダにも当てる。後からこの中に保護を指定せずに作るファイルが、Complete を継ぐように（前の版の Apple Pay の
+        // 支払いの受け箱のように、ロック中に弱い保護でこのフォルダが作られていることがあるため）。
         let files = protectedSuffixes.map {
             folder.appending(path: storeURL.lastPathComponent + $0, directoryHint: .notDirectory)
         }

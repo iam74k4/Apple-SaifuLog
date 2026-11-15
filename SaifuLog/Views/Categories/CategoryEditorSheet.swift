@@ -32,13 +32,16 @@ struct CategoryEditorSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
+                    Button("キャンセル") {
+                        if model.requestClose() { dismiss() }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
                         if model.save() { dismiss() }
                     }
                     .disabled(!model.canSave)
+                    .accessibilityIdentifier(AccessibilityID.Categories.saveButton)
                 }
             }
             .alert("保存できませんでした", isPresented: $model.showsSaveFailure) {
@@ -46,7 +49,21 @@ struct CategoryEditorSheet: View {
             } message: {
                 Text("もう一度お試しください。")
             }
+            .confirmationDialog(
+                // 作るときは「直した」ではなく「入力した」と言う。
+                model.mode == .create ? Text("入力した内容を破棄しますか？") : Text("直した内容を破棄しますか？"),
+                isPresented: $model.showsDiscardConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("破棄して閉じる", role: .destructive) { dismiss() }
+                Button(role: .cancel) {} label: {
+                        model.mode == .create ? Text("入力を続ける") : Text("直すのを続ける")
+                    }
+            }
         }
+        // 入れた内容があるときは、下へのスワイプで黙って閉じない。止めたスワイプは確認に回す（直すシートと同じ）。
+        .interactiveDismissDisabled(model.hasChanges)
+        .background(SheetDismissAttemptObserver { model.showsDiscardConfirmation = true })
     }
 
     /// 選んでいる色と記号の見本（返事の行の印と同じ形）。
@@ -73,10 +90,11 @@ struct CategoryEditorSheet: View {
             Text("名前")
                 .font(.subheadline)
                 .foregroundStyle(Theme.inkSecondary)
-            TextField(text: $model.name, prompt: Text("衣服・住居・美容 など").foregroundStyle(Theme.inkSecondary)) {
+            TextField(text: $model.name, prompt: Text("交際・ペット・子ども など").foregroundStyle(Theme.inkSecondary)) {
                 Text("名前")
             }
             .foregroundStyle(Theme.ink)
+            .accessibilityIdentifier(AccessibilityID.Categories.nameField)
             .submitLabel(.done)
             .padding(.horizontal, 16)
             .frame(minHeight: 48)

@@ -24,10 +24,13 @@ public protocol LearnedCategoryRecord {
 /// - 当て方: そろえた品目と同じ言葉を覚えていればそれ。無ければ、品目に含まれる覚えた言葉（2 文字以上）のうち最も長いもの
 ///   （同じ長さなら文字の順で先のもの。覚えを読むたびに結果が変わらないように）。「ユニクロ」を覚えれば「ユニクロ 靴下」にも当てる。
 ///   1 文字の言葉を部分一致に使わないのは、「薬」を覚えたときに「薬局」「目薬」まで同じカテゴリにしないため（辞書の 1 文字の語を
-///   絞っているのと同じ考え方。`EntryCategory.keywords`）。
+///   絞っているのと同じ考え方。`EntryCategory.keywords`）。2 文字の言葉は、品目の中で語として区切れているとき（前後が品目の端・
+///   空白・記号・数字か、文字の種類（カタカナ・漢字・英字）が変わるところ）だけ当てる。「パン」を覚えたときに「パンツ」、「ガス」を
+///   覚えたときに「ガスト」まで同じカテゴリにしないため。
 /// - 覚えは、読み取ったカテゴリ（AI・辞書）より優先する。利用者がはっきり選んだものだから。ただし、品目にカテゴリの名前
-///   （「日用品」など）が書かれていれば、その記録には当てない（その場で書いたカテゴリを、前の覚えで変えないため）。品目に作った
-///   カテゴリの名前（「衣服」など）が書かれていれば、そのカテゴリにする（`CategoryCatalog.customCategory(namedIn:)`）。
+///   （「日用品」など）が書かれていれば、同じ言葉の覚えのほかは当てない（その場で書いたカテゴリを、ほかの言葉の覚えで変えないため。
+///   品目そのものを覚えていれば、その品目について利用者が選んだものなので当てる）。品目に作ったカテゴリの名前（「衣服」など）が
+///   書かれていれば、そのカテゴリにする（`CategoryCatalog.customCategory(namedIn:)`）。
 /// - 一覧に無い作ったカテゴリ（消した・まだ iCloud から届いていない）を指す覚えは当てない。
 /// - 収入には当てない（収入はカテゴリを持たず、いつも「その他」。`ParsedEntry.assemble`）。
 /// - 同じ言葉の覚えが複数あれば（iCloud で別々の端末から届いた）、書いた日時の新しいものを採る。同じ日時ならカテゴリの
@@ -125,7 +128,7 @@ public struct CategoryMemory: Sendable, Hashable {
         guard let key = Self.key(for: item) else { return nil }
         if let exact = rules[key] { return exact }
         var best: (key: String, category: EntryCategory)?
-        for (learned, category) in rules where learned.count >= Self.minimumContainedKeyLength && key.contains(learned) {
+        for (learned, category) in rules where Self.contains(learned, in: key) {
             if let current = best,
                current.key.count > learned.count || (current.key.count == learned.count && current.key < learned) {
                 continue
@@ -133,6 +136,45 @@ public struct CategoryMemory: Sendable, Hashable {
             best = (learned, category)
         }
         return best?.category
+    }
+
+    /// 品目と同じ言葉の覚え（部分一致は見ない）。覚えていなければ nil。
+    public func exactCategory(forItem item: String) -> EntryCategory? {
+        Self.key(for: item).flatMap { rules[$0] }
+    }
+
+    /// 覚えた言葉 `learned` を、品目 `key`（どちらもそろえた形）に部分一致で当ててよいか（上の決め事）。
+    static func contains(_ learned: String, in key: String) -> Bool {
+        guard learned.count >= minimumContainedKeyLength else { return false }
+        guard learned.count == minimumContainedKeyLength else { return key.contains(learned) }
+        let chars = Array(key)
+        let word = Array(learned)
+        guard chars.count >= word.count else { return false }
+        for start in 0...(chars.count - word.count) where Array(chars[start..<(start + word.count)]) == word {
+            let end = start + word.count
+            let startsWord = start == 0 || isBoundary(chars[start - 1], chars[start])
+            let endsWord = end == chars.count || isBoundary(chars[end - 1], chars[end])
+            if startsWord && endsWord { return true }
+        }
+        return false
+    }
+
+    /// 隣り合う 2 文字の間で語が区切れるか（どちらかが空白・記号・数字か、文字の種類が違う）。
+    private static func isBoundary(_ left: Character, _ right: Character) -> Bool {
+        guard let leftScript = script(of: left), let rightScript = script(of: right) else { return true }
+        return leftScript != rightScript
+    }
+
+    private enum Script { case kana, kanji, latin }
+
+    /// 語の文字の種類。空白・記号・数字は nil（語の区切り）。そろえた形ではひらがなはカタカナになっているので、仮名はまとめて見る。
+    private static func script(of character: Character) -> Script? {
+        guard let scalar = character.unicodeScalars.first else { return nil }
+        switch scalar.value {
+        case 0x3041...0x309F, 0x30A1...0x30FA, 0x30FC...0x30FF: return .kana
+        case 0x3400...0x4DBF, 0x4E00...0x9FFF, 0xF900...0xFAFF, 0x3005: return .kanji
+        default: return character.isLetter ? .latin : nil
+        }
     }
 
     /// 読み取った記録のカテゴリを、作ったカテゴリの名前と覚えで置き換える（上の決め事。収入と、品目に組み込みのカテゴリの名前が
@@ -146,6 +188,8 @@ public struct CategoryMemory: Sendable, Hashable {
             let item = Self.item(ofMemo: entry.memo, amount: entry.amount, isIncome: false)
             let resolved: EntryCategory? = if let named = catalog.customCategory(namedIn: item) {
                 named
+            } else if let exact = exactCategory(forItem: item), catalog.contains(exact) {
+                exact
             } else if Self.namesCategory(item) {
                 nil
             } else {
@@ -160,7 +204,7 @@ public struct CategoryMemory: Sendable, Hashable {
 
     /// 記録の返事で、カテゴリを聞き返すか（「その他」になった支出で、品目が辞書にも覚えにも当たらないとき）。
     ///
-    /// 辞書の「その他」の語（「洋服」「美容院」など）やカテゴリの名前に当たった品目は、その他と読んだ理由があるので聞き返さない
+    /// 辞書の語（「プレゼント」などの「その他」の語も）やカテゴリの名前に当たった品目は、読んだ理由があるので聞き返さない
     /// （`EntryCategory.matched(in:)`）。覚えた言葉（「その他のまま」を選んだ言葉も）は聞き返さない。ただし、一覧に無い作ったカテゴリを
     /// 指す覚え（ほかの端末で消した・まだ届いていない）は、当てない（`applying`）ので無いものとして聞き返す。品目の無い記録（金額だけ）は
     /// 聞き返す（覚えられないが、その記録のカテゴリは選べる）。自信が無いときだけ聞き返し、一行入力の軽さを保つ（§3-2）。

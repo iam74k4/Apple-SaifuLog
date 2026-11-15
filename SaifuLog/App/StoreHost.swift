@@ -1,4 +1,5 @@
 import Observation
+import os
 import SwiftData
 import UIKit
 
@@ -15,6 +16,9 @@ import UIKit
 @MainActor
 @Observable
 final class StoreHost {
+    /// 保存先を開けなかった理由を残す先（利用者への知らせには出さない番号など。家計の中身は書かない）。
+    private static let logger = Logger(subsystem: "com.iam74k4.SaifuLog", category: "store")
+
     enum State {
         /// 開く前・開いている途中・ロックが解けるのを待っている間。
         case loading
@@ -132,23 +136,28 @@ final class StoreHost {
     /// 記録は残る（`ModelContainerFactory.makeContainer`）。開き直したら設定の画面に戻す（`consumeSettingsRestoration`）。
     /// iCloud と同期する保存先を開けず、端末の中だけの保存先としてなら開けたときは、そちらに戻して設定もオフに戻す
     /// （`iCloudFallback`）。いまと同じ値なら何もしない。
-    func setICloudSyncEnabled(_ enabled: Bool) {
+    ///
+    /// - Returns: 設定を書けず、切り替えなかったら false（呼び出し側が知らせる）。切り替えた・いまと同じ値・開き直しの途中で
+    ///   受け付けなかったときは true。
+    @discardableResult
+    func setICloudSyncEnabled(_ enabled: Bool) -> Bool {
         let target = ModelContainerFactory.CloudKitDatabase(syncEnabled: enabled)
-        guard target != cloudKitDatabase else { return }
+        guard target != cloudKitDatabase else { return true }
         // 開き直せない状態（開く前・開き直しの途中）では受け付けない（設定を書いたのに開き直さない、を避ける）。
         switch state {
         case .ready, .unavailable: break
-        case .loading, .reopening: return
+        case .loading, .reopening: return true
         }
         // 書けなければ切り替えない（開き直した後の設定と、次に開いたときに読む設定が食い違わないように）。設定の画面の
         // 切り替えは、いまの保存先の iCloud の扱い（`cloudKitDatabase`）を映しているので、元のままに見える。
-        guard (try? settings.update({ $0.iCloudSyncEnabled = enabled })) != nil else { return }
+        guard (try? settings.update({ $0.iCloudSyncEnabled = enabled })) != nil else { return false }
         iCloudFallback = nil
         restoresSettings = true
         pendingAnnouncement = enabled
             ? String(localized: "iCloud での同期をオンにしました")
             : String(localized: "iCloud での同期をオフにしました。記録はこの iPhone に残っています")
         reopen(cloudKitDatabase: target)
+        return true
     }
 
     /// iCloud 同期を切り替えて開き直したあと、設定の画面に戻すか（一度だけ true を返す）。
@@ -300,7 +309,13 @@ final class StoreHost {
         // 書けなくても戻す（この起動では端末の中だけで開いている。次に開いたときはまた iCloud と同期する保存先から試し、
         // 同じように戻す）。
         _ = try? settings.update { $0.iCloudSyncEnabled = false }
-        iCloudFallback = ICloudSyncFailure(error: iCloudError)
+        let failure = ICloudSyncFailure(error: iCloudError)
+        // 利用者への知らせには番号を出さない（読んでも分からないため）。調べるときのために、原因に近いエラーのドメインと番号を
+        // ログに残す（家計の中身は含まない）。
+        Self.logger.error(
+            "iCloud と同期する保存先を開けず、端末の中だけに戻した: \(failure.domain, privacy: .public) \(failure.code, privacy: .public)"
+        )
+        iCloudFallback = failure
         // 「オンにしました」とは読み上げない（戻したことは知らせのアラートで伝える）。
         pendingAnnouncement = nil
         didOpen(container)

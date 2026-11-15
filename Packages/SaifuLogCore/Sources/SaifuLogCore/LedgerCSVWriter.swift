@@ -112,6 +112,8 @@ public enum LedgerCSVWriter {
             case .entertainment: return "Entertainment"
             case .utilities: return "Utilities & phone"
             case .medical: return "Medical"
+            case .housing: return "Housing"
+            case .clothing: return "Clothing & beauty"
             case .other, .custom: return "Other"
             }
         }

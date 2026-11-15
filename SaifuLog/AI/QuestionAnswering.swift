@@ -9,7 +9,7 @@ protocol QuestionAnswering: Sendable {
     /// - Parameters:
     ///   - ledger: 答えに使う記録と予算の写し（`QuestionLedger.load`）。
     ///   - now: 送った瞬間の日時（期間の区切りの基準）。
-    ///   - calendar: 期間の区切りの暦（画面の暦。ホームの今月と同じ月、週の始まりは設定のとおり）。
+    ///   - calendar: 期間の区切りの暦（画面の暦。ホームの今月と同じ月、週の始まりは端末の設定のとおり）。
     func answer(_ text: String, ledger: QuestionLedger, now: Date, calendar: Calendar) async throws -> QuestionReply
 }
 

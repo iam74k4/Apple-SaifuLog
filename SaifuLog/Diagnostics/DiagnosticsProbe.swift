@@ -6,7 +6,6 @@ import UIKit
 import FoundationModels
 #endif
 import SaifuLogCore
-import Speech
 
 /// 診断画面の値を、端末・OS・保存先から読む。
 ///
@@ -145,35 +144,6 @@ enum DiagnosticsProbe {
             return .timedOut(timeout)
         } catch {
             return .failed(AIErrorSummary(error))
-        }
-    }
-
-    // MARK: - 音声の書き起こし
-
-    /// 端末内の音声の書き起こし（声の入力）が、日本語で使えるか。声の入力が使っている経路も出す。
-    ///
-    /// 使えるかを尋ねるだけで、マイクも音声認識の許可も使わない（許可のダイアログは出ない）。
-    static func speech() async -> DiagnosticsReport.SpeechStatus {
-        let japanese = await SpeechTranscriber.supportedLocale(equivalentTo: SpeechModules.japanese)
-        let installed = await SpeechTranscriber.installedLocales
-        // 経路の選び方は声の入力と同じもの（`SpeechModules.availability`）を使う。
-        let voice = await SpeechModules.availability()
-        return DiagnosticsReport.SpeechStatus(
-            isAvailable: SpeechTranscriber.isAvailable,
-            japaneseLocale: japanese?.identifier,
-            isJapaneseInstalled: installed.contains { $0.language.languageCode == .japanese },
-            route: voice.route.rawValue,
-            model: voice.model.map(modelName) ?? "none"
-        )
-    }
-
-    /// モデルの状態の名前（訳さない）。
-    static func modelName(_ state: VoiceModelState) -> String {
-        switch state {
-        case .installed: "installed"
-        case .needsReservation: "needsReservation"
-        case .needsDownload: "needsDownload"
-        case .downloading: "downloading"
         }
     }
 

@@ -63,12 +63,6 @@ public struct LedgerCalendarMonth: Sendable, Hashable {
         self.leadingBlankCount = (firstWeekday - calendar.firstWeekday + 7) % 7
     }
 
-    /// 予算の日割り（予算 ÷ 月の日数、切り捨て）。日の印（日割りの目安より多い）に使う。予算を決めていなければ nil。
-    public func dailyPace(budget: Int?) -> Int? {
-        guard let budget, budget > 0, !days.isEmpty else { return nil }
-        return budget / days.count
-    }
-
     /// `date` を含む日。月の外なら nil。
     public func day(containing date: Date, calendar: Calendar) -> Day? {
         let start = calendar.startOfDay(for: date)

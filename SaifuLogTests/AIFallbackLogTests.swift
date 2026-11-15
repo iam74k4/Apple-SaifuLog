@@ -73,7 +73,7 @@ struct AIFallbackLogTests {
         #expect(snapshot.lastError?.feature == .recap)
     }
 
-    /// ふりかえりの一言とレシートの整えは、投げられたエラーから理由を決めて残す（`AIFallbackReason(error:)`）。
+    /// 月のまとめの一言とレシートの整えは、投げられたエラーから理由を決めて残す（`AIFallbackReason(error:)`）。
     @Test("上限を過ぎたエラーは時間切れとして、ほかのエラーは失敗として残す")
     func reasonFromErrorSeparatesTimeouts() {
         let log = AIFallbackLog(now: { TestSupport.now })

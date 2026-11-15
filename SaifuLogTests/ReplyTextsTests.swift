@@ -63,11 +63,21 @@ struct ReplyTextsTests {
         return try #require(BudgetStatus(budget: amount, spent: spent, now: TestSupport.now, month: month, calendar: TestSupport.calendar))
     }
 
+    @Test("送った支出のカテゴリの今月の件数と合計は「カフェは今月 3 件・¥1,350」（どの端末でも出す、コードが数えた一行）")
+    func categoryTally() throws {
+        let sentence = ReplyTexts.categoryTally(categoryName: "カフェ", count: 3, total: 1_350)
+
+        #expect(sentence.text == "カフェは今月 3 件・¥1,350")
+        #expect(sentence.figures == ["¥1,350"])
+        #expect(!sentence.isWarning)
+        #expect(try Self.english("%@は今月 %lld 件・%@", "Café", 3, "¥1,350") == "Café: 3 this month, ¥1,350")
+    }
+
     @Test("予算を決めていれば、帯と同じ残りと 1 日あたりの額で「今月あと ¥…（1日あたり ¥…）」")
     func statusWithBudget() throws {
-        let sentence = ReplyTexts.status(
+        let sentence = try #require(ReplyTexts.status(
             summary: MonthlySummary(expense: 82_656), budget: try Self.budget(150_000, spent: 82_656), isIncomeOnly: false
-        )
+        ))
 
         #expect(sentence.text == "今月あと ¥67,344（1日あたり ¥22,448）")
         #expect(sentence.figures == ["¥67,344", "¥22,448"])
@@ -77,9 +87,9 @@ struct ReplyTextsTests {
 
     @Test("予算を超えていれば「今月の予算を ¥… 超えています」（額は注意の色）")
     func statusOverBudget() throws {
-        let sentence = ReplyTexts.status(
+        let sentence = try #require(ReplyTexts.status(
             summary: MonthlySummary(expense: 153_000), budget: try Self.budget(150_000, spent: 153_000), isIncomeOnly: false
-        )
+        ))
 
         #expect(sentence.text == "今月の予算を ¥3,000 超えています")
         #expect(sentence.figures == ["¥3,000"])
@@ -87,21 +97,18 @@ struct ReplyTextsTests {
         #expect(try Self.english("今月の予算を %@ 超えています", "¥3,000") == "¥3,000 over this month’s budget")
     }
 
-    @Test("予算を決めていなければ「今月の支出 ¥…」")
-    func statusWithoutBudget() throws {
-        let sentence = ReplyTexts.status(summary: MonthlySummary(expense: 42_380, income: 1_000), budget: nil, isIncomeOnly: false)
-
-        #expect(sentence.text == "今月の支出 ¥42,380")
-        #expect(sentence.figures == ["¥42,380"])
-        #expect(try Self.english("今月の支出 %@", "¥42,380") == "Spent this month: ¥42,380")
+    /// 今月使った額は上の帯にいつも出ているので、返事でくり返さない。
+    @Test("予算を決めていなければ、今月の状況の一行を出さない")
+    func statusWithoutBudget() {
+        #expect(ReplyTexts.status(summary: MonthlySummary(expense: 42_380, income: 1_000), budget: nil, isIncomeOnly: false) == nil)
     }
 
     /// 予算の残りは収入で増えないので、給料を送った返事には、予算があっても今月の収入を出す。
     @Test("収入だけの送信は、予算があっても「今月の収入 ¥…」")
     func statusForIncomeOnlySend() throws {
         let summary = MonthlySummary(expense: 82_656, income: 250_000)
-        let withBudget = ReplyTexts.status(summary: summary, budget: try Self.budget(150_000, spent: 82_656), isIncomeOnly: true)
-        let withoutBudget = ReplyTexts.status(summary: summary, budget: nil, isIncomeOnly: true)
+        let withBudget = try #require(ReplyTexts.status(summary: summary, budget: try Self.budget(150_000, spent: 82_656), isIncomeOnly: true))
+        let withoutBudget = try #require(ReplyTexts.status(summary: summary, budget: nil, isIncomeOnly: true))
 
         #expect(withBudget.text == "今月の収入 ¥250,000")
         #expect(withBudget == withoutBudget)

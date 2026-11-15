@@ -42,6 +42,18 @@ struct FoundationModelsEntryParser: EntryParsing {
         }
     }
 
+    /// 前もって読み込んだセッション（`prewarm`）。読み込みの途中で捨てないよう、次に読み込むまで持っておく。
+    @MainActor private static var prewarmedSession: LanguageModelSession?
+
+    /// 読み取りの指示文で、モデルを前もって読み込む（`AIPrewarm`）。読み取りは区間ごとに新しいセッションを作るが、モデルの読み込みは
+    /// セッションをまたいで効く。
+    @MainActor
+    static func prewarm() {
+        let session = LanguageModelSession(instructions: instructions)
+        session.prewarm()
+        prewarmedSession = session
+    }
+
     func parse(_ text: String) async throws -> [ParsedEntry] {
         // 金額・日付・割り勘の人数・収入・品目は、入力のその件の区間と突き合わせてから使う
         // （SaifuLogCore の ExtractedEntry）。合わない件が 1 つでもあれば throw し、呼び出し側

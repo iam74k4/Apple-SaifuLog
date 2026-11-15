@@ -23,7 +23,7 @@ import UIKit
 enum Theme {
     /// 画面の背景。
     static let background = Palette.background.color
-    /// アプリの返事のカード（記録しました・質問の回答・ふりかえり）など、背景の上に載せる面。
+    /// アプリの返事のカード（記録しました・質問の回答）など、背景の上に載せる面。
     static let surface = Palette.surface.color
     /// 本文の文字（墨）。
     static let ink = Palette.ink.color
@@ -102,6 +102,8 @@ enum Palette {
         case .entertainment: ColorPair(light: 0x9B40C4, dark: 0xC38EF0) // 紫
         case .utilities: ColorPair(light: 0x0B7285, dark: 0x4FD0E0) // 青緑
         case .medical: ColorPair(light: 0xC2185B, dark: 0xFF7FB0) // 紅梅
+        case .housing: ColorPair(light: 0x9A6200, dark: 0xF2B34D) // 黄土
+        case .clothing: ColorPair(light: 0x4A55B5, dark: 0xA3ACFF) // 藍
         case .other: ColorPair(light: 0x6E6E73, dark: 0xAEAEB2) // 鼠
         }
     }
@@ -157,7 +159,7 @@ extension CategoryCatalog {
 }
 
 extension EnvironmentValues {
-    /// カテゴリの一覧（作ったカテゴリの名前・記号・色を引く）。ホーム（`HomeView`）が渡す。渡されていなければ組み込みの 8 種だけ。
+    /// カテゴリの一覧（作ったカテゴリの名前・記号・色を引く）。ホーム（`HomeView`）が渡す。渡されていなければ組み込みの 10 種だけ。
     @Entry var categoryCatalog: CategoryCatalog = .builtIn
 }
 
@@ -195,6 +197,8 @@ extension EntryCategory {
         case .entertainment: "娯楽"
         case .utilities: "光熱・通信"
         case .medical: "医療"
+        case .housing: "住居"
+        case .clothing: "衣服・美容"
         case .other: "その他"
         }
     }

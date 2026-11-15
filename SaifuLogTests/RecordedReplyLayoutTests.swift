@@ -9,8 +9,7 @@ import UIKit
 ///
 /// 品目と金額（`SplitRowLayout`）は、1 行に収まるときだけ横に並べて金額を行の右の端に置き、収まらなければ金額を品目の下の行の
 /// 右の端に置く。品目が折り返すほど長いのに横に並べると、金額が品目の 1 行目の右に並び、「…総額」「¥3,000」のように続けて
-/// 読めてしまうため（吹き出しの `EntryTitleAmountRow` と同じ選び方）。SwiftUI に測らせた大きさと、品目を赤・金額を青で描いた
-/// 画像の画素で確かめる（`EntryBubbleLayoutTests` と同じ確かめ方）。
+/// 読めてしまうため。SwiftUI に測らせた大きさと、品目を赤・金額を青で描いた画像の画素（`RGBAImage`）で確かめる。
 ///
 /// 見出しの高さが「取り消す」の有無で変わらないこと（次の文を送ると前の返事の「取り消す」が消えるので、変わるとその瞬間に
 /// タイムラインの行がずれて見える）も、実際のカードを測って確かめる。
@@ -107,22 +106,46 @@ struct RecordedReplyLayoutTests {
         #expect(heights[0] > heights[1])
     }
 
-    /// 直前の送信の返事（「取り消す」を出している間）には、最後に今月の状況の一行を足す。一行は今月の記録と予算を保存先から読む。
-    @Test("直前の送信の返事には、今月の状況の一行を足す（前の送信の返事には足さない）")
-    func latestReplyAddsStatusLine() throws {
+    /// 直前の送信の返事（「取り消す」を出している間）には、送った支出のカテゴリの今月の件数と合計の一行を、どの端末でも足す
+    /// （予算が無くても。`ReplyTexts.categoryTally`）。予算を決めていれば、今月の状況の一行も続けて足す。行は今月の記録と予算を
+    /// 保存先から読む。「その他」の支出だけの送信には、予算が無ければ何も足さない（間も残さない）。
+    @Test("直前の送信の返事には、カテゴリの件数と合計の一行を足し、予算を決めていれば今月の状況の一行も足す")
+    func latestReplyAddsStatusLines() throws {
         let context = try TestSupport.makeContext()
         let entry = TestSupport.entry(memo: "ランチ", spentAt: TestSupport.now, createdAt: TestSupport.now)
+        let other = TestSupport.entry(
+            amount: 500, category: .other, memo: "町内会費", spentAt: TestSupport.now,
+            createdAt: TestSupport.now.addingTimeInterval(60)
+        )
         context.insert(entry)
+        context.insert(other)
         try context.save()
-        let send = try #require(EntrySend.sends(from: [entry]).first)
+        let sends = EntrySend.sends(from: [entry, other])
+        let send = try #require(sends.first { $0.entries.contains { $0 === entry } })
+        let otherSend = try #require(sends.first { $0.entries.contains { $0 === other } })
 
-        let latest = Self.size(
+        let earlier = Self.size(of: Self.card(send, canUndo: true).modelContainer(context.container), width: 370)
+        let tallyOnly = Self.size(
             of: Self.card(send, canUndo: true, showsStatus: true).modelContainer(context.container), width: 370
         )
-        let earlier = Self.size(of: Self.card(send, canUndo: false).modelContainer(context.container), width: 370)
+        // カテゴリの一行（標準の文字で 20pt ほど）と区切りの線と間の分だけ高い。
+        #expect(tallyOnly.height > earlier.height + 20)
 
-        // 一行（標準の文字で 20pt ほど）と区切りの線と間の分だけ高い。
-        #expect(latest.height > earlier.height + 20)
+        // 「その他」だけの送信には、予算が無ければ何も足さない。
+        let otherEarlier = Self.size(of: Self.card(otherSend, canUndo: true).modelContainer(context.container), width: 370)
+        let otherLatest = Self.size(
+            of: Self.card(otherSend, canUndo: true, showsStatus: true).modelContainer(context.container), width: 370
+        )
+        #expect(abs(otherLatest.height - otherEarlier.height) < 0.5)
+
+        context.insert(Budget(scope: .total, amount: 150_000, updatedAt: TestSupport.now))
+        try context.save()
+        let withBudget = Self.size(
+            of: Self.card(send, canUndo: true, showsStatus: true).modelContainer(context.container), width: 370
+        )
+
+        // 今月の状況の一行の分だけ、さらに高い。
+        #expect(withBudget.height > tallyOnly.height + 15)
     }
 
     // MARK: - 部品

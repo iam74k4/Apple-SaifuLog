@@ -42,10 +42,8 @@ struct SummaryHeaderLayoutTests {
         let header = SummaryHeader(
             summary: MonthlySummary(expense: spent, income: 0),
             budget: status,
-            editBudget: {},
             openReport: {},
             openSettings: {},
-            pace: status == nil ? nil : SummaryHeader.Pace(amount: 130_000, beyond: spent - 130_000),
             isCompact: isCompact
         )
         .environment(\.dynamicTypeSize, size)

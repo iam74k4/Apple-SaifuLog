@@ -113,6 +113,35 @@ struct RecurringEditorModelTests {
         #expect(try fixture.store.rules().first?.startMonthKey == 202611)
     }
 
+    /// 先月の記録から作ったとき（その記録の次の月が今月）は、今月の分はまだ記録していないので「今月の分も記録する」を選べる。
+    @Test func createFromLastMonthEntryOffersThisMonth() throws {
+        let fixture = try Fixture()
+        let editor = fixture.creating(
+            RecurringDraft(amount: 990, memo: "サブスク", isIncome: false, category: .other, dayOfMonth: 5),
+            notBefore: RecurringMonth(year: 2026, month: 10)
+        )
+
+        #expect(editor.showsThisMonthChoice)
+        editor.includesThisMonth = true
+        #expect(editor.recordsImmediately == TestSupport.date(2026, 10, 5, hour: 12))
+        #expect(editor.save())
+        #expect(try fixture.store.rules().first?.startMonthKey == 202610)
+    }
+
+    /// 入れた内容があれば、閉じる前に捨てるかを確かめる（下へのスワイプやキャンセルで黙って捨てない）。
+    @Test func closingWithChangesAsksToDiscard() throws {
+        let fixture = try Fixture()
+        let editor = fixture.creating()
+        #expect(!editor.hasChanges)
+        #expect(editor.requestClose())
+
+        editor.amountText = "990"
+
+        #expect(editor.hasChanges)
+        #expect(!editor.requestClose())
+        #expect(editor.showsDiscardConfirmation)
+    }
+
     /// 書き込めなければ知らせ、閉じない。
     @Test func createFailureShowsAlert() throws {
         let fixture = try Fixture()

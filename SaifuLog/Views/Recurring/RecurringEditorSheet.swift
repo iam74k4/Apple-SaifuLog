@@ -25,7 +25,9 @@ struct RecurringEditorSheet: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("キャンセル", role: .cancel) { dismiss() }
+                        Button("キャンセル", role: .cancel) {
+                            if model.requestClose() { dismiss() }
+                        }
                     }
                 }
                 .alert(
@@ -47,10 +49,22 @@ struct RecurringEditorSheet: View {
                 } message: {
                     Text("次の月から記録しなくなります。これまでに記録したものは残ります。")
                 }
+                .confirmationDialog(
+                    // 作るときは「直した」ではなく「入力した」と言う。
+                    model.mode == .create ? Text("入力した内容を破棄しますか？") : Text("直した内容を破棄しますか？"),
+                    isPresented: $model.showsDiscardConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("破棄して閉じる", role: .destructive) { dismiss() }
+                    Button(role: .cancel) {} label: {
+                        model.mode == .create ? Text("入力を続ける") : Text("直すのを続ける")
+                    }
+                }
         }
         .presentationDetents([.large])
-        // 入れた内容を、下へのスワイプで黙って捨てない（直すシートと同じ。キャンセルは押せば閉じる）。
-        .interactiveDismissDisabled(model.canSave)
+        // 入れた内容があるときは、下へのスワイプで黙って閉じない。止めたスワイプは確認に回す（直すシートと同じ）。
+        .interactiveDismissDisabled(model.hasChanges)
+        .background(SheetDismissAttemptObserver { model.showsDiscardConfirmation = true })
     }
 
     private var form: some View {
@@ -97,8 +111,10 @@ struct RecurringEditorSheet: View {
                 }
                 .keyboardType(.numberPad)
                 .focused($focusedField, equals: .amount)
-                .onChange(of: model.amountText) { model.normalizeAmountText() }
+                // 打っている間は区切りを入れず、入力欄を離れたときにそろえる（`formatsAmountAfterEditing` の説明）。
+                .formatsAmountAfterEditing(isEditing: focusedField == .amount, normalize: model.normalizeAmountText)
                 .accessibilityHint(model.amountIssue?.message ?? Text(verbatim: ""))
+                .accessibilityIdentifier(AccessibilityID.Recurring.amountField)
             }
             .font(.title.bold())
             .monospacedDigit()
@@ -129,6 +145,7 @@ struct RecurringEditorSheet: View {
                 Text("品目")
             }
             .focused($focusedField, equals: .memo)
+            .accessibilityIdentifier(AccessibilityID.Recurring.memoField)
             .submitLabel(.done)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -277,6 +294,7 @@ struct RecurringEditorSheet: View {
         .buttonStyle(.glassProminent)
         .tint(Theme.accentFill)
         .disabled(!model.canSave)
+        .accessibilityIdentifier(AccessibilityID.Recurring.saveButton)
     }
 
     private var showsFailure: Binding<Bool> {

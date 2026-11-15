@@ -179,7 +179,7 @@ struct RecurringEntryStoreTests {
     @Test func deletingCustomCategoryMovesRuleToOther() throws {
         let fixture = try Fixture()
         let categories = CustomCategoryStore(context: fixture.context, now: { TestSupport.now })
-        let housing = try categories.create(name: "住居", symbolName: "house", colorIndex: 0)
+        let housing = try categories.create(name: "ペット", symbolName: "house", colorIndex: 0)
         var draft = Self.rent
         draft.category = housing
         try fixture.store.create(draft, startMonth: RecurringMonth(year: 2026, month: 10))

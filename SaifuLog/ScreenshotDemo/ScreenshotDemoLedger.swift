@@ -3,12 +3,10 @@ import Foundation
 import SaifuLogCore
 import SwiftData
 
-/// 撮影用のデモの家計。架空の一人暮らしの人の記録（食費・カフェ・日用品・交通・娯楽・光熱・通信・医療と給料）と、月の予算
-/// （全体と、カテゴリ別の食費・カフェ）。
+/// 撮影用のデモの家計。架空の一人暮らしの人の記録（食費・カフェ・日用品・交通・娯楽・光熱・通信・医療と給料）と、月の予算。
 ///
 /// 記録は先月の 1 日からデモの「いま」（撮影の月の 15 日）まで、毎日つける。スクリーンショットに出るのは直近の 2 週間ほどだが、
-/// 先月の分まで作るのは、月のまとめの前の月との差と、先週のふりかえりの前の週との差（前の週は先月にかかることがある）と、
-/// 予算の目安（先月の支出）を出すため。
+/// 先月の分まで作るのは、月のまとめの前の月との差を出すため。
 ///
 /// 金額は曜日と日付の決まった型から選ぶ（乱数を使わない）。同じ月に撮れば、日本語と英語で同じ記録になる。品目は日本語
 /// （アプリは日本語の入力を読むので、英語の画面でも記録は日本語で書かれる）。店の名前や人の名前は入れない。
@@ -28,23 +26,12 @@ enum ScreenshotDemoLedger {
         var originalText: String
     }
 
-    /// 月の全体の予算。月の支出（12 万円前後）より少し多くし、帯に「今月あと ¥…」が出て、予算の目安の提案（予算との差が
-    /// 2 割以上のときだけ出る）が出ない額にする。
+    /// 月の全体の予算。月の支出（12 万円前後）より少し多くし、帯に「今月あと ¥…」が出る額にする。
     static let monthlyBudget = 130_000
-    /// カテゴリ別の予算（プレミアム。月のまとめのカテゴリの行に進みが出る）。デモの「いま」（月の 15 日）の今月はどちらも予算の内で、
-    /// 月まるごとの前の月は食費が予算を超える額にする（ストアの画像は今月の予算の内の形で、前の月へ戻ると超えた出方も確かめられる）。
-    static let categoryBudgets: [EntryCategory: Int] = [.food: 60_000, .cafe: 12_000]
     /// 割り勘の記録の元の文（ようこその例と同じ書き方）。
     static let splitBillText = "昨日 焼肉12000 4人で割り勘"
     /// 1 行に 2 件を書いた送信の元の文（デモの「いま」の日の夜。返事のカードに 2 件が並ぶ）。
     static let multiItemText = "牛乳 198 洗剤 348"
-    /// くり返しの記録（カレンダーの画面だけ）。今月から始めた月額のサービスで、決めた日はデモの「いま」（15 日）より後にする
-    /// （まだ記録していない今月の予定として、カレンダーの予定の印と、見通しの固定費に出す。15 日より前の日にすると、ホームが出た
-    /// ときに記録してしまう）。
-    static let recurringDrafts: [RecurringDraft] = [
-        RecurringDraft(amount: 1_490, memo: "動画サブスク", isIncome: false, category: .entertainment, dayOfMonth: 20),
-        RecurringDraft(amount: 1_080, memo: "音楽サブスク", isIncome: false, category: .entertainment, dayOfMonth: 27),
-    ]
     /// 1 回の送信の 2 件目からの、記録した日時のずれ（秒）。アプリが 1 回の送信の記録に振る間隔（`ParsedEntry.timestamps`）と
     /// 同じにする（ScreenshotDemoTests で照合する）。
     static let multiItemStep: TimeInterval = 0.001
@@ -91,9 +78,9 @@ enum ScreenshotDemoLedger {
         return records
     }
 
-    /// デモの記録と月の予算を保存先に入れる。予算（全体とカテゴリ別）は記録を始める前に決めたことにする（月のまとめで、先月にも
-    /// 予算の進みを出すため）。`includesRecurring` なら、くり返しの記録（`recurringDrafts`。今月から）も入れる。
-    static func insert(into context: ModelContext, now: Date, calendar: Calendar, includesRecurring: Bool = false) throws {
+    /// デモの記録と月の予算を保存先に入れる。予算は記録を始める前に決めたことにする（月のまとめで、先月にも
+    /// 予算の進みを出すため）。
+    static func insert(into context: ModelContext, now: Date, calendar: Calendar) throws {
         for record in records(now: now, calendar: calendar) {
             context.insert(Entry(
                 amount: record.amount, isIncome: record.isIncome, category: record.category, memo: record.memo,
@@ -103,17 +90,6 @@ enum ScreenshotDemoLedger {
         let start = startDate(now: now, calendar: calendar) ?? now
         let decidedAt = calendar.date(byAdding: .day, value: -1, to: start) ?? start
         context.insert(Budget(scope: .total, amount: monthlyBudget, updatedAt: decidedAt))
-        for (category, amount) in categoryBudgets {
-            context.insert(Budget(scope: .category(category), amount: amount, updatedAt: decidedAt))
-        }
-        if includesRecurring {
-            let thisMonth = RecurringMonth(containing: now, timeZone: calendar.timeZone)
-            for (index, draft) in recurringDrafts.enumerated() {
-                context.insert(RecurringEntry(
-                    recurrenceID: "screenshot-demo-\(index)", draft: draft, startMonth: thisMonth, createdAt: now
-                ))
-            }
-        }
         try context.save()
     }
 

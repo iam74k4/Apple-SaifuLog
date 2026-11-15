@@ -165,7 +165,9 @@ struct LedgerAnswerInsightsTests {
         QuestionPeriod.today, .yesterday, .thisWeek, .lastWeek, .thisMonth, .lastMonth, .thisYear,
     ])
     func followUpTextsParseBack(period: QuestionPeriod) {
-        let catalog = CategoryCatalog(customs: [CustomCategoryInfo(id: "c1", name: "衣服", symbolName: "tshirt", colorIndex: 0)])
+        // 作ったカテゴリの名前は、組み込みの名前の一部にならないものにする（「衣服」だと、組み込みの「衣服・美容」の質問の文から
+        // 作ったカテゴリを読む。作ったカテゴリの名前を先に見るため）。
+        let catalog = CategoryCatalog(customs: [CustomCategoryInfo(id: "c1", name: "推し活", symbolName: "sparkles", colorIndex: 0)])
         var questions: [LedgerQuestion] = QuestionMetric.allCases.map { LedgerQuestion(period: period, metric: $0) }
         for category in EntryCategory.builtIns + [.custom("c1")] {
             questions.append(LedgerQuestion(period: period, metric: .categoryExpense, category: category))

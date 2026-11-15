@@ -4,8 +4,7 @@ import SwiftData
 import Testing
 @testable import SaifuLog
 
-/// カレンダーのページ（今月を開く・日を選ぶ・月を替える・予算の日割りの印・くり返しの予定・見通し・ほかの端末で消えた記録・
-/// 日付の変わり目）。
+/// カレンダーのページ（今月を開く・日を選ぶ・月を替える・ほかの端末で消えた記録・日付の変わり目）。
 @MainActor
 struct LedgerCalendarModelTests {
     /// カレンダーのモデルと、その保存先・時計・読み上げの代わり。
@@ -21,8 +20,6 @@ struct LedgerCalendarModelTests {
             context = try TestSupport.makeContext()
             model = LedgerCalendarModel(
                 store: EntryStore(context: context),
-                budgetStore: BudgetStore(context: context),
-                recurring: RecurringEntryStore(context: context, now: { TestSupport.now }),
                 now: { [unowned self] in now },
                 announce: { [unowned self] in announcements.append($0) }
             )
@@ -62,7 +59,6 @@ struct LedgerCalendarModelTests {
         #expect(days.expense == 2_350)
         // 2026-09-01 は火曜。週の始まり（日曜）から 2 日空ける。
         #expect(days.leadingBlankCount == 2)
-        #expect(model.outlook?.spentToday == 1_150)
         #expect(model.isToday(days.days[27]))
         #expect(model.isFuture(days.days[28]))
         #expect(!model.isFuture(days.days[26]))
@@ -84,7 +80,7 @@ struct LedgerCalendarModelTests {
         #expect(!fixture.model.isShowingToday)
     }
 
-    /// 前後の月へ替えると選んだ日を外し、見通しは出さない（今月だけ）。替えた月を読み上げる。「今日」で今月の今日に戻る。
+    /// 前後の月へ替えると選んだ日を外す。替えた月を読み上げる。「今日」で今月の今日に戻る。
     @Test func switchesMonths() throws {
         let fixture = try Fixture()
         fixture.open()
@@ -94,7 +90,6 @@ struct LedgerCalendarModelTests {
         #expect(fixture.model.month?.start == TestSupport.date(2026, 8, 1))
         #expect(fixture.model.selectedDay == nil)
         #expect(fixture.model.selectedRecords.isEmpty)
-        #expect(fixture.model.outlook == nil)
         #expect(!fixture.model.isCurrentMonth)
         #expect(fixture.announcements == [fixture.model.monthTitle])
 
@@ -107,7 +102,7 @@ struct LedgerCalendarModelTests {
         #expect(fixture.model.month?.start == TestSupport.date(2026, 9, 1))
         #expect(!fixture.model.isFutureMonth)
         #expect(fixture.model.selectedDay == TestSupport.date(2026, 9, 28))
-        #expect(fixture.model.outlook != nil)
+        #expect(fixture.model.isCurrentMonth)
         #expect(fixture.announcements.count == 3)
 
         // 今月を見ているときの「今日」は、月を読み上げない（月は替わらないため）。
@@ -115,47 +110,6 @@ struct LedgerCalendarModelTests {
         fixture.model.showThisMonth()
         #expect(fixture.model.isShowingToday)
         #expect(fixture.announcements.count == 3)
-    }
-
-    /// 予算の日割り（予算 ÷ 月の日数）より多く使った日に印を付ける。予算を決めていなければ付けない。
-    @Test func marksDaysOverDailyPace() throws {
-        let fixture = try Fixture()
-        try fixture.insert(
-            TestSupport.entry(amount: 3_001, spentAt: TestSupport.date(2026, 9, 2, hour: 12)),
-            TestSupport.entry(amount: 3_000, spentAt: TestSupport.date(2026, 9, 3, hour: 12))
-        )
-        fixture.open()
-        #expect(fixture.model.exceedsPace(try #require(fixture.model.days?.days[1])) == false)
-
-        // 90,000 ÷ 30 日 = 3,000。
-        try BudgetStore(context: fixture.context).setAmount(90_000, for: .total)
-        fixture.model.reload()
-
-        let days = try #require(fixture.model.days)
-        #expect(fixture.model.budget == 90_000)
-        #expect(fixture.model.exceedsPace(days.days[1]))
-        #expect(!fixture.model.exceedsPace(days.days[2]))
-    }
-
-    /// まだ記録していないくり返しの記録を、その日の予定として出し、今月の見通しの固定費に数える。先の月にも予定を出す。
-    @Test func showsPlannedRecurringEntries() throws {
-        let fixture = try Fixture()
-        try RecurringEntryStore(context: fixture.context, now: { TestSupport.now }).create(
-            RecurringDraft(amount: 1_490, memo: "動画", isIncome: false, category: .entertainment, dayOfMonth: 30),
-            startMonth: RecurringMonth(year: 2026, month: 9)
-        )
-        try BudgetStore(context: fixture.context).setAmount(100_000, for: .total)
-        fixture.open()
-
-        #expect(fixture.model.planned(on: TestSupport.date(2026, 9, 30)).map(\.memo) == ["動画"])
-        #expect(fixture.model.planned(on: TestSupport.date(2026, 9, 29)).isEmpty)
-        #expect(fixture.model.outlook?.plannedFixedTotal == 1_490)
-        // 予算 − 今月の支出（0）− まだ記録していない固定費。
-        #expect(fixture.model.outlook?.freeToSpend == 98_510)
-
-        fixture.model.showMonth(offset: 1)
-        #expect(fixture.model.planned.map(\.memo) == ["動画"])
-        #expect(fixture.model.outlook == nil)
     }
 
     /// 保存先に足した記録は、読み直すと出る（ホームは保存の知らせで読み直す）。
@@ -200,7 +154,7 @@ struct LedgerCalendarModelTests {
         fixture.model.refreshToday()
         #expect(fixture.model.month?.start == TestSupport.date(2026, 10, 1))
         #expect(fixture.model.selectedDay == TestSupport.date(2026, 10, 1))
-        #expect(fixture.model.outlook != nil)
+        #expect(fixture.model.isCurrentMonth)
 
         fixture.now = TestSupport.date(2026, 10, 2, hour: 7)
         fixture.model.refreshToday()
@@ -217,7 +171,7 @@ struct LedgerCalendarModelTests {
         #expect(fixture.model.month?.start == TestSupport.date(2026, 9, 1))
     }
 
-    /// 週の始まりの設定を変えると、1 日の前の空きを数え直す。
+    /// 暦の週の始まりが変わると、1 日の前の空きを数え直す。
     @Test func followsWeekStart() throws {
         let fixture = try Fixture()
         fixture.open()

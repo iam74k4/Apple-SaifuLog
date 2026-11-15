@@ -15,21 +15,20 @@ final class CategoryEditorModel: Identifiable {
         case edit(EntryCategory)
     }
 
-    /// よく使うカテゴリの候補（名前と記号）。作るときに押すと、名前と記号を入れる。家計簿でよく分ける費目のうち、組み込みの 8 種に
-    /// 無いもの（家賃・服・美容・交際費などが「その他」に入らないように）。名前は画面の言語の文字列で入れる（作った後は利用者の名前）。
+    /// よく使うカテゴリの候補（名前と記号）。作るときに押すと、名前と記号を入れる。家計簿でよく分ける費目のうち、組み込みの 10 種に
+    /// 無いもの（交際費・子どもの費用などが「その他」に入らないように）。名前は画面の言語の文字列で入れる（作った後は利用者の名前）。
+    /// 組み込みのカテゴリの名前と言い換え（住居・衣服・美容・趣味など。`CategoryCatalog.validateName`）は作れないので入れない。
     static let presets: [(name: LocalizedStringResource, symbolName: String)] = [
-        ("住居", "house"),
-        ("衣服", "tshirt"),
-        ("美容", "scissors"),
         ("交際", "wineglass"),
         ("教育", "graduationcap"),
+        ("子ども", "heart"),
         ("車", "car"),
         ("ペット", "pawprint"),
-        ("趣味", "gamecontroller"),
         ("旅行", "airplane"),
         ("保険", "building.columns"),
         ("贈り物", "gift"),
         ("ジム", "dumbbell"),
+        ("推し活", "sparkles"),
     ]
 
     /// 色の名前（VoiceOver が読む。`Palette.customCategoryChoices` と同じ順）。
@@ -85,8 +84,12 @@ final class CategoryEditorModel: Identifiable {
     private(set) var issue: CategoryNameIssue?
     /// 保存に失敗した（アラートを出す）。
     var showsSaveFailure = false
+    /// 入れた内容を捨てて閉じるかの確認を出しているか（キャンセルや下へのスワイプで、入れた内容があるとき）。
+    var showsDiscardConfirmation = false
 
     @ObservationIgnored private let store: CustomCategoryStore
+    /// 開いたときの名前・記号・色（閉じるときに、入れた内容があるかを見る）。
+    @ObservationIgnored private var initialFields: (name: String, symbolName: String, colorIndex: Int) = ("", "", 0)
     @ObservationIgnored private let catalog: CategoryCatalog
     @ObservationIgnored private let announce: @MainActor (String) -> Void
     @ObservationIgnored private let didSave: @MainActor (EntryCategory) -> Void
@@ -116,6 +119,19 @@ final class CategoryEditorModel: Identifiable {
             // 作ったカテゴリどうしの色が重なりにくいよう、作った数の次の色から始める。
             colorIndex = catalog.customs.count % Palette.customCategoryChoices.count
         }
+        initialFields = (name, symbolName, colorIndex)
+    }
+
+    /// 開いたときから名前・記号・色を変えたか。
+    var hasChanges: Bool {
+        name != initialFields.name || symbolName != initialFields.symbolName || colorIndex != initialFields.colorIndex
+    }
+
+    /// シートを閉じてよいか。入れた内容があれば閉じずに、捨てるかの確認を出す（false を返す）。直すシート（⑥）と同じ。
+    func requestClose() -> Bool {
+        guard hasChanges else { return true }
+        showsDiscardConfirmation = true
+        return false
     }
 
     /// 保存できるか（名前が空でない。長さや重なりは保存するときに確かめて、入力欄の下に知らせる）。

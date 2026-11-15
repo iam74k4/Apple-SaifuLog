@@ -110,6 +110,33 @@ struct CategoryMemoryTests {
         #expect(memory.category(forItem: "目薬") == nil)
     }
 
+    /// 以前は 2 文字の言葉も文字の並びだけで当て、「パン」を覚えると「パンツ」、「ガス」を覚えると「ガスト」まで同じカテゴリにしていた。
+    @Test("2 文字の言葉は、品目の中で語として区切れているときだけ当てる")
+    func twoCharacterKeyNeedsWordBoundary() {
+        let memory = CategoryMemory.resolve([Row("パン", .food), Row("ガス", .utilities)])
+
+        #expect(memory.category(forItem: "パン") == .food)
+        #expect(memory.category(forItem: "パン 2個") == .food)
+        #expect(memory.category(forItem: "食パン") == .food)
+        #expect(memory.category(forItem: "ガス代") == .utilities)
+        #expect(memory.category(forItem: "パンツ") == nil)
+        #expect(memory.category(forItem: "ガスト") == nil)
+    }
+
+    @Test("品目と同じ言葉の覚えは、品目にカテゴリの名前が書かれていても当てる")
+    func exactKeyBeatsBuiltInName() {
+        let memory = CategoryMemory.resolve([Row("日用品 まとめ買い", .food), Row("まとめ買い", .entertainment)])
+
+        #expect(memory.exactCategory(forItem: "日用品 まとめ買い") == .food)
+        #expect(memory.exactCategory(forItem: "日用品 まとめ買い 2") == nil)
+        let entries = [
+            ParsedEntry(amount: 500, category: .daily, memo: "日用品 まとめ買い"),
+            ParsedEntry(amount: 500, category: .daily, memo: "日用品のまとめ買い"),
+        ]
+        // 同じ言葉は覚えのとおり。ほかの言葉（部分一致）の覚えは、書いたカテゴリの名前を変えない。
+        #expect(memory.applying(to: entries).map(\.category) == [.food, .daily])
+    }
+
     @Test("読み取った記録のカテゴリを覚えで置き換える（AI と辞書のどちらで読んだものにも）")
     func applyingReplacesCategory() async throws {
         let memory = CategoryMemory.resolve([Row("家賃", .other), Row("ドラッグ", .daily), Row("ユニクロ", .other)])
@@ -158,18 +185,18 @@ struct CategoryMemoryTests {
     func asksOnlyWhenUnknown() {
         let memory = CategoryMemory.resolve([Row("家賃", .other), Row("ジム", .entertainment)])
 
-        #expect(memory.asksCategory(memo: "ユニクロ", amount: 3_990, category: .other, isIncome: false))
+        #expect(memory.asksCategory(memo: "メルカリ", amount: 3_990, category: .other, isIncome: false))
         // 金額だけの記録も、その記録のカテゴリは選べるので聞き返す。
         #expect(memory.asksCategory(memo: "", amount: 3_990, category: .other, isIncome: false))
         // その他以外に読めた記録・収入は聞き返さない。
-        #expect(!memory.asksCategory(memo: "ユニクロ", amount: 3_990, category: .daily, isIncome: false))
+        #expect(!memory.asksCategory(memo: "メルカリ", amount: 3_990, category: .daily, isIncome: false))
         #expect(!memory.asksCategory(memo: "臨時収入", amount: 3_000, category: .other, isIncome: true))
         // 覚えた言葉（「その他のまま」を選んだ言葉も）は聞き返さない。
         #expect(!memory.asksCategory(memo: "家賃", amount: 80_000, category: .other, isIncome: false))
-        // 辞書の「その他」の語とカテゴリの名前は、その他と読んだ理由があるので聞き返さない。
+        // 辞書の語（「洋服」は衣服・美容の語）とカテゴリの名前は、読んだ理由があるので聞き返さない。
         #expect(!memory.asksCategory(memo: "洋服", amount: 4_000, category: .other, isIncome: false))
         #expect(!memory.asksCategory(memo: "その他", amount: 500, category: .other, isIncome: false))
-        // 英語の品目も同じ。辞書の「その他」の語（"clothes"）は聞き返さず、どこにも当たらない語は聞き返す。
+        // 英語の品目も同じ。辞書の語（"clothes"）は聞き返さず、どこにも当たらない語は聞き返す。
         #expect(!memory.asksCategory(memo: "clothes", amount: 4_000, category: .other, isIncome: false))
         #expect(memory.asksCategory(memo: "widget", amount: 4_000, category: .other, isIncome: false))
     }
@@ -199,7 +226,7 @@ struct CategoryMemoryTests {
     @Test("知らないカテゴリの行と空の言葉の行は読み飛ばし、残す行にも選ばない")
     func resolveSkipsUnknownRows() {
         let rows = [
-            Row("ユニクロ", rawCategory: "clothing", at: Self.later),
+            Row("ユニクロ", rawCategory: "pets", at: Self.later),
             Row("ユニクロ", .other, at: Self.earlier),
             Row(" ", .food),
         ]

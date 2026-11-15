@@ -1,5 +1,4 @@
 import Foundation
-import SaifuLogCore
 import SwiftUI
 
 /// アプリ自身の設定（UserDefaults）の 1 項目。キーと既定値を組にして持つ。
@@ -20,47 +19,33 @@ struct AppSetting<Value: Sendable>: Sendable {
 /// マニフェストへ理由 1C8F.1 を足し、PRIVACY.md も見直す。
 /// 家計の記録そのもの（金額やメモ）はここに置かない。SwiftData の保存先に置き、データ保護を効かせる。
 enum AppSettings {
-    /// 初回の案内（ようこそ・予算を決める）を終えたか。予算を決めずに「あとで」で進んでも終えたことになる。
+    /// 初回の案内（ようこそ）を終えたか。
     /// 案内を出す前の版から使っていて記録がある端末は、案内を出さずに true にする（`OnboardingModel.needsOnboarding`）。
     static let hasCompletedOnboarding = AppSetting(key: "hasCompletedOnboarding", defaultValue: false)
     /// iCloud と同期するか（設定の「iCloud で同期」）。この版より前の置き場所。いまは `LaunchSettingsStore` のファイルに置き、
     /// ファイルがまだ無いときに値を移すためだけに読む（UserDefaults は、ロック中に裏で起こされると読めず、空の内容を覚えて
     /// しまうため）。
     static let iCloudSyncEnabled = AppSetting(key: "iCloudSyncEnabled", defaultValue: false)
-    /// 週の始まり（設定の画面で選ぶ）。既定は端末の設定（地域と iOS の設定）に合わせる。
-    /// 画面の根元（`AppRootView`）が画面の暦の週の始まりに当てはめ、`ReportPeriod` の今週・先週の区切りに効かせる。
-    static let weekStart = AppSetting(key: "weekStart", defaultValue: WeekStart.system)
-    /// 無料体験が終わったときのプレミアムの案内（⑨）を出したか。体験が終わった後の最初の起動で一度だけ出し、
-    /// しつこく出さない（`HomeModel.presentPremiumIfTrialEnded`）。プレミアムを買ったかどうかはここに置かない
-    /// （購入の事実は StoreKit が持つ。覚えた値が App Store の記録と食い違うと、返金された購入でも使えてしまうため）。
-    static let hasShownTrialEndedPremium = AppSetting(key: "hasShownTrialEndedPremium", defaultValue: false)
-    /// レシートの読み取りを無料で使った回数（暦の月ごと。`QuotaStore`）。
-    static let receiptScanQuota = AppSetting(key: "quota.receiptScan", defaultValue: UsageQuota())
-    /// 家計への質問を無料で使った回数（暦の月ごと。`QuotaStore`）。
-    static let questionQuota = AppSetting(key: "quota.question", defaultValue: UsageQuota())
-    /// 先週のふりかえりのカードを最後に出した日時。週が替わって最初に開いたときだけ出すのに使う（`WeeklyRecap.isDue`・
-    /// `HomeModel.showWeeklyRecapIfDue`）。まだ出したことが無ければ nil。
-    ///
-    /// 出した週の始まりではなく、出した瞬間を持つ。週の始まりの設定や時間帯を変えたときに、変えた後の暦で「今週もう出したか」を
-    /// 決め直せるようにするため（週の始まりの日時で持つと、設定を変えただけで同じ週にもう一度出る）。家計の中身は含まない。
-    static let weeklyRecapShownAt = AppSetting<Date?>(key: "weeklyRecap.shownAt", defaultValue: nil)
     /// アプリのロック（設定の「Face ID でロック」）がオンか。この版より前の置き場所。いまは `LaunchSettingsStore` のファイルに
     /// 置き、ファイルがまだ無いときに値を移すためだけに読む（`iCloudSyncEnabled` と同じ理由）。
     static let appLockEnabled = AppSetting(key: "appLock.enabled", defaultValue: false)
-
-    /// 機能ごとの、無料で使った回数の設定。
-    static func quota(for feature: QuotaFeature) -> AppSetting<UsageQuota> {
-        switch feature {
-        case .receiptScan: receiptScanQuota
-        case .question: questionQuota
-        }
-    }
+    /// 記録の返事の下に、チャットでの直し方のヒントを出した回数（`ReplyHints`）。
+    static let correctionHintShownCount = AppSetting(key: "replyHint.correction.shownCount", defaultValue: 0)
+    /// チャットか直す画面で一度でも記録を直したか（直し方を知っているので、もうヒントを出さない）。
+    static let hasCorrectedEntry = AppSetting(key: "replyHint.correction.done", defaultValue: false)
+    /// 記録の返事の下に、カレンダーのページのヒントを出した回数。
+    static let calendarHintShownCount = AppSetting(key: "replyHint.calendar.shownCount", defaultValue: 0)
+    /// カレンダーのページを一度でも開いたか（入口を知っているので、もうヒントを出さない）。
+    static let hasOpenedCalendar = AppSetting(key: "replyHint.calendar.done", defaultValue: false)
 
     /// すべての設定のキー。重なりが無いことをテストで確かめる。
+    ///
+    /// 前の版の「週の始まり」のキー（"weekStart"）は使わない（週の始まりは端末の設定に合わせるようにした。前の版で選んだ値が
+    /// 端末に残っているので、別の設定に使い回すと読み違える）。
     static var allKeys: [String] {
         [
-            hasCompletedOnboarding.key, iCloudSyncEnabled.key, weekStart.key, hasShownTrialEndedPremium.key,
-            receiptScanQuota.key, questionQuota.key, weeklyRecapShownAt.key, appLockEnabled.key,
+            hasCompletedOnboarding.key, iCloudSyncEnabled.key, appLockEnabled.key,
+            correctionHintShownCount.key, hasCorrectedEntry.key, calendarHintShownCount.key, hasOpenedCalendar.key,
         ]
     }
 }
@@ -68,13 +53,6 @@ enum AppSettings {
 extension AppStorage where Value == Bool {
     /// 画面から設定を読み書きする。`@AppStorage(AppSettings.hasCompletedOnboarding) private var hasCompletedOnboarding`
     init(_ setting: AppSetting<Bool>, store: UserDefaults? = nil) {
-        self.init(wrappedValue: setting.defaultValue, setting.key, store: store)
-    }
-}
-
-extension AppStorage {
-    /// 選択肢の設定（`WeekStart` など、文字列の rawValue で保存するもの）を画面から読み書きする。
-    init(_ setting: AppSetting<Value>, store: UserDefaults? = nil) where Value: RawRepresentable, Value.RawValue == String {
         self.init(wrappedValue: setting.defaultValue, setting.key, store: store)
     }
 }
@@ -89,38 +67,11 @@ extension UserDefaults {
         set(value, forKey: setting.key)
     }
 
-    /// 選択肢の設定を読む。まだ書いていないか、知らない値（新しい版で足した選択肢を古い版で読んだときなど）なら既定値。
-    func value<Value: RawRepresentable>(for setting: AppSetting<Value>) -> Value where Value.RawValue == String {
-        string(forKey: setting.key).flatMap(Value.init(rawValue:)) ?? setting.defaultValue
+    func integer(for setting: AppSetting<Int>) -> Int {
+        object(forKey: setting.key) as? Int ?? setting.defaultValue
     }
 
-    /// 選択肢の設定を書く（rawValue で保存する。`@AppStorage` と同じ形なので、画面の `@AppStorage` にも伝わる）。
-    func set<Value: RawRepresentable>(_ value: Value, for setting: AppSetting<Value>) where Value.RawValue == String {
-        set(value.rawValue, forKey: setting.key)
-    }
-
-    /// 日時の設定を読む。まだ書いていないか、日時でない値なら既定値（nil）。
-    func date(for setting: AppSetting<Date?>) -> Date? {
-        object(forKey: setting.key) as? Date ?? setting.defaultValue
-    }
-
-    /// 日時の設定を書く。nil なら消す。
-    func set(_ date: Date?, for setting: AppSetting<Date?>) {
-        set(date, forKey: setting.key)
-    }
-
-    /// 形のある設定（無料で使った回数など）を JSON で読む。まだ書いていないか、読めない値（壊れた値・新しい版で形を
-    /// 変えた値を古い版で読んだときなど）なら既定値。
-    func decodedValue<Value: Codable>(for setting: AppSetting<Value>) -> Value {
-        guard let data = data(forKey: setting.key), let value = try? JSONDecoder().decode(Value.self, from: data) else {
-            return setting.defaultValue
-        }
-        return value
-    }
-
-    /// 形のある設定を JSON で書く。
-    func setEncoded<Value: Codable>(_ value: Value, for setting: AppSetting<Value>) {
-        guard let data = try? JSONEncoder().encode(value) else { return }
-        set(data, forKey: setting.key)
+    func set(_ value: Int, for setting: AppSetting<Int>) {
+        set(value, forKey: setting.key)
     }
 }

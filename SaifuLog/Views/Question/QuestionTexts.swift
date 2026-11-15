@@ -20,9 +20,6 @@ extension QuestionPeriod {
 /// 回答カードと読み上げの文。回答カード（`QuestionReplyCard`）と、答えを VoiceOver に読み上げるホームのモデル（`HomeModel`）で
 /// 同じ文を使う（画面の文と読み上げの文を食い違わせないため）。
 enum QuestionTexts {
-    /// AI の一言を捨てたときの定型文（`QuestionRemark.fixed`）。
-    static let fixedRemark: LocalizedStringResource = "数字はアプリが記録から計算しました。"
-
     /// 知りたいことの見出し（「カフェの支出」「収入の合計」）。
     /// - Parameter catalog: カテゴリの一覧（作ったカテゴリの名前を引く）。
     static func title(for question: LedgerQuestion, catalog: CategoryCatalog = .builtIn) -> String {
@@ -114,11 +111,6 @@ enum QuestionTexts {
         String(localized: "\(YenFormatter.string(from: status.overspent)) オーバー")
     }
 
-    /// 元になった記録の件数（「元になった記録 5 件」）。
-    static func recordCount(_ count: Int) -> String {
-        String(localized: "元になった記録 \(count) 件")
-    }
-
     /// 比べた期間の名前（「先月の同じ日まで」）。
     static func baselineName(_ baseline: LedgerComparison.Baseline) -> String {
         switch baseline {
@@ -164,25 +156,16 @@ enum QuestionTexts {
         return String(localized: "\(trend.points.count) か月の推移: \(items.formatted(.list(type: .and)))")
     }
 
-    /// 今月の無料の質問の残り（「今月の無料の質問 あと 3 回」）。
-    static func freeQuestionsLeft(_ count: Int) -> String {
-        String(localized: "今月の無料の質問 あと \(count) 回")
-    }
-
-    /// VoiceOver に読み上げる答え（期間・見出し・数字・件数・一言・無料の残りの回数）。
-    /// - Parameter freeQuestionsLeft: 回答カードに出す無料の残りの回数（少ないときだけ。出さないなら nil）。
+    /// VoiceOver に読み上げる答え（期間・見出し・数字・前の期間との比べ・一言。カードに出すものと同じ）。
     static func spoken(
-        _ answer: LedgerAnswer, remark: QuestionRemark?, freeQuestionsLeft: Int? = nil, calendar: Calendar,
-        catalog: CategoryCatalog = .builtIn
+        _ answer: LedgerAnswer, remark: QuestionRemark?, calendar: Calendar, catalog: CategoryCatalog = .builtIn
     ) -> String {
         var parts = [
             String(localized: answer.period.label), title(for: answer.question, catalog: catalog),
             spokenValue(answer.value, catalog: catalog),
         ]
         if let comparison = answer.comparison { parts.append(self.comparison(comparison, value: answer.value)) }
-        parts.append(recordCount(answer.recordCount))
         if case .ai(let sentence) = remark { parts.append(sentence) }
-        if let freeQuestionsLeft { parts.append(self.freeQuestionsLeft(freeQuestionsLeft)) }
         return parts.joined(separator: String(localized: LocalizedStringResource(
             "読み上げの区切り", defaultValue: "、", comment: "回答を VoiceOver で読み上げるときの、項目の間の区切り"
         )))

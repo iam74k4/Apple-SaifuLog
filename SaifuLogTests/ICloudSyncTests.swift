@@ -19,7 +19,7 @@ struct ICloudSyncTests {
     @MainActor
     final class Settings {
         let suiteName = "ICloudSyncTests.\(UUID().uuidString)"
-        /// 設定の画面のほかの設定（週の始まりなど）の領域。
+        /// 前の版の置き場所（UserDefaults）の領域。設定のファイルがまだ無いときに値を移す元。
         let defaults: UserDefaults
         /// iCloud 同期の設定のファイル（`LaunchSettingsStore`）。
         let launch: LaunchSettingsStore
@@ -110,7 +110,6 @@ struct ICloudSyncTests {
             context: try TestSupport.makeContext(),
             storeHost: host,
             accountStatus: accountStatus,
-            defaults: settings.defaults,
             exporter: LedgerExporter(
                 container: try ModelContainerFactory.makeInMemoryContainer(),
                 directory: URL.temporaryDirectory.appending(path: "ICloudSyncTests-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -505,6 +504,27 @@ struct ICloudSyncTests {
         #expect(settings.syncEnabled)
     }
 
+    /// 設定を書けなければ切り替えず、書けなかったことを知らせる（押しても何も起きないように見せない）。
+    @Test func settingsReportSaveFailure() async throws {
+        let settings = try Settings()
+        defer { settings.cleanUp() }
+        let launch = try TestSupport.makeLaunchSettings(files: LaunchSettingsStore.FileAccess(
+            read: { _ in nil }, write: { _, _ in throw TestError() }
+        ))
+        let store = FakeStore()
+        let host = store.makeHost(settings: launch)
+        host.start()
+        let model = try Self.makeSettingsModel(host: host, account: Account(.available), settings: settings)
+        #expect(!model.showsICloudSyncSaveFailure)
+
+        model.confirmICloudSync(.enable)
+
+        #expect(model.showsICloudSyncSaveFailure)
+        #expect(!Self.isReopening(host))
+        #expect(store.openedWith == [.none])
+        #expect(host.cloudKitDatabase == .none)
+    }
+
     /// iCloud を使えなければ、切り替えずに案内だけを出す。
     @Test(arguments: [
         ICloudAccountStatus.noAccount, .restricted, .temporarilyUnavailable, .couldNotDetermine,
@@ -632,7 +652,6 @@ struct ICloudSyncTests {
             store: EntryStore(context: container.mainContext),
             pendingWrites: host.pendingWrites,
             storeHost: host,
-            defaults: settings.defaults,
             makeRemarkWriter: { nil },
             now: { TestSupport.now },
             announce: { _ in }
@@ -720,13 +739,6 @@ struct ICloudSyncTests {
             ICloudSyncFailure(error: NSError(domain: "SwiftData.SwiftDataError", code: 1))
                 == ICloudSyncFailure(domain: "SwiftData.SwiftDataError", code: 1)
         )
-    }
-
-    /// 理由の番号は桁区切りを入れずに出す（問い合わせや検索に写したときに、本当の番号と食い違わないように）。
-    @Test(arguments: [(134_060, "134060"), (-1009, "-1009"), (28, "28")])
-    func reasonTextShowsCodeAsIs(code: Int, expected: String) {
-        let text = ICloudSyncFailure(domain: NSCocoaErrorDomain, code: code).reasonText
-        #expect(text.hasSuffix("\(NSCocoaErrorDomain) \(expected)"))
     }
 
     /// CloudKit のアカウントの状態の写し替え。オンにしてよいのは使えるときだけ。

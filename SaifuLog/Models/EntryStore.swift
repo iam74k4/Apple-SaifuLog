@@ -29,7 +29,6 @@ struct EntryStore {
         edits.apply(to: entry)
         if resolvesCategory {
             entry.needsCategoryReview = false
-            entry.needsPaymentClassification = false
         }
         do {
             try commit()
@@ -43,18 +42,7 @@ struct EntryStore {
 
     /// 記録を消す。ほかの端末（iCloud）で消された記録は飛ばす（もう無いので、消したのと同じ）。
     func delete(_ entries: [Entry]) throws {
-        let existing = entries.filter { exists($0.persistentModelID) }
-        let keys = Set(existing.map(\.reviewID).filter { !$0.isEmpty })
-        // 相手の記録を消したら、確認用に控えた金額や品目も同じ保存処理で片づける。
-        if !keys.isEmpty {
-            let pending = try context.fetch(FetchDescriptor<Entry>(predicate: #Predicate { $0.paymentReviewJSON != "" }))
-            for anchor in pending {
-                guard let evidence = PaymentReviewEvidence(json: anchor.paymentReviewJSON),
-                      keys.contains(evidence.payment.key) || evidence.records.contains(where: { keys.contains($0.key) }) else { continue }
-                anchor.paymentReviewJSON = ""
-            }
-        }
-        for entry in existing {
+        for entry in entries where exists(entry.persistentModelID) {
             context.delete(entry)
         }
         try commit()

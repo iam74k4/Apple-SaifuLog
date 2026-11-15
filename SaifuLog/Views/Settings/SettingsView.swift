@@ -1,41 +1,38 @@
 import SaifuLogCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// ⑧ 設定。必要なときだけ開く画面。ホームの帯の右上の歯車から横に進む。
 ///
-/// プレミアム（「サイフログ プレミアム」の行で ⑨ のシートを開く・購入の復元）、月の予算（② のシートを開く）、週の始まり、iCloud で同期（既定はオフ）、
-/// 家族と共有（家計の共有が有効なビルドだけ）、記録の CSV 書き出し、このアプリについて（プライバシーポリシー・ライセンス・版）を並べる。
+/// 月の予算（② のシートを開く）、カテゴリ（覚えたカテゴリはその中）、くり返しの記録、iCloud で同期（既定はオフ）、
+/// アプリのロック、記録の CSV 書き出し、このアプリについて（ヘルプ・プライバシーポリシー・版）を並べる。週の始まりは
+/// 選ばせない（端末の設定のまま）。
 ///
 /// 状態と操作は `SettingsModel` が持つ。ここは表示と、共有のシート・アラートの出し入れだけ。
 /// 押せる行の名前は墨にし、操作のボタン（「CSV ファイルを書き出す」）だけ、ほかの画面のボタンと同じ tint（AccentColor。
 /// §7 のとおり、墨か白の文字）にする。どの行にも頭の印（`SettingsRowIcon`）を付け、行を目で探しやすくする。塗りの主ボタンは
-/// 置かない（主の塗りは「サイフログ プレミアム」の行の印にだけ使う）。
+/// 置かない。
 struct SettingsView: View {
     @Bindable var model: SettingsModel
 
-    /// 画面の暦（週の始まりを当てはめたもの）。書き出す期間を、ホームの今月と同じ月で区切るのに使う。
+    /// 画面の暦。書き出す期間を、ホームの今月と同じ月で区切るのに使う。
     @Environment(\.calendar) private var calendar
     /// アプリのロック（アプリで 1 つ。`SaifuLogApp` が渡す）。無ければ（プレビュー）ロックの節を出さない。
     @Environment(AppLock.self) private var appLock: AppLock?
 
     var body: some View {
         List {
-            premiumSection
             budgetSection
             learningSection
             recurringSection
-            calendarSection
             if model.showsICloudSync {
                 iCloudSection
             }
             if let appLock {
                 lockSection(appLock)
             }
-            // 家族と共有（家計の共有が有効なビルドで、家計の保存先を開けたときだけ）。
-            if let household = model.household {
-                HouseholdSettingsSection(model: household)
-            }
             exportSection
+            importSection
             aboutSection
         }
         // リストの地は画面の背景にし、行は面の色にする（ほかの画面と同じ地にそろえる）。
@@ -49,11 +46,6 @@ struct SettingsView: View {
         .sheet(item: $model.budgetSetup, onDismiss: { model.reloadBudget() }) { budgetSetup in
             BudgetSetupSheet(model: budgetSetup)
         }
-        .sheet(item: $model.premiumSheet) { premium in
-            PremiumSheet(model: premium)
-        }
-        // 「家族と共有」の節のシートと確認（節に付けると行ごとに付いてしまうので、リストに付ける）。
-        .modifier(HouseholdSettingsPresentationsIfAvailable(model: model.household))
         .alert(
             alertTitle,
             isPresented: showsExportAlert,
@@ -62,16 +54,6 @@ struct SettingsView: View {
             Button("OK", role: .cancel) {}
         } message: { alert in
             alertMessage(alert)
-        }
-        // 購入の復元の結果（ホームと同じく、同じ画面に種類ごとのアラートを付ける）。
-        .alert(
-            model.purchaseAlert?.title ?? Text(verbatim: ""),
-            isPresented: showsPurchaseAlert,
-            presenting: model.purchaseAlert
-        ) { _ in
-            Button("OK", role: .cancel) {}
-        } message: { alert in
-            alert.message
         }
         // iCloud 同期を切り替える前の説明。切り替えると記録を開き直す（この画面も作り直される）ので、何が起きるかを先に伝える。
         .alert(
@@ -96,6 +78,12 @@ struct SettingsView: View {
                 Text("この iPhone の記録は残り、これからはこの iPhone の中だけに保存します。iCloud に保存した記録は iCloud に残り、ほかの端末とはそろわなくなります。\n\n切り替えると記録を開き直します。")
             }
         }
+        // 切り替えようとしたら設定を書けなかった（切り替わっていない）。
+        .alert("設定を保存できませんでした", isPresented: $model.showsICloudSyncSaveFailure) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("「iCloud で同期」は切り替わっていません。もう一度お試しください。")
+        }
         // オンにしようとしたら iCloud を使えなかった。何をすればよいかを案内する（同期はオフのまま）。
         .alert(
             "iCloud を使えません",
@@ -106,6 +94,31 @@ struct SettingsView: View {
         } message: { status in
             Text(verbatim: status.guidanceText ?? "")
         }
+        // CSV から読み込むファイルを選ぶ。選べるのは CSV と、拡張子が .txt などになった文字のファイル（保存し直すと変わることが
+        // あるため）。中身がこのアプリの書き出しの形かは、読んでから確かめる（`LedgerCSVReader`）。
+        .fileImporter(isPresented: $model.showsImporter, allowedContentTypes: [.commaSeparatedText, .plainText]) { result in
+            model.importFile(result, calendar: calendar)
+        }
+        // 読み込む前に、入れる件数と飛ばす件数を見てもらう（思っていたファイルと違ったときに、記録を黙って増やさないため）。
+        .alert(
+            importConfirmationTitle,
+            isPresented: showsImportConfirmation,
+            presenting: model.importPreview
+        ) { preview in
+            Button("読み込む") { model.confirmImport(preview) }
+            Button("キャンセル", role: .cancel) { model.cancelImport() }
+        } message: { preview in
+            importConfirmationMessage(preview)
+        }
+        .alert(
+            importAlertTitle,
+            isPresented: showsImportAlert,
+            presenting: model.importAlert
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { alert in
+            importAlertMessage(alert)
+        }
         // 書き出したファイルを共有のシートで渡し、閉じたらファイルを消す。
         .background(
             ShareSheetPresenter(
@@ -114,110 +127,21 @@ struct SettingsView: View {
             )
                 .accessibilityHidden(true)
         )
-        .onDisappear {
-            model.cancelExport()
-            model.cancelICloudAccountCheck()
-        }
+        // 途中の書き出しとアカウントの確かめは、設定を閉じたときにやめる（`SettingsModel.close`。ここの onDisappear では
+        // やめない。設定から「カテゴリ」などへ進んだだけでも呼ばれるため）。
         // 同期がオンのとき、iCloud をいまも使えるかを確かめる（使えなければ節の中に案内を出す）。
         .task { await model.refreshICloudAccountStatus() }
-        // iCloud で届いたほかの端末の変更（予算を変えた・カテゴリを作った・覚えたなど）で、月の予算とカテゴリの行を読み直す。
+        // Face ID の登録やパスコードは設定の App で変わるので、開くたびに読み直す（描き直すたびには調べない）。
+        .onAppear { appLock?.refreshMethod() }
+        // iCloud で届いたほかの端末の変更（予算を変えた・カテゴリを作った・覚えたなど）で、月の予算と、この画面から進む一覧
+        // （カテゴリ・覚えたカテゴリ・くり返しの記録）を読み直す。進んだ先の画面では読み直さない（設定の画面は進んだ先の下に
+        // 残っていて、ここでも受け取るので、二度読むことになるため）。
         .onReceive(StoreChanges.remote) { _ in
             model.reloadBudget()
             model.categoryList.reload()
             model.recurringList.reload()
             model.learnedCategories.reload()
         }
-        // 家計の共有の知らせ（共有をやめた・抜けた・消えたなど）。設定の画面を出している間は、ホームの下からはアラートを
-        // 出せないので、ここで出す（節のシートや確認を出している間は、閉じてから出す）。
-        .alert(
-            model.household?.host.notice?.title ?? Text(verbatim: ""),
-            isPresented: showsHouseholdNotice,
-            presenting: model.household?.host.notice
-        ) { _ in
-            Button("OK", role: .cancel) {}
-        } message: { notice in
-            notice.message
-        }
-    }
-
-    private var showsHouseholdNotice: Binding<Bool> {
-        Binding(
-            get: {
-                guard let household = model.household else { return false }
-                return household.host.notice != nil && household.canPresentNotice && model.budgetSetup == nil
-                    && model.premiumSheet == nil
-            },
-            set: { if !$0 { model.household?.host.notice = nil } }
-        )
-    }
-
-    // MARK: - プレミアム
-
-    private var premiumSection: some View {
-        Section {
-            Button {
-                model.presentPremium()
-            } label: {
-                Label {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("サイフログ プレミアム")
-                            .foregroundStyle(Theme.ink)
-                        premiumRowDetail
-                            .font(.subheadline)
-                    }
-                    .padding(.vertical, 4)
-                } icon: {
-                    SettingsRowIcon(symbolName: "sparkles", fill: Theme.accentFill, symbol: Theme.onAccent)
-                }
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                .contentShape(.rect)
-            }
-            .accessibilityHint("プレミアムでできることと購入の画面を開きます")
-            .listRowBackground(Theme.surface)
-            Button {
-                model.restorePurchases()
-            } label: {
-                HStack(spacing: 12) {
-                    Label {
-                        Text("購入の復元")
-                    } icon: {
-                        SettingsRowIcon(symbolName: "arrow.clockwise", fill: SettingsRowIcon.gray)
-                    }
-                    Spacer(minLength: 0)
-                    if model.purchases.isRestoring {
-                        ProgressView()
-                            .accessibilityHidden(true)
-                    }
-                }
-                .frame(minHeight: 44)
-                .contentShape(.rect)
-            }
-            .disabled(model.purchases.isRestoring || model.purchases.isPurchasing)
-            .accessibilityHint("この Apple アカウントで購入したプレミアムを読み込みます")
-            .listRowBackground(Theme.surface)
-        } header: {
-            sectionHeader("プレミアム")
-        } footer: {
-            sectionFooter("購入は Apple アカウントに記録されます。機種を変えたときなどにプレミアムが使えなければ、「購入の復元」をお試しください。")
-        }
-    }
-
-    /// プレミアムの行の 2 行目（補足の文字の色）。まだ体験していなければ体験を勧め（0 円で全部を試せることが、いちばんの案内に
-    /// なるため。体験の商品を売り場に出せないときは勧めない。`PurchaseManager.offersTrial`）、体験中は残りの日数、体験の後は
-    /// 買い切りで増えること、購入済みは購入の形を出す。
-    private var premiumRowDetail: Text {
-        let text = switch model.purchases.status {
-        case .free where model.purchases.offersTrial: Text("14日間 無料で試せます")
-        case .free, .trialEnded: Text("買い切りで、レシートと質問が無制限に")
-        case .trial(let days, _): Text("体験中 あと \(days) 日")
-        case .premium(.purchased): Text("購入済み")
-        case .premium(.familyShared): Text("ファミリー共有")
-        }
-        return text.foregroundStyle(Theme.inkSecondary)
-    }
-
-    private var showsPurchaseAlert: Binding<Bool> {
-        Binding(get: { model.purchaseAlert != nil }, set: { if !$0 { model.purchaseAlert = nil } })
     }
 
     // MARK: - 予算
@@ -252,6 +176,7 @@ struct SettingsView: View {
                 .contentShape(.rect)
             }
             .accessibilityHint("予算を決める画面を開きます")
+            .accessibilityIdentifier(AccessibilityID.Settings.budget)
             .listRowBackground(Theme.surface)
         } header: {
             sectionHeader("予算")
@@ -268,11 +193,11 @@ struct SettingsView: View {
 
     // MARK: - カテゴリ
 
-    /// カテゴリの一覧（作る・直す・削除する）と、修正の記憶（覚えたカテゴリ）の一覧へ進む行。それぞれ数を出す。
+    /// カテゴリの一覧（作る・直す・削除する。修正の記憶（覚えたカテゴリ）の一覧もその中から）へ進む行。カテゴリの数を出す。
     private var learningSection: some View {
         Section {
             NavigationLink {
-                CategoryListView(model: model.categoryList)
+                CategoryListView(model: model.categoryList, learnedCategories: model.learnedCategories)
                     .onAppear { model.categoryList.reload() }
             } label: {
                 LabeledContent {
@@ -294,36 +219,13 @@ struct SettingsView: View {
                 .frame(minHeight: 44)
             }
             .accessibilityHint("カテゴリの一覧を開きます。カテゴリを作ったり直したりできます")
-            .listRowBackground(Theme.surface)
-            NavigationLink {
-                LearnedCategoriesView(model: model.learnedCategories)
-                    .onAppear { model.learnedCategories.reload() }
-            } label: {
-                LabeledContent {
-                    // 記録の件数の「件」とは別のキーにする（英語では記録ではなく言葉の数として訳すため）。
-                    Text(LocalizedStringResource(
-                        "%lld 件（覚えたカテゴリ）", defaultValue: "\(model.learnedCategories.rules.count) 件",
-                        comment: "設定の「覚えたカテゴリ」の行の右に出す、覚えた言葉の数。%lld は数"
-                    ))
-                        .foregroundStyle(Theme.inkSecondary)
-                        .monospacedDigit()
-                } label: {
-                    Label {
-                        Text("覚えたカテゴリ")
-                            .foregroundStyle(Theme.ink)
-                    } icon: {
-                        SettingsRowIcon(symbolName: "lightbulb", fill: SettingsRowIcon.teal)
-                    }
-                }
-                .frame(minHeight: 44)
-            }
-            .accessibilityHint("覚えた言葉とカテゴリの一覧を開きます")
+            .accessibilityIdentifier(AccessibilityID.Settings.categories)
             .listRowBackground(Theme.surface)
         } header: {
             Text(.categoriesTitle)
                 .foregroundStyle(Theme.inkSecondary)
         } footer: {
-            sectionFooter("家賃・服・美容など、カテゴリは作って増やせます。記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。")
+            sectionFooter("交際・ペット・子どもなど、カテゴリは作って増やせます。記録の返事でカテゴリを選んだり、直す画面でカテゴリを変えたりすると、同じ言葉を次からそのカテゴリで記録します。")
         }
     }
 
@@ -355,56 +257,13 @@ struct SettingsView: View {
                 .frame(minHeight: 44)
             }
             .accessibilityHint("毎月同じ記録の一覧を開きます")
-            .listRowBackground(Theme.surface)
-            NavigationLink {
-                WalletCaptureView(model: model.walletCapture)
-            } label: {
-                Label {
-                    Text(.walletCaptureTitle)
-                        .foregroundStyle(Theme.ink)
-                } icon: {
-                    SettingsRowIcon(symbolName: "creditcard", fill: SettingsRowIcon.charcoal)
-                }
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            }
-            .accessibilityHint("Apple Pay で払ったときに自動で記録する方法を開きます")
+            .accessibilityIdentifier(AccessibilityID.Settings.recurring)
             .listRowBackground(Theme.surface)
         } header: {
-            sectionHeader("自動で記録")
+            sectionHeader("毎月の記録")
         } footer: {
-            sectionFooter("家賃・サブスク・給料のように毎月同じ記録と、Apple Pay の支払いを、アプリが記録してホームの返事でお知らせします。")
-        }
-    }
-
-    // MARK: - 週の始まり
-
-    private var calendarSection: some View {
-        Section {
-            SettingsPickerRow(
-                title: "週の始まり",
-                icon: SettingsRowIcon(symbolName: "calendar", fill: SettingsRowIcon.red),
-                selection: $model.weekStart,
-                value: weekStartLabel(model.weekStart)
-            ) {
-                ForEach(WeekStart.allCases) { option in
-                    weekStartLabel(option).tag(option)
-                }
-            }
-            .listRowBackground(Theme.surface)
-        } header: {
-            sectionHeader("カレンダー")
-        } footer: {
-            sectionFooter("カレンダーの週を何曜日から始めるかを選びます。")
-        }
-    }
-
-    private func weekStartLabel(_ option: WeekStart) -> Text {
-        switch option {
-        case .system:
-            // 端末の設定がどの曜日かを添える（地域によっては土曜始まりなどもある）。
-            Text("端末の設定（\(SettingsModel.weekdayName(model.systemFirstWeekday))）")
-        case .sunday, .monday:
-            Text(verbatim: SettingsModel.weekdayName(option.firstWeekday ?? 1))
+            // アプリは決めた日に裏で動かないので、「決めた日に自動で」とは書かない（決めた日を過ぎて開いたときに記録する）。
+            sectionFooter("家賃・サブスク・給料のように毎月同じ記録を、決めた日を過ぎて最初にアプリを開いたときに記録します。")
         }
     }
 
@@ -430,6 +289,7 @@ struct SettingsView: View {
             .disabled(model.isCheckingICloudAccount)
             .frame(minHeight: 44)
             .accessibilityHint("記録と予算を、あなたの iCloud で同じ Apple アカウントの端末とそろえます")
+            .accessibilityIdentifier(AccessibilityID.Settings.iCloudSync)
             .listRowBackground(Theme.surface)
             // オンなのに iCloud を使えない（サインアウトしたなど）。保存はできるが同期は止まっているので、それを伝える。
             if model.isICloudSyncEnabled, let paused = model.iCloudAccountStatus?.pausedText {
@@ -452,7 +312,8 @@ struct SettingsView: View {
             sectionHeader("同期")
         } footer: {
             if model.isICloudSyncEnabled {
-                sectionFooter("記録と予算を、あなたの iCloud に保存し、同じ Apple アカウントの端末どうしでそろえています。開発者は中身を見られません。同期されないときは、iCloud にサインインしているかと、iCloud の空き容量を確かめてください。iCloud からサインアウトする前に、ここでオフにしてください（オンのままサインアウトすると、同期した記録がこの iPhone から消えることがあります。iCloud には残ります）。オフにしても、この iPhone の記録は残ります。")
+                // サインアウトの前にオフにすることだけは、記録が消えて見えることがあるので、オンの間ずっと書いておく。
+                sectionFooter("記録と予算を、あなたの iCloud で同じ Apple アカウントの端末とそろえています。iCloud からサインアウトする前に、ここでオフにしてください（オンのままだと、この iPhone から記録が消えて見えることがあります）。")
             } else {
                 sectionFooter("オンにすると、記録と予算をあなたの iCloud に保存し、同じ Apple アカウントの端末どうしでそろえます。オフのあいだは、この iPhone の中だけに保存します。")
             }
@@ -485,7 +346,10 @@ struct SettingsView: View {
     /// 「Face ID でロック」（Face ID の無い端末では Touch ID・パスコード）。オンにするときもオフにするときも、その場で 1 回認証して
     /// から切り替える。
     private func lockSection(_ lock: AppLock) -> some View {
-        Section {
+        // パスコードを設定していない端末ではオンにできない（解除できないロックにしない）。押してから断るより、先に押せなく
+        // して理由を書く。オンのまま（後からパスコードを外した）なら、オフにはできるよう押せるままにする。
+        let cannotEnable = lock.method == .unavailable && !lock.isEnabled
+        return Section {
             Toggle(isOn: Binding(get: { lock.isEnabled }, set: { enabled in Task { await lock.setEnabled(enabled) } })) {
                 Label {
                     lockTitle(lock.method)
@@ -494,13 +358,19 @@ struct SettingsView: View {
                     SettingsRowIcon(symbolName: lockSymbol(lock.method), fill: SettingsRowIcon.green)
                 }
             }
+            .disabled(cannotEnable)
             .frame(minHeight: 44)
             .accessibilityHint("アプリを開くときに、ロックの解除を求めます")
+            .accessibilityIdentifier(AccessibilityID.Settings.appLock)
             .listRowBackground(Theme.surface)
         } header: {
             sectionHeader("セキュリティ")
         } footer: {
-            sectionFooter("オンにすると、アプリを開くときにロックの解除を求めます。アプリの切り替えの画面でも記録を隠します。")
+            if cannotEnable {
+                sectionFooter("iPhone の設定でパスコードを設定すると、使えるようになります。")
+            } else {
+                sectionFooter("オンにすると、アプリを開くときにロックの解除を求めます。アプリの切り替えの画面でも記録を隠します。")
+            }
         }
         .alert(
             lockFailureTitle(lock.enableFailure),
@@ -546,22 +416,20 @@ struct SettingsView: View {
 
     // MARK: - 書き出し
 
+    /// 書き出しは 1 行のメニューにする（押すと期間を選び、選んだらすぐ書き出す）。期間を選ぶ行と書き出すボタンを分けると、
+    /// 期間を選んだだけで書き出したと思ったり、書き出すたびに 2 か所を触ったりするため。
     private var exportSection: some View {
         Section {
-            SettingsPickerRow(
-                title: "期間",
-                icon: SettingsRowIcon(symbolName: "calendar.badge.clock", fill: SettingsRowIcon.gray),
-                selection: $model.exportPeriod,
-                value: periodLabel(model.exportPeriod)
-            ) {
-                ForEach(LedgerExportPeriod.allCases) { period in
-                    periodLabel(period).tag(period)
+            Menu {
+                Section("期間") {
+                    ForEach(LedgerExportPeriod.allCases) { period in
+                        Button {
+                            model.export(period: period, calendar: calendar)
+                        } label: {
+                            periodLabel(period)
+                        }
+                    }
                 }
-            }
-            .disabled(model.isExporting)
-            .listRowBackground(Theme.surface)
-            Button {
-                model.export(calendar: calendar)
             } label: {
                 HStack(spacing: 12) {
                     Label {
@@ -584,7 +452,8 @@ struct SettingsView: View {
                 .contentShape(.rect)
             }
             .disabled(model.isExporting || model.sharedFile != nil)
-            .accessibilityHint("共有の画面で、渡すアプリや保存先を選びます")
+            .accessibilityHint("書き出す期間を選びます。書き出したら、共有の画面で渡すアプリや保存先を選びます")
+            .accessibilityIdentifier(AccessibilityID.Settings.export)
             .listRowBackground(Theme.surface)
         } header: {
             sectionHeader("記録を書き出す")
@@ -622,13 +491,106 @@ struct SettingsView: View {
         Binding(get: { model.exportAlert != nil }, set: { if !$0 { model.exportAlert = nil } })
     }
 
+    // MARK: - 読み込み
+
+    /// 書き出した CSV から記録を戻す（機種変更のときや、iCloud 同期を使わずに別の端末へ移すとき）。書き出しの節とは分ける
+    /// （書き出しは 1 行のメニューで期間を選ぶ操作、読み込みはファイルを選ぶ操作で、行の押し方が違うため）。
+    private var importSection: some View {
+        Section {
+            Button {
+                model.requestImport()
+            } label: {
+                HStack(spacing: 12) {
+                    Label {
+                        if model.isImporting {
+                            Text("読み込んでいます…")
+                        } else {
+                            Text("CSV から読み込む")
+                        }
+                    } icon: {
+                        SettingsRowIcon(symbolName: "square.and.arrow.down", fill: SettingsRowIcon.gray)
+                    }
+                    Spacer(minLength: 0)
+                    if model.isImporting {
+                        ProgressView()
+                            .accessibilityHidden(true)
+                    }
+                }
+                .frame(minHeight: 44)
+                .contentShape(.rect)
+            }
+            .disabled(model.isImporting || model.importPreview != nil)
+            .accessibilityHint("このアプリで書き出した CSV ファイルを選んで、記録に戻します")
+            .accessibilityIdentifier(AccessibilityID.Settings.importCSV)
+            .listRowBackground(Theme.surface)
+        } header: {
+            sectionHeader("記録を読み込む")
+        } footer: {
+            sectionFooter(
+                "このアプリで書き出した CSV ファイルから、記録を戻します（機種変更のときなど）。ファイルはこの iPhone の中で読み、すでにある同じ記録は 2 回入れません。"
+            )
+        }
+    }
+
+    private var importConfirmationTitle: Text {
+        model.importPreview.map { Text("\($0.importCount) 件の記録を読み込みますか？") } ?? Text(verbatim: "")
+    }
+
+    private func importConfirmationMessage(_ preview: LedgerImporter.Preview) -> Text {
+        if preview.duplicateCount == 0 && preview.unreadableCount == 0 {
+            return Text("読み込んだ記録は、ホームとカレンダーの使った日のところに入ります。")
+        }
+        return Text("すでにある同じ記録 \(preview.duplicateCount) 件と、読めなかった行 \(preview.unreadableCount) 件は入れません。")
+    }
+
+    private var importAlertTitle: Text {
+        switch model.importAlert {
+        case .imported: Text("読み込みました")
+        case .nothingToImport: Text("読み込める記録がありません")
+        case .notSaifuLogCSV: Text("このアプリの CSV ではありません")
+        case .tooLarge: Text("ファイルが大きすぎます")
+        case .unreadable, nil: Text("ファイルを読めませんでした")
+        case .saveFailed: Text("記録を入れられませんでした")
+        }
+    }
+
+    private func importAlertMessage(_ alert: SettingsModel.ImportAlert) -> Text {
+        switch alert {
+        case .imported(let count):
+            Text("\(count) 件の記録を足しました。")
+        case .nothingToImport(let duplicates, let unreadable):
+            Text("このファイルは、すでにある記録と同じもの（\(duplicates) 件）と、読めない行（\(unreadable) 件）だけでした。")
+        case .notSaifuLogCSV:
+            Text("設定の「CSV ファイルを書き出す」で作ったファイルを選んでください。列を変えたファイルは読めません。")
+        case .tooLarge:
+            Text("一度に読み込めるのは \(LedgerCSVReader.maximumRows) 件までです。")
+        case .unreadable:
+            Text("UTF-8 か Shift_JIS で保存した CSV ファイルを選んでください。")
+        case .saveFailed:
+            Text("記録は何も足していません。もう一度お試しください。")
+        }
+    }
+
+    private var showsImportConfirmation: Binding<Bool> {
+        Binding(get: { model.importPreview != nil }, set: { if !$0 { model.importPreview = nil } })
+    }
+
+    private var showsImportAlert: Binding<Bool> {
+        Binding(get: { model.importAlert != nil }, set: { if !$0 { model.importAlert = nil } })
+    }
+
     // MARK: - このアプリについて
 
     private var aboutSection: some View {
         Section {
-            externalLink("ヘルプ・お問い合わせ", symbolName: "questionmark", fill: SettingsRowIcon.blue, destination: SettingsModel.supportURL)
-            externalLink("プライバシーポリシー", symbolName: "hand.raised", fill: SettingsRowIcon.blue, destination: SettingsModel.privacyPolicyURL)
-            externalLink("ライセンス", symbolName: "doc.text", fill: SettingsRowIcon.gray, destination: SettingsModel.licenseURL)
+            externalLink(
+                "ヘルプ・お問い合わせ", symbolName: "questionmark", fill: SettingsRowIcon.blue, destination: SettingsModel.supportURL,
+                identifier: AccessibilityID.Settings.help
+            )
+            externalLink(
+                "プライバシーポリシー", symbolName: "hand.raised", fill: SettingsRowIcon.blue, destination: SettingsModel.privacyPolicyURL,
+                identifier: AccessibilityID.Settings.privacyPolicy
+            )
             LabeledContent {
                 Text(verbatim: model.versionText)
                     .foregroundStyle(Theme.inkSecondary)
@@ -653,7 +615,7 @@ struct SettingsView: View {
 
     /// Safari で開くリンクの行。アプリの外へ出ることを、矢印の記号と VoiceOver の説明で示す。
     private func externalLink(
-        _ title: LocalizedStringKey, symbolName: String, fill: Color, destination: URL
+        _ title: LocalizedStringKey, symbolName: String, fill: Color, destination: URL, identifier: String
     ) -> some View {
         Link(destination: destination) {
             HStack(spacing: 12) {
@@ -672,6 +634,7 @@ struct SettingsView: View {
             .contentShape(.rect)
         }
         .accessibilityHint("Safari で開きます")
+        .accessibilityIdentifier(identifier)
         .listRowBackground(Theme.surface)
     }
 
@@ -689,93 +652,20 @@ struct SettingsView: View {
     }
 }
 
-/// 選ぶ行（週の始まり・書き出す期間）。名前と選んだ値が 1 行に収まれば横に並べ、収まらなければ値を名前の下に積んで折り返す。
-///
-/// 既定のメニューの Picker を使わないのは、値を 1 行に収めて途中を省くため。アクセシビリティサイズの文字では
-/// 「端末の設定（日曜日）」が「端末…曜日）」になり、端末の設定がどの曜日かが読めなかった。行はメニューを開くボタンとして
-/// 自前で組み、選ぶところだけ Picker にする（メニューの中の Picker は、選んでいるものに印の付いた選択肢の並びになる）。
-private struct SettingsPickerRow<Value: Hashable, Options: View>: View {
-    let title: LocalizedStringKey
-    /// 行の頭の印。
-    let icon: SettingsRowIcon
-    @Binding var selection: Value
-    /// 選んでいる値の表示。
-    let value: Text
-    @ViewBuilder let options: Options
-
-    @Environment(\.isEnabled) private var isEnabled
-
-    var body: some View {
-        Menu {
-            Picker(selection: $selection) {
-                options
-            } label: {
-                Text(title)
-            }
-        } label: {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) {
-                    titleText
-                    Spacer(minLength: 0)
-                    // 値は縮めない（名前との幅の取り合いで値が省かれないように。収まらなければ下の積む形になる）。
-                    valueLabel
-                        .fixedSize(horizontal: true, vertical: false)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    titleText
-                    valueLabel
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            // 折り返した行を左にそろえる。メニューのボタンの中の文字は、既定では折り返した行が中央にそろい、
-            // 「Week / Starts On」のように行ごとに頭の位置がずれた（シミュレータの iOS 26.4 の AX5 で確かめた）。
-            .multilineTextAlignment(.leading)
-            .frame(minHeight: 44)
-            .contentShape(.rect)
-        }
-        // 名前と値を 1 つの要素として読ませる（メニューを開くボタンであることは残る）。
-        .accessibilityLabel(Text(title))
-        .accessibilityValue(value)
-    }
-
-    private var titleText: some View {
-        Label {
-            Text(title)
-                .foregroundStyle(Theme.ink)
-        } icon: {
-            icon
-        }
-    }
-
-    /// 選んでいる値と、押すと選択肢が開くことを示す上下の矢印（既定のメニューの Picker と同じ形）。
-    private var valueLabel: some View {
-        HStack(spacing: 4) {
-            value
-            Image(systemName: "chevron.up.chevron.down")
-                .imageScale(.small)
-                .accessibilityHidden(true)
-        }
-        .foregroundStyle(Theme.inkSecondary)
-        // 書き出しの途中で選べないときは薄くする（名前の色は変えない。既定の Picker と同じ）。
-        .opacity(isEnabled ? 1 : 0.5)
-    }
-}
-
 /// 設定の行の頭の印（iOS の設定 App と同じ、色の付いた角丸の四角に記号）。行を目で探しやすくするための飾りなので読ませない。
 ///
 /// 塗りはライトとダークで同じ濃い色にし、白い記号を載せる（カテゴリの丸と同じく、白い記号に 4:1 以上の濃さの色。
-/// `Palette.category` のライトの値を使う）。プレミアムの行だけ主の塗り（墨か白）に onAccent の記号にする（ほかの行と見分けるため）。
+/// `Palette.category` のライトの値を使う）。
 struct SettingsRowIcon: View {
     let symbolName: String
     let fill: Color
-    var symbol: Color = .white
 
     @ScaledMetric(relativeTo: .body) private var size = 29
 
     var body: some View {
         Image(systemName: symbolName)
             .font(.system(size: size * 0.5, weight: .semibold))
-            .foregroundStyle(symbol)
+            .foregroundStyle(.white)
             .frame(width: size, height: size)
             .background(fill, in: .rect(cornerRadius: size * 0.24))
             .accessibilityHidden(true)
@@ -787,14 +677,9 @@ struct SettingsRowIcon: View {
 
     static let green = fixed(Palette.category(.daily).light)
     static let blue = fixed(Palette.category(.transport).light)
-    static let red = fixed(Palette.category(.food).light)
     static let purple = fixed(Palette.category(.entertainment).light)
     static let teal = fixed(Palette.category(.utilities).light)
     static let gray = fixed(Palette.category(.other).light)
-    /// Apple Pay（ウォレット）の行。ウォレットの黒に寄せた墨。
-    static let charcoal = fixed(0x3A3A3C)
-    /// 家族と共有の行（柿。作ったカテゴリに選べる色と同じ値）。
-    static let orange = fixed(Palette.customCategoryChoices[3].light)
 }
 
 #Preview {

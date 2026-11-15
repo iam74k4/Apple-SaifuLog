@@ -5,9 +5,9 @@ import SwiftData
 
 /// カレンダーのページ（ホームを左へスワイプした 2 枚目。docs/design.md §9 の ⑩）の状態と操作。
 ///
-/// 見せる月の記録だけを読み（全期間を読まない。記録が増えても重くならないように）、日ごとの集計（`LedgerCalendarMonth`）と、
-/// 今月なら見通し（`SpendingOutlook`。今日あと・固定費を引いた今月あと・月末の見込み）を出す。数字はコアで数え、ここでは
-/// 数え直さない。記録は「自分」の記録だけ（家族の家計は v1 では出さない）。
+/// 見せる月の記録だけを読み（全期間を読まない。記録が増えても重くならないように）、日ごとの集計（`LedgerCalendarMonth`）を出す。
+/// 「いくら使ったか」が分かることだけに絞る（見通し・予算の印・くり返しの予定は出さない。月のまとめと会話の質問にある）。
+/// 数字はコアで数え、ここでは数え直さない。
 @MainActor
 @Observable
 final class LedgerCalendarModel {
@@ -23,7 +23,7 @@ final class LedgerCalendarModel {
         let memo: String
         let spentAt: Date
         let createdAt: Date
-        /// くり返しの記録から記録したものか（固定費として、月末の見込みのペースから外す）。
+        /// くり返しの記録から記録したものか（行の長押しに「毎月くり返す」を出さない）。
         let isRecurring: Bool
 
         init(_ entry: Entry) {
@@ -42,12 +42,6 @@ final class LedgerCalendarModel {
     private(set) var month: DateInterval?
     /// 見せている月の日ごとの集計。
     private(set) var days: LedgerCalendarMonth?
-    /// 見せている月の、くり返しの記録の予定（まだ記録していないもの。収入も）。
-    private(set) var planned: [PlannedOccurrence] = []
-    /// 今月を見せているときの見通し。ほかの月では nil。
-    private(set) var outlook: SpendingOutlook?
-    /// 月の全体の予算（日の印の日割りに使う）。決めていなければ nil。
-    private(set) var budget: Int?
     /// 選んでいる日の始まり。
     private(set) var selectedDay: Date?
     /// 選んでいる日の記録（使った日時の順）。
@@ -56,11 +50,9 @@ final class LedgerCalendarModel {
     private(set) var loadFailed = false
 
     @ObservationIgnored private let store: EntryStore
-    @ObservationIgnored private let budgetStore: BudgetStore
-    @ObservationIgnored private let recurring: RecurringEntryStore
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let announce: @MainActor (String) -> Void
-    /// 日を区切る暦（画面の暦。週の始まりは設定のとおり）。`configure(calendar:)` で受け取る。
+    /// 日を区切る暦（画面の暦。週の始まりは端末の設定のとおり）。`configure(calendar:)` で受け取る。
     @ObservationIgnored private(set) var calendar = Calendar.current
     /// 見せている月の記録（日を選び直すたびに読み直さないよう持っておく）。
     @ObservationIgnored private var monthRecords: [DayRecord] = []
@@ -71,19 +63,17 @@ final class LedgerCalendarModel {
     ///   - now: 今日の基準。テストで固定の日時にする。
     ///   - announce: VoiceOver に読み上げさせる（月を替えたときに、替えた月を読む）。テストで読み上げる文を集める。
     init(
-        store: EntryStore, budgetStore: BudgetStore, recurring: RecurringEntryStore, now: @escaping () -> Date,
+        store: EntryStore, now: @escaping () -> Date,
         announce: @escaping @MainActor (String) -> Void = { VoiceOver.announce($0) }
     ) {
         self.store = store
-        self.budgetStore = budgetStore
-        self.recurring = recurring
         self.now = now
         self.announce = announce
     }
 
     // MARK: - 見せる月
 
-    /// 画面の暦を受け取る（ホームが出たときと、週の始まりの設定が変わったとき）。まだ月を決めていなければ今月を見せる。
+    /// 画面の暦を受け取る（ホームが出たときと、端末の週の始まりや時間帯の設定が変わったとき）。まだ月を決めていなければ今月を見せる。
     func configure(calendar: Calendar) {
         let changed = calendar != self.calendar
         self.calendar = calendar
@@ -92,7 +82,7 @@ final class LedgerCalendarModel {
         }
     }
 
-    /// 今月を見せているか（見通しを出すか）。
+    /// 今月を見せているか。
     var isCurrentMonth: Bool {
         guard let month else { return false }
         let today = now()
@@ -167,7 +157,7 @@ final class LedgerCalendarModel {
         reload()
     }
 
-    /// 記録・予算・くり返しの記録を読み直す（保存したとき・ほかの端末の変更が届いたとき・前面に戻ったとき）。
+    /// 記録を読み直す（保存したとき・ほかの端末の変更が届いたとき・前面に戻ったとき）。
     func reload() {
         guard let month else { return }
         let today = now()
@@ -179,18 +169,7 @@ final class LedgerCalendarModel {
             monthRecords = []
             loadFailed = true
         }
-        // 予算と決まりを読めなくても、記録の集計は出す（予算の印と予定を出さないだけ）。
-        budget = (try? budgetStore.plan())?.amount(for: .total)
-        let rules = ((try? recurring.rules()) ?? []).compactMap(\.rule)
         days = LedgerCalendarMonth(records: monthRecords, month: month, calendar: calendar)
-        planned = RecurringSchedule.plannedOccurrences(for: rules, in: month, now: today, timeZone: calendar.timeZone)
-        outlook = SpendingOutlook(
-            budget: budget,
-            records: monthRecords.map {
-                SpendingOutlook.Record(amount: $0.amount, isIncome: $0.isIncome, spentAt: $0.spentAt, isRecurring: $0.isRecurring)
-            },
-            rules: rules, now: today, month: month, calendar: calendar
-        )
         // 選んだ日が見せている月の外なら外す。今月で選んでいなければ今日を選ぶ（ほかの月は、日を押すまで選ばない）。
         if let selectedDay, !(month.start <= selectedDay && selectedDay < month.end) {
             self.selectedDay = nil
@@ -212,17 +191,6 @@ final class LedgerCalendarModel {
     var selectedSummary: LedgerCalendarMonth.Day? {
         guard let selectedDay else { return nil }
         return days?.day(containing: selectedDay, calendar: calendar)
-    }
-
-    /// その日の予定（まだ記録していないくり返しの記録）。
-    func planned(on day: Date) -> [PlannedOccurrence] {
-        planned.filter { calendar.isDate($0.date, inSameDayAs: day) }
-    }
-
-    /// 予算の日割りより多く使った日か（日の印）。予算を決めていなければ false。
-    func exceedsPace(_ day: LedgerCalendarMonth.Day) -> Bool {
-        guard let pace = days?.dailyPace(budget: budget) else { return false }
-        return day.expense > pace
     }
 
     /// 今日か。

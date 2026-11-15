@@ -47,11 +47,12 @@ PR: develop → main ─ マージ ─▶ release.yml
 
 | 誰が | 何を |
 |---|---|
-| 自動（build.yml） | PR と push のたびに `make build`・`make check-strings`（String Catalog とコードの文字列の整合）・`make test`（コアのテスト）・`make build-tests` と `make test-app`（アプリのテストのビルドと、シミュレータでの実行）・`make test-storekit`（購入のテストを、SKTestSession が動く iOS 26.2 のシミュレータで。1 つでも飛ばされたら失敗）・`make check-version` と、署名なしの `make archive`（提出物と同じ Release・実機向けの組み立てを、マージ前に一度通す。バージョン・ビルド番号・アイコンがアプリの Info.plist に入っているかと、社内テスト用の診断画面と家族との家計の共有と撮影用のデモが入っていないかも見る） |
+| 自動（build.yml） | PR と push のたびに `make build`・`make check-strings`（String Catalog とコードの文字列の整合）・`make test`（コアのテスト）・`make build-tests` と `make test-app`（アプリのテストのビルドと、シミュレータでの実行）・`make test-ui`（画面を操作する UI テスト。初回の案内・記録と取り消し・チャットの操作・カレンダー・月のまとめ・設定・レシート・アクセシビリティの検査・大きな文字などを、Debug のビルドの UI テスト用の状態で押して確かめる）・`make test-app-ios26`（アプリのテストを iOS 26.2 のシミュレータでも。iOS 26 の SwiftData などの動作の違いを確かめる。ランタイムが無ければ `scripts/prepare-simulator.sh` で入れる）・`make check-version` と、署名なしの `make archive`（提出物と同じ Release・実機向けの組み立てを、マージ前に一度通す。バージョン・ビルド番号・アイコンがアプリの Info.plist に入っているかと、社内テスト用の診断画面と撮影用のデモが入っていないかも見る） |
 | 自動（release.yml / upload） | 承認済みの版ならスキップ、アーカイブ（開発用の証明書で署名）、エンタイトルメントの照合（送らずに書き出す。いまは抜けていても警告だけ）、クラウド署名、App Store Connect へのアップロード |
 | 自動（release.yml / submit） | 処理待ち、バージョンの用意、リリースノート、**審査への提出** |
 | 自動（tag-release.yml） | 配信を検知し、配信されたビルドを作ったコミットにタグと GitHub Release を作成（最初のリリースまでは無効にしてあり、初めて main へマージするときに人が有効に戻す） |
 | 人 | バージョンを上げる、CHANGELOG を書く、App Store Connect の Web でしかできない設定、リジェクトの対応 |
+| 人（リリースの前と、AI の指示文などを変えたとき）→ `make test-ai` | 本物の端末内 AI の答え方のテスト（読み取り・カテゴリ・チャットの操作・質問・一言）を、Apple Intelligence をオンにした Mac のシミュレータで動かす。CI のランナーでは Apple Intelligence を使えないので、build.yml と `make ci` には入っていない |
 | 人（任意）→ release.yml の `mode=testflight` | main へマージする前の develop のビルドを、診断画面入りで TestFlight の社内テスト専用に送る（審査には出ない。下の「[TestFlight で実機に入れる（社内テスト）](#testflight-で実機に入れる社内テスト)」） |
 
 タグを最後に打つのは、リジェクトされた場合に「タグはあるのに世に出ていない」版を
@@ -100,9 +101,6 @@ PR: develop → main ─ マージ ─▶ release.yml
 - 診断画面（社内テスト用）は `INTERNAL_BUILD=YES` のアーカイブ（`mode=testflight`）にだけ入る。main への push と
   `mode=submit` / `upload` / `export` は `INTERNAL_BUILD=NO` で作り、release.mk ができたアプリの中身を見て、
   診断画面が入っていれば止める（アーカイブの直後と、書き出し・アップロードの前）。
-- 家族・パートナーとの家計の共有（実機で確かめる前の機能。`docs/design.md` §5-5）も同じく、`INTERNAL_BUILD=YES` のアーカイブでだけ
-  有効になる。release.mk は、`INTERNAL_BUILD=NO` のアーカイブで有効になっていれば（印の文字列 `RELEASE_HOUSEHOLD_MARKER` があるか、
-  Info.plist に `CKSharingSupported` があれば）止める。
 - App Store のスクリーンショットを撮るための撮影用のデモ（`SaifuLog/ScreenshotDemo/`）は DEBUG のビルドだけに入る。release.mk は、
   どのアーカイブ（`INTERNAL_BUILD` によらない）にも印の文字列 `RELEASE_SCREENSHOT_DEMO_MARKER` があれば止める。
 
@@ -120,11 +118,12 @@ App Store 向けの署名は export の段階で Xcode が用意する（自動�
 | もの | どこで | 補足 |
 |---|---|---|
 | Apple Developer Program | developer.apple.com | チーム ID は `NL9ZXK2SGR` |
-| **Bundle ID の登録** | Certificates, Identifiers & Profiles → Identifiers → **+** → App IDs | `com.iam74k4.SaifuLog`（Explicit）。Capability の **Data Protection** をオンにして **Complete Protection** を選ぶ（エンタイトルメント `default-data-protection` と揃える）。**iCloud**（CloudKit。コンテナ `iCloud.com.iam74k4.SaifuLog` を割り当てる）と **Push Notifications** もオンにする（iCloud 同期。下の「[Capability（iCloud など）を足すとき](#capabilityicloud-などを足すとき)」）。済み |
+| **Bundle ID の登録** | Certificates, Identifiers & Profiles → Identifiers → **+** → App IDs | `com.iam74k4.SaifuLog`（Explicit）。Capability の **Data Protection** をオンにして **Complete Protection** を選ぶ（エンタイトルメント `default-data-protection` と揃える）。**iCloud**（CloudKit。コンテナ `iCloud.com.iam74k4.SaifuLog` を割り当てる）と **Push Notifications** もオンにする（iCloud 同期。下の「[Capability（iCloud など）を足すとき](#capabilityicloud-などを足すとき)」）。済み。**App Groups** もオンにして `group.com.iam74k4.SaifuLog` を割り当てる（ウィジェットに数字を渡す。2026-11-14 に足した。**まだ**） |
+| **ウィジェットの拡張の Bundle ID** | Identifiers → **+** → App IDs（グループは Identifiers → **+** → App Groups） | 先に App Group `group.com.iam74k4.SaifuLog` を登録し、`com.iam74k4.SaifuLog.Widgets`（Explicit）を作って **App Groups** をオンにし、同じグループを割り当てる。拡張は保存先を開かないので、Data Protection・iCloud・Push は要らない。**まだ** |
 | **アプリレコード** | App Store Connect → アプリ → **+** → 新規 App | プラットフォーム iOS、プライマリ言語は日本語、Bundle ID は上のもの、SKU は任意（例 `saifulog-ios`） |
 | **端末の登録（1 台以上）** | Certificates, Identifiers & Profiles → Devices | アーカイブは開発用のプロファイルで署名するので、チームに登録した端末が 1 台も無いとプロファイルを作れない。手元の Xcode でその iPhone に一度ビルドすれば自動で登録される |
 | **開発用の証明書（.p12）** | Xcode → 設定 → Accounts → Manage Certificates… | アーカイブの署名に使う Apple Development の証明書。書き出し方と年に一度の更新は「[署名ありのアーカイブ](#署名ありのアーカイブ)」 |
-| App Store Small Business Program | developer.apple.com/app-store/small-business-program | 加入すると手数料が 15% になる（`docs/design.md` §6）。申し込みは別途 |
+| App Store Small Business Program | developer.apple.com/app-store/small-business-program | 加入すると手数料が 15% になる。いまはすべて無料で App 内課金が無いので要らない（`docs/design.md` §6） |
 
 Bundle ID を先に登録するのは、CI の export が**自動署名でもアプリ ID は登録しない**ため
 （`xcodebuild -help` の `signingStyle` の説明）。手元の Xcode で一度実機にビルドすれば
@@ -132,6 +131,8 @@ Bundle ID を先に登録するのは、CI の export が**自動署名でもア
 アプリ ID の Capability を変えないので、先にオンにしておく（アプリは
 `project.yml` のエンタイトルメントで保存先を NSFileProtectionComplete にしている。`docs/design.md` §5-4）。iCloud と
 Push Notifications も同じ理由で先にオンにしておく（エンタイトルメントに iCloud のコンテナと `aps-environment` がある）。
+ウィジェットの拡張（`SaifuLogWidgets`）の App ID と App Group も同じ理由で先に作る（アプリと拡張の両方のエンタイトルメントに
+`com.apple.security.application-groups` がある）。作っていないと、release.yml のアーカイブか書き出しで、拡張のプロファイルを作れずに止まる。
 
 ### 2. App Store Connect API キーを作る
 
@@ -217,14 +218,14 @@ submit ジョブは提出の段階で止まる（アップロードまでは進�
 | アプリ情報 | アプリ → 一般 → App 情報 | 名前（日本語は「サイフログ」で登録済み。英語の名前の案は [`app-store/metadata.en.md`](app-store/metadata.en.md)）、サブタイトル、カテゴリ（プライマリはファイナンス。セカンダリの案も）、コンテンツ配信権。文は [`app-store/metadata.ja.md`](app-store/metadata.ja.md) と [`app-store/metadata.en.md`](app-store/metadata.en.md) |
 | 年齢制限 | App 情報 → 年齢制限 | 質問への回答の案と結果（4+）は [`app-store/age-rating.md`](app-store/age-rating.md) |
 | 価格と配信状況 | 価格および配信状況 | 無料（基準は日本）。配信する国と地域は**日本だけ**（2026-09-30 に決めた。入力の読み取りは日本語の文で、金額は円だけのため。英語の画面は日本で英語を優先する端末の人向け）。**Apple Silicon 搭載の Mac と Apple Vision Pro での配信をオフにする**（iPhone 向けのアプリは、既定のままだとこれらでも配信される。README の「Mac と Apple Vision Pro では配信しません」と揃えるため）。**iPad は外せない**（iPhone 専用のアプリも iPad の App Store で配信され、iPhone 版が拡大して動く） |
-| App のプライバシー | App のプライバシー | プライバシーポリシーの URL（`https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md`。草案の注記を外して main へ入れてから。下の「初回リリース」の 4）と、「データの収集なし」の回答。回答の案と機能ごとの根拠（購入・声・iCloud なども）は [`app-store/privacy-answers.md`](app-store/privacy-answers.md)（方針は `docs/design.md` §11） |
-| スクリーンショット | バージョン → iPhone | **6.9 インチ**（1320 × 2868）が必須。小さい画面の分は自動で縮小される。`./scripts/app-store-screenshots.sh` で、撮影用のデモ（DEBUG のビルドだけにある架空の記録。診断のボタンなど開発用の表示は出さない）を日本語と英語で撮り、`docs/app-store/screenshots/` に置いてある。使うのは `01`〜`06`（`07`・`08` は課金アイテムの審査用で、価格が写るのでストアには載せない）。作り方と確かめることは [`app-store/README.md`](app-store/README.md) |
+| App のプライバシー | App のプライバシー | プライバシーポリシーの URL（`https://github.com/iam74k4/Apple-SaifuLog/blob/main/PRIVACY.md`。草案の注記を外して main へ入れてから。下の「初回リリース」の 4）と、「データの収集なし」の回答。回答の案と機能ごとの根拠（レシート・iCloud なども）は [`app-store/privacy-answers.md`](app-store/privacy-answers.md)（方針は `docs/design.md` §11） |
+| スクリーンショット | バージョン → iPhone | **6.9 インチ**（1320 × 2868）が必須。小さい画面の分は自動で縮小される。`./scripts/app-store-screenshots.sh` で、撮影用のデモ（DEBUG のビルドだけにある架空の記録。診断のボタンなど開発用の表示は出さない）を日本語と英語で撮り、`docs/app-store/screenshots/` に置いてある。ストアに使うのは `01`〜`04`（`05` のカレンダーはまだ入れていない）。前に撮った画像はやめた機能（プレミアムの値段・体験・声の入力など）が写っていたので消してあり、いまはフォルダが空。審査に出す前に撮り、1 枚ずつ確かめてから入れる。作り方と確かめることは [`app-store/README.md`](app-store/README.md) |
 | 説明文など | バージョン | 説明、プロモーション用テキスト、キーワード、**サポート URL（必須）**、著作権。日本語と英語の文と文字数は [`app-store/metadata.ja.md`](app-store/metadata.ja.md)・[`app-store/metadata.en.md`](app-store/metadata.en.md)。サポート URL のページは [`support.md`](support.md)（main に入るのは初めてのリリースのとき） |
-| App Review に関する情報 | バージョン → App Review に関する情報 | 連絡先（App Store Connect にだけ入れる）と審査メモ。審査メモの案（ログイン不要・課金アイテムの試し方・AI が Apple Intelligence 非対応の端末では辞書で動くこと・マイクとカメラの用途・iCloud 同期は任意で既定オフ・データを開発者に送らないこと）は [`app-store/review-notes.md`](app-store/review-notes.md)。審査は iPad で行われることもあるので、提出の前に iPad のシミュレータ（iPhone 版の互換モード）でも一通り動くことを確かめる |
+| App Review に関する情報 | バージョン → App Review に関する情報 | 連絡先（App Store Connect にだけ入れる）と審査メモ。審査メモの案（ログイン不要・すべて無料で App 内課金が無いこと・AI が Apple Intelligence 非対応の端末では辞書で動くこと・カメラと Face ID の用途・iCloud 同期は任意で既定オフ・データを開発者に送らないこと）は [`app-store/review-notes.md`](app-store/review-notes.md)。審査は iPad で行われることもあるので、提出の前に iPad のシミュレータ（iPhone 版の互換モード）でも一通り動くことを確かめる |
 | 輸出コンプライアンス | （Info.plist で回答） | `project.yml` で `ITSAppUsesNonExemptEncryption = NO` を入れている。未回答のビルドだと `asc.py wait-build` が止まる |
 | EU のトレーダー申告 | ビジネス | EU で配信するには、トレーダーかどうかの申告が要る。トレーダーの場合は住所などが EU のストアに表示される |
-| 契約・税金・口座 | ビジネス | 無料アプリだけなら不要。プレミアム（App 内課金）を出す前に有料 App 契約（Paid Apps）と口座・税の情報が要る。済んでいないと、アプリの中で商品を読めず、⑨ に「価格を読み込めませんでした」と出る |
-| App 内課金 | 収益化 → App 内課金 | プレミアムと 14 日間の体験の 2 つ（下の「[8. App 内課金（プレミアム）を審査に出す](#8-app-内課金プレミアムを審査に出す)」） |
+| 契約・税金・口座 | ビジネス | 無料アプリだけなので不要（App 内課金は無い。`docs/design.md` §6） |
+| App 内課金 | 収益化 → App 内課金 | 前に登録したプレミアム（`com.iam74k4.SaifuLog.premium`）と 14 日間の体験（`com.iam74k4.SaifuLog.trial14`）は、アプリから外したので審査に出さない。バージョンの「App 内課金とサブスクリプション」で選ばない（2026-11-13。下の「[8. 前に登録した App 内課金](#8-前に登録した-app-内課金)」） |
 
 ### 6. ブランチと保護ルール
 
@@ -297,45 +298,18 @@ New ruleset → New branch ruleset）。**main 用と develop 用の 2 つに分
 | actions の SHA での固定を必須にする | Settings → Actions → General → Actions permissions の **Require actions to be pinned to a full-length commit SHA** | ワークフローの `uses:` はすべてコミットの SHA で固定してある（版はコメント）。タグの付け替えで中身が差し替わっても、鍵を持つジョブで知らないコードが動かないようにする。設定で必須にすると、タグで書いた `uses:` が紛れ込んだときに止まる |
 | 使える actions を GitHub 製に限る | 同じ画面で **Allow iam74k4, and select non-iam74k4, actions and reusable workflows** を選び、**Allow actions created by GitHub** だけにチェックを入れる | 使っているのは `actions/checkout` と `actions/setup-python` だけ。ほかを足すときは、ここと一緒に見直す |
 
-### 8. App 内課金（プレミアム）を審査に出す
+### 8. 前に登録した App 内課金
 
-プレミアム（⑨。`docs/design.md` §6・§9）の課金アイテムは App Store Connect に登録済み。**製品 ID は変えない**（アプリのコアの
-`PremiumProduct` と `Config/SaifuLog.storekit` に同じ値を書いている。変えると買った人がプレミアムを使えなくなる）。
+プレミアム（買い切り）と 14 日間の体験の課金アイテム（`com.iam74k4.SaifuLog.premium`・`com.iam74k4.SaifuLog.trial14`）は
+App Store Connect に登録してあるが、**すべての機能を無料にしてアプリから外した**（2026-11-13。`docs/design.md` §6）。
+一度も審査に出していないので、買った人はいない。
 
-| 製品 ID | 種類 | 価格 | ファミリー共有 | 表示名（ja / en） |
-|---|---|---|---|---|
-| `com.iam74k4.SaifuLog.premium` | 非消耗型 | ¥1,800（日本基準） | オン | サイフログ プレミアム / SaifuLog Premium |
-| `com.iam74k4.SaifuLog.trial14` | 非消耗型 | ¥0 | オフ | 14日間の無料体験 / 14-day Trial |
-
-App ID の In-App Purchase の Capability は、明示的な App ID なら最初から有効（エンタイトルメントのファイルに足すものは無い）。
-
-**App 内課金を初めて出すときは、アプリのバージョンと一緒に審査に出す**（App Store Connect のバージョンのページの
-「App 内課金とサブスクリプション」で 2 つを選んでから、バージョンを審査に提出する。課金アイテムだけを先に出すことはできない）。
-その前に、課金アイテムごとに次を入れて「提出準備完了」にしておく。
-
-**「カテゴリ別の予算の進み（使った額との比べ）を画面に出すまで、App 内課金を審査に出さない」の条件は満たした。**
-月のまとめ（⑦）のカテゴリの行に、カテゴリ別の予算の「使った額 / 予算」・バー・残りか超えた額を出した（プレミアムと体験中だけ。
-`docs/design.md` §6-1・§9 の ⑦）。この決め事を置いた理由は、買って使えるプレミアムの機能が予算の画面でカテゴリ別の予算の額を決める
-欄だけで、買っても目に見えて変わるものが無い App 内課金として、審査（ガイドライン 2.1・3.1.1）で差し戻されるおそれがあることだった。
-いまは買うと、家計への質問（無料は月 10 回）とレシートの読み取り（無料は月 5 回）の回数の制限がなくなり、月のまとめにカテゴリ別の
-予算の進みが出る（下の審査メモもそう書いている）。**審査に出すかどうか・いつ出すかの最終判断は所有者**が行う（下の 4 の Sandbox での
-確かめを含む。`docs/design.md` §13 の「App 内課金を審査に出す時機」）。
-
-1. **審査用のスクリーンショット（課金アイテムごとに 1 枚）: ⑨ プレミアムのシート。** `./scripts/app-store-screenshots.sh` が撮る
-   `docs/app-store/screenshots/<言語>/07-premium.png`（プレミアムでできることと、下の帯の価格つきの購入のボタン「¥1,800 で購入する（買い切り）」。
-   プレミアムの分）と `08-trial.png`（「14日間の無料体験について」の説明と、下の帯の「14日間 無料で試す」と「0円。体験が終わっても自動で
-   課金されません。」。体験の説明が、期間・終わっても課金されないこと・終わった後に使えなくなるものを示していることが伝わるように。
-   体験の分）を使う。価格は日本の App Store の表示（¥1,800）で写る
-   （撮影用のデモは App Store の商品を読まずに、日本の価格の表示を出す。[`app-store/README.md`](app-store/README.md)）。
-2. **審査メモ（課金アイテムごと）。** 英語の文と日本語の対訳は [`app-store/review-notes.md`](app-store/review-notes.md) の
-   「課金アイテムの審査メモ」。アプリのバージョンの「App Review に関する情報」の審査メモ（ログイン不要・プレミアムの入口・
-   体験は 0 円で始められること・マイクの用途など）も同じファイルにある。出すかの最終判断（上）で決め事を変えたら、
-   審査メモも合わせて書き直してから出す。
-3. 表示名と説明（ja と en）。アプリの中の表示（`Config/SaifuLog.storekit` のローカライズ）と食い違わないようにする。体験の英語の
-   表示名は、ガイドライン 3.1.1 の名前の決まり（「XX-day Trial」）に合わせた「14-day Trial」（`app-store/review-notes.md`）。
-   App Store Connect の説明は 55 文字までなので、`Config/SaifuLog.storekit` より短い文を入れている（`app-store/review-notes.md` の表）。
-4. 審査の前に、Sandbox のテスター（ユーザとアクセス → Sandbox）で実機に TestFlight のビルドを入れ、購入・体験・復元を一通り試す
-   （`docs/design.md` §15 の「これから」）。
+- バージョンを審査に出すとき、「App 内課金とサブスクリプション」で選ばない（選ぶと、アプリに買う入口の無い課金アイテムを
+  審査に出すことになる）。
+- App Store Connect に残しておいても、審査に出さなければ配信されない。消すかどうかは所有者が決める（製品 ID は消すと同じ App では
+  二度と使えない）。0.1.0 は「すべて無料・広告なし・データを集めない」で出し、将来の候補は任意の応援（チップ。消耗型）だけにした
+  （2026-11-14。`docs/design.md` §6）。応援を足すときは、この 2 つとは別の ID で作るので、残しておく理由は無い。
+- 有料 App 契約（Paid Apps）と口座・税の情報も、無料のままなら要らない。
 
 ---
 
@@ -352,7 +326,9 @@ App ID の In-App Purchase の Capability は、明示的な App ID なら最初
      Markdown を表示しないので、太字・リンク・バッククォートを使わず、`- ` の
      箇条書きと平文で、利用者の目線で書く
    - `make check-version` で一致を確かめる（CI でも検査される）。PR の前に `make ci` を通すと、
-     CI（`build`）と同じ 8 種類を手元で確かめられる
+     CI（`build`）と同じ 9 種類を手元で確かめられる
+   - Apple Intelligence をオンにした Mac（Apple シリコン、macOS 26 以降。モデルを入れ終えておく）で `make test-ai` を通し、
+     本物の端末内 AI の答え方が崩れていないかを確かめる（CI では動かない。落ちたら、ログの表でどの件がどう外れたかを見る）
    - 実機での確認は、手元の Xcode から入れるか、develop を `mode=testflight` で TestFlight の社内テストへ送って行う
      （下の「[TestFlight で実機に入れる（社内テスト）](#testflight-で実機に入れる社内テスト)」）
 2. **PR: develop → main を作り、build が通ったら「Create a merge commit」でマージする**
@@ -394,7 +370,7 @@ App ID の In-App Purchase の Capability は、明示的な App ID なら最初
    main とマージする（`ASC_AUTO_SUBMIT` が `false` のままなので、main へのマージではアップロード
    だけが走る）。`CLAUDE.md` の「ドキュメント」にある `PRIVACY.md` の説明（草案）も一緒に直す。
    審査に出すポリシーの URL が「Draft」と書かれたページのままにならないようにするため
-5. 「一度だけの準備」の 5（Web の設定）と 8（App 内課金の審査用のスクリーンショットと審査メモ）を済ませる。
+5. 「一度だけの準備」の 5（Web の設定）を済ませる（8 の前に登録した App 内課金は審査に出さない）。
    入れる文とスクリーンショットは [`app-store/`](app-store/README.md) にある（入れる前に、中身がいまの実装と合っているかを見直し、
    スクリーンショットは撮り直す）。プライバシーポリシーの URL には、4 で確定させた main の `PRIVACY.md` を、サポート URL には
    main の `docs/support.md` を入れる（どちらも main に入ってから開けることを確かめる）
@@ -458,10 +434,8 @@ App ID の In-App Purchase の Capability は、明示的な App ID なら最初
 | `v<version> は配信済み（タグあり）で、Apple はこの版の新しいビルドを TestFlight にも受け付けません`（承認済みのときも同じ） | 承認された版は閉じ、TestFlight 用のビルドも送れない。作業ブランチで `MARKETING_VERSION` と CHANGELOG の先頭の見出しを次の版に上げて develop へ入れてから、`mode=testflight` を走らせ直す |
 | `このアーカイブのアプリには診断画面（社内テスト用）が入っています` | `INTERNAL_BUILD=NO`（App Store へ出すビルド）のアーカイブに診断画面が入った。`INTERNAL_DIAGNOSTICS` を `project.yml` や `Config/*.xcconfig` で足していないか、診断画面のコードが `#if DEBUG \|\| INTERNAL_DIAGNOSTICS` の外に出ていないかを確かめる |
 | `INTERNAL_BUILD=YES ですが、アーカイブのアプリに診断画面の印（…）が見つかりません` | `mode=testflight` のアーカイブに診断画面が入らなかった。`project.yml` の `SAIFULOG_INTERNAL_BUILD` から `SWIFT_ACTIVE_COMPILATION_CONDITIONS` への組み立てと、`SaifuLog/Diagnostics/DiagnosticsReport.swift` の `buildMarker` が `release.mk` の `RELEASE_INTERNAL_MARKER` と同じ値かを確かめる |
-| `このアーカイブのアプリでは家計の共有（実機で確かめる前の機能）が有効になっています` / `App Store へ出すビルドのアプリの Info.plist に CKSharingSupported があります` | `INTERNAL_BUILD=NO` のアーカイブで家族との家計の共有が有効になった。`SaifuLog/Household/HouseholdSharing.swift` の `enabledMarker` が `#if DEBUG \|\| INTERNAL_DIAGNOSTICS` の外で値を持っていないか、`project.yml` の `SAIFULOG_HOUSEHOLD_SHARING` と `INFOPLIST_FILE` の選び方が変わっていないかを確かめる |
-| `INTERNAL_BUILD=YES ですが、アーカイブのアプリに家計の共有の印（…）が見つかりません` / `CKSharingSupported が true ではありません` | `mode=testflight` のアーカイブで家計の共有が有効にならなかった。`enabledMarker` が `release.mk` の `RELEASE_HOUSEHOLD_MARKER` と同じ値か、`HouseholdHost.start` が印をログに書いているか、`SAIFULOG_HOUSEHOLD_SHARING` が `SAIFULOG_INTERNAL_BUILD` を引いているかを確かめる |
-| `このアーカイブのアプリには撮影用のデモ（DEBUG のビルドだけの仕組み）が入っています` | Release のアーカイブに撮影用のデモが入った。`SaifuLog/ScreenshotDemo/` と、それを呼ぶ場所（`SaifuLogApp`・`AppRootView`・`HomeView`・`PurchaseManager`・`PremiumSheet`）が `#if DEBUG` の外に出ていないか、Release の構成に `DEBUG` の条件を足していないかを確かめる |
-| `UIBackgroundModes に remote-notification がありません` | Info.plist を 2 つ（`SaifuLog/Info.plist`・`SaifuLog/Info-HouseholdSharing.plist`）に分けたうちの片方から消えた。両方に同じ中身（`CKSharingSupported` のほか）を保つ |
+| `このアーカイブのアプリには撮影用のデモ（DEBUG のビルドだけの仕組み）が入っています` | Release のアーカイブに撮影用のデモが入った。`SaifuLog/ScreenshotDemo/` と、それを呼ぶ場所（`SaifuLogApp`・`AppRootView`・`HomeView`・`MonthlyReportView`）と、同じく DEBUG のビルドだけの UI テストの状態（`SaifuLog/UITestMode/`）が `#if DEBUG` の外に出ていないか、Release の構成に `DEBUG` の条件を足していないかを確かめる |
+| `UIBackgroundModes に remote-notification がありません` | `SaifuLog/Info.plist` から消えた。iCloud 同期がほかの端末の変更の知らせ（サイレントプッシュ）を受け取るのに要るので戻す |
 | 「依存を入れる」などの `pip install` が `--require-hashes` や `--only-binary` のエラーで止まる | `scripts/requirements.txt` のハッシュと合わない、またはランナーの Python の版に合う wheel が無い。手で書き換えず、`scripts/requirements.in` の先頭にある手順（`pip-compile --generate-hashes --strip-extras`）で作り直す。Python の版（`setup-python` の `3.12`）を変えたときも作り直す |
 | export で `Cloud signing permission error` | API キーのロールが Admin でない |
 | export でプロファイルが作れない（アプリ ID が無い） | Bundle ID `com.iam74k4.SaifuLog` が未登録。「一度だけの準備」の 1 |
@@ -519,8 +493,7 @@ main へマージする前の develop のビルドを、TestFlight で自分の 
 |---|---|
 | 保存先（`default.store`・`-wal`・`-shm`）の保護クラス | 3 つとも `NSFileProtectionComplete`（データ保護が効いている。`docs/design.md` §5-4）。`default.store` は保存先を開いた時点（ホームが出る前）に作られるので、これが `missing` なら異常（診断画面の見ている場所と実際の保存先が食い違っているなど。記録を入れても直らない）。`-wal` / `-shm` は保存先を開いている間はふつうある（SQLite の WAL）。`missing` なら記録を 1 件入れてから再読み込みし、それでも `missing` なら報告に添える |
 | 保護されたデータを読めるか | 画面を見ている間は `true` |
-| 端末内 AI（Foundation Models） | `available` か、使えない理由（`deviceNotEligible`・`appleIntelligenceNotEnabled`・`modelNotReady`）。日本語に対応しているか。iOS 27 なら画像を入力できるか。「生成を試す」を押すと、決まった短い文で 1 回だけ生成させた結果が「生成の試し」に出る（`ok (… ms)`・エラーの型とドメインと番号・`timeout (20000 ms)`）。`available` なのにエラーか時間切れなら、その値を報告に添える（AI は失敗しても利用者には辞書の結果だけを見せるので、画面では気づけない）。「AI の結果を使わなかった回数（起動から）」は、起動してから AI が失敗したか結果を返さずに辞書や定型文に切り替えた回数（`entry`・`question`・`recap`・`receipt` ごと）、「最後のエラー」はその最後の失敗（と機能・日時）。1 回ずつは Console.app のサブシステム `com.iam74k4.SaifuLog`・カテゴリ `ai` で見られる（`docs/design.md` §4-2） |
-| 音声の書き起こし（SpeechTranscriber） | 使えるか、日本語のモデルが入っているか、声の入力が使っている経路（`speechTranscriber` / `dictationTranscriber` / `none`）とそのモデルの状態（`installed` / `needsReservation` / `needsDownload` / `downloading`）。`checking` は端末への問い合わせがまだ返っていないところ（ほかの行はそれを待たずに出る）。再読み込みしても `checking` のままなら、問い合わせが返らない端末として報告に添える |
+| 端末内 AI（Foundation Models） | `available` か、使えない理由（`deviceNotEligible`・`appleIntelligenceNotEnabled`・`modelNotReady`）。日本語に対応しているか。iOS 27 なら画像を入力できるか。「生成を試す」を押すと、決まった短い文で 1 回だけ生成させた結果が「生成の試し」に出る（`ok (… ms)`・エラーの型とドメインと番号・`timeout (20000 ms)`）。`available` なのにエラーか時間切れなら、その値を報告に添える（AI は失敗しても利用者には辞書の結果だけを見せるので、画面では気づけない）。「AI の結果を使わなかった回数（起動から）」は、起動してから AI が失敗したか結果を返さずに辞書や定型文に切り替えた回数（`entry`・`question`・`recap`（月のまとめの一言）・`receipt`・`category`・`chatCommand`・`recordRemark`（記録の返事の一言）ごと）、「最後のエラー」はその最後の失敗（と機能・日時）。1 回ずつは Console.app のサブシステム `com.iam74k4.SaifuLog`・カテゴリ `ai` で見られる（`docs/design.md` §4-2） |
 | 版・ビルド番号・OS・機種 | 不具合を報告するときに添える |
 | 記録の件数・予算の行数 | 中身ではなく数だけ |
 | iCloud | アカウントの状態（`available` / `noAccount` / `restricted` / `temporarilyUnavailable` / `couldNotDetermine`。`checking` は問い合わせがまだ返っていないところ）、いま開いている保存先の同期（`none` か `private(iCloud.com.iam74k4.SaifuLog)`）、設定の「iCloud で同期」（`true` / `false`）。設定が `true` なのに `none` なら、iCloud と同期する保存先を開けずに端末の中だけへ戻したところ（そのときは理由のアラートが出ている）。同期を試すときの手順は `docs/design.md` §15 |
@@ -536,9 +509,8 @@ main へマージする前の develop のビルドを、TestFlight で自分の 
 - TestFlight のビルドは 90 日で期限が切れる
 - TestFlight のビルドの iCloud 同期は、CloudKit の Production の環境を使う。スキーマを Production に出す前は同期できない
   （「[CloudKit のスキーマ](#cloudkit-のスキーマ所有者の作業)」）
-- 診断画面と家族・パートナーとの家計の共有は、社内テスト用のビルドと DEBUG のビルド（手元の Xcode から入れたもの）にだけある。
-  App Store へ出すビルドには入らず（家計の共有はコードは入るが無効）、入っていれば release.mk が止める（「[`release.mk`](#releasemk)」）。
-  家計の共有を試すときは `docs/design.md` §15 の 15 の手順で、先に家計の記録の型を CloudKit のスキーマに出す。どちらのビルドでもホームの帯に診断のボタンが
+- 診断画面は、社内テスト用のビルドと DEBUG のビルド（手元の Xcode から入れたもの）にだけある。
+  App Store へ出すビルドには入らず、入っていれば release.mk が止める（「[`release.mk`](#releasemk)」）。どちらのビルドでもホームの帯に診断のボタンが
   出るので、App Store 用のスクリーンショットはこれらのビルドの画面では撮らず、`./scripts/app-store-screenshots.sh`（撮影用のデモ。診断のボタンを出さない）で撮る（「一度だけの準備」の 5）
 - アーカイブは main のリリースと同じく開発用の証明書で署名する（エンタイトルメントが載る）。エンタイトルメントの照合はまだ
   警告だけ（「[照合を止める扱いに戻す](#照合を止める扱いに戻す所有者が確かめてから)」）なので、警告が出たビルドでは保護クラスが
@@ -556,13 +528,18 @@ main へマージする前の develop のビルドを、TestFlight で自分の 
 |---|---|
 | `make version` | いまの `MARKETING_VERSION` を表示する |
 | `make check-version` | `MARKETING_VERSION` と CHANGELOG 先頭の見出しの一致を確かめる |
-| `make archive` | Release の `.xcarchive` を `build/` に作る。`BUILD_NUMBER=…` でビルド番号を上書き。既定は署名ありで、`ARCHIVE_SIGNING=NO` で署名なし（build.yml と `make ci`）。`ARCHIVE_KEYCHAIN=…` で署名に使うキーチェーンを指定できる（release.yml が一時キーチェーンを渡す）。`INTERNAL_BUILD=YES` で社内テスト用（診断画面入り。release.yml の `mode=testflight` だけが渡す。既定は `NO`）。できたアプリの Info.plist にバージョン・ビルド番号・アイコンが入っているかと、診断画面と家族との家計の共有が `INTERNAL_BUILD` のとおりに入っているか（入っていないか）と、撮影用のデモが入っていないかを確かめる。`BUILD_NUMBER` が `CURRENT_PROJECT_VERSION`（1）と同じ値だと、上書きが届いたかを確かめられないので警告を出す |
+| `make archive` | Release の `.xcarchive` を `build/` に作る。`BUILD_NUMBER=…` でビルド番号を上書き。既定は署名ありで、`ARCHIVE_SIGNING=NO` で署名なし（build.yml と `make ci`）。`ARCHIVE_KEYCHAIN=…` で署名に使うキーチェーンを指定できる（release.yml が一時キーチェーンを渡す）。`INTERNAL_BUILD=YES` で社内テスト用（診断画面入り。release.yml の `mode=testflight` だけが渡す。既定は `NO`）。できたアプリの Info.plist にバージョン・ビルド番号・アイコンが入っているかと、診断画面が `INTERNAL_BUILD` のとおりに入っているか（入っていないか）と、`UIBackgroundModes` に remote-notification があるかと、撮影用のデモが入っていないかを確かめる。`BUILD_NUMBER` が `CURRENT_PROJECT_VERSION`（1）と同じ値だと、上書きが届いたかを確かめられないので警告を出す |
 | `make export-ipa` | アーカイブから `.ipa` を書き出すだけ。**送信しない。** 署名とエンタイトルメントを表示し、エンタイトルメントのファイル（`RELEASE_ENTITLEMENTS`。いまは自動で見つかる `SaifuLog/SaifuLog.entitlements`）のキーがすべて載っているかと、`RELEASE_ENTITLEMENT_VALUES` の値（データ保護が `NSFileProtectionComplete`、`aps-environment` が `production`、iCloud のサービスが `CloudKit`、コンテナが `iCloud.<Bundle ID>`）になっているかを照合する。抜けや食い違いがあれば止まる（`RELEASE_ENTITLEMENTS_CHECK=warn` なら警告だけ出して続ける）。release.yml はアップロードの前に必ずこれを通す（いまは `warn`）。アーカイブの診断画面の有無が `INTERNAL_BUILD` と合わなければ止まる |
 | `make upload` | `Config/ExportOptions.plist` で書き出し、そのまま App Store Connect へ送る。手元の端末では確認を挟む。ビルド番号はアーカイブに焼かれた値で、`BUILD_NUMBER` を渡しても変わらない（アーカイブと違う値なら止まる）。社内テスト用のアーカイブは `INTERNAL_BUILD=YES` で送り、`testFlightInternalTestingOnly` を true にした写し（`build/ExportOptions.upload.plist`）で TestFlight の社内テスト専用になる。アーカイブの診断画面の有無が `INTERNAL_BUILD` と合わなければ、送る前に止まる |
 
-開発用の `make ci`（Makefile）は、build.yml と同じ 8 種類（`make build`・`make check-strings`・`make test`・
-`make build-tests`・`make test-app`・`make test-storekit`・`make check-version`・`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を
-順に通す。アプリのテストは最新 iOS と購入テスト用の iOS 26.2 の両方で実行し、SwiftData などの動作の違いも確かめる。
+開発用の `make ci`（Makefile）は、build.yml と同じ 9 種類（`make build`・`make check-strings`・`make test`・
+`make build-tests`・`make test-app`・`make test-ui`・`make test-app-ios26`・`make check-version`・
+`make archive ARCHIVE_SIGNING=NO BUILD_NUMBER=99999`）を順に通す。アプリのテストは最新 iOS と iOS 26.2 の両方で実行し、
+SwiftData などの動作の違いも確かめる。画面を操作する UI テスト（`make test-ui`）は最新 iOS だけで動かす。
+アプリのテストのうち、本物の端末内 AI の答え方のテスト（`SaifuLogTests/AIEvaluation/`）は `make test-app` が外し、`make test-ai`
+（`scripts/test-ai.sh`）で動かす。Apple Intelligence を使えない CI のランナーでは確かめられず、手元でもモデルの答えの揺れで
+`make ci` の結果が変わらないようにするため。`make test-ai` は Apple Intelligence が使えなければ飛ばさずに失敗し、結果を
+`build/AIEvaluation.xcresult` に残す。
 `make check-strings` は、`make build` が書き出した Debug の .stringsdata と String Catalog
 （`Localizable.xcstrings`）を突き合わせ、足りないキー・使われていないキー・en の無いキー・ja と en の書式指定子の
 不一致があれば止まる（`scripts/check-strings.py`）。
@@ -577,10 +554,8 @@ main へマージする前の develop のビルドを、TestFlight で自分の 
 （印を変えて release.mk を直し忘れたときに、「入っていない」の確かめが空振りしないように）。build.yml と `make ci` のアーカイブ
 （`INTERNAL_BUILD=NO`）でも、診断画面が入っていないことを毎回確かめている。
 
-家族・パートナーとの家計の共有も同じ仕組みで確かめる（`RELEASE_HOUSEHOLD_CHECK`）。アプリの中に `RELEASE_HOUSEHOLD_MARKER`
-（`SaifuLog/Household/HouseholdSharing.swift` の `enabledMarker` と同じ文字列。有効なときに同期を始める処理がログに書くので、最適化で
-消えない）があるか、アプリの Info.plist に `CKSharingSupported` があるかを `INTERNAL_BUILD` と照らし合わせ、合わなければ止める。
-Info.plist を家計の共有の有無で 2 つに分けたので、どちらのビルドでも `UIBackgroundModes` に remote-notification があるかも見る。
+アプリの Info.plist の `UIBackgroundModes` に remote-notification があるかも見る（iCloud 同期が、ほかの端末の変更の知らせ（サイレント
+プッシュ）を受け取るため。ビルドの設定では書けず `SaifuLog/Info.plist` に置いているので、消えても組み立ては通ってしまう）。
 
 App Store のスクリーンショットを撮るための撮影用のデモ（`SaifuLog/ScreenshotDemo/`。起動引数で架空の記録の画面を開く）も同じ仕組みで
 確かめる（`RELEASE_SCREENSHOT_DEMO_CHECK`）。DEBUG のビルドだけのものなので、`INTERNAL_BUILD` によらず、アーカイブのアプリの中に
@@ -864,9 +839,12 @@ release.yml はアーカイブを開発用の証明書で署名して作る（�
 | `com.apple.developer.icloud-services` | `CloudKit` | iCloud 同期（`docs/design.md` §5-3） |
 | `com.apple.developer.icloud-container-identifiers` | `$(ICLOUD_CONTAINER_ID)`（`Config/Base.xcconfig`。`iCloud.com.iam74k4.SaifuLog`） | 同期に使う CloudKit のコンテナ。署名のときに Xcode が値に置き換える |
 | `aps-environment` | `development` | ほかの端末の変更の知らせ（CloudKit のサイレントプッシュ）。App Store 向けの書き出しで、配布用のプロファイルの `production` に替わる |
+| `com.apple.security.application-groups` | `$(APP_GROUP_ID)`（`Config/Base.xcconfig`。`group.com.iam74k4.SaifuLog`） | ウィジェットに今月の数字を渡す共有の領域（`docs/design.md` §9 のウィジェットの決め事）。ウィジェットの拡張（`SaifuLogWidgets/SaifuLogWidgets.entitlements`）にも同じものを付ける |
 
 あわせて Info.plist の `UIBackgroundModes` に `remote-notification`（`SaifuLog/Info.plist`。ビルドの設定で書けないキーだけを置く
 ファイル）を入れている。アプリが裏にいる間も、知らせを受けて取り込むため。
+ウィジェットの拡張はアプリの `PlugIns/SaifuLogWidgets.appex` に入る。`make archive` が、入っているか・WidgetKit の拡張か・版とビルド番号が
+アプリと同じかを確かめる（`release.mk` の `RELEASE_WIDGET_CHECK`）。
 
 iCloud（CloudKit）、App Groups、プッシュ通知などを足すときは、次の順で進める。
 
@@ -903,7 +881,7 @@ CloudKit は、スキーマに載った項目を後から暗号化フィール�
    入れてから、記録と予算の項目を暗号化フィールドにする変更が develop に入るまでのビルド）で同期を試したことがあると、Development に
    `CD_Entry`・`CD_Budget` が暗号化でない項目（型が `String`・`Int(64)`・`Date/Time` など）で作られている。そのままでは同じ名前の
    項目を暗号化フィールドにできないので、CloudKit Console → `iCloud.com.iam74k4.SaifuLog` → Development → Reset Environment で
-   リセットしてから（開発用の記録とスキーマがすべて消える。家計の共有を試していれば、その型も消えるので 5 で作り直す。Production には
+   リセットしてから（開発用の記録とスキーマがすべて消える。Production には
    影響しない）1 に進む。試した実機のアプリは消して入れ直す（前のスキーマで同期した状態が端末の保存先に
    残っているため。消えるのは開発用の記録だけ）。`CD_Entry` が無ければ、そのまま 1 に進む
 1. **開発用の環境にスキーマを作る。** 手元の Xcode から、iCloud にサインインした実機（登録済みの端末）へ Debug のビルドを入れ、
@@ -915,7 +893,7 @@ CloudKit は、スキーマに載った項目を後から暗号化フィール�
 2. **暗号化フィールドになっているかを確かめる。** 同じ画面で、`CD_Entry` と `CD_Budget` のアプリの項目の型が、すべて「Encrypted」で
    始まっているかを見る（Console は暗号化フィールドの型を「Encrypted String」「Encrypted Double」「Encrypted Timestamp」のように
    表す。Apple の説明）。次の項目を含め、全モデルのアプリ由来の項目を確かめる（名前は Core Data が付ける `CD_` つき）
-   - `CD_Entry`: `CD_amount`・`CD_isIncome`・`CD_categoryRawValue`・`CD_memo`・`CD_spentAt`・`CD_createdAt`・`CD_sourceRawValue`・`CD_originalText`・`CD_recurrenceKey`・`CD_reviewID`・`CD_needsCategoryReview`・`CD_needsPaymentClassification`・`CD_paymentReviewJSON`
+   - `CD_Entry`: `CD_amount`・`CD_isIncome`・`CD_categoryRawValue`・`CD_memo`・`CD_spentAt`・`CD_createdAt`・`CD_sourceRawValue`・`CD_originalText`・`CD_recurrenceKey`・`CD_needsCategoryReview`
    - `CD_Budget`: `CD_scopeRawValue`・`CD_amount`・`CD_updatedAt`
    - Core Data が足す管理用の項目（`CD_entityName` と、文字の項目ごとの `…_ckAsset`）と、CloudKit のシステムの項目（`recordName`・
      `createdTimestamp` など）は、アプリから暗号化を指定しないので、ここでは見ない（`…_ckAsset` はアセットで、アセットは CloudKit が
@@ -929,11 +907,12 @@ CloudKit は、スキーマに載った項目を後から暗号化フィール�
 4. モデルに項目を足したら（既定値つき・暗号化フィールド。`docs/design.md` §5-2）、1・2・3 をやり直す。Production のスキーマは足すことしか
    できないので、項目の名前や型の変更・削除はしない（アプリのテスト `ModelContainerFactoryTests` で、今の項目が残っていることと、すべての
    項目が暗号化フィールドであることを確かめている）。足した項目も、Production に出す前に 2 で型が暗号化になっているかを確かめる
-5. **家族との共有の家計の記録の型（`HouseholdEntry`）**も同じく出す（家計の共有は実機で確かめるまで機能フラグで隠しているので、
-   出すのは提供を決めてからでよい。`docs/design.md` §5-5）。家計の共有が有効なビルド（Debug）で、iCloud にサインインした実機から
-   設定の「家族と共有」で家計を作り、「家族」で記録を 1 件入れると、持ち主の私用データベースの `household-…` のゾーンに `HouseholdEntry` の
-   レコードができ、型と項目（`amount`・`memo` など 8 つ）が作られる。項目はすべて暗号化フィールド（Console で Encrypted と出る）で作る
-   （アプリが `encryptedValues` に書く。後から暗号化フィールドに変えることはできない）。共有の画面を一度開くと、共有のレコード（`cloudkit.share`）も使われる
+5. **やめた家計の共有の型（`HouseholdEntry`）を出さない。** 家族との家計の共有（2026-11-13 にやめた）を試したことがあると、Development に
+   `HouseholdEntry` の型が残っている。Deploy Schema Changes は Development の型をすべて Production に出し、Production の型は消せないので、
+   Schema → Record Types に `HouseholdEntry` があれば、0 のリセットで消してから 1 からやり直す。
+   同じく、`CD_Entry` に、やめた機能の項目（`CD_reviewID`・`CD_needsPaymentClassification`・`CD_paymentReviewJSON`。Apple Pay の支払いの
+   自動記録と確認待ちの一覧のもの）が残っていれば、0 のリセットからやり直す（前のビルドで同期したことがあると、Development の型に残る。
+   Production に出すと、使わない項目が消せないまま残るため）
 
 ### exportArchive の upload が失敗したら
 
@@ -955,11 +934,11 @@ CloudKit は、スキーマに載った項目を後から暗号化フィール�
 - `.github/workflows/tag-release.yml` — 配信を検知してタグと GitHub Release を作る
 - `.github/workflows/build.yml` — PR と push のビルド確認 CI（必須チェック `build`）
 - `.github/dependabot.yml` — GitHub Actions と `scripts/` の pip の版上げ PR（develop 宛て）
-- `Makefile` — 開発用のターゲットと `make ci`（build.yml と同じ 8 種類）
+- `Makefile` — 開発用のターゲットと `make ci`（build.yml と同じ 9 種類）
 - `scripts/check-strings.py` — String Catalog とコードの文字列の整合を確かめる（`make check-strings`）
-- `scripts/pick-simulator.sh` — アプリのテストを動かすシミュレータを選ぶ（`make test-app`。版を渡すと `make test-storekit`）
-- `scripts/test-storekit.sh` — 購入のテストを動かし、飛ばされたものがあれば失敗にする（`make test-storekit`）
-- `scripts/prepare-storekit-simulator.sh` — 購入のテストに使う版のシミュレータを用意する（ランタイムが無ければ入れる。build.yml）
+- `scripts/pick-simulator.sh` — アプリのテストと UI テストを動かすシミュレータを選ぶ（`make test-app`・`make test-ui`。版を渡すと `make test-app-ios26`）
+- `scripts/prepare-simulator.sh` — iOS 26 での互換性の確認に使う版のシミュレータを用意する（ランタイムが無ければ入れる。build.yml）
+- `scripts/test-ai.sh` — 本物の端末内 AI の答え方のテストを動かし、飛ばされたら失敗にする（`make test-ai`。CI では動かさない）
 - `release.mk` — `make version` / `check-version` / `archive` / `export-ipa` / `upload`
 - `project.yml` — エンタイトルメント（データ保護・iCloud・aps-environment）の正。`SaifuLog/SaifuLog.entitlements` はここから生成する。
   ビルドの設定で書けない Info.plist のキー（`UIBackgroundModes`）は `SaifuLog/Info.plist`

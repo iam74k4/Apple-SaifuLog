@@ -61,17 +61,20 @@ final class CategoryListModel {
         }
     }
 
-    /// 削除の確認を出す。確認には、そのカテゴリの記録の件数（「その他」になる件数）を出す。
+    /// 削除の確認を出す。確認には、そのカテゴリの記録とくり返しの記録の数（「その他」になる数）を出す。
     func requestDeletion(_ category: EntryCategory) {
         guard let info = catalog.info(for: category) else { return }
         do {
-            pendingDeletion = PendingDeletion(category: category, name: info.name, entryCount: try store.entryCount(of: category))
+            pendingDeletion = PendingDeletion(
+                category: category, name: info.name,
+                entryCount: try store.entryCount(of: category), recurringCount: try store.recurringCount(of: category)
+            )
         } catch {
             failure = .load
         }
     }
 
-    /// 確認で「削除」を押した。記録は「その他」にし、予算と覚えたカテゴリからも外す（`CustomCategoryStore.delete`）。
+    /// 確認で「削除」を押した。記録とくり返しの記録は「その他」にし、覚えたカテゴリからも外す（`CustomCategoryStore.delete`）。
     ///
     /// 何を消すかは、確認に出していた値を受け取る（ボタンを押すと確認を閉じる側が先に `pendingDeletion` を nil にすることがあるため）。
     func confirmDeletion(_ deletion: PendingDeletion) {
@@ -130,6 +133,8 @@ final class CategoryListModel {
         let name: String
         /// このカテゴリの記録の件数（「その他」になる件数）。
         let entryCount: Int
+        /// このカテゴリのくり返しの記録の数（「その他」になる数）。
+        let recurringCount: Int
 
         var id: EntryCategory { category }
     }

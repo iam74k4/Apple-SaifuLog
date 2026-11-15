@@ -37,13 +37,30 @@ enum ReplyTexts {
         }
     }
 
-    /// 直前の送信の返事の最後に添える、今月の状況の一行。ホームの帯と同じ数字（`MonthSummaryHeader.figures`）から作る。
+    /// 直前の送信の支出のカテゴリの、今月の件数と合計（「カフェは今月 3 件・¥1,350」）。
+    ///
+    /// コードが数えた数字なので、Apple Intelligence の無い端末でも出す（AI の一言は同じ数字から書かせ、照合に通ったときだけ
+    /// この一行と今月の状況の一行の代わりに出す。`HomeModel.replyRemark`）。前は予算を決めていない端末では、返事が「記録しました」と
+    /// 行だけになり、記録したことのほかに何も返らなかった（AI の無い端末は多い）。
+    static func categoryTally(categoryName: String, count: Int, total: Int) -> ReplySentence {
+        let amount = YenFormatter.string(from: total)
+        return ReplySentence(
+            text: String(
+                localized: "\(categoryName)は今月 \(count) 件・\(amount)",
+                comment: "ホームの返事のカードの最後の一行（直前の送信の支出）。%1$@ はカテゴリの名前（「カフェ」）、%2$lld はそのカテゴリの今月の記録の件数（いま記録したものを含む）、%3$@ はその合計（「¥1,350」）"
+            ),
+            figures: [amount]
+        )
+    }
+
+    /// 直前の送信の返事の最後に添える、今月の状況の一行。ホームの帯と同じ数字（`MonthSummaryHeader.figures`）から作る（1 日あたりの
+    /// 額は帯には出さず、月のまとめと同じ `BudgetStatus` の数字）。
     ///
     /// - 予算を決めていれば「今月あと ¥…（1日あたり ¥…）」、超えていれば「今月の予算を ¥… 超えています」（額を注意の色に）。
-    /// - 予算を決めていなければ「今月の支出 ¥…」。
+    /// - 予算を決めていなければ出さない（nil）。今月使った額は上の帯にいつも大きく出ているので、返事でくり返さない。
     /// - 収入だけの送信（給料など）は、予算があっても「今月の収入 ¥…」。予算の残りは収入で増えない（`BudgetStatus`）ので、
     ///   給料を送った返事に予算の残りを出しても、送ったものと関係の無い数字になるため。
-    static func status(summary: MonthlySummary, budget: BudgetStatus?, isIncomeOnly: Bool) -> ReplySentence {
+    static func status(summary: MonthlySummary, budget: BudgetStatus?, isIncomeOnly: Bool) -> ReplySentence? {
         if isIncomeOnly {
             let income = YenFormatter.string(from: summary.income)
             return ReplySentence(
@@ -54,16 +71,7 @@ enum ReplyTexts {
                 figures: [income]
             )
         }
-        guard let budget else {
-            let expense = YenFormatter.string(from: summary.expense)
-            return ReplySentence(
-                text: String(
-                    localized: "今月の支出 \(expense)",
-                    comment: "ホームの返事のカードの最後の一行（直前の送信で、月の予算を決めていないとき）。%@ は今月の支出の合計（「¥42,380」）"
-                ),
-                figures: [expense]
-            )
-        }
+        guard let budget else { return nil }
         if budget.isOver {
             let over = YenFormatter.string(from: budget.overspent)
             return ReplySentence(

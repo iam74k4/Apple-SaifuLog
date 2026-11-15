@@ -29,22 +29,16 @@ targets:
     platform: iOS
     sources:
       - path: SaifuLog
-        # Info.plist は 2 つ（家計の共有が無効なビルド用と有効なビルド用）あり、どちらを使うかをビルドの設定で選ぶ
-        # （下の INFOPLIST_FILE）。設定の値に変数を使うと XcodeGen が Info.plist を見分けられず、アプリの中へ写す
-        # ファイル（Copy Bundle Resources）に入れてしまうので、ここで外して、下で写さないファイルとして載せ直す。
+        # Info.plist はビルドの設定（下の INFOPLIST_FILE）で指すので、アプリの中へ写すファイル（Copy Bundle Resources）に
+        # 入れないよう、ここで外して、下で写さないファイルとして載せ直す。
         excludes:
           - "Info*.plist"
       - path: SaifuLog/Info.plist
         buildPhase: none
-      - path: SaifuLog/Info-HouseholdSharing.plist
-        buildPhase: none
-      # StoreKit の設定ファイル（課金アイテム 2 つ）。Xcode の Run で App Store の代わりに使う（下のスキームの
-      # storeKitConfiguration）。アプリには入れない（buildPhase: none）。スキームから指すには、ファイルが
-      # プロジェクトに載っている必要があるため、ここに置く。
-      - path: Config/SaifuLog.storekit
-        buildPhase: none
     dependencies:
       - package: SaifuLogCore
+      # ホーム画面・ロック画面のウィジェット（下の SaifuLogWidgets）をアプリに入れる。
+      - target: SaifuLogWidgets
     # エンタイトルメント。ファイルは make generate がここの properties から書き出す（直接書き換えても消える）。
     #
     # default-data-protection: アプリが作るファイル（SwiftData の保存先 default.store と -wal / -shm を含む）の
@@ -62,6 +56,10 @@ targets:
     # ためのものではない（通知の許可は求めない）。ここは development のままでよい。App Store 向けの書き出しで、
     # 配布用のプロファイルの production に替わる（make export-ipa が production になっているかを照合する）。
     #
+    # application-groups: ウィジェット（別のプロセス）に今月の数字を渡す共有の領域。グループの ID は Config/Base.xcconfig の
+    # APP_GROUP_ID（ウィジェットの拡張にも同じものを付ける）。置くのは月・使った額・予算だけのファイルで、保存先（記録）は
+    # 置かない（docs/design.md §5-4・§9）。
+    #
     # エンタイトルメントは署名ありのアーカイブにしか焼かれない。release.yml は開発用の証明書を取り込んで
     # 署名ありでアーカイブする（build.yml と make ci は署名なし）。ここに足したものが提出物に載っているかは
     # make export-ipa の照合（CI は release.yml の mode=export）で確かめる（docs/release-flow.md の
@@ -75,6 +73,8 @@ targets:
         com.apple.developer.icloud-services:
           - CloudKit
         aps-environment: development
+        com.apple.security.application-groups:
+          - $(APP_GROUP_ID)
     # FoundationModels / SwiftData は import するだけで自動でリンクされるので、sdk: の指定は要らない。
     settings:
       base:
@@ -93,25 +93,17 @@ targets:
         # レシートを撮る書類カメラ（VisionKit）のためのカメラの利用目的。言語ごとの文は SaifuLog/Resources/InfoPlist.xcstrings
         # （ja / en）が上書きする。写真から選ぶ方は PhotosPicker（アプリの外で動く）なので、写真のライブラリの利用目的は要らない。
         INFOPLIST_KEY_NSCameraUsageDescription: レシートを撮って記録するためにカメラを使います。写真は端末の中で読み取り、保存も送信もしません。
-        # 声の入力（入力欄のマイクのボタン）のためのマイクの利用目的。言語ごとの文は InfoPlist.xcstrings（ja / en）が上書きする。
-        # 書き起こしは SpeechAnalyzer（端末の中）で、声を Apple のサーバーへ送らないので、音声認識の利用目的
-        # （NSSpeechRecognitionUsageDescription。SFSpeechRecognizer の許可のためのもの）は要らない（docs/design.md §9 の声の入力の決め事）。
-        INFOPLIST_KEY_NSMicrophoneUsageDescription: 声で記録するためにマイクを使います。声は端末の中で文字にし、保存も送信もしません。
         # 設定の「Face ID でロック」のための Face ID の利用目的。言語ごとの文は InfoPlist.xcstrings（ja / en）が上書きする。
         # 認証は iOS が行い、アプリは結果だけを受け取る（顔のデータは受け取らない）。
         INFOPLIST_KEY_NSFaceIDUsageDescription: アプリのロックを解除するために Face ID を使います。顔のデータはアプリに渡らず、保存も送信もしません。
         # Info.plist のうち、ビルドの設定（INFOPLIST_KEY_…）で書けないものだけを置くファイル。ほかのキーは上の設定から
         # Xcode が作り（GENERATE_INFOPLIST_FILE）、このファイルと合わせる。
         # - UIBackgroundModes の remote-notification（INFOPLIST_KEY_UIBackgroundModes は Xcode 27 でも Info.plist に入らなかった）。
-        #   iCloud 同期（SwiftData + CloudKit）と家計の同期（CKSyncEngine）が、ほかの端末での変更の知らせ（サイレントプッシュ）を、
-        #   アプリが裏にいる間にも受け取って取り込むため。同期がオフのときは何も届かない（CloudKit の購読を作らない）。
-        # - CKSharingSupported（家計の共有の招待のリンクでアプリを開かせる）。家計の共有が有効なビルドだけ
-        #   （SaifuLog/Info-HouseholdSharing.plist）。App Store へ出すビルドでは招待を受け入れないので、キーも入れない
-        #   （入れると、招待のリンクでアプリが開くのに何も起きない）。無いことは release.mk がアーカイブで確かめる。
-        # 2 つのファイルは、CKSharingSupported のほかは同じ中身に保つ（片方だけ直すと、ビルドによって動きが変わる）。
-        INFOPLIST_FILE: $(SAIFULOG_INFOPLIST_$(SAIFULOG_HOUSEHOLD_SHARING))
-        SAIFULOG_INFOPLIST_NO: SaifuLog/Info.plist
-        SAIFULOG_INFOPLIST_YES: SaifuLog/Info-HouseholdSharing.plist
+        #   iCloud 同期（SwiftData + CloudKit）が、ほかの端末での変更の知らせ（サイレントプッシュ）を、アプリが裏にいる間にも
+        #   受け取って取り込むため。同期がオフのときは何も届かない（CloudKit の購読を作らない）。
+        # - CFBundleURLTypes の saifulog: ウィジェットを押したときに入力欄を開く URL（SaifuLog/Widgets/WidgetLink.swift）。
+        # - SaifuLogAppGroup: ウィジェットに数字を渡す App Group の ID（APP_GROUP_ID。コードに ID を書かないため）。
+        INFOPLIST_FILE: SaifuLog/Info.plist
         # 独自の暗号化は使っていない（使うとしても OS 標準のものだけ）。宣言しておくと、
         # 提出のたびに App Store Connect で輸出規制の質問に答えずに済む。
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
@@ -129,13 +121,40 @@ targets:
         SAIFULOG_INTERNAL_BUILD: NO
         SAIFULOG_INTERNAL_CONDITIONS_YES: INTERNAL_DIAGNOSTICS
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) $(SAIFULOG_INTERNAL_CONDITIONS_$(SAIFULOG_INTERNAL_BUILD))
-        # 家計の共有（家族・パートナー）が有効なビルドか（YES / NO）。Swift の側の機能フラグ（HouseholdSharing.isEnabled。
-        # DEBUG || INTERNAL_DIAGNOSTICS）と同じ条件にする。Release は社内テスト用のビルド（SAIFULOG_INTERNAL_BUILD）のとおり、
-        # Debug はいつも YES（下の configs）。Info.plist の選び方（CKSharingSupported の有無）に使う。
-        SAIFULOG_HOUSEHOLD_SHARING: $(SAIFULOG_INTERNAL_BUILD)
-      configs:
-        Debug:
-          SAIFULOG_HOUSEHOLD_SHARING: YES
+
+  # ホーム画面・ロック画面のウィジェット（WidgetKit の拡張）。今月使った額と予算の残りだけを出す（docs/design.md §9）。
+  # 保存先（SwiftData）は開かない。アプリが App Group の共有の領域に書いた数字のファイル（SaifuLog/Widgets/WidgetSnapshotFile.swift。
+  # アプリと同じファイルを入れる）を読むだけ。押したときの URL（WidgetLink.swift）も同じファイルを入れて合わせる。
+  # アプリの依存（dependencies）にしてあるので、アプリをビルドすると一緒にビルドされ、アプリの PlugIns に入る。
+  SaifuLogWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: SaifuLogWidgets
+        excludes:
+          - "Info.plist"
+      - path: SaifuLogWidgets/Info.plist
+        buildPhase: none
+      - path: SaifuLog/Widgets/WidgetSnapshotFile.swift
+      - path: SaifuLog/Widgets/WidgetLink.swift
+    dependencies:
+      - package: SaifuLogCore
+    entitlements:
+      path: SaifuLogWidgets/SaifuLogWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - $(APP_GROUP_ID)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).Widgets
+        PRODUCT_NAME: SaifuLogWidgets
+        GENERATE_INFOPLIST_FILE: YES
+        # NSExtension（WidgetKit の拡張であること）と SaifuLogAppGroup は、ビルドの設定で書けないのでファイルに置く。
+        INFOPLIST_FILE: SaifuLogWidgets/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: サイフログ
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+        SKIP_INSTALL: YES
 
   # アプリ側（SaifuLog/）のテスト。SwiftData の保存と読み込みの条件、保存の失敗の扱いなど、
   # コアに置けない（SwiftData に依存する）部分を確かめる。シミュレータで動かすので make test（swift test）とは
@@ -145,14 +164,29 @@ targets:
     platform: iOS
     sources:
       - path: SaifuLogTests
-      # 購入のテスト（SKTestSession）が読む StoreKit の設定ファイル。テストのバンドルにだけ入れる（アプリには入れない）。
-      - path: Config/SaifuLog.storekit
-        buildPhase: resources
     dependencies:
       - target: SaifuLog
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).Tests
+        GENERATE_INFOPLIST_FILE: YES
+
+  # 画面を操作する UI テスト（XCUITest）。アプリを起動引数 -SaifuLogUITest で開き（DEBUG のビルドだけの UITestMode。
+  # メモリの上の保存先・キーワード辞書・決まった「いま」）、主な画面と流れ（初回の案内・記録と取り消し・カテゴリの聞き返し・
+  # チャットの操作・質問・直す・削除・カレンダー・月のまとめ・設定・レシート・アクセシビリティの検査・大きな文字）を押して確かめる。
+  # make build-tests でビルドし（スキームのテストに入っているので）、make test-ui で動かす。CI（build.yml）も同じ。
+  # 要素の名前（accessibilityIdentifier）はアプリと同じファイル（SaifuLog/App/AccessibilityID.swift）を入れて合わせる。
+  SaifuLogUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: SaifuLogUITests
+      - path: SaifuLog/App/AccessibilityID.swift
+    dependencies:
+      - target: SaifuLog
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).UITests
         GENERATE_INFOPLIST_FILE: YES
 
 schemes:
@@ -162,10 +196,6 @@ schemes:
         SaifuLog: all
     run:
       config: Debug
-      # Xcode の Run（手元の実行）だけ、App Store の代わりに StoreKit の設定ファイルで購入を試す（価格や購入の成功・
-      # 失敗・承認待ち・返金を、Xcode の Debug → StoreKit → Manage Transactions で操作できる）。Test・Archive には
-      # 効かない（提出物は本物の App Store とつながる。テストは SKTestSession で同じファイルを読む）。
-      storeKitConfiguration: Config/SaifuLog.storekit
     test:
       # アプリのテストは日本語の文で期待値を書いているので、テストを動かすときの言語と地域を日本語に固定する。
       # 固定しないとシミュレータの言語に左右され、手元（Mac が日本語）では通り、CI のランナー（英語）では英語の訳が
@@ -175,5 +205,6 @@ schemes:
       targets:
         - package: SaifuLogCore/SaifuLogCoreTests
         - SaifuLogTests
+        - SaifuLogUITests
     archive:
       config: Release

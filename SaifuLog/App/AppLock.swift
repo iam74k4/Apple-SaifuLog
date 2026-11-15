@@ -35,6 +35,11 @@ final class AppLock {
     private(set) var isEnabled: Bool
     /// オンにできなかった理由（設定の画面がアラートで知らせる）。
     var enableFailure: EnableFailure?
+    /// 端末で使える認証の種類（設定の行の名前「Face ID でロック」などと、パスコードが無いときに押せなくするのに使う）。
+    ///
+    /// 調べるたびに LAContext を作るので、設定の画面を描き直すたびには調べず、覚えておく。Face ID の登録やパスコードは
+    /// 設定の App で変わるので、設定の画面を開いたとき（`refreshMethod()`）とオンにするときに調べ直す。
+    private(set) var method: AppLockMethod
 
     /// 家計の画面を出さないか（ロック中か、前面を離れて隠しているか）。
     var hidesContent: Bool { isLocked || isCovered }
@@ -60,6 +65,7 @@ final class AppLock {
         self.settings = settings
         self.authenticator = authenticator
         self.isProtectedDataAvailable = isProtectedDataAvailable
+        self.method = authenticator.method
         // ここでは UserDefaults から移さない（App を作る時点はロック中のことがあり、そのとき UserDefaults を読むと、空の内容を
         // 覚えてしまうため）。ファイルが読めた（ロック中でも、最初のロック解除の後なら読める）ときだけ決める。
         if let values = settings.load(migrating: false) {
@@ -80,9 +86,10 @@ final class AppLock {
         }
     }
 
-    /// 端末で使える認証の種類（設定の行の名前「Face ID でロック」などに使う）。
-    var method: AppLockMethod {
-        authenticator.method
+    /// 端末で使える認証の種類を調べ直す（設定の画面を開いたとき）。変わったときだけ書き換える（描き直しを増やさない）。
+    func refreshMethod() {
+        let current = authenticator.method
+        if current != method { method = current }
     }
 
     // MARK: - 前面・裏
@@ -158,7 +165,8 @@ final class AppLock {
     func setEnabled(_ enabled: Bool) async -> Bool {
         guard enabled != isEnabled else { return true }
         if enabled {
-            guard authenticator.method != .unavailable else {
+            refreshMethod()
+            guard method != .unavailable else {
                 enableFailure = .passcodeNotSet
                 return false
             }

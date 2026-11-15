@@ -50,17 +50,17 @@ struct CategoryEditorModelTests {
         let editor = try fixture.editor(.create)
         #expect(!editor.canSave)
 
-        editor.name = "衣服"
+        editor.name = "推し活"
         editor.symbolName = "tshirt"
         editor.colorIndex = 4
         #expect(editor.canSave)
         #expect(editor.save())
 
         let category = try #require(fixture.saved.first)
-        #expect(try fixture.store.catalog().info(for: category)?.name == "衣服")
+        #expect(try fixture.store.catalog().info(for: category)?.name == "推し活")
         #expect(try fixture.store.catalog().info(for: category)?.symbolName == "tshirt")
         #expect(try fixture.store.catalog().info(for: category)?.colorIndex == 4)
-        #expect(fixture.announcements == ["カテゴリ「衣服」を作りました"])
+        #expect(fixture.announcements == ["カテゴリ「推し活」を作りました"])
     }
 
     /// 使えない名前は保存せず、理由を出す。直し始めたら理由を消す。
@@ -73,7 +73,7 @@ struct CategoryEditorModelTests {
         #expect(editor.issue == .duplicate)
         #expect(fixture.saved.isEmpty)
 
-        editor.name = "衣服"
+        editor.name = "推し活"
         #expect(editor.issue == nil)
     }
 
@@ -83,7 +83,7 @@ struct CategoryEditorModelTests {
         let editor = try fixture.editor(.create)
         fixture.failsSave = true
 
-        editor.name = "衣服"
+        editor.name = "推し活"
         #expect(!editor.save())
         #expect(editor.showsSaveFailure)
         #expect(fixture.saved.isEmpty)
@@ -93,16 +93,16 @@ struct CategoryEditorModelTests {
     /// 候補は、まだ無い名前だけを出す。選ぶと名前と記号を入れる。色は作った数の次の色から始める。
     @Test func presetsSkipExistingNames() throws {
         let fixture = try Fixture()
-        _ = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
+        _ = try fixture.store.create(name: "推し活", symbolName: "tshirt", colorIndex: 0)
         let editor = try fixture.editor(.create)
 
-        #expect(!editor.availablePresets.map(\.name).contains("衣服"))
-        #expect(editor.availablePresets.map(\.name).contains("住居"))
+        #expect(!editor.availablePresets.map(\.name).contains("推し活"))
+        #expect(editor.availablePresets.map(\.name).contains("ペット"))
         #expect(editor.colorIndex == 1)
 
-        editor.choosePreset(name: "住居", symbolName: "house")
-        #expect(editor.name == "住居")
-        #expect(editor.symbolName == "house")
+        editor.choosePreset(name: "ペット", symbolName: "pawprint")
+        #expect(editor.name == "ペット")
+        #expect(editor.symbolName == "pawprint")
     }
 
     // MARK: - 直す
@@ -110,19 +110,25 @@ struct CategoryEditorModelTests {
     /// 直すときは今の名前・記号・色を入れて開き、候補は出さない。保存すると直して読み上げる。
     @Test func editPrefillsAndUpdates() throws {
         let fixture = try Fixture()
-        let clothes = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 2)
+        let clothes = try fixture.store.create(name: "推し活", symbolName: "tshirt", colorIndex: 2)
         let editor = try fixture.editor(.edit(clothes))
 
-        #expect(editor.name == "衣服")
+        #expect(editor.name == "推し活")
         #expect(editor.symbolName == "tshirt")
         #expect(editor.colorIndex == 2)
         #expect(editor.availablePresets.isEmpty)
+        // 開いたままなら黙って閉じてよい。直したら、閉じる前に捨てるかを確かめる。
+        #expect(!editor.hasChanges)
+        #expect(editor.requestClose())
 
-        editor.name = "服"
+        editor.name = "推し"
+        #expect(editor.hasChanges)
+        #expect(!editor.requestClose())
+        #expect(editor.showsDiscardConfirmation)
         #expect(editor.save())
-        #expect(try fixture.store.catalog().name(of: clothes) == "服")
+        #expect(try fixture.store.catalog().name(of: clothes) == "推し")
         #expect(fixture.saved == [clothes])
-        #expect(fixture.announcements == ["カテゴリ「服」を直しました"])
+        #expect(fixture.announcements == ["カテゴリ「推し」を直しました"])
     }
 
     // MARK: - 設定の一覧
@@ -136,16 +142,16 @@ struct CategoryEditorModelTests {
 
         list.presentCreation()
         let editor = try #require(list.editor)
-        editor.name = "衣服"
+        editor.name = "推し活"
         #expect(editor.save())
 
-        #expect(list.customs.map(\.name) == ["衣服"])
+        #expect(list.customs.map(\.name) == ["推し活"])
     }
 
     /// 組み込みのカテゴリは直せない（シートを出さない）。作ったカテゴリは直せる。
     @Test func listEditsOnlyCustomCategories() throws {
         let fixture = try Fixture()
-        let clothes = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
+        let clothes = try fixture.store.create(name: "推し活", symbolName: "tshirt", colorIndex: 0)
         let list = fixture.list()
 
         list.presentEditing(.food)
@@ -157,7 +163,7 @@ struct CategoryEditorModelTests {
     /// 削除の確認には記録の件数を出し、「削除」で記録を「その他」にして一覧から外し、読み上げる。
     @Test func listDeletesAfterConfirmation() throws {
         let fixture = try Fixture()
-        let clothes = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
+        let clothes = try fixture.store.create(name: "推し活", symbolName: "tshirt", colorIndex: 0)
         let entries = [TestSupport.entry(amount: 3000, category: clothes), TestSupport.entry(amount: 5000, category: clothes)]
         entries.forEach(fixture.context.insert)
         try fixture.context.save()
@@ -165,21 +171,22 @@ struct CategoryEditorModelTests {
 
         list.requestDeletion(clothes)
         let deletion = try #require(list.pendingDeletion)
-        #expect(deletion.name == "衣服")
+        #expect(deletion.name == "推し活")
         #expect(deletion.entryCount == 2)
+        #expect(deletion.recurringCount == 0)
 
         list.confirmDeletion(deletion)
 
         #expect(list.pendingDeletion == nil)
         #expect(list.customs.isEmpty)
         #expect(entries.allSatisfy { $0.category == .other })
-        #expect(fixture.announcements.last == "カテゴリ「衣服」を削除しました")
+        #expect(fixture.announcements.last == "カテゴリ「推し活」を削除しました")
     }
 
     /// 削除を書き込めなければ知らせ、一覧は元のまま。
     @Test func listDeleteFailureShowsAlert() throws {
         let fixture = try Fixture()
-        let clothes = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
+        let clothes = try fixture.store.create(name: "推し活", symbolName: "tshirt", colorIndex: 0)
         let list = fixture.list()
         list.requestDeletion(clothes)
         let deletion = try #require(list.pendingDeletion)
@@ -194,9 +201,9 @@ struct CategoryEditorModelTests {
     /// ドラッグと VoiceOver の操作で並べ替え、VoiceOver には動かした後の位置を読み上げる。端では動かさない。
     @Test func listReorders() throws {
         let fixture = try Fixture()
-        let first = try fixture.store.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
-        let second = try fixture.store.create(name: "住居", symbolName: "house", colorIndex: 0)
-        let third = try fixture.store.create(name: "美容", symbolName: "scissors", colorIndex: 0)
+        let first = try fixture.store.create(name: "推し活", symbolName: "tshirt", colorIndex: 0)
+        let second = try fixture.store.create(name: "ペット", symbolName: "house", colorIndex: 0)
+        let third = try fixture.store.create(name: "子ども", symbolName: "scissors", colorIndex: 0)
         let list = fixture.list()
 
         list.move(fromOffsets: [2], toOffset: 0)

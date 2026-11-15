@@ -1,0 +1,116 @@
+{
+  "sourceLanguage" : "ja",
+  "strings" : {
+    "%@ オーバー" : {
+      "comment" : "ウィジェットの予算を超えた額。%@ は「¥12,000」のような金額。注意のアイコンを添えて出す",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ over"
+          }
+        }
+      }
+    },
+    "あと %@" : {
+      "comment" : "ウィジェットの予算の残り。%@ は「¥17,520」のような金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ left"
+          }
+        }
+      }
+    },
+    "アプリのロック中は金額を出しません" : {
+      "comment" : "アプリのロックをオンにしている間のウィジェットの説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amounts are hidden while the app is locked"
+          }
+        }
+      }
+    },
+    "アプリを開くと出ます" : {
+      "comment" : "まだ数字の無いウィジェット（入れてからアプリを開いていない）の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the app to show this"
+          }
+        }
+      }
+    },
+    "ロック中" : {
+      "comment" : "アプリのロック（Face ID でロック）をオンにしている間のウィジェットの見出し",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Locked"
+          }
+        }
+      }
+    },
+    "今月 %@" : {
+      "comment" : "ロック画面のウィジェット（長方形と 1 行）の今月使った額。%@ は「¥32,480」のような金額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ this month"
+          }
+        }
+      }
+    },
+    "今月 %@・%@ オーバー" : {
+      "comment" : "ロック画面の 1 行のウィジェット。1 つ目の %@ は今月使った額、2 つ目は予算を超えた額",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ this month · %2$@ over"
+          }
+        }
+      }
+    },
+    "今月 %@・あと %@" : {
+      "comment" : "ロック画面の 1 行のウィジェット。1 つ目の %@ は今月使った額、2 つ目は予算の残り",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ this month · %2$@ left"
+          }
+        }
+      }
+    },
+    "今月使った額" : {
+      "comment" : "ウィジェットの名前（選ぶ画面）と見出し、丸のウィジェットの VoiceOver の名前。今月の支出の合計に添える",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spent This Month"
+          }
+        }
+      }
+    },
+    "今月使った額と予算の残りを出します。押すと記録の入力欄を開きます。" : {
+      "comment" : "ウィジェットを選ぶ画面の説明",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows what you’ve spent this month and what’s left of your budget. Tap to open the entry field."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -135,8 +135,8 @@ struct ModelContainerFactoryTests {
         #expect(try BudgetStore(context: context).plan().total == 150_000)
         #expect(try LearnedCategoryStore(context: context).memory().rules == ["ユニクロ": .daily])
         let categories = CustomCategoryStore(context: context, now: { TestSupport.now })
-        let clothes = try categories.create(name: "衣服", symbolName: "tshirt", colorIndex: 0)
-        #expect(try categories.catalog().name(of: clothes) == "衣服")
+        let clothes = try categories.create(name: "推し活", symbolName: "tshirt", colorIndex: 0)
+        #expect(try categories.catalog().name(of: clothes) == "推し活")
     }
 
     /// くり返しの記録のモデルを足す前の保存先を開いても、それまでの記録は読め、くり返しの記録を作って記録できる

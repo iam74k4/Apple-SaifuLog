@@ -13,9 +13,8 @@ import SwiftData
 /// 引数が無ければ何もしない（ふだんの Xcode の Run には効かない）。デモの間は:
 /// - 保存先はメモリの上だけにし、架空の記録と予算を入れる（利用者の記録のファイル default.store を開かない）。
 /// - 設定（UserDefaults）は専用の領域（`defaultsSuiteName`）を毎回空にして使う（利用者の設定に触れない）。
-/// - 初回の案内を出さず、診断画面のボタン（帯の聴診器）など開発用の表示を出さない。家族との共有（機能フラグで隠している機能）も
-///   出さない。
-/// - 端末や AI によって変わるもの（AI の一言・レシートの文字認識・声の書き起こし・App Store の価格）は、決まった中身にする
+/// - 初回の案内を出さず、診断画面のボタン（帯の聴診器）など開発用の表示を出さない。
+/// - 端末や AI によって変わるもの（AI の一言・レシートの文字認識）は、決まった中身にする
 ///   （どれも実際のアプリが出しうる中身にする）。
 /// - 「いま」は撮影の月の 15 日の 20:30 に置き、日付はそこから相対で作る（`pinnedNow(on:calendar:)`）。月のどの日に撮っても
 ///   同じ画面になるようにする。
@@ -27,53 +26,21 @@ final class ScreenshotDemo {
         case home
         /// 家計への質問と回答カード。
         case ask
-        /// 月のまとめの予算の進みとカテゴリ別のグラフ・行（カテゴリ別の予算の進みも。下の端まで送って開く）。
+        /// 月のまとめの予算の進みとカテゴリ別のグラフ・行（下の端まで送って開く）。
         case report
-        /// 先週のふりかえりのカード。
-        case recap
         /// レシートの読み取り結果のシート。
         case receipt
-        /// 声の入力の聞いている表示。
-        case voice
-        /// プレミアムのシートの上のほう（プレミアムでできることと、下の帯の体験と購入のボタン。プレミアムの課金アイテムの審査用の
-        /// スクリーンショット）。
-        case premium
-        /// プレミアムのシートの下のほう（14 日間の無料体験の説明とボタン。体験の課金アイテムの審査用のスクリーンショット）。
-        case trial
-        /// カレンダーのページ（今日あと・月のカレンダー・今日の記録）。くり返しの記録の予定（`ScreenshotDemoLedger.recurringDrafts`）も
-        /// 入れ、予定の印と、固定費を引いた今月あとを写す。
+        /// カレンダーのページ（今月に使った額・月のカレンダー・今日の記録）。
         case calendar
-        case purchaseCheck
-        case automaticPayments
-        case paymentCategories
-        case purchaseChoices
-
-        /// 購入の状態を指定しなかったときの状態。プレミアムのシートは購入と体験のボタンを写すので無料、ほかは購入済み
-        /// （無料の残りの回数の行などを写さず、ふりかえりと月のまとめの AI の一言を写すため）。
-        var defaultPremium: PremiumChoice {
-            switch self {
-            case .premium, .trial: .free
-            case .home, .ask, .report, .recap, .receipt, .voice, .calendar, .purchaseCheck, .purchaseChoices, .automaticPayments, .paymentCategories: .purchased
-            }
-        }
-    }
-
-    /// デモの購入の状態（起動引数 `-SaifuLogScreenshotPremium`）。
-    enum PremiumChoice: String, CaseIterable, Sendable {
-        case purchased
-        case free
     }
 
     /// 起動引数から読んだ設定。
     struct Configuration: Equatable, Sendable {
         var screen: Screen
-        var premium: PremiumChoice
     }
 
     /// 撮る画面を渡す起動引数。
     nonisolated static let screenArgument = "-SaifuLogScreenshotDemo"
-    /// 購入の状態を渡す起動引数（省けば画面ごとの既定。`Screen.defaultPremium`）。
-    nonisolated static let premiumArgument = "-SaifuLogScreenshotPremium"
     /// 撮影用のデモが入ったビルドにだけある印。release.mk の `RELEASE_SCREENSHOT_DEMO_MARKER` と同じ値にする（変えるときは両方）。
     ///
     /// release.mk は、アーカイブのアプリの中にこの文字列があれば止める（撮影用のデモは DEBUG のビルドだけのもの）。
@@ -99,7 +66,6 @@ final class ScreenshotDemo {
     }
 
     let screen: Screen
-    let premium: PremiumChoice
     /// デモの「いま」（撮影の月の 15 日の 20:30）。記録と予算はここから相対で作る。
     let now: Date
     let calendar: Calendar
@@ -112,14 +78,13 @@ final class ScreenshotDemo {
     let defaultsDomain: String
     /// デモのアプリのロックと iCloud 同期の設定（一時フォルダのファイル。毎回どちらもオフで始める）。
     let launchSettings: LaunchSettingsStore
-    private let paymentInbox = PaymentInbox(directory: URL.temporaryDirectory.appending(path: "ScreenshotPayments-\(UUID().uuidString)"))
 
     /// 起動した瞬間（デモの「いま」をこの月の 15 日に決めるのに使う）。
     private let launchedAt: Date
     /// デモを作った瞬間。デモの時計（`makeClock`）は、ここからの経過をデモの「いま」に足して進める。
     ///
     /// `launchedAt` からは測らない。テストは過去の決まった日時を `launchedAt` に渡すので、そこから測ると、実際の時間が
-    /// 経つほどデモの時計が先へ進み、週や月の境目を越えて、ふりかえりのカードが出るかどうかなどが日によって変わってしまう
+    /// 経つほどデモの時計が先へ進み、週や月の境目を越えて、写す数字などが日によって変わってしまう
     /// （2026-10-02 に、9/15 20:30 の「いま」が 9/20 の週へ進み、CI のテストが落ちた）。経過は時計の変更に左右されない
     /// `ContinuousClock` で測る。
     private let startedAt = ContinuousClock.now
@@ -139,7 +104,6 @@ final class ScreenshotDemo {
         defaultsSuiteName: String = ScreenshotDemo.defaultsSuiteName
     ) {
         screen = configuration.screen
-        premium = configuration.premium
         self.calendar = calendar
         self.launchedAt = launchedAt
         now = Self.pinnedNow(on: launchedAt, calendar: calendar)
@@ -154,10 +118,6 @@ final class ScreenshotDemo {
         defaults.removePersistentDomain(forName: defaultsSuiteName)
         // 初回の案内を終えたことにする（デモはホームから始める）。
         defaults.set(true, for: AppSettings.hasCompletedOnboarding)
-        // ふりかえりのカードは、ふりかえりの画面でだけ出す。ほかの画面では「今週もう出した」ことにする。
-        if screen != .recap {
-            defaults.set(now, for: AppSettings.weeklyRecapShownAt)
-        }
         // ロックと iCloud 同期はオフ。ファイルを先に書いておく（無いと、ロックは決めるまで画面を隠すため）。
         let settingsURL = URL.temporaryDirectory.appending(
             path: "\(defaultsSuiteName).LaunchSettings.json", directoryHint: .notDirectory
@@ -167,13 +127,12 @@ final class ScreenshotDemo {
         _ = try? launchSettings.update { _ in }
     }
 
-    /// 起動引数から撮る画面と購入の状態を読む。撮る画面の引数が無いか、知らない画面なら nil。
+    /// 起動引数から撮る画面を読む。撮る画面の引数が無いか、知らない画面なら nil。
     nonisolated static func parse(arguments: [String]) -> Configuration? {
         guard let screenValue = value(after: screenArgument, in: arguments),
               let screen = Screen(rawValue: screenValue)
         else { return nil }
-        let premium = value(after: premiumArgument, in: arguments).flatMap(PremiumChoice.init(rawValue:))
-        return Configuration(screen: screen, premium: premium ?? screen.defaultPremium)
+        return Configuration(screen: screen)
     }
 
     private nonisolated static func value(after name: String, in arguments: [String]) -> String? {
@@ -208,11 +167,7 @@ final class ScreenshotDemo {
     /// 保存先。メモリの上だけに作り、架空の記録と予算を入れる（利用者の記録のファイルは開かない）。
     func makeContainer() throws -> ModelContainer {
         let container = try ModelContainerFactory.makeInMemoryContainer()
-        try ScreenshotDemoLedger.insert(
-            into: container.mainContext, now: now, calendar: calendar,
-            // くり返しの記録の予定は、カレンダーの画面だけに入れる（ほかの画面の記録と数字を変えないため）。
-            includesRecurring: screen == .calendar
-        )
+        try ScreenshotDemoLedger.insert(into: container.mainContext, now: now, calendar: calendar)
         return container
     }
 
@@ -226,65 +181,24 @@ final class ScreenshotDemo {
         )
     }
 
-    /// 購入の状態。購入済みならプレミアムの購入の記録を 1 つ持ち、App Store の価格の代わりに日本の価格の表示を出す
-    /// （`PurchaseManager.useScreenshotDisplayPrices`）。App Store の購入の記録（Transaction）は読まない。
-    func makePurchases() -> PurchaseManager {
-        let purchases: [VerifiedPurchase] = switch premium {
-        case .purchased:
-            [VerifiedPurchase(
-                transactionID: 1,
-                purchase: PremiumPurchase(product: .premium, purchaseDate: now.addingTimeInterval(-30 * 24 * 60 * 60))
-            )]
-        case .free:
-            []
-        }
-        let manager = PurchaseManager(now: makeClock(), loadPurchases: { purchases }, loadProducts: { _ in [] }, sync: {})
-        manager.useScreenshotDisplayPrices(Self.displayPrices)
-        Task { await manager.refreshPurchases() }
-        return manager
-    }
-
-    /// 日本の App Store の価格の表示（`Config/SaifuLog.storekit` と App Store Connect の価格）。画面の言語の書き方で書く。
-    nonisolated static var displayPrices: [PremiumProduct: String] {
-        [
-            .premium: 1_800.formatted(.currency(code: "JPY")),
-            .trial14: 0.formatted(.currency(code: "JPY")),
-        ]
-    }
-
-    /// ホームのモデル。設定・時計・解析・質問の答え方・AI の一言・レシートの読み取り・声の入力を、デモのものに差し替える。
-    func makeHomeModel(
-        context: ModelContext, pendingWrites: PendingStoreWrites, purchases: PurchaseManager, storeHost: StoreHost?,
-        household: HouseholdHost?
-    ) -> HomeModel {
+    /// ホームのモデル。設定・時計・解析・質問の答え方・AI の一言・レシートの読み取りを、デモのものに差し替える。
+    func makeHomeModel(context: ModelContext, pendingWrites: PendingStoreWrites, storeHost: StoreHost?) -> HomeModel {
         let clock = makeClock()
         let writesRemarks = showsAIRemarks
         let receiptLines = ScreenshotDemoReceipt.lines(now: now, calendar: calendar)
-        let demonstratesCategories = screen == .paymentCategories
         return HomeModel(
             store: EntryStore(context: context),
-            paymentInbox: paymentInbox,
             pendingWrites: pendingWrites,
-            purchases: purchases,
             storeHost: storeHost,
-            household: household,
-            defaults: defaults,
             // 端末内 AI を使わず、キーワード辞書で読む（端末によって読み方が変わらないように）。カテゴリの聞き直しも AI なので使わない。
             makeParser: { now, calendar in RuleBasedParser(calendar: calendar, now: { now }) },
-            makeCategoryRefiner: { demonstratesCategories ? CategoryRefiner(classifier: ScreenshotPaymentClassifier(), onFallback: nil) : nil },
+            makeCategoryRefiner: { nil },
+            makeCommandInterpreter: { nil },
             makeAnswerer: { ScreenshotDemoAnswerer(writesRemark: writesRemarks) },
             makeRemarkWriter: { writesRemarks ? ScreenshotDemoRemarkWriter() : nil },
+            makeRecordRemarkWriter: { writesRemarks ? ScreenshotDemoRecordRemarkWriter() : nil },
             receiptReader: ReceiptReader(recognize: { _ in receiptLines }, makeRefiner: { nil }),
             canUseDocumentCamera: false,
-            voice: VoiceInputModel(
-                transcriber: ScreenshotDemoTranscriber(),
-                microphone: ScreenshotDemoMicrophone(),
-                network: ScreenshotDemoNetwork(),
-                // 時計を止めておき、話し終えた・話し始めない・30 秒で止まらないようにする（撮るまで聞いている表示のまま）。
-                now: { [pinned = now] in pinned },
-                announce: { _ in },
-                announceAndWait: { _ in }
-            ),
             now: clock,
             announce: { _ in }
         )
@@ -292,26 +206,17 @@ final class ScreenshotDemo {
 
     // MARK: - 撮る画面を開く
 
-    /// ホームのモデルを作った直後（ホームが画面に出る前）に、撮る画面の下ごしらえをする（`AppRootView` が呼び、済んでから
-    /// ホームを出す）。
-    ///
-    /// ふりかえりのカードは、AI の一言まで書き終えてからホームを出す。ホームが出た後にカードが出たり伸びたりすると、タイムラインが
-    /// 下端まで送られずに途中で止まった（シミュレータの iOS 26.4 で見た。一言の無いカードはタイムラインの途中で止まり、一言が後から
-    /// 付いたカードは下の端が入力欄に隠れた）。スクリーンショットには、カードが下端に出そろった形を写す。タイムラインを VStack にして
-    /// 途中で止まる不具合を直した後も（`HomeView` の `TimelineScrollView`）、一言を書き終えた形を写すために残す。
-    func prepare(_ home: HomeModel, calendar: Calendar) async {
-        guard screen == .recap else { return }
-        home.showWeeklyRecapIfDue(calendar: calendar)
-        await home.weeklyRecap?.remark.currentTask?.value
-    }
-
     /// ホームが出た後に、撮る画面を開く（`AppRootView` が呼ぶ）。開き終えるまで（質問の答え・レシートの読み取りが済むまで）待つ。
     func stage(on home: HomeModel, calendar: Calendar) async {
         Self.logger.notice("\(Self.marker, privacy: .public): \(self.screen.rawValue, privacy: .public)")
         switch screen {
-        case .home, .recap:
-            // タイムラインと帯はそのまま。ふりかえりのカードは、ホームが出たときに出る（`HomeModel.showWeeklyRecapIfDue`）。
-            break
+        case .home:
+            // 記録を 1 つ送り、返事に端末内 AI の一言が添わるところを写す（一言は日本語の画面だけ。英語の画面ではタイムラインと
+            // 帯をそのまま写す）。
+            guard showsAIRemarks else { break }
+            home.draft = Self.homeRecordText
+            await home.send(calendar: calendar)?.value
+            await home.replyRemarkTask?.value
         case .ask:
             for question in Self.questions {
                 home.draft = question
@@ -326,41 +231,16 @@ final class ScreenshotDemo {
             home.monthlyReport?.screenshotScrollsToBottom = true
         case .receipt:
             await home.readReceipt([ScreenshotDemoReceipt.image()], source: .photos, calendar: calendar).value
-        case .voice:
-            await home.voice.toggle()?.value
-        case .premium:
-            home.presentPremium()
-        case .trial:
-            home.presentPremium()
-            home.premiumSheet?.screenshotScrollsToBottom = true
-        case .purchaseCheck, .purchaseChoices:
-            home.presentPurchaseCheck(calendar: calendar)
-            home.purchaseCheck?.amountText = "12,000"
-            home.purchaseCheck?.reserveText = "10,000"
-            home.purchaseCheck?.reload()
-            home.purchaseCheck?.screenshotScrollsToBottom = screen == .purchaseChoices
-            if let check = home.purchaseCheck, let habit = check.analysis?.habits.first {
-                check.setReduction(3, for: habit)
-            }
-        case .automaticPayments:
-            let inbox = PaymentInbox(directory: URL.temporaryDirectory.appending(path: "ScreenshotPayments-\(UUID().uuidString)"))
-            home.walletCapture = WalletCaptureModel(inbox: inbox)
-        case .paymentCategories:
-            try? paymentInbox.append(amount: 450, merchant: "STARBUCKS", paidAt: now.addingTimeInterval(-60))
-            try? paymentInbox.append(amount: 3990, merchant: "ユニクロ", paidAt: now)
-            home.importCapturedPayments(calendar: calendar)
-            await home.waitForPaymentClassification()
         case .calendar:
             home.page = .calendar
         }
     }
 
+    /// ホームの画面で送る記録（返事に AI の一言を添えて写す）。
+    nonisolated static let homeRecordText = "カフェラテ 480"
+
     /// 質問の画面で送る質問（ようこそとタイムラインの例と同じ書き方）。デモの「いま」は月の半ばなので、今月を聞く。
     nonisolated static let questions = ["今月カフェいくら?", "今月あと何日でいくら使える?"]
 }
 
-/// 画面の再現用。実機モデルの精度の証拠には使わない。
-private struct ScreenshotPaymentClassifier: ItemCategoryClassifying {
-    func categoryName(for item: String) async throws -> String { "日用品" }
-}
 #endif
