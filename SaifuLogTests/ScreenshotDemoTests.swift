@@ -370,8 +370,10 @@ struct ScreenshotDemoTests {
     func recapRemarksPassCheck() {
         let thisMonth = "期間: 今月（2026年9月1日から2026年9月30日まで。まだ月の途中）\n支出の合計: ¥21,390（支出の記録 17件）\n支出の多いカテゴリ: 光熱・通信 ¥9,800（46%）、食費 ¥8,000（37%）"
         let monthly = "期間: 2026年8月1日から2026年8月31日まで\n支出の合計: ¥123,230（支出の記録 80件）"
-        #expect(ScreenshotDemoRemarkWriter.remark(from: thisMonth) == "今月は光熱・通信がいちばん多くなっています。記録を続けられていて、いい調子です。")
-        #expect(RecapRemark.checked(ScreenshotDemoRemarkWriter.remark(from: thisMonth), facts: thisMonth) != nil)
+        #expect(ScreenshotDemoRemarkWriter.remark(from: thisMonth) == "今月は光熱・通信がいちばん多く、記録も続けられていて、いい調子です。")
+        // 画面に出す一文（記号を外した最初の一文）が、そのまま全文になる（2 文にすると後ろが出ないため）。
+        #expect(RecapRemark.checked(ScreenshotDemoRemarkWriter.remark(from: thisMonth), facts: thisMonth)
+            == ScreenshotDemoRemarkWriter.remark(from: thisMonth))
         // カテゴリの行が無ければ、カテゴリに触れない。
         #expect(ScreenshotDemoRemarkWriter.remark(from: monthly) == "記録を続けられていて、いい調子です。")
         #expect(RecapRemark.checked(ScreenshotDemoRemarkWriter.remark(from: monthly), facts: monthly) != nil)

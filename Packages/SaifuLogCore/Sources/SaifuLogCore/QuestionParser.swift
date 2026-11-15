@@ -17,19 +17,24 @@ public struct QuestionReading: Hashable, Sendable {
     /// 答えられない書き方（対応していない期間・数字で名前を付けた月や年・日付、2 つ以上の期間、金額、1 日あたりに使った額）を
     /// 含むか。含むなら、AI にも答えさせない（「去年」を今年と読むような、聞かれていない期間の答えを出さないため）。
     public var hasUnsupportedPart: Bool
+    /// 辞書で読んだ語（期間・指標・金額を聞く語・カテゴリ）と質問の決まり文句のほかに、語が残るか（`QuestionParser.hasUnreadWords`）。
+    /// 残らなければ、AI の選んだカテゴリと期間を使わない（`resolved(with:)`）。
+    public var hasUnreadWords: Bool
 
     public init(
         period: QuestionPeriod? = nil,
         metric: QuestionMetric? = nil,
         category: EntryCategory? = nil,
         asksAmount: Bool = false,
-        hasUnsupportedPart: Bool = false
+        hasUnsupportedPart: Bool = false,
+        hasUnreadWords: Bool = true
     ) {
         self.period = period
         self.metric = metric
         self.category = category
         self.asksAmount = asksAmount
         self.hasUnsupportedPart = hasUnsupportedPart
+        self.hasUnreadWords = hasUnreadWords
     }
 
     /// コードだけで作った質問（AI が使えないとき）。答えられない書き方を含むか、何も読めなければ nil（読めない質問）。
@@ -46,23 +51,31 @@ public struct QuestionReading: Hashable, Sendable {
     /// 読めるのは、辞書に無い言い回しのとき）。直近 N 日の N は文から読むので、モデルが直近を選んでも文に日数が無ければ、
     /// 今月として答える（モデルには自由な数を選ばせない）。
     ///
-    /// 文に指標の語が無く「いくら」「合計」のような金額を聞く語だけがあるとき、モデルが件数・いちばん多いカテゴリ・内訳を
-    /// 選んでも、支出の合計（カテゴリがあればそのカテゴリの支出）にする。金額を聞かれたのに件数を答えたり、内訳を選んで
-    /// 聞かれたカテゴリを落としたりしないため（「今月カフェいくら?」の答えを、AI の有無で変えない）。文にカテゴリがあれば、
-    /// 予算・収入・収支の選択も同じくカテゴリの支出にする（どれもカテゴリを使わない指標で、文に書かれたカテゴリを落とすため）。
-    /// カテゴリの無い文の予算・収入・収支の選択はそのまま使う（「いくら貯まった」「いくらもらった」のような、辞書に無い
-    /// 言い回しをモデルが読めることがあるため）。
+    /// - 文に辞書で読んだ語のほかに語が残らなければ（`hasUnreadWords`）、モデルの選んだカテゴリと期間は使わない（期間は今月）。
+    ///   辞書に無い言い回しが無いのに、モデルが文に無いカテゴリや期間を選んだことになるため（2026-11-15 に本物のモデルで試したとき、
+    ///   「今月いくら使った?」に食費を選び、支出の合計ではなく食費の額を答えた）。
+    /// - 文にカテゴリがあれば、モデルの選んだカテゴリを使わない指標（内訳・いちばん多いカテゴリ・予算・収入・収支）は、そのカテゴリの
+    ///   支出にする（「先月の食費は?」にモデルが内訳を選び、聞かれた食費を落としたため）。件数は、金額を聞く語が無ければそのまま使う
+    ///   （「今月カフェ行った?」）。
+    /// - 文に指標の語が無く「いくら」「合計」のような金額を聞く語だけがあるとき、モデルが件数・いちばん多いカテゴリ・内訳を
+    ///   選んでも、支出の合計にする（金額を聞かれたのに件数を答えないため）。カテゴリの無い文の予算・収入・収支の選択はそのまま
+    ///   使う（「いくら貯まった」「いくらもらった」のような、辞書に無い言い回しをモデルが読めることがあるため）。
+    /// - 予算の指標は月の予算を数えるので、文に期間が無ければ今月にする（「月末まで毎日いくら使える?」にモデルが今年を選んだため）。
     public func resolved(with choice: QuestionChoice) -> LedgerQuestion? {
         guard !hasUnsupportedPart else { return nil }
         var modelMetric = choice.metric
-        if asksAmount, category != nil || Self.nonAmountMetrics.contains(modelMetric) {
-            // カテゴリがあれば、LedgerQuestion がそのカテゴリの支出にそろえる。
-            if modelMetric != .categoryExpense { modelMetric = .expenseTotal }
+        if category != nil {
+            // LedgerQuestion が、カテゴリのある支出の合計をそのカテゴリの支出にそろえる。
+            if modelMetric != .entryCount || asksAmount { modelMetric = .expenseTotal }
+        } else if asksAmount, Self.nonAmountMetrics.contains(modelMetric) {
+            modelMetric = .expenseTotal
         }
+        let metric = metric ?? modelMetric
+        let modelPeriod = hasUnreadWords && !metric.isBudget ? choice.period.fixedPeriod : nil
         return LedgerQuestion(
-            period: period ?? choice.period.fixedPeriod ?? .thisMonth,
-            metric: metric ?? modelMetric,
-            category: category ?? choice.category
+            period: period ?? modelPeriod ?? .thisMonth,
+            metric: metric,
+            category: category ?? (hasUnreadWords ? choice.category : nil)
         )
     }
 
@@ -207,6 +220,7 @@ public enum QuestionParser {
         }
         reading.asksAmount = amountWords.contains { rest.contains($0) }
         reading.category = catalog.customCategory(namedIn: rest) ?? EntryCategory.matched(in: rest)
+        reading.hasUnreadWords = hasUnreadWords(rest, category: reading.category, catalog: catalog)
         return reading
     }
 
@@ -290,7 +304,45 @@ public enum QuestionParser {
         "いくら", "幾ら", "合計", "総額", "トータル", "どれくらい", "どれぐらい", "どのくらい", "どのぐらい", "何円", "なんえん", "なんぼ",
     ]
 
+    /// 質問の決まり文句（辞書の語のほかに、文に残っても質問の中身を変えない語）。
+    static let questionFillerWords = [
+        "記録", "カテゴリー", "カテゴリ", "全部", "ぜんぶ", "全体", "お金", "家計簿", "家計", "月末", "教えて", "知りたい", "金額", "円",
+    ]
+
     // MARK: - 読み取りの部品
+
+    /// 期間の語を除いた文（`rest`）に、辞書で読んだ語（指標・金額を聞く語・使った額や使える額の語・読んだカテゴリの語）と
+    /// 質問の決まり文句（`questionFillerWords`）のほかに、漢字・カタカナ・英字が残るか（ひらがなだけの残りは助詞や語尾とみなす）。
+    ///
+    /// 残らなければ、文は辞書だけで読めている。AI の選んだカテゴリと期間は、辞書に無い言い回し（「年が変わってから」「外で食べた」）が
+    /// あるときだけ使う（`QuestionReading.resolved(with:)`）。
+    static func hasUnreadWords(_ rest: String, category: EntryCategory?, catalog: CategoryCatalog) -> Bool {
+        var chars = Array(rest)
+        // カテゴリの語は、ひらがなとカタカナ・英字の大小をそろえて当てる（「らんち」も「ランチ」として読んでいるため）。そろえても
+        // 文字の数は変わらないので、そろえた文で見つけた位置を、元の文で空白にする。
+        let folded = Array(KeywordMatcher.fold(rest))
+        guard folded.count == chars.count else { return true }
+        var words = metricWords.flatMap(\.words) + amountWords + spendingWords + allowanceWords + questionFillerWords
+        if let category {
+            words += [catalog.name(of: category), category.displayName] + category.keywords
+        }
+        let needles = Set(words.map(KeywordMatcher.fold)).filter { !$0.isEmpty }.sorted { $0.count > $1.count }
+        for range in ranges(of: needles, in: folded) {
+            blank(&chars, range)
+        }
+        return chars.contains(where: isWordCharacter)
+    }
+
+    /// 語の中身になる文字（漢字・カタカナ・英字）か。長音記号と中黒は数えない。
+    private static func isWordCharacter(_ char: Character) -> Bool {
+        if char.isASCIILetter { return true }
+        guard let scalar = char.unicodeScalars.first, char.unicodeScalars.count == 1 else { return false }
+        switch scalar.value {
+        case 0x3005, 0x3400...0x4DBF, 0x4E00...0x9FFF, 0xF900...0xFAFF: return true
+        case 0x30A1...0x30FA: return true
+        default: return false
+        }
+    }
 
     /// 「直近7日」「過去30日間」「ここ1週間」「この2週間」「3日間」「一週間」。
     ///

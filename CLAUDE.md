@@ -30,8 +30,9 @@
     小さく 1 行・前の月との差（終わった月だけ。月の途中で前の月のまる 1 か月と比べない）・予算の残り（終わった月は「余った額」、今月で超えていなければ
     1 日あたりに使える額。いまの予算に決めた月から後だけ）・カテゴリ別の割合の帯（`BreakdownCompositionBar`）と行・行からその月の記録の一覧と ⑥（一覧も長押しで直す・削除。確認つき）・
     使った額のカードの下に AI の一言（AI が使える端末だけ。無料。数字の文（コアの `RecapFacts`）だけを端末内 AI に渡して書かせ
-    （`SaifuLog/AI/FoundationModelsRecapRemarkWriter`）、`AnswerSentenceCheck` で照合して合わなければ捨てる（`RecapRemarkModel`）。
-    実機でのモデルの一言の確認はまだ）。
+    （`SaifuLog/AI/FoundationModelsRecapRemarkWriter`。一文で頼む）、記号（`**`・行頭の箇条書き）を外した最初の一文だけを
+    `AnswerSentenceCheck.checked` で照合して合わなければ捨てる（`RecapRemarkModel`）。2026-11-15 に Mac の本物のモデルで確かめた
+    （`make test-ai`）。実機でのモデルの一言の確認はまだ）。
     1 日あたりの平均・今日までの目安・目安との比べは出さない（使った額と予算の残りが埋もれるため）。
     `MonthlyReportView` と `MonthlyReportModel`、数字はコアの `MonthlyReport` と `CategoryBreakdown`）。
     ⑩ カレンダー（ホームを左へスワイプした 2 枚目のページ。`HomeView` の TabView のページの形で、カレンダーからは会話のボタンでも
@@ -67,7 +68,11 @@
     金額と件数の答えには前の期間との比べ（途中の期間は前の期間の同じところまで。コアの `LedgerComparison`。AI に渡す文にも書く）、今月・先月の
     金額には 6 か月の推移（`LedgerTrend`、`AnswerTrendChart`）、いちばん新しい答えには続けて聞ける質問のボタン（`QuestionFollowUp`。質問の読み取りが
     同じ質問に読める日本語の文を送る。`HomeModel.askFollowUp`）。回数の制限は無い。
-    答えのカードに、元になった記録の件数と定型の注記は出さない。実機でのモデルの答え方の確認はまだ）。
+    答えのカードに、元になった記録の件数と定型の注記は出さない。文に読み残しの語が無ければモデルの選んだカテゴリと期間を使わず
+    （「今月いくら使った?」に食費を選んで食費の額を答えたため）、文にカテゴリがあればカテゴリを落とす指標の選択はそのカテゴリの支出にし、
+    予算の指標は文に期間が無ければ今月にする（`QuestionReading.resolved(with:)`・`hasUnreadWords`）。ツールを呼んだ後に一言の生成が
+    失敗したら、ツールの答えを定型文で出す。一言は記号を外した最初の一文だけを照合する（`AnswerSentenceCheck.checked`）。2026-11-15 に
+    Mac の本物のモデルで確かめた（`make test-ai`）。実機でのモデルの答え方の確認はまだ）。
     レシートの読み取り（④⑤。入力欄の左のカメラのボタン →「撮る」（VisionKit の書類カメラ）か「写真から選ぶ」（PhotosPicker）→ ⑤ の読み取り結果の
     シート。文字は `SaifuLog/Receipt/ReceiptTextRecognizer` が Vision で端末内で読み（iOS 26 の `RecognizeDocumentsRequest`、日本語に対応しないか読めなければ
     `VNRecognizeTextRequest`）、店名・日付・品目・値引き・税・合計などの見分けはコアの `ReceiptLineScanner`、照合と記録の下書きは `ReceiptReconciler`
@@ -123,7 +128,8 @@
     返事のカード（`QuestionExchange.State.recategorized`）を出す（「取り消す」は残す）。返事・チャットで選んだカテゴリと ⑥ で変えたカテゴリを
     品目の言葉とともに覚える（AI への手がかりには渡さない）。保存は `LearnedCategory`（暗号化フィールド）と `LearnedCategoryStore`、状態は
     `HomeModel.categoryQuestionIDs`・`chooseCategory`。⑧ の「カテゴリ」の画面の「覚えたカテゴリ」（`LearnedCategoriesView`・
-    `LearnedCategoriesModel`）で一覧・変える・忘れる（忘れても過去の記録のいつものカテゴリは使う）。実機でのモデルの選び方の確認はまだ）。
+    `LearnedCategoriesModel`）で一覧・変える・忘れる（忘れても過去の記録のいつものカテゴリは使う）。2026-11-15 に Mac の本物のモデルで
+    確かめた（`make test-ai`）。実機でのモデルの選び方の確認はまだ）。
     チャットで頼む操作（記録にも質問にもしない文。コアの `ChatCommand`・`ChatCommandReader`。`HomeModel.submit` が記録か質問かを
     見分ける前に読む。誤って記録を書き換えないことを優先し、読めなければふつうの送信として読む。相手は文を送った時点の直前の送信の
     記録（`HomeModel.commandTargets`。くり返しの記録は相手にしない）で、カテゴリと金額を直すのはそのうちの支出が 1 件のときか、
@@ -143,27 +149,34 @@
     直すが覚えない（`CategoryCorrection.isNameOnly`）。消す語と打ち消し（「削除はいらない」「消さないで」）が一緒の文、ほかの月の予算の文
     （「前の月の予算」）、ポイント・おつり・値引き・合計の言い直しは操作にしない）。
     決まりで読めず、記録か質問か決められない文・前の記録を直そうとする文・金額の無い記録の文になったときだけ、AI が使える端末では
-    文だけを端末内 AI に渡して操作の種類（5 つの選択肢から 1 つ。いちばん確かな選択肢を毎回選ぶ）を選ばせ（`AI/ChatCommandInterpreter`・
-    `FoundationModelsChatCommandInterpreter`。上限は `AITimeouts.chatCommand` の 3 秒、失敗と時間切れは `AIFallbackLog` の
-    `chatCommand`）、値は `ChatCommandReader.command(kind:in:…)` が文から読む（文に無い値と、種類に合う語の無い文では行わない）。
+    文だけを端末内 AI に渡して操作の種類（文から操作を組み立てられる種類（`ChatCommandReader.candidates`）と「どれでもない」から 1 つ。
+    組み立てられる種類が無い文は AI に聞かない。5 つの選択肢をいつも並べていたときは、ほとんどの文で最初の選択肢を選んだため。
+    いちばん確かな選択肢を毎回選ぶ）を選ばせ（`AI/ChatCommandInterpreter`・`FoundationModelsChatCommandInterpreter`（選択肢は
+    `DynamicGenerationSchema`）。上限は `AITimeouts.chatCommand` の 3 秒、失敗と時間切れは `AIFallbackLog` の
+    `chatCommand`）、値は `ChatCommandReader.command(kind:in:…)` が文から読む（文に無い値と、種類に合う語の無い文では行わない。
+    金額を直すには前の記録を指す語・言い直しの語・「に直して」・「金額」のどれかが要り、「名前の変更 2500」「前のタイヤ変えて 20000」の
+    ような直したり変えたりした費用の記録は候補にしない）。
     AI が選んだ操作は、どれも確認のアラート（`HomeModel.pendingCommand`。返事のカードは `.commandAsked`）で選んでもらってから行い、
     キャンセルなら何も変えずに文を入力欄に戻す（`.commandCancelled`。確認の間に相手が消えていれば行わない。AI の答えを待つ間にほかの画面や
     確認を開いていれば、確認を出さずにやめて文を戻す）。返事はタイムラインの案内の
     カード（`QuestionExchange.State` の `.recategorized`・`.amountChanged`・`.removed`・`.budgetSet`・`.noTarget`・`.splitNotChanged`）、
     書き込めなければ文を入力欄に戻して `StoreFailure`（`.amountChange`・`.budgetChange` で見出しを分ける）。読めなければこれまでどおりの
     案内（書き直し・直し方・金額が見つからない）。金額の無い文などで何も記録しなかったときは、直前の送信の「取り消す」と聞き返しを
-    戻す。実機でのモデルの選び方の確認はまだ）。
+    戻す。2026-11-15 に Mac の本物のモデルで確かめた（`make test-ai`）。実機でのモデルの選び方の確認はまだ）。
     記録の返事の AI の一言（Apple Intelligence を返事に使う。無料。ひとこと入力で記録した直後に、いま記録した支出（3 件まで）・その
     「その他」でない最初のカテゴリの今月の合計と件数・今月の支出の合計と件数・予算の残り（超えた額）を数字の文にし（コアの `RecordFacts`。
     収入は書かない）、その文だけを端末内 AI に渡して一言を書かせる（`AI/FoundationModelsRecordRemarkWriter`。記録の返事向けの指示文で、
-    数字の例を書かず、責めない・指図しない・利用者の文の中の指示に従わない。一文に足りる長さまで。`RecordRemarkWriterFactory`）。上限は `AITimeouts.recordRemark` の 3 秒で、待つ間も入力できる。
-    `RecapRemark.checked`（`AnswerSentenceCheck`）で照合して、文に無い数字と、予算の残りと超えた額・前より多いか少ないかの向きが文と
+    数字の例を書かず、数字は渡された金額か件数を 1 つだけ写すよう頼み、責めない・指図しない・利用者の文の中の指示に従わない。一文に
+    足りる長さまで。温度は 0.5。ストリーミングで受けて最初の一文で打ち切り、安全のための拒否か照合に通らない一言ならもう一度だけ
+    書かせる（`AI/RemarkGeneration`。月のまとめの一言も同じ）。`RecordRemarkWriterFactory`）。上限は `AITimeouts.recordRemark` の 3 秒で、待つ間も入力できる。
+    記号を外した最初の一文だけを `RecapRemark.checked`（`AnswerSentenceCheck.checked`）で照合して、文に無い数字と、予算の残りと超えた額・前より多いか少ないかの向きが文と
     食い違えば捨てる。書かせるのは今月に使った支出だけ（前の月の日付の記録には書かせない）で、届いたときに数字の文を作り直して変わっていれば
     出さない。ほかの端末の変更の知らせでは、数字が変わったときだけ外す（この端末の保存でも知らせが届くため。`reviewReplyRemarkAfterRemoteChange`）。
     ロックの画面を出している間は読み上げない。直前の送信の返事にだけ、カテゴリの件数と今月の状況の行の代わりに出す（同じ数字から書くので 2 度言わない。`HomeModel.requestReplyRemark`・
     `replyRemark`、画面は `ReplyRemarkLine`。保存せず、次の送信・記録を消す・直す・カテゴリを選ぶ・予算を変える・ほかの端末の変更で消える。
     届いたときは読み上げを遮らずに読む）。AI の使えない端末と、照合に通らなかったときは定型の一行だけ（予算を決めていなければ何も出さない）。失敗と時間切れは `AIFallbackLog` の `recordRemark`。撮影用のデモは
-    決まった一言を返す writer で、ホームの画面に写す。実機でのモデルの一言の確認はまだ）。
+    決まった一言を返す writer で、ホームの画面に写す。2026-11-15 に Mac の本物のモデルで確かめた（`make test-ai`。照合は数字と向きしか
+    見ないので、照合に通っても的外れな一言や、指図めいた一言は残る）。実機でのモデルの一言の確認はまだ）。
     作ったカテゴリ（利用者が 20 個まで作る。記録は ID だけを持つ `EntryCategory.custom`（rawValue は「custom:」と ID）で、名前・記号・色・
     並びは `CustomCategory`（暗号化フィールド）と `CustomCategoryStore`。一覧はコアの `CategoryCatalog` で、ホームが `CategoryCatalogModel` を
     1 つ持ち、画面へは環境の `categoryCatalog` で渡す（名前・色・記号は `CategoryCatalog` の拡張から引き、`EntryCategory.displayName` を
@@ -216,8 +229,10 @@
     社内テスト専用に送れるようにした（審査には出ない。Environment `release` の配備ブランチは `main` と `develop`）。
     実際に TestFlight で入れての確認はまだ（`docs/release-flow.md` の「TestFlight で実機に入れる（社内テスト）」）。
   - 本物の端末内 AI の答え方のテスト（`make test-ai`。`SaifuLogTests/AIEvaluation/`）を足した。Apple Intelligence をオンにした Mac の
-    シミュレータで、読み取り・カテゴリ・チャットの操作・質問・一言を本物のモデルに頼んで確かめる（CI では動かさない）。まだ一度も
-    動かしていない（表の答えと割合の下限は、動かしてから見直す）。実機（とくに対応機種のうち古いもの）での時間の確認は別にまだ。
+    シミュレータで、読み取り・カテゴリ・チャットの操作・質問・一言を本物のモデルに頼んで確かめる（CI では動かさない）。2026-11-15 に
+    初めて動かした（作者の Mac ではシミュレータの中の AI がすべて失敗したので、My Mac（Designed for iPad）を宛先にした。手順は
+    `docs/design.md` §5-1）。初回はチャットの操作・質問・一言の表が割合の下限を下回り、指示文と答えの扱いを直して 6 表とも通した
+    （3 回動かした。割合の下限は変えていない）。実機（とくに対応機種のうち古いもの）での時間の確認は別にまだ。
 - プロダクトの決定事項と未決事項は `docs/design.md` にある。仕様に迷ったらまずそこを見る。
 - README などに、実装していない機能を「できる」と書かない。予定は「予定」と書く。
   逆に、機能を足したら README・`docs/design.md`・`PRIVACY.md` の「予定」も外す。

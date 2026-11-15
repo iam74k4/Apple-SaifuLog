@@ -29,7 +29,9 @@ public enum ChatCommandKind: String, CaseIterable, Sendable {
 
 /// 文がどの操作の種類かを選ぶもの（端末内 AI）。コアは AI に依存しないので、選び方はアプリが渡す。
 public protocol ChatCommandInterpreting: Sendable {
-    func kind(of text: String) async throws -> ChatCommandKind
+    /// `kinds`（文から操作を組み立てられる種類。`ChatCommandReader.candidates(in:now:calendar:catalog:)`）と「どれでもない」
+    /// （`.none`）から 1 つを選ぶ。`kinds` は空ではない（空なら呼ばない）。
+    func kind(of text: String, among kinds: [ChatCommandKind]) async throws -> ChatCommandKind
 }
 
 /// チャットの文から操作を読む（純粋な関数）。**誤って記録を書き換えないことを優先する**（読めなければ nil にし、ふつうの送信として扱う）。
@@ -72,8 +74,9 @@ public enum ChatCommandReader {
     /// 決まりより緩く読むが、値は必ず文に書かれたものにし、種類に合う語の無い文では組み立てない（小さなモデルは、比べる文や
     /// 記録の文にも操作を選ぶことがあるため）:
     /// - カテゴリ: カテゴリの名前がちょうど 1 つ（「AじゃなくてB」は B）で、数字が無い。
-    /// - 金額: 前の記録を指す語・直す語（「さっき」「それ」「直して」「実は」「金額」など）があり、直した先の金額がちょうど 1 つか
-    ///   「じゃなくて」の後ろ（前は金額か前の記録を指す語だけ）。予算の語があれば読まない。
+    /// - 金額: 前の記録を指す語・言い直しの語・直した先を示す直す語（「さっき」「それ」「実は」「じゃなくて」「に直して」「金額」
+    ///   など。`mentionsAmountEdit`）があり、直した先の金額がちょうど 1 つか「じゃなくて」の後ろ（前は金額か前の記録を指す語だけ）。
+    ///   予算の語があれば読まない。
     /// - 消す: 消す語があり、数字とカテゴリの語（「カテゴリなし」）が無い。
     /// - 予算: 決まりと同じ期間の確かめをし、残りの語は問わない。
     public static func command(
@@ -104,6 +107,24 @@ public enum ChatCommandReader {
         case .none:
             return nil
         }
+    }
+
+    /// 文から組み立てられる操作の種類と、その操作（`command(kind:in:now:calendar:catalog:)` が nil にならない種類）。
+    ///
+    /// 端末内 AI には、ここにある種類と「どれでもない」だけを選ばせる（アプリの `HomeModel`）。どの種類も組み立てられない文は
+    /// AI に聞かない。選んでも行えない種類を選択肢に並べると、小さなモデルが文に合わない種類（記録の文に「カテゴリを変える」など）を
+    /// 選び、行える操作を選ばなくなったため（2026-11-15 に本物のモデルで試したとき、5 つの選択肢からはほとんどの文で最初の
+    /// 選択肢を選んだ）。
+    public static func candidates(
+        in text: String, now: Date, calendar: Calendar, catalog: CategoryCatalog = .builtIn
+    ) -> [ChatCommandKind: ChatCommand] {
+        var found: [ChatCommandKind: ChatCommand] = [:]
+        for kind in ChatCommandKind.allCases where kind != .none {
+            if let command = command(kind: kind, in: text, now: now, calendar: calendar, catalog: catalog) {
+                found[kind] = command
+            }
+        }
+        return found
     }
 
     // MARK: - 消す
@@ -238,15 +259,24 @@ public enum ChatCommandReader {
         "やっぱ", "正しくは", "本当は", "ほんとは", "実は", "円", "ください", "下さい",
     ]
 
-    /// AI が金額を直す操作を選んだ文に、どれか 1 つは要る語（前の記録を指す語・直す語・言い直しの語）。比べる文（「今月の食費 3万
-    /// 超えた」）や金額の 2 つある文（「900か1000」）に AI が金額を直す操作を選んでも、前の記録を書き換えないため。
-    static let amountEditCues = [
-        "さっき", "先ほど", "さきほど", "前の", "今の", "直前", "最後の", "それ", "これ", "あれ", "直し", "直す", "なおし", "変え",
-        "かえて", "変更", "訂正", "修正", "間違", "まちが", "実は", "本当は", "ほんとは", "正しくは", "金額", "値段",
-    ]
+    /// AI が金額を直す操作を選んだ文に、前の記録を指す語（`InputIntentClassifier.refersToPreviousRecord`）・言い直しの語
+    /// （`InputIntentClassifier.containsCorrectionWord` の「じゃなくて」など）・直した先を示す直す語（「に直して」）が無いときに、
+    /// どれか 1 つは要る語（言い直しと、金額を指す語）。
+    static let amountEditCues = ["実は", "本当は", "ほんとは", "正しくは", "間違", "まちが", "金額", "値段"]
 
+    /// AI が金額を直す操作を選んだ文が、前の記録の金額を直そうとしているか。比べる文（「今月の食費 3万超えた」）や金額の 2 つある文
+    /// （「900か1000」）に AI が金額を直す操作を選んでも、前の記録を書き換えないため。
+    ///
+    /// 「直して」「変えて」「変更」だけの文（「名前の変更 2500」「前のタイヤ変えて 20000」「スマホの画面直して 15000」）は、直したり
+    /// 変えたりしてもらった費用の記録なので、前の記録を指す語（品目の続く「前のタイヤ」は指さない。`refersToPreviousRecord`）か、
+    /// 直した先を示す直す語（「900に直して」の「に直」）が無ければ読まない。前はこれらの語だけで読んでいたので、モデルが金額を直す
+    /// 操作を選ぶと、記録の文に直す確認を出していた（2026-11-15 に本物のモデルで試したとき、モデルはこの形の文をどれも金額を直す
+    /// 文として選んだ）。
     private static func mentionsAmountEdit(_ normalized: String) -> Bool {
-        InputIntentClassifier.containsCorrectionWord(normalized) || amountEditCues.contains { normalized.contains($0) }
+        InputIntentClassifier.containsCorrectionWord(normalized)
+            || InputIntentClassifier.refersToPreviousRecord(normalized)
+            || InputIntentClassifier.targetedEditWords.contains { normalized.contains($0) }
+            || amountEditCues.contains { normalized.contains($0) }
     }
 
     /// 直した先の金額。「AじゃなくてB」は B の金額（A は直す前の金額か、前の記録を指す語だけ）、それ以外は文の中にちょうど 1 つある金額。

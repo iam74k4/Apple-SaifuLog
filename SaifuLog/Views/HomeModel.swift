@@ -544,21 +544,22 @@ final class HomeModel {
         case cancelled
     }
 
-    /// 文の操作の種類を端末内 AI に選ばせ、値を文から読む（`ChatCommandReader.command(kind:in:now:calendar:catalog:)`）。
+    /// 文から組み立てられる操作の種類（`ChatCommandReader.candidates(in:now:calendar:catalog:)`）のうち、どれを頼んでいるかを端末内 AI に
+    /// 選ばせる。組み立てられる種類が無ければ AI に聞かない（AI に選ばせても行えないので、待たせるだけになるため）。
     ///
     /// - Parameter interpreter: 使う AI。渡さなければ、いまの端末で使えるもの（無ければ `.nothing`）。
     private func interpretedCommand(
         _ text: String, sentAt: Date, calendar: Calendar, interpreter: ChatCommandInterpreter? = nil
     ) async -> InterpretedCommand {
-        guard let interpreter = interpreter ?? makeCommandInterpreter() else { return .nothing }
+        let candidates = ChatCommandReader.candidates(in: text, now: sentAt, calendar: calendar, catalog: categories.catalog)
+        guard !candidates.isEmpty, let interpreter = interpreter ?? makeCommandInterpreter() else { return .nothing }
         let kind: ChatCommandKind
         do {
-            kind = try await interpreter.kind(of: text)
+            kind = try await interpreter.kind(of: text, among: ChatCommandKind.allCases.filter { candidates[$0] != nil })
         } catch {
             return .cancelled
         }
-        guard let command = ChatCommandReader.command(kind: kind, in: text, now: sentAt, calendar: calendar, catalog: categories.catalog)
-        else { return .nothing }
+        guard let command = candidates[kind] else { return .nothing }
         return .command(command)
     }
 

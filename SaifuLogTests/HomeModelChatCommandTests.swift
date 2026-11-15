@@ -23,7 +23,7 @@ struct HomeModelChatCommandTests {
             self.answer = answer
         }
 
-        func kind(of text: String) async throws -> ChatCommandKind {
+        func kind(of text: String, among kinds: [ChatCommandKind]) async throws -> ChatCommandKind {
             let watcher: CheckedContinuation<Void, Never>? = lock.withLock {
                 hasBeenAsked = true
                 defer { waiting = nil }
@@ -64,20 +64,21 @@ struct HomeModelChatCommandTests {
         }
     }
 
-    /// 決めた種類を返す AI の代わり。聞かれた文を残す。
+    /// 決めた種類を返す AI の代わり。聞かれた文と選択肢を残す。
     private final class StubInterpreter: ChatCommandInterpreting, @unchecked Sendable {
         let answer: ChatCommandKind
         private let lock = NSLock()
-        private var asked: [String] = []
+        private var asked: [(text: String, kinds: [ChatCommandKind])] = []
 
         init(_ answer: ChatCommandKind) {
             self.answer = answer
         }
 
-        var texts: [String] { lock.withLock { asked } }
+        var texts: [String] { lock.withLock { asked.map(\.text) } }
+        var offeredKinds: [[ChatCommandKind]] { lock.withLock { asked.map(\.kinds) } }
 
-        func kind(of text: String) async throws -> ChatCommandKind {
-            lock.withLock { asked.append(text) }
+        func kind(of text: String, among kinds: [ChatCommandKind]) async throws -> ChatCommandKind {
+            lock.withLock { asked.append((text, kinds)) }
             return answer
         }
     }
@@ -265,13 +266,16 @@ struct HomeModelChatCommandTests {
         fixture.commandInterpreter = ChatCommandInterpreter(interpreter: stub, onFallback: nil)
         await fixture.send("ランチ 850")
 
-        // 「直す」の語はあるが、金額が 2 つで決まりでは読めない。AI も金額を決められないので、案内を出す。
+        // 「直す」の語はあるが、金額が 2 つで決まりでは読めない。どの操作も文から組み立てられないので、AI に聞かずに案内を出す。
         await fixture.send("さっきのを900か950に直して")
         #expect(fixture.lastQuestionState == .correction)
+        #expect(stub.texts.isEmpty)
 
         // 決まりでは記録か質問か決められない文。AI が「金額を直す」を選び、金額は文から読む。AI が選んだ操作は、確認してから行う。
+        // AI には、文から組み立てられる種類だけを選択肢として渡す。
         await fixture.send("ランチは実は900円だった。残りを直して")
-        #expect(stub.texts.count == 2)
+        #expect(stub.texts == ["ランチは実は900円だった。残りを直して"])
+        #expect(stub.offeredKinds == [[.changeAmount]])
         #expect(try fixture.entries().map(\.amount) == [850])
         let pending = try #require(fixture.model.pendingCommand)
         #expect(pending.question == .changeAmount(summary: "ランチ ¥850", amount: 900))
@@ -362,6 +366,20 @@ struct HomeModelChatCommandTests {
     }
 
     /// AI が「どれでもない」を選べば、これまでどおり案内を出す。AI が無い端末も同じ。
+    /// AI が選択肢に無い種類を返しても行わない（文から組み立てられない種類の操作をしない）。
+    @Test func ignoresKindOutsideCandidates() async throws {
+        let fixture = try Fixture()
+        fixture.commandInterpreter = ChatCommandInterpreter(interpreter: StubInterpreter(.removeLast), onFallback: nil)
+        await fixture.send("ランチ 850")
+
+        await fixture.send("ランチは実は900円だった。残りを直して")
+
+        // 消す確認も金額を直す確認も出さず、決まりで読めなかった文の案内にする。
+        #expect(fixture.model.pendingCommand == nil)
+        #expect(try fixture.entries().map(\.amount) == [850])
+        #expect(fixture.model.draft == "ランチは実は900円だった。残りを直して")
+    }
+
     @Test(arguments: [true, false])
     func fallsBackWhenAIChoosesNothing(hasAI: Bool) async throws {
         let fixture = try Fixture()

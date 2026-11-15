@@ -245,6 +245,40 @@ struct QuestionAnsweringTests {
         #expect(reply == .answered(try Self.answer(Self.cafeThisMonth), remark: .fixed))
     }
 
+    /// モデルの一言の Markdown の記号と、改行の後ろの文は外し、最初の一文だけを添える（一言は `Text(verbatim:)` で出すので、記号が
+    /// 画面にそのまま出ていた）。
+    @Test func modelSentenceIsMadePlain() async throws {
+        let answerer = FoundationModelsQuestionAnswerer { _, tool in
+            _ = try await tool.call(arguments: LedgerQueryArguments(period: .thisMonth, metric: .categoryExpense, category: .cafe))
+            return "今月のカフェは**¥1,600**でした。\n\n*   2件です。"
+        }
+
+        let reply = try await answerer.answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
+
+        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth), remark: .ai("今月のカフェは¥1,600でした。")))
+    }
+
+    /// ツールを呼んだ後に一言の生成が失敗しても（安全のための拒否など）、ツールが計算した答えを定型文で返す。
+    @Test func modelFailureAfterToolCallKeepsToolAnswer() async throws {
+        let answerer = FoundationModelsQuestionAnswerer { _, tool in
+            _ = try await tool.call(arguments: LedgerQueryArguments(period: .thisMonth, metric: .categoryExpense, category: .cafe))
+            throw TestError()
+        }
+
+        let reply = try await answerer.answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
+
+        #expect(reply == .answered(try Self.answer(Self.cafeThisMonth), remark: .fixed))
+    }
+
+    /// ツールを呼ぶ前に失敗したら投げる（キーワード辞書に答え直させる）。
+    @Test func modelFailureBeforeToolCallThrows() async throws {
+        let answerer = FoundationModelsQuestionAnswerer { _, _ in throw TestError() }
+
+        await #expect(throws: TestError.self) {
+            _ = try await answerer.answer("今月カフェいくら?", ledger: Self.ledger, now: TestSupport.now, calendar: TestSupport.calendar)
+        }
+    }
+
     /// モデルがツールを呼ばずに答えたら使わない（投げて、キーワード辞書に答え直させる）。ツールを呼ばなかったことは、AI の記録の
     /// 最後のエラーで分かる（実機でどのくらい起きるかを数える。docs/design.md §15）。
     @Test func modelWithoutToolCallFallsBack() async throws {
