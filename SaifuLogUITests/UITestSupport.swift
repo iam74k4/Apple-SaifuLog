@@ -138,10 +138,18 @@ extension XCUIApplication {
         if !sendButton.waitUntilEnabled(timeout: 3) {
             print("送信のボタンが押せないので、改行で打った文を確定させます: \(text)")
             inputField.typeText("\n")
-            if inputField.wait(until: NSPredicate(format: "value != %@", text), timeout: 3) {
-                // 改行で送られた（入力欄が空いた）。
-                return
-            }
+            // 改行で送られた（入力欄が空いた）か、確定して送信のボタンが押せるようになるまで待つ。CI の遅いシミュレータでは、
+            // 改行で送られて入力欄が空くまでに 3 秒より長くかかり、送れていないと読んで、空いた入力欄の送信のボタンを待って
+            // 落ちたことがあった。
+            let deadline = Date().addingTimeInterval(UITestTimeout.ui)
+            repeat {
+                if (inputField.value as? String) != text {
+                    return
+                }
+                if sendButton.waitUntilEnabled(timeout: 1) {
+                    break
+                }
+            } while Date() < deadline
         }
         // CI の遅いシミュレータでは、初めてキーボードを出した後しばらくアプリが落ち着かず、確定した文が送信のボタンに届くまで
         // 10 秒ほどかかったことがあった。
