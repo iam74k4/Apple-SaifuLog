@@ -36,7 +36,7 @@ extension AIEvaluationTests {
                     card.record(
                         "\(label) \(run) 回目",
                         passed: checked != nil && timed.isWithin(AITimeouts.recordRemark),
-                        timed.describe { Self.describe($0, accepted: checked != nil) }
+                        timed.describe { Self.describe($0, shown: checked) }
                     )
                 }
             }
@@ -67,7 +67,7 @@ extension AIEvaluationTests {
                     card.record(
                         "\(label) \(run) 回目",
                         passed: checked != nil && timed.isWithin(AITimeouts.recapRemark),
-                        timed.describe { Self.describe($0, accepted: checked != nil) }
+                        timed.describe { Self.describe($0, shown: checked) }
                     )
                 }
             }
@@ -75,9 +75,11 @@ extension AIEvaluationTests {
             #expect(card.rate >= AIEvaluation.remarkPassRate, "\(card.report)")
         }
 
-        private static func describe(_ remark: String, accepted: Bool) -> String {
-            let sentence = remark.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "\n", with: " ")
-            return "「\(sentence)」\(accepted ? "" : "（照合で捨てる）")"
+        /// 画面に出す一文（記号を外した最初の一文。`RecapRemark.checked`）と、モデルが返した文。
+        private static func describe(_ remark: String, shown: String?) -> String {
+            let sentence = remark.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "\n", with: "⏎")
+            guard let shown else { return "「\(sentence)」（照合で捨てる）" }
+            return shown == sentence ? "「\(shown)」" : "「\(shown)」← 返した文「\(sentence)」"
         }
     }
 }

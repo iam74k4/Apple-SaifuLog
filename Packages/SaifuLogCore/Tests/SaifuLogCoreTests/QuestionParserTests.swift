@@ -308,6 +308,61 @@ struct QuestionParserTests {
         #expect(Self.reading("直近10日いくら使った?").resolved(with: choice)?.period == .recentDays(10))
     }
 
+    /// 2026-11-15 に本物のモデルで試したとき、「今月いくら使った?」に食費を選び、支出の合計ではなく食費の額を答えた。
+    @Test("辞書で読んだ語のほかに語が残らない文では、モデルの選んだカテゴリと期間を使わない", arguments: QuestionChoice.Period.allCases)
+    func modelCannotAddCategoryOrPeriodToReadText(modelPeriod: QuestionChoice.Period) {
+        let choice = QuestionChoice(period: modelPeriod, metric: .categoryExpense, category: .food)
+
+        #expect(Self.reading("今月いくら使った?").resolved(with: choice) == LedgerQuestion(period: .thisMonth, metric: .expenseTotal))
+        #expect(Self.reading("いくら使った?").resolved(with: choice) == LedgerQuestion(period: .thisMonth, metric: .expenseTotal))
+        #expect(Self.reading("今月の記録は何件?").resolved(with: QuestionChoice(period: modelPeriod, metric: .entryCount, category: .food))
+            == LedgerQuestion(period: .thisMonth, metric: .entryCount))
+        // カテゴリの語は読んだ語として数える（ひらがなで書いても）。期間はモデルの選択を使わず今月。
+        #expect(Self.reading("らんちいくら?").resolved(with: QuestionChoice(period: modelPeriod, metric: .expenseTotal))
+            == LedgerQuestion(period: .thisMonth, metric: .categoryExpense, category: .food))
+    }
+
+    @Test("辞書で読んだ語・質問の決まり文句のほかに漢字・カタカナ・英字が残るかを見る", arguments: [
+        ("今月いくら使った?", false), ("先月いちばん使ったカテゴリは?", false), ("今月の記録は何件?", false),
+        ("予算あとどれくらい残ってる?", false), ("先月の食費は?", false), ("今月カフェいくら?", false), ("らんちいくら?", false),
+        ("年が変わってから外で食べたのは?", true), ("今月ミモザ堂でいくら使った?", true), ("最近いくら使った?", true),
+        ("今月 mimoza いくら?", true),
+        // 辞書で読めるカテゴリの語（店やサービスの名前も）は、読んだ語として数える。
+        ("今月ユニクロでいくら使った?", false),
+    ])
+    func unreadWords(text: String, hasUnreadWords: Bool) {
+        #expect(Self.reading(text).hasUnreadWords == hasUnreadWords, "\(text)")
+    }
+
+    @Test("辞書に無い語が残る文では、モデルの選んだカテゴリを使う")
+    func modelReadsUnknownWords() {
+        let choice = QuestionChoice(period: .thisMonth, metric: .categoryExpense, category: .clothing)
+
+        #expect(Self.reading("今月ミモザ堂でいくら使った?").resolved(with: choice)
+            == LedgerQuestion(period: .thisMonth, metric: .categoryExpense, category: .clothing))
+    }
+
+    /// 2026-11-15 に本物のモデルで試したとき、「先月の食費は?」「今週の交通費は?」に内訳を選び、聞かれたカテゴリを落とした。
+    @Test("文にカテゴリがあれば、モデルがカテゴリを使わない指標を選んでも、そのカテゴリの支出で答える", arguments: [
+        QuestionMetric.expenseByCategory, .topCategory, .remainingBudget, .dailyAllowance, .incomeTotal, .balance, .expenseTotal,
+        .categoryExpense,
+    ])
+    func categoryInTextKeepsCategory(modelMetric: QuestionMetric) {
+        #expect(Self.reading("先月の食費は?").resolved(with: QuestionChoice(period: .lastMonth, metric: modelMetric))
+            == LedgerQuestion(period: .lastMonth, metric: .categoryExpense, category: .food))
+        #expect(Self.reading("今週の交通費は?").resolved(with: QuestionChoice(period: .thisWeek, metric: modelMetric))
+            == LedgerQuestion(period: .thisWeek, metric: .categoryExpense, category: .transport))
+    }
+
+    /// 2026-11-15 に本物のモデルで試したとき、「月末まで毎日いくらまで使える?」に今年を選んだ。
+    @Test("予算の指標は、文に期間が無ければ、モデルがほかの期間を選んでも今月", arguments: QuestionChoice.Period.allCases)
+    func budgetMetricUsesThisMonth(modelPeriod: QuestionChoice.Period) {
+        #expect(Self.reading("月末まで毎日いくらまで使える?").resolved(with: QuestionChoice(period: modelPeriod, metric: .dailyAllowance))
+            == LedgerQuestion(period: .thisMonth, metric: .dailyAllowance))
+        #expect(Self.reading("予算あとどれくらい残ってる?").resolved(with: QuestionChoice(period: modelPeriod, metric: .remainingBudget))
+            == LedgerQuestion(period: .thisMonth, metric: .remainingBudget))
+    }
+
     @Test("答えられない書き方を含むなら、モデルの選択があっても答えない")
     func unsupportedBlocksModel() {
         let choice = QuestionChoice(period: .thisYear, metric: .categoryExpense, category: .food)

@@ -35,6 +35,72 @@ public enum AnswerSentenceCheck {
     /// 一言として受け入れる長さの上限（文字数）。長い文は一言ではなく、確かめる数字も増えるので使わない。
     public static let maximumLength = 160
 
+    /// 一言を画面に出せる一文にそろえ（`plainSentence`）、結果の文と突き合わせる（`accepts`）。使えるなら、画面に出す一文を返す。
+    ///
+    /// 端末内 AI の一言は、そのまま `Text(verbatim:)` で出すので、Markdown の記号（`**` など）を残すと画面にそのまま出る。
+    public static func checked(_ sentence: String, facts: String) -> String? {
+        guard let plain = plainSentence(sentence), accepts(plain, facts: facts) else { return nil }
+        return plain
+    }
+
+    /// 一言を、記号で飾らない一文にそろえる。一文にできなければ nil。
+    ///
+    /// 2026-11-15 に本物のモデルで試したとき、一文で書くよう頼んでも、Markdown の太字（`**…**`）・箇条書き（行頭の `*`）・見出しと
+    /// 改行で区切った複数の文をよく返した。最初の一文はふつうの文で、後ろに計算した割合や指図の文を続けることが多かったので、
+    /// 最初の一文だけを使う。
+    /// - 太字・強調・コードの記号（`**`・`__`・バッククォート）は外す。
+    /// - 最初の空でない行を使い、行頭の箇条書きや見出しの印（`*`・`-`・`+`・`#`・`•`・`・`・`>`・「1.」）は外す。
+    /// - その行の最初の文の終わり（「。」「！」「？」）までにする。文の終わりの無い行は使わない（「今月の収支は、」「収支が好調」の後ろに
+    ///   箇条書きを続けた書きかけの見出しや、長さの上限（`maximumResponseTokens`）で途中で切れた文のため）。
+    /// - 「食費: …」「収支: …」のような、名前と「:」で始める書き方は、結果の文を写した見出しなので使わない。
+    public static func plainSentence(_ text: String) -> String? {
+        var cleaned = text
+        for mark in ["**", "__", "`"] {
+            cleaned = cleaned.replacingOccurrences(of: mark, with: "")
+        }
+        let lines = cleaned.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        guard let first = lines.first else { return nil }
+        let line = strippingListMarks(Substring(first))
+        guard !line.contains(":"), !line.contains("："), !line.isEmpty else { return nil }
+        guard let end = line.firstIndex(where: { sentenceEnds.contains($0) }) else { return nil }
+        // 終わりの記号が続くもの（「！？」）と、閉じかっこ（「…ね。」」）までを含める。
+        var last = end
+        var next = line.index(after: end)
+        while next < line.endIndex, sentenceEnds.contains(line[next]) || closingMarks.contains(line[next]) {
+            last = next
+            next = line.index(after: next)
+        }
+        let result = line[...last].trimmingCharacters(in: .whitespaces)
+        return result.isEmpty ? nil : result
+    }
+
+    /// 文の終わりの記号。
+    private static let sentenceEnds: Set<Character> = ["。", "！", "？", "!", "?"]
+    /// 文の終わりの後ろに続いてよい閉じかっこ。
+    private static let closingMarks: Set<Character> = ["」", "』", "）", ")"]
+    /// 行頭の箇条書き・見出し・引用の印。
+    private static let listMarks: Set<Character> = ["*", "-", "+", "#", "•", "・", ">", "＊", "－", "＃"]
+
+    /// 行頭の箇条書き・見出しの印（「1.」「2)」の番号も）と、その後ろの空白を外す。
+    private static func strippingListMarks(_ line: Substring) -> Substring {
+        var rest = line
+        while true {
+            let before = rest
+            rest = rest.drop { listMarks.contains($0) }.drop(while: \.isWhitespace)
+            let digits = rest.prefix(while: \.isASCIIDigit)
+            if !digits.isEmpty, digits.count <= 2 {
+                let afterDigits = rest.dropFirst(digits.count)
+                if let mark = afterDigits.first, [".", ")", "．", "）"].contains(mark),
+                   afterDigits.dropFirst().first?.isWhitespace ?? true {
+                    rest = afterDigits.dropFirst().drop(while: \.isWhitespace)
+                }
+            }
+            if rest == before { return rest }
+        }
+    }
+
     /// 一言を使ってよいか。空・長すぎる・ツールの結果に無い数字や向きを含むなら false。
     public static func accepts(_ sentence: String, facts: String) -> Bool {
         let trimmed = sentence.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -136,6 +202,15 @@ public enum AnswerSentenceCheck {
                 continue
             }
             result.insert(token.value, as: kind(of: token.range, in: chars))
+        }
+        // 「四分の一」「3分の1」のような分数は、結果の文に無い書き方なので確かめられない（漢数字の「四」は、後ろが数える語ではないので
+        // 数として読まず、そのままでは通ってしまうため）。「十分の」の後ろが数でないもの（「十分のお金」）は分数ではない。
+        for index in chars.indices.dropFirst() where chars[index] == "分" {
+            let previous = chars[index - 1]
+            guard index + 2 < chars.count, chars[index + 1] == "の",
+                  previous.isASCIIDigit || kanjiDigits[previous] != nil || kanjiUnits[previous] != nil else { continue }
+            let next = chars[index + 2]
+            if next.isASCIIDigit || kanjiDigits[next] != nil || kanjiUnits[next] != nil { result.isReadable = false }
         }
         // 数に直せなかった半角の数字（桁が多すぎるなど）と、半角以外の数字の記号（「①」など）。
         for (index, char) in chars.enumerated() where !covered[index] {

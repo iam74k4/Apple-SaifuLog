@@ -201,4 +201,43 @@ struct ChatCommandReaderTests {
         #expect(Self.command(.removeLast, "それはランチ") == nil)
         #expect(Self.command(.removeLast, "カテゴリなしで") == nil)
     }
+
+    /// 直したり変えたりしてもらった費用の記録（モデルはこの形の文をどれも金額を直す文として選んだ）。前の記録を指す語・言い直しの語・
+    /// 直した先を示す直す語が無ければ、金額を直す操作を組み立てない。
+    @Test("「直して」「変えて」「変更」だけの記録の文には、AI が金額を直す操作を選んでも組み立てない", arguments: [
+        "名前の変更 2500", "前のタイヤ変えて 20000", "スマホの画面直して 15000", "前の家の鍵の交換 12000", "住所変更の手数料 300",
+        "髪色変えて 8000",
+    ])
+    func ignoresRepairRecordsForAmountChange(text: String) {
+        #expect(Self.command(.changeAmount, text) == nil, "\(text)")
+        #expect(ChatCommandReader.candidates(in: text, now: Fixture.now, calendar: Fixture.calendar).isEmpty, "\(text)")
+    }
+
+    @Test("前の記録を指す語・言い直しの語・直した先を示す直す語・金額の語があれば、AI が選んだ金額を直す操作を組み立てる", arguments: [
+        ("あれ実は900円だった", 900), ("ごめん、さっきのは1500円だった", 1_500), ("それほんとは1200だったわ", 1_200),
+        ("ランチ900に直して", 900), ("ランチの金額は900", 900), ("さっきのランチ、850じゃなくて950", 950),
+    ])
+    func buildsAmountChangeWithCues(text: String, amount: Int) {
+        #expect(Self.command(.changeAmount, text) == .changeAmount(amount), "\(text)")
+    }
+
+    @Test("組み立てられる種類だけを候補にする（AI には候補と「どれでもない」だけを選ばせる）")
+    func candidates() {
+        func candidates(_ text: String) -> [ChatCommandKind: ChatCommand] {
+            ChatCommandReader.candidates(in: text, now: Fixture.now, calendar: Fixture.calendar)
+        }
+        #expect(candidates("あれ実は900円だった") == [.changeAmount: .changeAmount(900)])
+        #expect(candidates("さっきのやっぱりなしで") == [.removeLast: .removeLast])
+        #expect(candidates("これからは予算を7万くらいで") == [.setMonthlyBudget: .setMonthlyBudget(70_000)])
+        #expect(candidates("交通費じゃなくて食費かな") == [.recategorize: .recategorize(.food)])
+        // カテゴリの名前と消す語のある文は、どちらも候補にする（どちらかは AI が選ぶ）。
+        #expect(candidates("交通のやつ消して") == [.recategorize: .recategorize(.transport), .removeLast: .removeLast])
+        // 記録・質問・比べる文・店を直す文・金額が 2 つの文は、どの種類も組み立てられない（AI に聞かない）。
+        for text in [
+            "ランチ 850", "昨日 焼肉12000 4人で割り勘", "今月カフェいくら?", "先月の食費は?", "スタバじゃなくてドトール 400",
+            "今月の食費 3万超えた", "さっきのを900か950に直して", "残り 5000",
+        ] {
+            #expect(candidates(text).isEmpty, "\(text)")
+        }
+    }
 }

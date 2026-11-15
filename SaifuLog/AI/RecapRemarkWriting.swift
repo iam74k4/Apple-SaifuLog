@@ -11,11 +11,10 @@ protocol RecapRemarkWriting: Sendable {
 }
 
 enum RecapRemark {
-    /// AI の一言を数字の文と突き合わせ、使えるなら前後の空白を除いた文を返す。空・長すぎる・文に無い数字や収支の向きを含むなら nil
-    /// （画面には定型文だけを出す）。
+    /// AI の一言を記号で飾らない一文にそろえ、数字の文と突き合わせる。使えるならその一文を返す。一文にできない・空・長すぎる・
+    /// 文に無い数字や収支の向きを含むなら nil（画面には定型文だけを出す）。`AnswerSentenceCheck.checked`。
     static func checked(_ sentence: String, facts: String) -> String? {
-        let trimmed = sentence.trimmingCharacters(in: .whitespacesAndNewlines)
-        return AnswerSentenceCheck.accepts(trimmed, facts: facts) ? trimmed : nil
+        AnswerSentenceCheck.checked(sentence, facts: facts)
     }
 }
 

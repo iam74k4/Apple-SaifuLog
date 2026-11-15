@@ -298,4 +298,52 @@ struct AnswerSentenceCheckTests {
         #expect(AnswerSentenceCheck.accepts("一日あたり¥31,000使えます。", facts: facts))
         #expect(!AnswerSentenceCheck.accepts("あと4日、1日あたり¥31,000使えます。", facts: facts))
     }
+    // MARK: - 記号で飾らない一文にそろえる
+
+    /// 2026-11-15 に本物のモデルが返した形（太字・箇条書き・改行で区切った複数の文）。
+    @Test("Markdown の記号と行頭の印を外し、最初の一文だけにする", arguments: [
+        ("先月の食費は、**3,200円**です。", "先月の食費は、3,200円です。"),
+        ("**「焼肉」は今月の食費の中で最も高額な支出でしたね。**", "「焼肉」は今月の食費の中で最も高額な支出でしたね。"),
+        ("カフェラテは美味しいよね。\n\n今月の合計は、月額の予算の半分くらいだから、余裕があるよ。", "カフェラテは美味しいよね。"),
+        ("「焼肉」は美味しいですよね。今月の食費は合計で「¥5,050」です。", "「焼肉」は美味しいですよね。"),
+        ("*   収入が支出よりも多いので、余裕があります。\n*   食費も多めです。", "収入が支出よりも多いので、余裕があります。"),
+        ("1. 収入が支出より多いので、安心です。", "収入が支出より多いので、安心です。"),
+        ("# 今月もよく記録できましたね！", "今月もよく記録できましたね！"),
+        ("すごいですね！？ この調子です。", "すごいですね！？"),
+        ("「カフェラテ、おいしかった？」", "「カフェラテ、おいしかった？」"),
+        ("  カフェラテは美味しいよね。  ", "カフェラテは美味しいよね。"),
+        ("`今月`も記録できました。", "今月も記録できました。"),
+    ])
+    func plainSentence(text: String, expected: String) {
+        #expect(AnswerSentenceCheck.plainSentence(text) == expected, "\(text)")
+    }
+
+    @Test("一文にできない一言は使わない（空・文の終わりの無い行・名前と「:」の見出し）", arguments: [
+        "", "  \n ", "**", "今月の収支は、\n\n*   収入が支出より多い", "カフェラテは美味しいので、今月も", "*   **収支が好調**\n\n    *   収支が好調なのは、支出が少ないためです。",
+        "*   **食費**: 41%の支出は、食事の質を少し変えると改善できるかもしれません。", "収支: +¥244,300（収入が支出より多い）",
+    ])
+    func rejectsNonSentences(text: String) {
+        #expect(AnswerSentenceCheck.plainSentence(text) == nil, "\(text)")
+    }
+
+    @Test("そろえた一文を結果の文と突き合わせ、使えるならその一文を返す")
+    func checkedReturnsPlainSentence() {
+        let facts = Self.cafeFacts
+        #expect(AnswerSentenceCheck.checked("今月のカフェは**¥3,200**です。\n\n*   1日あたり¥100です。", facts: facts) == "今月のカフェは¥3,200です。")
+        // 最初の一文に結果の文に無い数字があれば使わない。
+        #expect(AnswerSentenceCheck.checked("今月のカフェは¥3,300です。\nほかは¥3,200です。", facts: facts) == nil)
+    }
+
+    @Test("分数は確かめられないので使わない（漢数字も）", arguments: [
+        "今月のカフェの約四分の一です。", "今月のカフェの3分の1です。", "今月のカフェの十分の一です。",
+    ])
+    func rejectsFractions(text: String) {
+        #expect(!AnswerSentenceCheck.accepts(text, facts: Self.cafeFacts), "\(text)")
+    }
+
+    @Test("「十分」は分数ではない")
+    func acceptsJuubun() {
+        #expect(AnswerSentenceCheck.accepts("今月のカフェは十分の記録があります。", facts: Self.cafeFacts))
+        #expect(AnswerSentenceCheck.accepts("今月のカフェは十分に楽しめましたね。", facts: Self.cafeFacts))
+    }
 }

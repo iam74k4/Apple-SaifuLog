@@ -38,7 +38,8 @@ struct ScreenshotDemoAnswerer: QuestionAnswering {
 }
 
 /// 月のまとめの AI の一言の代わり。数字の文（`RecapFacts`）から、支出のいちばん多いカテゴリを
-/// 読んで、数字を書かない励ましの一文にする（端末内 AI への指示「励ましか気づきを一文か二文で」に沿う形）。
+/// 読んで、数字を書かない励ましの一文にする（端末内 AI への指示「励ましか気づきの短い一文」に沿う形。画面には最初の一文だけを
+/// 出すので、2 文にしない。`RecapRemark.checked`）。
 struct ScreenshotDemoRemarkWriter: RecapRemarkWriting {
     func remark(from facts: String) async throws -> String {
         Self.remark(from: facts)
@@ -47,9 +48,9 @@ struct ScreenshotDemoRemarkWriter: RecapRemarkWriting {
     static func remark(from facts: String) -> String {
         guard let top = topCategory(in: facts) else { return "記録を続けられていて、いい調子です。" }
         if facts.hasPrefix("期間: 今月") {
-            return "今月は\(top)がいちばん多くなっています。記録を続けられていて、いい調子です。"
+            return "今月は\(top)がいちばん多く、記録も続けられていて、いい調子です。"
         }
-        return "この月は\(top)がいちばん多くなりました。記録を続けられていて、いい調子です。"
+        return "この月は\(top)がいちばん多く、記録も続けられていて、いい調子です。"
     }
 
     /// 「支出の多いカテゴリ: 食費 ¥6,000（49%）、…」の最初のカテゴリの名前。
@@ -75,7 +76,7 @@ struct ScreenshotDemoRecordRemarkWriter: RecapRemarkWriting {
         }
         let name = line[line.index(line.startIndex, offsetBy: 3)..<colon]
         let count = line[open.upperBound..<close.lowerBound]
-        return "今月の\(name)は\(count)件目です。いいペースで記録できています。"
+        return "今月の\(name)は\(count)件目で、いいペースで記録できています。"
     }
 }
 
