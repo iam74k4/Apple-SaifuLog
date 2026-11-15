@@ -413,8 +413,11 @@ docs: add privacy policy
 - `CHANGELOG.md` の先頭のバージョン見出し（`## [X.Y.Z]`）を `MARKETING_VERSION` と一致させる。
   CI の `make check-version` がずれを止める。
 - CHANGELOG の各バージョンの節は、そのまま App Store の「このバージョンでの変更点」と
-  GitHub Release の本文になる。App Store は Markdown を表示しないので、節の中では太字・リンク・
-  バッククォートを使わず、`- ` の箇条書きと平文で、利用者の目線で書く（内部の型名やファイル名は書かない）。
+  GitHub Release の本文になる。App Store は Markdown を表示せず、改行もそのまま出すので、節の中には
+  見出し（### 追加 など）を置かず、太字・リンク・バッククォートも使わず、`- ` で始まる 1 項目 1 行の平文で書く。
+  利用者が画面で気づける変化だけを、ですます調で、大事な順に 3〜5 項目・全体で 400 字ほどにまとめる
+  （内部の型名やファイル名、テストや CI のような開発の作業は書かない。最初の版には修正を書かない）。
+  書いたら `./scripts/changelog-section.sh --plain <版>` で、App Store に出る文字そのものを見る。
 
 ### コードの置き場所
 - `SaifuLog/` — アプリ本体。起動と保存先を開く部分・設定のキー（`App/`）、SwiftUI の画面と画面ごとの
