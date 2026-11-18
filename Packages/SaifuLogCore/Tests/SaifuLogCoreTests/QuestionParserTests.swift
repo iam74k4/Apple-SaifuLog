@@ -370,4 +370,84 @@ struct QuestionParserTests {
         #expect(Self.reading("去年の食費は?").resolved(with: choice) == nil)
         #expect(Self.reading("年明けの外食いくら?").resolved(with: choice) == nil)
     }
+
+    // MARK: - 品目や店の名前
+
+    /// 品目（メモ）にだけ名前を持つ記録の写し。
+    static func ledger(_ memos: [String]) -> QuestionLedger {
+        QuestionLedger(records: memos.map { LedgerRecordValue(amount: 100, spentAt: Fixture.now, searchText: $0) })
+    }
+
+    @Test("カテゴリを品目や店の名前で読んだら、その名前（書かれたとおり）も読む。カテゴリの名前なら読まない", arguments: [
+        ("今月スタバに何回行った?", "スタバ"), ("先月のすたばは?", "すたば"), ("今週の電車代", "電車"), ("今月ランチいくら?", "ランチ"),
+        ("今月ユニクロでいくら使った?", "ユニクロ"), ("今月 Starbucks いくら?", "Starbucks"),
+        ("今月カフェいくら?", nil), ("先月の食費は?", nil), ("今週の交通費は?", nil), ("今月の光熱費は?", nil), ("今月の美容は?", nil),
+        ("今月その他いくら?", nil), ("今月いくら使った?", nil),
+    ] as [(String, String?)])
+    func itemWord(text: String, itemWord: String?) {
+        #expect(Self.reading(text).itemWord == itemWord, "\(text)")
+    }
+
+    @Test("品目の名前の記録があれば、その名前の記録だけを数える質問にする。名前の記録が無ければカテゴリのまま")
+    func itemWordNarrowsWhenRecorded() {
+        let reading = Self.reading("今月スタバに何回行った?")
+
+        #expect(reading.question(in: Self.ledger(["スタバ ラテ"]))
+            == LedgerQuestion(period: .thisMonth, metric: .entryCount, keyword: "スタバ"))
+        #expect(reading.question(in: Self.ledger(["ドトール"])) == LedgerQuestion(period: .thisMonth, metric: .entryCount, category: .cafe))
+        // ひらがなで書いても、カタカナの品目に当たる。
+        #expect(Self.reading("今月すたばいくら?").question(in: Self.ledger(["スタバ"]))
+            == LedgerQuestion(period: .thisMonth, metric: .expenseTotal, keyword: "すたば"))
+        // カテゴリの名前で聞かれたら、名前の記録があってもカテゴリで答える。
+        #expect(Self.reading("今月カフェいくら?").question(in: Self.ledger(["カフェ"]))
+            == LedgerQuestion(period: .thisMonth, metric: .categoryExpense, category: .cafe))
+        // AI の経路でも、文から読んだ名前をモデルの名前より優先する。
+        #expect(reading.resolved(with: QuestionChoice(period: .thisMonth, metric: .entryCount, keyword: "行った"), in: Self.ledger(["スタバ"]))
+            == LedgerQuestion(period: .thisMonth, metric: .entryCount, keyword: "スタバ"))
+    }
+
+    @Test("辞書に無い名前は、モデルが抜き出した名前を、残りの文に書かれ、その名前の記録があるときだけ使う")
+    func modelKeyword() {
+        let reading = Self.reading("今月メルカリでいくら使った?")
+        let ledger = Self.ledger(["メルカリ 古着"])
+        func resolved(_ keyword: String?) -> LedgerQuestion? {
+            reading.resolved(with: QuestionChoice(period: .thisMonth, metric: .expenseTotal, category: .other, keyword: keyword), in: ledger)
+        }
+        let narrowed = LedgerQuestion(period: .thisMonth, metric: .expenseTotal, keyword: "メルカリ")
+        let byModelCategory = LedgerQuestion(period: .thisMonth, metric: .categoryExpense, category: .other)
+
+        #expect(resolved("メルカリ") == narrowed)
+        // 文に書かれたとおりの字にそろえ、後ろの助詞と前後の記号を除く。
+        #expect(resolved("めるかり") == narrowed)
+        #expect(resolved("メルカリで") == narrowed)
+        #expect(resolved(" メルカリ。") == narrowed)
+        // 文に無い名前・読んだ語を含む名前・短すぎる名前は使わない（モデルのカテゴリのまま）。
+        #expect(resolved("Amazon") == byModelCategory)
+        #expect(resolved("今月のメルカリ") == byModelCategory)
+        #expect(resolved("メ") == byModelCategory)
+        #expect(resolved(nil) == byModelCategory)
+        // 名前の記録が無ければ使わない。
+        #expect(reading.resolved(with: QuestionChoice(period: .thisMonth, metric: .expenseTotal, keyword: "メルカリ"), in: Self.ledger(["Amazon"]))
+            == LedgerQuestion(period: .thisMonth, metric: .expenseTotal))
+    }
+
+    @Test("文がすべて辞書で読めるか、カテゴリの名前があれば、モデルの抜き出した名前を使わない")
+    func modelKeywordNeedsUnreadWords() {
+        let ledger = Self.ledger(["いくら丼", "食費"])
+
+        #expect(Self.reading("今月いくら使った?").resolved(with: QuestionChoice(period: .thisMonth, metric: .expenseTotal, keyword: "いくら"), in: ledger)
+            == LedgerQuestion(period: .thisMonth, metric: .expenseTotal))
+        #expect(Self.reading("先月の食費は?").resolved(with: QuestionChoice(period: .lastMonth, metric: .expenseTotal, keyword: "食費"), in: ledger)
+            == LedgerQuestion(period: .lastMonth, metric: .categoryExpense, category: .food))
+    }
+
+    @Test("AI の名前の受け付け: 後ろの「代」「費」を除き、ひらがなの名前の「と」は残し、数字と長すぎる名前は使わない")
+    func acceptedKeyword() {
+        #expect(Self.reading("今月ジム代いくら?").acceptedKeyword("ジム代") == "ジム")
+        #expect(Self.reading("今年のふるさと納税はいくら?").acceptedKeyword("ふるさと納税") == "ふるさと納税")
+        #expect(Self.reading("今年のふるさと納税はいくら?").acceptedKeyword("ふるさと納税は") == "ふるさと納税")
+        #expect(Self.reading("今月 Amazon でいくら?").acceptedKeyword("amazon") == "Amazon")
+        #expect(Self.reading("今月メルカリでいくら使った?").acceptedKeyword("メルカリ2") == nil)
+        #expect(Self.reading("今月\(String(repeating: "ア", count: 21))いくら?").acceptedKeyword(String(repeating: "ア", count: 21)) == nil)
+    }
 }

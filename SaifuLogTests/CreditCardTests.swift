@@ -142,14 +142,19 @@ struct CreditCardTests {
         #expect(fixture.model.pendingCardBill == nil)
     }
 
-    /// 金額の無い文は確かめずに、これまでどおり「金額が見つかりませんでした」。
-    @Test func cardBillWithoutAmountIsNotAsked() async throws {
+    /// 金額の無い文は確かめずに、ほかの文と同じく金額を聞き返す。金額を答えたら、1 行で送ったときと同じく記録する前に確かめる。
+    @Test func cardBillWithoutAmountAsksAmountFirst() async throws {
         let fixture = try Fixture()
 
         await fixture.send("カードの引き落とし")
 
         #expect(fixture.model.pendingCardBill == nil)
-        #expect(fixture.showedNoAmount)
+        #expect(fixture.lastQuestionState == .amountAsked)
+
+        await fixture.send("50000")
+
+        #expect(fixture.model.pendingCardBill != nil)
+        #expect(try fixture.entries().isEmpty)
     }
 
     // MARK: - 質問

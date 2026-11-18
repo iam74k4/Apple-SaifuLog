@@ -24,7 +24,9 @@ enum QuestionReply: Equatable, Sendable {
 /// キーワード辞書で読んで答える（AI が使えない端末と、AI が失敗したとき）。
 struct RuleBasedQuestionAnswerer: QuestionAnswering {
     func answer(_ text: String, ledger: QuestionLedger, now: Date, calendar: Calendar) async throws -> QuestionReply {
-        guard let question = QuestionParser.question(from: text, now: now, calendar: calendar, catalog: ledger.catalog),
+        // 品目の名前（辞書の語。「スタバ」）で聞かれ、その名前の記録があれば、その記録だけを数える。
+        let reading = QuestionParser.read(text, now: now, calendar: calendar, catalog: ledger.catalog)
+        guard let question = reading.question(in: ledger),
               let answer = LedgerQuestionAnswerer.answer(question, ledger: ledger, now: now, calendar: calendar)
         else { return .unreadable }
         return .answered(answer)

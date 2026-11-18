@@ -76,6 +76,8 @@ public struct ExtractedEntry: Sendable, Hashable {
     ///   読める区間（「給料 250000」「配当 1200」）は収入にする（どちらで読んでも、給料が支出にならないように）
     /// - 品目: 区間に書かれた言葉でなければ（「昨日」だけ・作った品目）ルールベースのメモにする
     ///   （`InputSegment.groundedItem(from:memo:)`）。そのときはカテゴリもルールベースの推定にする（根拠の無い「食費」を保存しない）
+    /// - カテゴリ: 区間の言葉がキーワード辞書に当たれば（その他でないカテゴリ）、モデルの答えによらず辞書のカテゴリにする
+    ///   （`category(against:groundedItem:)`）。モデルの答えは、辞書に無い品目にだけ使う
     public func resolved(against segment: InputSegment) throws -> ParsedEntry {
         guard let value = AmountParser.yen(from: amountText),
               let candidate = segment.candidate(matching: value)
@@ -95,7 +97,7 @@ public struct ExtractedEntry: Sendable, Hashable {
         let groundedItem = segment.groundedItem(from: item, memo: candidate.memo)
         return ParsedEntry.assemble(
             total: candidate.value,
-            category: groundedItem == nil ? segment.ruleCategory : EntryCategory(displayName: categoryName) ?? .other,
+            category: category(against: segment, groundedItem: groundedItem),
             isIncome: amount.isNegative || IncomeRule.isIncome(segment.contextText)
                 || (isIncome && !amount.hasSeparatorHyphen && !IncomeRule.contradictsIncome(segment.contextText)),
             item: groundedItem ?? candidate.memo,
@@ -103,6 +105,17 @@ public struct ExtractedEntry: Sendable, Hashable {
             splitCount: segment.splitCount ?? 1,
             isPerPerson: amount.isPerPerson
         )
+    }
+
+    /// その件のカテゴリ。
+    ///
+    /// 区間の言葉がキーワード辞書に当たれば、辞書のカテゴリにする。辞書は、ほかのカテゴリの語と取り違えやすい語を入れずに
+    /// 選んだ語だけなので（docs/design.md §8）、当たればモデルより確かで、いつも同じ答えになる。モデルは辞書の語でも外すことが
+    /// あった（実機で「ドラッグ」を娯楽、「家賃」を光熱・通信にした）。辞書に無い品目（「その他」になるもの）だけモデルの答えを
+    /// 使う。品目が区間に書かれた言葉でなければ、モデルのカテゴリにも根拠が無いので、辞書の推定のまま（無ければ「その他」）にする。
+    func category(against segment: InputSegment, groundedItem: String?) -> EntryCategory {
+        guard groundedItem != nil, segment.ruleCategory == .other else { return segment.ruleCategory }
+        return EntryCategory(displayName: categoryName) ?? .other
     }
 
     /// 入力全体と突き合わせて 1 件の記録にする。金額が書かれた最初の区間と突き合わせる（`resolved(against:)`）。

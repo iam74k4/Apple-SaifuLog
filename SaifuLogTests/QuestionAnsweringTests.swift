@@ -1,5 +1,6 @@
 import Foundation
 import SaifuLogCore
+import SwiftData
 import Synchronization
 import Testing
 @testable import SaifuLog
@@ -31,6 +32,56 @@ struct QuestionAnsweringTests {
         )
 
         #expect(reply == .answered(try Self.answer(Self.cafeThisMonth)))
+    }
+
+    /// 品目（メモ）を持つ記録。今月のスタバ ¥950（2 件）、ドトール ¥380、メルカリ ¥2,980。
+    static let keywordLedger = QuestionLedger(records: [
+        LedgerRecordValue(amount: 450, category: .cafe, spentAt: TestSupport.date(2026, 9, 3), searchText: "スタバ"),
+        LedgerRecordValue(amount: 500, category: .cafe, spentAt: TestSupport.date(2026, 9, 10), searchText: "スタバ ラテ"),
+        LedgerRecordValue(amount: 380, category: .cafe, spentAt: TestSupport.date(2026, 9, 12), searchText: "ドトール"),
+        LedgerRecordValue(amount: 2_980, spentAt: TestSupport.date(2026, 9, 5), searchText: "メルカリ"),
+    ])
+
+    /// 品目の名前（辞書の語）で聞かれ、その名前の記録があれば、AI が使えなくてもその記録だけを数える。
+    @Test func ruleBasedNarrowsToItemWord() async throws {
+        let reply = try await RuleBasedQuestionAnswerer().answer(
+            "今月スタバいくら?", ledger: Self.keywordLedger, now: TestSupport.now, calendar: TestSupport.calendar
+        )
+
+        guard case .answered(let answer) = reply else {
+            Issue.record("答えられなかった")
+            return
+        }
+        #expect(answer.question == LedgerQuestion(period: .thisMonth, metric: .expenseTotal, keyword: "スタバ"))
+        #expect(answer.value == .amount(950))
+        #expect(QuestionTexts.title(for: answer.question) == "「スタバ」の支出")
+    }
+
+    /// 保存先から読んだ写しでは、レシートの記録は店名の入った元の文も探す。ひとこと入力の元の文は探さない（1 回の送信のほかの
+    /// 記録の品目も入っているため）。
+    @MainActor
+    @Test func loadedLedgerSearchesReceiptStoreButNotSentText() throws {
+        let context = try TestSupport.makeContext()
+        let sent = "スタバ 450 と 本 1200"
+        context.insert(Entry(
+            amount: 450, isIncome: false, category: .cafe, memo: "スタバ", spentAt: TestSupport.date(2026, 9, 3),
+            source: .text, originalText: sent
+        ))
+        context.insert(Entry(
+            amount: 1_200, isIncome: false, category: .entertainment, memo: "本", spentAt: TestSupport.date(2026, 9, 3),
+            source: .text, originalText: sent
+        ))
+        context.insert(Entry(
+            amount: 198, isIncome: false, category: .food, memo: "牛乳", spentAt: TestSupport.date(2026, 9, 4),
+            source: .receipt, originalText: "レシート: イオン 合計 ¥198"
+        ))
+        try context.save()
+
+        let ledger = try QuestionLedger.load(from: context, now: TestSupport.now, calendar: TestSupport.calendar)
+
+        #expect(ledger.records(mentioning: "スタバ").map(\.amount) == [450])
+        #expect(ledger.records(mentioning: "イオン").map(\.amount) == [198])
+        #expect(ledger.records(mentioning: "牛乳").map(\.amount) == [198])
     }
 
     @Test func ruleBasedUnreadable() async throws {
@@ -166,11 +217,41 @@ struct QuestionAnsweringTests {
     #if canImport(FoundationModels)
     // MARK: - AI のツール呼び出し
 
-    static func tool(for text: String, recorder: LedgerToolRecorder = LedgerToolRecorder()) -> LedgerQuestionTool {
+    static func tool(
+        for text: String, ledger: QuestionLedger = ledger, recorder: LedgerToolRecorder = LedgerToolRecorder()
+    ) -> LedgerQuestionTool {
         LedgerQuestionTool(
             reading: QuestionParser.read(text, now: TestSupport.now, calendar: TestSupport.calendar),
             ledger: ledger, now: TestSupport.now, calendar: TestSupport.calendar, recorder: recorder
         )
+    }
+
+    /// 辞書に無い店やサービスの名前は、モデルが抜き出した名前で、その名前の記録だけを数える。
+    @Test func toolNarrowsToModelKeyword() async throws {
+        let recorder = LedgerToolRecorder()
+        let tool = Self.tool(for: "今月メルカリでいくら使った?", ledger: Self.keywordLedger, recorder: recorder)
+
+        let facts = try await tool.call(arguments: LedgerQueryArguments(
+            period: .thisMonth, metric: .expenseTotal, category: .other, keyword: "メルカリ"
+        ))
+
+        #expect(recorder.latest?.answer.question == LedgerQuestion(period: .thisMonth, metric: .expenseTotal, keyword: "メルカリ"))
+        #expect(recorder.latest?.answer.value == .amount(2_980))
+        #expect(facts.contains("品目に「メルカリ」と書いた支出の合計"))
+    }
+
+    /// モデルの名前が文に無いか（作った名前）、その名前の記録が無ければ、名前で絞らない。
+    @Test(arguments: ["Amazon", "ラクマ"])
+    func toolIgnoresUngroundedModelKeyword(keyword: String) async throws {
+        let recorder = LedgerToolRecorder()
+        let text = keyword == "ラクマ" ? "今月ラクマでいくら使った?" : "今月メルカリでいくら使った?"
+        let tool = Self.tool(for: text, ledger: Self.keywordLedger, recorder: recorder)
+
+        _ = try await tool.call(arguments: LedgerQueryArguments(
+            period: .thisMonth, metric: .expenseTotal, category: .unspecified, keyword: keyword
+        ))
+
+        #expect(recorder.latest?.answer.question == LedgerQuestion(period: .thisMonth, metric: .expenseTotal))
     }
 
     /// ツールはモデルの選択から、コードで数字を計算して返す（結果の文と、画面に出す答えを残す）。
@@ -301,6 +382,15 @@ struct QuestionAnsweringTests {
     }
     #endif
 }
+
+#if canImport(FoundationModels)
+extension LedgerQueryArguments {
+    /// 品目の名前を抜き出さなかったときの引数（多くのテストは名前を使わない）。
+    init(period: PeriodChoice, metric: MetricChoice, category: CategoryChoice) {
+        self.init(period: period, metric: metric, category: category, keyword: "")
+    }
+}
+#endif
 
 /// モデルの代わりが呼ばれた回数（呼ばれないことを確かめる）。
 final class CallCounter: Sendable {

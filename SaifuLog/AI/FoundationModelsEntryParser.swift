@@ -68,7 +68,9 @@ struct FoundationModelsEntryParser: EntryParsing {
         // 区間ごとに新しいセッションにする。前の件や前の入力の文脈を引きずらず（前の件を繰り返さず）、
         // 文脈の長さも超えないようにするため。
         let session = LanguageModelSession(instructions: instructions)
-        let generated = try await session.respond(to: segmentText, generating: GeneratedEntry.self).content
+        let generated = try await session.respond(
+            to: segmentText, generating: GeneratedEntry.self, options: AIGeneration.deterministic
+        ).content
         return ExtractedEntry(
             item: generated.item,
             amountText: generated.amountText,

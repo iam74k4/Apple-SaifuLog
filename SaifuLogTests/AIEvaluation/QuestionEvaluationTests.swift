@@ -5,7 +5,7 @@ import Testing
 @testable import SaifuLog
 
 extension AIEvaluationTests {
-    /// 家計への質問（`FoundationModelsQuestionAnswerer`。モデルが `queryLedger` ツールで期間・知りたいこと・カテゴリを選び、数字はコアが
+    /// 家計への質問（`FoundationModelsQuestionAnswerer`。モデルが `queryLedger` ツールで期間・知りたいこと・カテゴリと品目の名前を選び、数字はコアが
     /// 計算する）。アプリはモデルがツールを呼ばなかったときなどにキーワード辞書で答え直す（`FallbackQuestionAnswerer`）が、ここでは
     /// AI だけの答えを見る。
     @Suite("家計への質問")
@@ -26,6 +26,11 @@ extension AIEvaluationTests {
             ("先月いちばん使ったカテゴリは?", LedgerQuestion(period: .lastMonth, metric: .topCategory)),
             ("今週の交通費は?", LedgerQuestion(period: .thisWeek, metric: .categoryExpense, category: .transport)),
             ("今月の記録は何件?", LedgerQuestion(period: .thisMonth, metric: .entryCount)),
+            // 品目や店の名前。辞書の語（スタバ）はコードが読み、辞書に無い名前はモデルが抜き出す（その名前の記録だけを数える）。
+            ("今月スタバに何回行った?", LedgerQuestion(period: .thisMonth, metric: .entryCount, keyword: "スタバ")),
+            ("今月Amazonでいくら使った?", LedgerQuestion(period: .thisMonth, metric: .expenseTotal, keyword: "Amazon")),
+            ("先月メルカリにいくら払った?", LedgerQuestion(period: .lastMonth, metric: .expenseTotal, keyword: "メルカリ")),
+            ("今年のふるさと納税はいくら?", LedgerQuestion(period: .thisYear, metric: .expenseTotal, keyword: "ふるさと納税")),
         ]
 
         @Test("ツールで期間・知りたいこと・カテゴリを選び、上限の時間に収まる。答えの数字はコードの計算と同じ")
@@ -66,7 +71,8 @@ extension AIEvaluationTests {
             guard let answer else { return "読めない" }
             let question = answer.question
             let category = question.category.map { " \($0.displayName)" } ?? ""
-            return "\(question.period) \(question.metric)\(category) → \(answer.value)"
+            let keyword = question.keyword.map { " 「\($0)」" } ?? ""
+            return "\(question.period) \(question.metric)\(category)\(keyword) → \(answer.value)"
         }
     }
 }

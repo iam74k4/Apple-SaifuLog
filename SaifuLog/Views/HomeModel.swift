@@ -52,6 +52,10 @@ final class HomeModel {
     /// を出す（質問の「計算しています…」と同じ）。読み取りは AI だと 1 秒以上かかることがあり、その間に何も出ないと、送った文が
     /// 入力欄から消えただけに見え、送れたのか分からないため。記録したら記録した送信に替わり、読めなければ消えて文が入力欄に戻る。
     private(set) var pendingRecord: PendingRecord?
+    /// 金額を聞き返している送信（「ランチ」と送り、「いくらでしたか？」と返したもの）。次に金額だけを送れば（「850」）、この文に
+    /// 金額を足して記録する（`submit`）。金額だけでない文を送ったら、聞き返しを終える（`closeAmountQuestion`）。質問と同じく
+    /// 保存しない（開き直すと消える）。
+    private(set) var amountQuestion: AmountQuestion?
     /// 直前の送信で記録したもの。その送信の返事に「取り消す」を出すため（時間では引っ込めない。次の文を送る・取り消す・
     /// その記録を直す・記録先を切り替えるまで残し、消した記録は外す）。
     private(set) var justRecorded: [Entry] = [] {
@@ -297,14 +301,29 @@ final class HomeModel {
     ///   - forcesQuestion: 記録か見分けずに質問として答える（Siri・ショートカットの「家計に質問」）。
     ///   - confirmsCommands: 決まりで読んだチャットの操作も、行う前に確かめる（Siri・ショートカットの「ひとことで記録」）。声で
     ///     頼んだ文は聞き取りの誤りがあり、記録のつもりの頼みで直前の記録を黙って消したり書き換えたりしないため。
+    ///   - sentAt: 送った瞬間の日時。渡さなければいまの時刻。金額の聞き返しに答えたときは、聞き返した文を送った日時を渡す。
     @discardableResult
     private func submit(
-        _ text: String, source: EntrySource, forcesQuestion: Bool = false, confirmsCommands: Bool = false, calendar: Calendar
+        _ text: String, source: EntrySource, forcesQuestion: Bool = false, confirmsCommands: Bool = false, sentAt: Date? = nil,
+        calendar: Calendar
     ) -> Task<Void, Never> {
+        // 金額を聞き返していて、送った文が金額だけ（「850」「850円です」）なら、聞き返した文の後ろに金額を足して、1 行で送った
+        // ときと同じように読む（「ランチ 850」。日付・割り勘・払い方の言葉は聞き返した文のものが効く）。聞き返しの吹き出しと
+        // 案内は消し、足した文の送信に置き換える（開き直した後のタイムラインと同じ見え方にする）。日時は聞き返した文を送った
+        // ときのもの（「昨日 ランチ」を 23:59 に送り、日付が変わった 0:01 に金額を答えても、2 日前の記録にしないため）。
+        if !forcesQuestion, let question = amountQuestion, let amount = AmountReply.amountText(in: text) {
+            amountQuestion = nil
+            questions.removeAll { $0.id == question.exchangeID }
+            return submit(
+                "\(question.text) \(amount)", source: question.source, confirmsCommands: confirmsCommands,
+                sentAt: question.sentAt, calendar: calendar
+            )
+        }
+        closeAmountQuestion()
         // 送った瞬間の日時を 1 つ決め、解析（「昨日」「9/26」の基準）と保存（記録した日時・使った日時）の両方に使う。
         // 保存のときに時計を読み直すと、読み取りを待つ間に日付が変わったとき（23:59:59 に送って 0:00:01 に保存）、
         // 「9/26」と書いた記録が 1 日ずれて保存されるため。質問も、この日時で期間を区切る。
-        let sentAt = now()
+        let sentAt = sentAt ?? now()
         // チャットの操作の相手（直前の送信）を、送った時点で控える。AI を待つ間に直前の送信が替わっても（取り消した・
         // くり返しの記録を記録した）、送った文が指していた記録だけを相手にするため。
         let targets = commandTargets()
@@ -345,6 +364,15 @@ final class HomeModel {
             showUndecided(intent, text: text, source: source, sentAt: sentAt)
             return Task {}
         }
+    }
+
+    /// 金額の聞き返しを終える（金額だけでない文を送った・質問の候補を押した・レシートから記録した）。聞き返しの案内は「金額が
+    /// 見つかりませんでした」に替える（「金額だけを送ると記録します」のまま残すと、後で金額だけを送ったときに、その文に足して
+    /// 記録されると思わせるため）。
+    private func closeAmountQuestion() {
+        guard let question = amountQuestion else { return }
+        amountQuestion = nil
+        setQuestionState(.noAmount, for: question.exchangeID)
     }
 
     /// 記録にも質問にも操作にもできなかった文の案内を出し、送った文を入力欄に戻す（数えない）。
@@ -509,8 +537,17 @@ final class HomeModel {
                 case .nothing:
                     break
                 }
-                // 送った文と案内をタイムラインに出し、文を入力欄に戻して、その場で金額を足して送り直せるようにする（キーボードは
-                // 出したまま）。
+                // 金額が書かれていなければ、「いくらでしたか？」と聞き返す。入力欄は空のままにし（キーボードは出したまま）、次に金額
+                // だけを送れば記録する（`amountQuestion`）。前は文を入力欄に戻して金額を足してもらっていたが、チャットでは聞かれた
+                // ことに答えるほうが自然で、戻した文の後ろへカーソルを運ぶ手間も要らないため。
+                if AmountParser.yen(from: text) == nil {
+                    let exchangeID = appendQuestion(text, askedAt: sentAt, state: .amountAsked)
+                    amountQuestion = AmountQuestion(text: text, source: source, sentAt: sentAt, exchangeID: exchangeID)
+                    announce(String(localized: "いくらでしたか？"))
+                    return
+                }
+                // 金額は書かれているのに読めなかった（解析器が失敗した）。送った文と案内をタイムラインに出し、文を入力欄に戻して、
+                // その場で直して送り直せるようにする（キーボードは出したまま）。
                 appendQuestion(text, askedAt: sentAt, state: .noAmount)
                 restoreDraft(text)
                 announce(String(localized: "金額が見つかりませんでした"))
@@ -680,7 +717,8 @@ final class HomeModel {
     @discardableResult
     func askFollowUp(_ followUp: QuestionFollowUp, calendar: Calendar) -> Task<Void, Never>? {
         guard !isParsing else { return nil }
-        // 送信と同じく、前の記録の「取り消す」と聞き返しを引っ込める。
+        // 送信と同じく、前の記録の「取り消す」と聞き返しを引っ込め、金額の聞き返しを終える。
+        closeAmountQuestion()
         retractLastReply()
         return ask(followUp.text, source: .text, sentAt: now(), calendar: calendar)
     }
@@ -828,6 +866,8 @@ final class HomeModel {
         } catch {
             return .failed
         }
+        // レシートの送信が直前の送信になるので、金額の聞き返しを終える。
+        closeAmountQuestion()
         justRecorded = recorded
         refreshCategoryQuestions()
         receiptResult = nil
@@ -1543,6 +1583,17 @@ final class HomeModel {
         /// 確認を出した時点で控えた ID（確認の間にほかの端末で消されたかを、記録の値に触れずに確かめるため）。
         let id: PersistentIdentifier
         let summary: String
+    }
+
+    /// 金額を聞き返している送信（`amountQuestion`）。
+    struct AmountQuestion: Equatable {
+        /// 聞き返した文（「ランチ」）。金額だけの返事が来たら、後ろに金額を足して読む。
+        let text: String
+        let source: EntrySource
+        /// 聞き返した文を送った日時。足した文を読むとき（「昨日」の基準）と記録した日時に使う。
+        let sentAt: Date
+        /// 聞き返しの吹き出しと案内（タイムラインの `QuestionExchange`）。
+        let exchangeID: UUID
     }
 
     /// 記録として送り、読み取っている文（`pendingRecord`）。

@@ -44,6 +44,21 @@ struct ReceiptItemRefinementTests {
         #expect(refined == Self.items)
     }
 
+    /// 辞書の語でも、モデルは外すことがある（実機でドラッグを娯楽にした）。品名が辞書に当たる品目は、AI の答えによらず辞書のカテゴリ。
+    @Test("品名が辞書に当たれば、AI のカテゴリによらず辞書のカテゴリにする")
+    func dictionaryCategoryWinsOverSuggestion() {
+        let refined = ReceiptItemRefinement.apply(
+            [
+                ReceiptItemSuggestion(number: 1, name: "牛乳", categoryName: "カフェ", amountText: "198"),
+                ReceiptItemSuggestion(number: 3, name: "シャンプー", categoryName: "衣服・美容", amountText: "698"),
+            ],
+            to: Self.items
+        )
+
+        #expect(refined[0].category == .food)
+        #expect(refined[2].category == .daily)
+    }
+
     @Test("一覧に無い番号・同じ番号の 2 つ目・知らないカテゴリ・長すぎる品名は使わない")
     func ignoresInvalidSuggestions() {
         let refined = ReceiptItemRefinement.apply(

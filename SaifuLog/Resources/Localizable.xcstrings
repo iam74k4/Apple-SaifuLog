@@ -1002,6 +1002,39 @@
         }
       }
     },
+    "「%@」の件数" : {
+      "comment" : "回答カードの見出し。%@ は質問に書かれた品目や店の名前（「スタバ」）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” entries"
+          }
+        }
+      }
+    },
+    "「%@」の収入" : {
+      "comment" : "回答カードの見出し。%@ は質問に書かれた品目や店の名前（「メルカリ」）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Income from “%@”"
+          }
+        }
+      }
+    },
+    "「%@」の支出" : {
+      "comment" : "回答カードの見出し。%@ は質問に書かれた品目や店の名前（「スタバ」）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” spending"
+          }
+        }
+      }
+    },
     "「%@」の記録にしますか？" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1090,6 +1123,17 @@
         }
       }
     },
+    "「850」のように金額だけを送ると、いま送った文に足して記録します。" : {
+      "comment" : "金額を聞き返す返事のカードの本文。次に金額だけを送ると、前に送った文に金額を足して記録する。例の「850」は訳さない（解析が日本語の入力を前提にしているため）",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send just the amount, like “850”, to record it with the message you just sent."
+          }
+        }
+      }
+    },
     "「iCloud で同期」は切り替わっていません。もう一度お試しください。" : {
       "comment" : "設定の「iCloud で同期」を切り替えようとして、設定をファイルに書けなかったときのアラートの本文",
       "localizations" : {
@@ -1174,6 +1218,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ left"
+          }
+        }
+      }
+    },
+    "いくらでしたか？" : {
+      "comment" : "金額の無い文（「ランチ」）を送ったときに、金額を聞き返す返事のカードの見出しと読み上げ",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How much was it?"
           }
         }
       }

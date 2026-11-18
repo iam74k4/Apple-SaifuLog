@@ -277,6 +277,55 @@ struct LedgerQuestionAnswererTests {
         #expect(LedgerQuestion(period: .today, metric: .entryCount, category: .cafe).category == .cafe)
     }
 
+    @Test("品目の名前は支出の合計・収入の合計・件数にだけ使い、そのときはカテゴリを使わない")
+    func keywordNormalization() {
+        #expect(LedgerQuestion(period: .today, metric: .categoryExpense, category: .cafe, keyword: "スタバ")
+            == LedgerQuestion(period: .today, metric: .expenseTotal, keyword: "スタバ"))
+        #expect(LedgerQuestion(period: .today, metric: .entryCount, category: .cafe, keyword: "スタバ").category == nil)
+        #expect(LedgerQuestion(period: .today, metric: .incomeTotal, keyword: "メルカリ").keyword == "メルカリ")
+        #expect(LedgerQuestion(period: .today, metric: .expenseByCategory, keyword: "スタバ").keyword == nil)
+        #expect(LedgerQuestion(period: .today, metric: .remainingBudget, keyword: "スタバ").keyword == nil)
+        #expect(LedgerQuestion(period: .today, metric: .expenseTotal, keyword: "") == LedgerQuestion(period: .today, metric: .expenseTotal))
+        // 名前を使えない指標では、絞っても変わらない。
+        let breakdown = LedgerQuestion(period: .today, metric: .expenseByCategory)
+        #expect(breakdown.narrowed(to: "スタバ") == breakdown)
+    }
+
+    @Test("品目の名前で聞かれたら、その名前を書いた記録だけを数える（全角・ひらがな・大小を問わず、英字は語の途中に当てない）")
+    func keywordAnswers() throws {
+        let records = [
+            LedgerRecordValue(amount: 450, category: .cafe, spentAt: Fixture.date(2026, 9, 3), searchText: "スタバ ラテ"),
+            LedgerRecordValue(amount: 500, category: .cafe, spentAt: Fixture.date(2026, 9, 10), searchText: "すたば"),
+            LedgerRecordValue(amount: 380, category: .cafe, spentAt: Fixture.date(2026, 9, 12), searchText: "ドトール"),
+            LedgerRecordValue(amount: 600, category: .cafe, spentAt: Fixture.date(2026, 8, 20), searchText: "スタバ"),
+            LedgerRecordValue(amount: 2_980, category: .other, spentAt: Fixture.date(2026, 9, 5), searchText: "ＡＭＡＺＯＮ 本"),
+            LedgerRecordValue(amount: 1_200, category: .food, spentAt: Fixture.date(2026, 9, 6), searchText: "steak"),
+            LedgerRecordValue(amount: 3_000, isIncome: true, spentAt: Fixture.date(2026, 9, 15), searchText: "メルカリ 売上"),
+            LedgerRecordValue(amount: 800, category: .other, spentAt: Fixture.date(2026, 9, 16), searchText: "メルカリ 送料"),
+        ]
+        let ledger = QuestionLedger(records: records)
+        func answer(_ question: LedgerQuestion) throws -> LedgerAnswer {
+            try #require(LedgerQuestionAnswerer.answer(question, ledger: ledger, now: Fixture.now, calendar: Fixture.calendar))
+        }
+
+        let starbucks = try answer(LedgerQuestion(period: .thisMonth, metric: .expenseTotal, keyword: "スタバ"))
+        #expect(starbucks.value == .amount(950))
+        #expect(starbucks.recordCount == 2)
+        // 前の期間との比べと推移も、同じ名前の記録で数える。
+        #expect(starbucks.comparison?.previous == 600)
+        #expect(starbucks.trend?.points.last?.value == 950)
+        #expect(try answer(LedgerQuestion(period: .thisMonth, metric: .entryCount, keyword: "スタバ")).value == .count(2))
+        #expect(try answer(LedgerQuestion(period: .thisMonth, metric: .expenseTotal, keyword: "amazon")).value == .amount(2_980))
+        #expect(try answer(LedgerQuestion(period: .thisMonth, metric: .expenseTotal, keyword: "tea")).value == .amount(0))
+        // 支出と収入は分けて数える。件数はどちらも数える。
+        #expect(try answer(LedgerQuestion(period: .thisMonth, metric: .incomeTotal, keyword: "メルカリ")).value == .amount(3_000))
+        #expect(try answer(LedgerQuestion(period: .thisMonth, metric: .expenseTotal, keyword: "メルカリ")).value == .amount(800))
+        #expect(try answer(LedgerQuestion(period: .thisMonth, metric: .entryCount, keyword: "メルカリ")).value == .count(2))
+
+        #expect(ledger.hasRecord(mentioning: "スターバックス") == false)
+        #expect(ledger.hasRecord(mentioning: " ") == false)
+    }
+
     @Test("値だけの写しで答えても同じ")
     func snapshot() throws {
         let ledger = QuestionLedger(records: Self.records.map(LedgerRecordValue.init), budget: BudgetPlan(total: 150_000))

@@ -34,6 +34,9 @@ extension AIEvaluationTests {
             ("病院 1500", [Expected(amount: 1_500, category: .medical)]),
             ("シャンプー 600", [Expected(amount: 600, category: .daily)]),
             ("家賃 80000", [Expected(amount: 80_000, category: .housing)]),
+            // 実機のモデルは「ドラッグ」を娯楽にすることがあった（辞書に当たる品目は辞書のカテゴリにする。ExtractedEntry）。
+            ("ドラッグ 1200", [Expected(amount: 1_200, category: .daily)]),
+            ("スーパー2480とドラッグ1200", [Expected(amount: 2_480, category: .food), Expected(amount: 1_200, category: .daily)]),
             ("美容院 4500", [Expected(amount: 4_500, category: .clothing)]),
         ]
 

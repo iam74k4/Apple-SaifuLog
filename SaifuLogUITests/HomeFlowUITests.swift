@@ -45,6 +45,26 @@ final class HomeFlowUITests: XCTestCase {
         XCTAssertTrue(app.monthFigures.waitForValue(containing: "¥0"))
     }
 
+    /// 金額の無い文には「いくらでしたか？」と聞き返し、続けて金額だけを送ると、前の文に金額を足して記録する（聞き返しは消える）。
+    @MainActor
+    func testAmountlessTextAsksAmountThenRecords() {
+        let app = launchApp()
+
+        app.send("ランチ")
+        let asked = app.element(labeled: "いくらでしたか？")
+        XCTAssertTrue(asked.waitForExistence(timeout: UITestTimeout.ui))
+        XCTAssertFalse(app.replyRow(containing: "ランチ").exists)
+
+        app.send("850")
+
+        let row = app.replyRow(containing: "ランチ")
+        XCTAssertTrue(row.waitForExistence(timeout: UITestTimeout.ui))
+        XCTAssertTrue(row.label.contains("¥850"), row.label)
+        XCTAssertTrue(row.label.contains("食費"), row.label)
+        XCTAssertTrue(asked.waitForNonExistence(timeout: UITestTimeout.ui))
+        XCTAssertTrue(app.monthFigures.waitForValue(containing: "¥850"))
+    }
+
     /// 辞書に当たらない品目は「その他」で記録して、返事でカテゴリを聞き返す。選ぶと記録のカテゴリが変わる。
     /// 直前の記録はチャットの文（「それ娯楽」）でも直せる。
     @MainActor
@@ -109,6 +129,25 @@ final class HomeFlowUITests: XCTestCase {
         // 質問は記録にしない（今月の額は ¥850 のまま）。
         XCTAssertTrue(app.monthFigures.waitForValue(containing: "¥850"))
         XCTAssertFalse(app.replyRow(containing: "いくら").exists)
+    }
+
+    /// 品目の名前（辞書の語）で聞くと、その名前を書いた記録だけを数える（同じカテゴリのほかの記録は数えない）。
+    @MainActor
+    func testItemWordQuestionCountsOnlyThatItem() {
+        let app = launchApp()
+
+        app.send("ランチ 850")
+        XCTAssertTrue(app.replyRow(containing: "ランチ").waitForExistence(timeout: UITestTimeout.ui))
+        app.send("スーパー 2000")
+        XCTAssertTrue(app.replyRow(containing: "スーパー").waitForExistence(timeout: UITestTimeout.ui))
+        app.send("今月ランチいくら?")
+
+        let summary = app.element(AccessibilityID.Reply.answerSummary)
+        XCTAssertTrue(summary.waitForExistence(timeout: UITestTimeout.ui))
+        XCTAssertTrue(summary.label.contains("「ランチ」の支出"), summary.label)
+        XCTAssertTrue(summary.label.contains("¥850"), summary.label)
+        // 食費のスーパーは数えない（今月の額は 2 件の合計のまま）。
+        XCTAssertTrue(app.monthFigures.waitForValue(containing: "¥2,850"))
     }
 
     /// 返事の行を押すと ⑥ 直すが開き、金額を直して保存できる。長押しのメニューの「削除」と確認で記録が消える。

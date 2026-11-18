@@ -20,6 +20,12 @@ public struct QuestionReading: Hashable, Sendable {
     /// 辞書で読んだ語（期間・指標・金額を聞く語・カテゴリ）と質問の決まり文句のほかに、語が残るか（`QuestionParser.hasUnreadWords`）。
     /// 残らなければ、AI の選んだカテゴリと期間を使わない（`resolved(with:)`）。
     public var hasUnreadWords: Bool
+    /// カテゴリを、カテゴリの名前ではなく品目や店の名前（「スタバ」「ランチ」「電車」）で読んだとき、その名前（文に書かれたとおり）。
+    /// その名前の記録があれば、その記録だけを数える（`keyword(choosing:in:)`）。
+    public var itemWord: String?
+    /// 辞書で読んだ語と決まり文句を空白で埋めた残りの文（`QuestionParser.unreadText`）。AI が抜き出した品目の名前は、この残りに
+    /// 書かれているときだけ使う（`acceptedKeyword(_:)`）。
+    public var unreadText: String
 
     public init(
         period: QuestionPeriod? = nil,
@@ -27,7 +33,9 @@ public struct QuestionReading: Hashable, Sendable {
         category: EntryCategory? = nil,
         asksAmount: Bool = false,
         hasUnsupportedPart: Bool = false,
-        hasUnreadWords: Bool = true
+        hasUnreadWords: Bool = true,
+        itemWord: String? = nil,
+        unreadText: String = ""
     ) {
         self.period = period
         self.metric = metric
@@ -35,6 +43,8 @@ public struct QuestionReading: Hashable, Sendable {
         self.asksAmount = asksAmount
         self.hasUnsupportedPart = hasUnsupportedPart
         self.hasUnreadWords = hasUnreadWords
+        self.itemWord = itemWord
+        self.unreadText = unreadText
     }
 
     /// コードだけで作った質問（AI が使えないとき）。答えられない書き方を含むか、何も読めなければ nil（読めない質問）。
@@ -81,6 +91,76 @@ public struct QuestionReading: Hashable, Sendable {
 
     /// 金額ではない答えになる指標（金額を聞く語だけの文では、モデルが選んでも使わない）。
     static let nonAmountMetrics: Set<QuestionMetric> = [.entryCount, .topCategory, .expenseByCategory]
+
+    // MARK: - 品目や店の名前
+
+    /// 記録と合わせた質問（AI が使えないとき）。品目の名前で読めて、その名前の記録があれば、その記録だけを数える質問にする
+    /// （`keyword(choosing:in:)`）。
+    public func question(in ledger: QuestionLedger) -> LedgerQuestion? {
+        question?.narrowed(to: keyword(choosing: nil, in: ledger))
+    }
+
+    /// AI のツールの選択と、記録と合わせた質問。品目の名前の決め方は `keyword(choosing:in:)`。
+    public func resolved(with choice: QuestionChoice, in ledger: QuestionLedger) -> LedgerQuestion? {
+        resolved(with: choice)?.narrowed(to: keyword(choosing: choice.keyword, in: ledger))
+    }
+
+    /// 記録を絞る品目や店の名前。無ければ nil（これまでどおり、カテゴリか全体で答える）。
+    ///
+    /// - 文からコードが品目の名前（辞書の語。`itemWord`）を読めたら、それを使う（AI の抜き出した名前より優先する）。
+    /// - 読めず、カテゴリも読めず、辞書で読めない語が残るときだけ、AI の抜き出した名前を使う（辞書に無い店やサービスの名前。
+    ///   「Amazon」「メルカリ」）。名前は、辞書で読めなかった残りの文に書かれたものに限る（`acceptedKeyword(_:)`）。
+    /// - どちらも、その名前が書かれた記録が読み込んだ記録の中にあるときだけ使う（`QuestionLedger.hasRecord(mentioning:)`）。
+    ///   名前の記録が無いのに名前で絞ると、いつも 0 円になり、カテゴリで答えるより分かりにくいため。
+    public func keyword(choosing modelKeyword: String?, in ledger: QuestionLedger) -> String? {
+        let candidate: String?
+        if let itemWord {
+            candidate = itemWord
+        } else if category == nil, hasUnreadWords, let modelKeyword {
+            candidate = acceptedKeyword(modelKeyword)
+        } else {
+            candidate = nil
+        }
+        guard let candidate, ledger.hasRecord(mentioning: candidate) else { return nil }
+        return candidate
+    }
+
+    /// 品目の名前に受け付ける長さ。1 文字の語はほかの語の一部に当たりやすいので受け付けない（キーワード辞書と同じ考え方）。
+    static let keywordLength = 2...20
+
+    /// AI の抜き出した品目の名前を受け付けるか。受け付けるなら、残りの文に書かれたとおりの名前を返す。
+    ///
+    /// - 前後の空白と記号、後ろに付いた助詞（「メルカリで」の「で」。前がひらがなでないときだけ。「ふるさと」の「と」は残す）、
+    ///   後ろの「代」「費」（「ジム代」。記録の品目には付けないことが多いため）を除く。
+    /// - 2 文字以上・20 文字まで。数字を含まない（金額や日付は名前ではない）。
+    /// - 辞書で読めなかった残りの文（`unreadText`）に、そのまま書かれている。期間・知りたいことの語・カテゴリの名前は残りの文に
+    ///   無いので、モデルが文に無い名前や、読んだ語を含めた名前（「今月のメルカリ」）を返しても使わない。
+    public func acceptedKeyword(_ candidate: String) -> String? {
+        var name = Array(TextNormalizer.normalize(candidate).trimmingCharacters(in: Self.keywordTrimmed))
+        if name.count > 2, let last = name.last, Self.trailingParticles.contains(last), !Self.isHiragana(name[name.count - 2]) {
+            name.removeLast()
+        }
+        if name.count > 2, let last = name.last, last == "代" || last == "費" {
+            name.removeLast()
+        }
+        guard Self.keywordLength.contains(name.count), !name.contains(where: \.isASCIIDigit) else { return nil }
+        let chars = Array(unreadText)
+        let folded = KeywordMatcher.fold(unreadText)
+        guard folded.count == chars.count,
+              let range = KeywordMatcher.firstRange(of: KeywordMatcher.fold(String(name)), in: folded)
+        else { return nil }
+        let start = folded.distance(from: folded.startIndex, to: range.lowerBound)
+        let length = folded.distance(from: range.lowerBound, to: range.upperBound)
+        return String(chars[start..<(start + length)])
+    }
+
+    private static let keywordTrimmed = CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters).union(.symbols)
+    private static let trailingParticles: Set<Character> = ["で", "に", "の", "は", "を", "へ", "と", "も", "が"]
+
+    private static func isHiragana(_ char: Character) -> Bool {
+        guard let scalar = char.unicodeScalars.first, char.unicodeScalars.count == 1 else { return false }
+        return (0x3041...0x309F).contains(scalar.value)
+    }
 }
 
 /// AI のツールで選ばせる質問の形。期間の選択肢は日数を持たない（直近 N 日の N は文からコードが読む）。
@@ -108,11 +188,14 @@ public struct QuestionChoice: Hashable, Sendable {
     public var period: Period
     public var metric: QuestionMetric
     public var category: EntryCategory?
+    /// モデルが質問の文から抜き出した品目や店の名前。使う前に文と記録で確かめる（`QuestionReading.keyword(choosing:in:)`）。
+    public var keyword: String?
 
-    public init(period: Period, metric: QuestionMetric, category: EntryCategory? = nil) {
+    public init(period: Period, metric: QuestionMetric, category: EntryCategory? = nil, keyword: String? = nil) {
         self.period = period
         self.metric = metric
         self.category = category
+        self.keyword = keyword
     }
 }
 
@@ -219,8 +302,15 @@ public enum QuestionParser {
             }?.metric
         }
         reading.asksAmount = amountWords.contains { rest.contains($0) }
-        reading.category = catalog.customCategory(namedIn: rest) ?? EntryCategory.matched(in: rest)
-        reading.hasUnreadWords = hasUnreadWords(rest, category: reading.category, catalog: catalog)
+        if let custom = catalog.customCategory(namedIn: rest) {
+            reading.category = custom
+        } else if let match = EntryCategory.matchedWord(in: rest) {
+            reading.category = match.category
+            // カテゴリの名前（「カフェ」「交通費」）でなく品目や店の名前（「スタバ」「電車代」）で聞かれたら、その名前も覚えておく。
+            reading.itemWord = match.namesCategory ? nil : match.word
+        }
+        reading.unreadText = unreadText(rest, category: reading.category, catalog: catalog)
+        reading.hasUnreadWords = reading.unreadText.contains(where: isWordCharacter)
         return reading
     }
 
@@ -317,11 +407,16 @@ public enum QuestionParser {
     /// 残らなければ、文は辞書だけで読めている。AI の選んだカテゴリと期間は、辞書に無い言い回し（「年が変わってから」「外で食べた」）が
     /// あるときだけ使う（`QuestionReading.resolved(with:)`）。
     static func hasUnreadWords(_ rest: String, category: EntryCategory?, catalog: CategoryCatalog) -> Bool {
+        unreadText(rest, category: category, catalog: catalog).contains(where: isWordCharacter)
+    }
+
+    /// `hasUnreadWords` が見る残りの文（辞書で読んだ語と決まり文句を空白で埋めた文）。
+    static func unreadText(_ rest: String, category: EntryCategory?, catalog: CategoryCatalog) -> String {
         var chars = Array(rest)
         // カテゴリの語は、ひらがなとカタカナ・英字の大小をそろえて当てる（「らんち」も「ランチ」として読んでいるため）。そろえても
         // 文字の数は変わらないので、そろえた文で見つけた位置を、元の文で空白にする。
         let folded = Array(KeywordMatcher.fold(rest))
-        guard folded.count == chars.count else { return true }
+        guard folded.count == chars.count else { return rest }
         var words = metricWords.flatMap(\.words) + amountWords + spendingWords + allowanceWords + questionFillerWords
         if let category {
             words += [catalog.name(of: category), category.displayName] + category.keywords
@@ -330,7 +425,7 @@ public enum QuestionParser {
         for range in ranges(of: needles, in: folded) {
             blank(&chars, range)
         }
-        return chars.contains(where: isWordCharacter)
+        return String(chars)
     }
 
     /// 語の中身になる文字（漢字・カタカナ・英字）か。長音記号と中黒は数えない。

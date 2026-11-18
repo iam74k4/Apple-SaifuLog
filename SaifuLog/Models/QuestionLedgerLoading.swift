@@ -14,11 +14,20 @@ extension QuestionLedger {
         let entries = try context.fetch(Entry.descriptor(spentIn: window))
         let budgets = try context.fetch(FetchDescriptor<Budget>())
         return QuestionLedger(
-            records: entries.map(LedgerRecordValue.init),
+            records: entries.map { LedgerRecordValue($0, searchText: $0.questionSearchText) },
             budget: BudgetPlan.resolve(budgets),
             budgetDecidedAt: BudgetPlan.decidedAt(.total, in: budgets),
             // 作ったカテゴリの名前でも聞けるように（「今月の衣服いくら?」）。読めなければ組み込みのカテゴリだけで答える。
             catalog: (try? CustomCategoryStore(context: context).catalog()) ?? .builtIn
         )
+    }
+}
+
+extension Entry {
+    /// 品目や店の名前で聞かれたときに探す文（`LedgerRecordValue.searchText`）。品目（メモ）と、レシートの記録は店名の入った元の
+    /// 文（「レシート: イオン 合計 ¥…」。品目は品名なので、店名で聞かれても当たらないため）。ひとこと入力の元の文は入れない
+    /// （1 回の送信のほかの記録の品目も入っているため）。
+    var questionSearchText: String {
+        source == .receipt ? "\(memo) \(originalText)" : memo
     }
 }

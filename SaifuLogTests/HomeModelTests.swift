@@ -136,8 +136,8 @@ struct HomeModelTests {
     }
 
     /// 記録として送った文は、読み取りの間もタイムラインに出す（以前は送った文が入力欄から消えるだけで、AI の読み取りを待つ
-    /// 1〜数秒のあいだ何も出ず、送れたのか分からなかった）。記録したら消え（記録した送信に替わる）、読めなくても消える
-    /// （文は入力欄に戻る）。質問は質問の「計算しています…」を出すので、こちらには出さない。
+    /// 1〜数秒のあいだ何も出ず、送れたのか分からなかった）。記録したら消え（記録した送信に替わる）、金額が無くても消える
+    /// （金額の聞き返しに替わる）。質問は質問の「計算しています…」を出すので、こちらには出さない。
     @Test func pendingRecordShowsWhileParsing() async throws {
         let fixture = try Fixture()
         fixture.model.draft = "ランチ 850"
@@ -155,7 +155,7 @@ struct HomeModelTests {
         #expect(fixture.model.pendingRecord?.text == "ランチ")
         await unreadable?.value
         #expect(fixture.model.pendingRecord == nil)
-        #expect(fixture.model.draft == "ランチ")
+        #expect(fixture.lastQuestionState == .amountAsked)
 
         fixture.model.draft = "今月いくら?"
         let question = fixture.model.send(calendar: TestSupport.calendar)
@@ -198,23 +198,24 @@ struct HomeModelTests {
         #expect(try fixture.entries().map(\.amount) == [850])
     }
 
-    /// 金額が読めなければ記録せず、送った文を入力欄に戻して知らせる（その場で直して送り直せるように）。
-    @Test func unreadableTextReturnsToDraft() async throws {
+    /// 金額の書かれていない文は記録せず、「いくらでしたか？」と聞き返す。入力欄は空のまま（金額だけを打って送れるように）。
+    @Test func amountlessTextAsksForAmount() async throws {
         let fixture = try Fixture()
 
         await fixture.send("ランチ")
 
         #expect(try fixture.entries().isEmpty)
-        #expect(fixture.model.draft == "ランチ")
-        // アラートではなく、送った文と案内をタイムラインに出す（キーボードを下げずに、そのまま金額を足して送れるように）。
-        #expect(fixture.lastQuestionState == .noAmount)
+        #expect(fixture.model.draft.isEmpty)
+        // アラートではなく、送った文と聞き返しをタイムラインに出す（キーボードを下げずに、そのまま答えられるように）。
+        #expect(fixture.lastQuestionState == .amountAsked)
         #expect(fixture.model.questions.last?.text == "ランチ")
+        #expect(fixture.model.amountQuestion?.text == "ランチ")
         #expect(!fixture.model.canUndo)
-        #expect(fixture.announcements == [String(localized: "金額が見つかりませんでした")])
+        #expect(fixture.announcements == [String(localized: "いくらでしたか？")])
         #expect(!fixture.model.isParsing)
     }
 
-    /// 解析が失敗（throw）しても同じ。記録はせず、文を戻す。
+    /// 解析が失敗（throw）したときは、金額が書かれていても読めなかったので、聞き返さずに記録せず、文を戻す。
     @Test func parserErrorReturnsToDraft() async throws {
         let fixture = try Fixture()
         fixture.parser = StubParser { _ in throw TestError() }
@@ -224,6 +225,7 @@ struct HomeModelTests {
         #expect(try fixture.entries().isEmpty)
         #expect(fixture.model.draft == "ランチ 850")
         #expect(fixture.showedNoAmount)
+        #expect(fixture.model.amountQuestion == nil)
     }
 
     /// 解析の間に次の入力を打ち始めていたら、送った文で上書きしない。
@@ -234,10 +236,116 @@ struct HomeModelTests {
             return []
         }
 
-        await fixture.send("ランチ")
+        await fixture.send("ランチ 850")
 
         #expect(fixture.model.draft == "コーヒー")
         #expect(fixture.showedNoAmount)
+    }
+
+    // MARK: - 金額の聞き返し
+
+    /// 聞き返した後に金額だけを送ると、聞き返した文に金額を足して記録する。聞き返しの吹き出しと案内は、足した文の送信に置き換える
+    /// （開き直した後のタイムラインと同じ見え方）。
+    @Test func amountReplyRecordsWithAskedText() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ")
+
+        await fixture.send("850円です")
+
+        let entries = try fixture.entries()
+        #expect(entries.map(\.amount) == [850])
+        #expect(entries.map(\.memo) == ["ランチ"])
+        #expect(entries.map(\.category) == [.food])
+        #expect(entries.map(\.originalText) == ["ランチ 850円"])
+        #expect(fixture.model.questions.isEmpty)
+        #expect(fixture.model.amountQuestion == nil)
+        #expect(fixture.model.canUndo)
+        #expect(fixture.model.draft.isEmpty)
+        #expect(fixture.announcements.last?.contains("¥850") == true)
+    }
+
+    /// 足した文は、聞き返した文を送った日時で読み、その日時で記録する（「昨日 タクシー」を 23:59 に送り、日付が変わってから金額を
+    /// 答えても、2 日前の記録にしない）。割り勘も聞き返した文のとおりに割る。
+    @Test func amountReplyUsesAskedTimeAndPhrases() async throws {
+        let fixture = try Fixture()
+        // 送った瞬間の日時で「昨日」を読む解析器にする（既定の解析器は決まった日時で読むので、どの日時で読んだか分からない）。
+        fixture.makeParser = { now, calendar in RuleBasedParser(calendar: calendar, now: { now }) }
+        let askedAt = TestSupport.date(2026, 9, 28, hour: 23, minute: 59)
+        fixture.now = askedAt
+        await fixture.send("昨日 タクシー")
+        fixture.now = TestSupport.date(2026, 9, 29, hour: 0, minute: 1)
+
+        await fixture.send("1200")
+
+        let taxi = try #require(try fixture.entries().first)
+        #expect(taxi.amount == 1_200)
+        #expect(taxi.category == .transport)
+        #expect(TestSupport.calendar.isDate(taxi.spentAt, inSameDayAs: TestSupport.date(2026, 9, 27)))
+        #expect(taxi.createdAt == askedAt)
+
+        await fixture.send("焼肉 4人で割り勘")
+        await fixture.send("1.2万")
+
+        #expect(try fixture.entries().last?.amount == 3_000)
+    }
+
+    /// 金額だけでない文を送ったら、聞き返しを終え、その文をふつうに読む。聞き返しの案内は「金額が見つかりませんでした」に替え、
+    /// 後で金額だけを送っても、聞き返した文には足さない。
+    @Test func otherTextClosesAmountQuestion() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ")
+        let askedID = try #require(fixture.model.questions.last?.id)
+
+        await fixture.send("コーヒー 400")
+
+        #expect(try fixture.entries().map(\.memo) == ["コーヒー"])
+        #expect(fixture.model.amountQuestion == nil)
+        #expect(fixture.model.questions.first { $0.id == askedID }?.state == .noAmount)
+
+        await fixture.send("850")
+
+        #expect(try fixture.entries().map(\.amount) == [400, 850])
+        #expect(try fixture.entries().last?.memo != "ランチ")
+    }
+
+    /// 質問を送ったときも、聞き返しを終える（答えた後に金額だけを送っても、聞き返した文には足さない）。
+    @Test func questionClosesAmountQuestion() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ")
+
+        await fixture.send("今月いくら?")
+
+        #expect(fixture.model.amountQuestion == nil)
+        #expect(fixture.model.questions.first?.state == .noAmount)
+    }
+
+    /// 金額を答えて記録した後の「取り消す」は、足した文を入力欄に戻す（金額だけを戻すと、送り直したときに品目の無い記録になるため）。
+    @Test func undoAfterAmountReplyRestoresCombinedText() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ")
+        await fixture.send("850")
+
+        fixture.model.undoLastRecord()
+
+        #expect(try fixture.entries().isEmpty)
+        #expect(fixture.model.draft == "ランチ 850")
+    }
+
+    /// 聞き返している間は、前の記録の「取り消す」を出したままにし（何も記録していないので）、金額を答えて記録したら、その記録の
+    /// 「取り消す」に替える。
+    @Test func amountQuestionKeepsPreviousUndoUntilAnswered() async throws {
+        let fixture = try Fixture()
+        await fixture.send("ランチ 850")
+
+        await fixture.send("コーヒー")
+
+        #expect(fixture.model.canUndo)
+        #expect(fixture.model.justRecorded.map(\.amount) == [850])
+
+        await fixture.send("400")
+
+        #expect(fixture.model.justRecorded.map(\.memo) == ["コーヒー"])
+        #expect(try fixture.entries().map(\.amount) == [850, 400])
     }
 
     /// 保存に失敗したら記録したことにしない。入れかけた記録は残さず、文を戻して知らせる。
@@ -268,7 +376,7 @@ struct HomeModelTests {
         #expect(fixture.pendingWrites.count == 0)
 
         await fixture.send("ランチ")
-        #expect(fixture.showedNoAmount)
+        #expect(fixture.model.amountQuestion != nil)
         #expect(fixture.pendingWrites.count == 0)
 
         fixture.failsSave = true
@@ -444,10 +552,10 @@ struct HomeModelTests {
             return []
         }
 
-        await fixture.send("コーヒー")
+        await fixture.send("コーヒー 400")
 
         #expect(fixture.showedNoAmount)
-        #expect(fixture.model.draft == "コーヒー")
+        #expect(fixture.model.draft == "コーヒー 400")
         #expect(try fixture.entries().map(\.amount) == [850])
         // 何も記録しなかったので、前の記録の「取り消す」を戻す（以前は引っ込めたままで、前の記録を取り消せなくなっていた）。
         #expect(fixture.model.canUndo)

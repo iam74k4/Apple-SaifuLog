@@ -30,13 +30,17 @@ struct FoundationModelsReceiptItemRefiner: ReceiptItemRefining {
         let generated: GeneratedReceiptItems
         if #available(iOS 27, *), usesImage, let image {
             let session = LanguageModelSession(instructions: Self.instructions + Self.imageInstructions)
-            generated = try await session.respond(generating: GeneratedReceiptItems.self) {
+            generated = try await session.respond(
+                generating: GeneratedReceiptItems.self, options: AIGeneration.deterministic
+            ) {
                 prompt
                 Attachment(image.cgImage, orientation: image.orientation)
             }.content
         } else {
             let session = LanguageModelSession(instructions: Self.instructions)
-            generated = try await session.respond(to: prompt, generating: GeneratedReceiptItems.self).content
+            generated = try await session.respond(
+                to: prompt, generating: GeneratedReceiptItems.self, options: AIGeneration.deterministic
+            ).content
         }
         return generated.items.map { item in
             ReceiptItemSuggestion(number: item.number, name: item.name, categoryName: item.category, amountText: item.amountText)

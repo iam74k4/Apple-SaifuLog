@@ -12,10 +12,12 @@ import SaifuLogCore
 struct FoundationModelsCategoryClassifier: ItemCategoryClassifying {
     func categoryName(for item: String, choices: [String]) async throws -> String {
         // 品目ごとに新しいセッションにする。前の品目の文脈を引きずらないようにするため。
+        // ふつうのモデルを使う。分類・タグ付けに向けた専用のモデル（`SystemLanguageModel(useCase: .contentTagging)`）も試したが、
+        // ほとんどの品目に「その他」を選び、評価の表で 15 件のうち 3 件しか合わなかった（ふつうのモデルは 12 件。2026-11-18）。
         let session = LanguageModelSession(instructions: Self.instructions)
         let schema = try GenerationSchema(root: Self.schema(choices: choices), dependencies: [])
         // 選ぶだけの答えなので、毎回いちばん確かな選択肢にする（同じ品目で答えが揺れないように）。
-        let response = try await session.respond(to: item, schema: schema, options: GenerationOptions(sampling: .greedy))
+        let response = try await session.respond(to: item, schema: schema, options: AIGeneration.deterministic)
         return try response.content.value(String.self, forProperty: Self.categoryProperty)
     }
 
