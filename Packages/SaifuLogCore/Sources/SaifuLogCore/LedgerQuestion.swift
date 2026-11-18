@@ -76,36 +76,66 @@ public enum QuestionMetric: Hashable, Sendable, CaseIterable {
     }
 }
 
-/// 構造化した質問（期間 × 指標 × 任意のカテゴリ）。
+/// 構造化した質問（期間 × 指標 × 任意のカテゴリか品目の名前）。
 ///
 /// 質問の文をどう読んでも（AI のツールの選択・キーワード辞書）、ここに直してから `LedgerQuestionAnswerer` が数字を
 /// 計算する。AI には数字を計算させない（CLAUDE.md の決まり）。
 public struct LedgerQuestion: Hashable, Sendable {
     public let period: QuestionPeriod
     public let metric: QuestionMetric
-    /// 聞かれたカテゴリ。カテゴリを使わない指標では nil にそろえる。
+    /// 聞かれたカテゴリ。カテゴリを使わない指標と、品目の名前で聞かれた質問では nil にそろえる。
     public let category: EntryCategory?
+    /// 聞かれた品目や店の名前（「スタバ」「Amazon」）。その名前が品目（メモ）に書かれた記録だけを数える
+    /// （`LedgerRecordValue.searchText`）。名前を使わない指標では nil にそろえる。
+    public let keyword: String?
 
-    /// 指標とカテゴリの組み合わせをそろえる。
+    /// 指標とカテゴリと品目の名前の組み合わせをそろえる。
     ///
     /// - 支出の合計にカテゴリが付いていれば、そのカテゴリの支出（`categoryExpense`）にする。カテゴリの支出なのに
     ///   カテゴリが無ければ、支出の合計にする（どちらで読んでも同じ答えにするため）。
     /// - 件数は、カテゴリがあればそのカテゴリの支出の件数、無ければすべての記録の件数。
+    /// - 品目の名前は、支出の合計・収入の合計・件数にだけ使い、そのときはカテゴリを使わない（名前のほうが聞かれたことに近い。
+    ///   「スタバ」はカフェの一部）。名前の付いたカテゴリの支出は、名前の付いた支出の合計にする。
     /// - 収入・収支・内訳・いちばん多いカテゴリ・予算は、カテゴリを使わない（収入はカテゴリで分けておらず、内訳と
-    ///   いちばん多いカテゴリはすべてのカテゴリを比べるもの、予算は全体の予算だけを数えるため）。
-    public init(period: QuestionPeriod, metric: QuestionMetric, category: EntryCategory? = nil) {
+    ///   いちばん多いカテゴリはすべてのカテゴリを比べるもの、予算は全体の予算だけを数えるため）。収支・内訳・いちばん多い
+    ///   カテゴリ・予算は、品目の名前も使わない。
+    public init(period: QuestionPeriod, metric: QuestionMetric, category: EntryCategory? = nil, keyword: String? = nil) {
         self.period = period
+        let keyword = keyword.flatMap { $0.isEmpty ? nil : $0 }
         switch metric {
         case .expenseTotal, .categoryExpense:
-            self.metric = category == nil ? .expenseTotal : .categoryExpense
-            self.category = category
+            if keyword != nil {
+                self.metric = .expenseTotal
+                self.category = nil
+            } else {
+                self.metric = category == nil ? .expenseTotal : .categoryExpense
+                self.category = category
+            }
+            self.keyword = keyword
         case .entryCount:
             self.metric = .entryCount
-            self.category = category
-        case .incomeTotal, .balance, .expenseByCategory, .remainingBudget, .dailyAllowance, .topCategory:
+            self.category = keyword == nil ? category : nil
+            self.keyword = keyword
+        case .incomeTotal:
+            self.metric = .incomeTotal
+            self.category = nil
+            self.keyword = keyword
+        case .balance, .expenseByCategory, .remainingBudget, .dailyAllowance, .topCategory:
             self.metric = metric
             self.category = nil
+            self.keyword = nil
         }
+    }
+
+    /// 品目の名前で絞った質問（名前を使えない指標なら、そのまま）。
+    public func narrowed(to keyword: String?) -> LedgerQuestion {
+        guard let keyword else { return self }
+        return LedgerQuestion(period: period, metric: metric, category: category, keyword: keyword)
+    }
+
+    /// 期間だけを替えた質問（続けて聞ける質問の、前の期間・いまの期間）。
+    public func with(period: QuestionPeriod) -> LedgerQuestion {
+        LedgerQuestion(period: period, metric: metric, category: category, keyword: keyword)
     }
 }
 

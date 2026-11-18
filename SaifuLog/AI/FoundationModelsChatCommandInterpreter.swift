@@ -18,7 +18,7 @@ struct FoundationModelsChatCommandInterpreter: ChatCommandInterpreting {
         let session = LanguageModelSession(instructions: Self.instructions)
         let schema = try GenerationSchema(root: Self.schema(labels: offered.map(Self.label(of:))), dependencies: [])
         // 選ぶだけの答えなので、毎回いちばん確かな選択肢にする（同じ文で選ぶ操作が揺れないように）。
-        let response = try await session.respond(to: text, schema: schema, options: GenerationOptions(sampling: .greedy))
+        let response = try await session.respond(to: text, schema: schema, options: AIGeneration.deterministic)
         let choice = try response.content.value(String.self, forProperty: Self.operationProperty)
         return offered.first { Self.label(of: $0) == choice } ?? .none
     }

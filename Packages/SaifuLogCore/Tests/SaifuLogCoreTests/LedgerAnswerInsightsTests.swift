@@ -158,6 +158,43 @@ struct LedgerAnswerInsightsTests {
         #expect(year.followUps.isEmpty)
     }
 
+    @Test("続けて聞く質問: 品目の名前（辞書の語）なら前の期間とその名前のカテゴリ全体。辞書に無い名前は前の期間を出さない")
+    func keywordFollowUps() throws {
+        let records = [
+            LedgerRecordValue(amount: 450, category: .cafe, spentAt: Fixture.date(2026, 9, 3), searchText: "スタバ"),
+            LedgerRecordValue(amount: 2_980, spentAt: Fixture.date(2026, 9, 5), searchText: "メルカリ"),
+        ]
+        let starbucks = try #require(Self.answer(LedgerQuestion(period: .thisMonth, metric: .expenseTotal, keyword: "スタバ"), records))
+        #expect(starbucks.followUps.map(\.text) == ["先月のスタバはいくら?", "今月のカフェはいくら?", "今月の内訳は?"])
+        #expect(LedgerAnswerFacts.text(for: starbucks, calendar: Self.calendar).contains("知りたいこと: 品目に「スタバ」と書いた支出の合計"))
+
+        let count = try #require(Self.answer(LedgerQuestion(period: .lastMonth, metric: .entryCount, keyword: "スタバ"), records))
+        #expect(count.followUps.map(\.text) == ["今月のスタバは何件?", "先月のカフェは何件?", "先月の内訳は?"])
+
+        // 辞書に無い名前（AI が抜き出した名前）は、AI が使えないと同じ質問に読めないので、前の期間を出さない。
+        let mercari = try #require(Self.answer(LedgerQuestion(period: .thisMonth, metric: .expenseTotal, keyword: "メルカリ"), records))
+        #expect(mercari.followUps.map(\.text) == ["今月の内訳は?"])
+    }
+
+    @Test("品目の名前の続けて聞く質問の文も、その名前の記録があれば、質問の読み取りで同じ質問に読める", arguments: [
+        QuestionPeriod.today, .yesterday, .thisWeek, .lastWeek, .thisMonth, .lastMonth, .thisYear,
+    ])
+    func keywordFollowUpTextsParseBack(period: QuestionPeriod) {
+        let ledger = QuestionLedger(records: [LedgerRecordValue(amount: 450, spentAt: Self.now, searchText: "スタバ ランチ 電車 ユニクロ")])
+        for keyword in ["スタバ", "ランチ", "電車", "ユニクロ"] {
+            for metric in [QuestionMetric.expenseTotal, .entryCount] {
+                let question = LedgerQuestion(period: period, metric: metric, keyword: keyword)
+                guard let text = QuestionFollowUp.text(for: question, catalog: .builtIn) else {
+                    Issue.record("「\(keyword)」の続けて聞く質問の文が無い")
+                    continue
+                }
+                let reading = QuestionParser.read(text, now: Self.now, calendar: Self.calendar)
+                #expect(reading.question(in: ledger) == question, "\(text)")
+                #expect(InputIntentClassifier.classify(text, now: Self.now, calendar: Self.calendar) == .question, "\(text)")
+            }
+        }
+    }
+
     /// 送る文を質問の読み取りが同じ質問に読み、記録ではなく質問に分ける（AI が使えない端末でも同じ答えになるように）。
     @Test("続けて聞く質問の文は、質問の読み取りで同じ質問に読める", arguments: [
         QuestionPeriod.today, .yesterday, .thisWeek, .lastWeek, .thisMonth, .lastMonth, .thisYear,

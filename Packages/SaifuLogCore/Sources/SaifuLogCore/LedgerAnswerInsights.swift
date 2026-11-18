@@ -133,6 +133,8 @@ public struct QuestionFollowUp: Hashable, Sendable {
         case currentPeriod(QuestionPeriod)
         /// 同じ期間の内訳。
         case breakdown
+        /// 品目の名前で聞かれた質問の、その名前のカテゴリ全体（「スタバ」なら「カフェ」）。
+        case wholeCategory(EntryCategory)
         /// 今月の予算の残り。
         case remainingBudget
     }
@@ -149,6 +151,9 @@ public struct QuestionFollowUp: Hashable, Sendable {
     /// - 支出の合計・カテゴリの支出・件数なら、同じ期間の内訳。
     /// - 内訳・いちばん多いカテゴリなら、今月の予算の残り（今月の答えで、予算を決めているとき）。
     /// - 予算の残り・1 日あたりに使える額なら、今月の内訳。
+    /// - 品目の名前で聞かれた支出の合計・件数なら、その名前のカテゴリ（辞書の語のカテゴリ）全体も（「スタバ」なら「カフェ」）。
+    ///   名前の前の期間・いまの期間は、送る文を辞書で同じ名前に読めるとき（名前が辞書の語のとき）だけ出す（辞書に無い名前は
+    ///   AI が抜き出したもので、AI が使えないときに同じ答えにならないため）。
     public static func suggestions(for answer: LedgerAnswer, hasBudget: Bool, catalog: CategoryCatalog = .builtIn) -> [QuestionFollowUp] {
         let question = answer.question
         var result: [QuestionFollowUp] = []
@@ -160,7 +165,13 @@ public struct QuestionFollowUp: Hashable, Sendable {
         switch question.metric {
         case .expenseTotal, .categoryExpense, .incomeTotal, .entryCount, .balance:
             if let (kind, period) = neighbor(of: question.period) {
-                append(kind, LedgerQuestion(period: period, metric: question.metric, category: question.category))
+                append(kind, question.with(period: period))
+            }
+            if let keyword = question.keyword, question.metric != .incomeTotal {
+                let category = EntryCategory.guess(from: keyword)
+                if category != .other {
+                    append(.wholeCategory(category), LedgerQuestion(period: question.period, metric: question.metric, category: category))
+                }
             }
             if question.metric != .incomeTotal, question.metric != .balance {
                 append(.breakdown, LedgerQuestion(period: question.period, metric: .expenseByCategory))
@@ -203,6 +214,17 @@ public struct QuestionFollowUp: Hashable, Sendable {
         case .lastMonth: period = "先月"
         case .thisYear: period = "今年"
         case .recentDays: return nil
+        }
+        if let keyword = question.keyword {
+            // 辞書で同じ名前に読める名前（辞書の品目の語）だけ。AI の抜き出した名前は、AI が使えないと同じ質問に読めないため。
+            guard let match = EntryCategory.matchedWord(in: keyword), !match.namesCategory,
+                  KeywordMatcher.fold(match.word) == KeywordMatcher.fold(keyword)
+            else { return nil }
+            switch question.metric {
+            case .incomeTotal: return "\(period)の\(keyword)の収入はいくら?"
+            case .entryCount: return "\(period)の\(keyword)は何件?"
+            default: return "\(period)の\(keyword)はいくら?"
+            }
         }
         switch question.metric {
         case .expenseTotal: return "\(period)の支出はいくら?"

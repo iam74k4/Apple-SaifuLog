@@ -23,6 +23,17 @@ enum QuestionTexts {
     /// 知りたいことの見出し（「カフェの支出」「収入の合計」）。
     /// - Parameter catalog: カテゴリの一覧（作ったカテゴリの名前を引く）。
     static func title(for question: LedgerQuestion, catalog: CategoryCatalog = .builtIn) -> String {
+        if let keyword = question.keyword {
+            // 品目や店の名前で聞かれたときは、その名前を書いた記録だけを数えたことが分かるように、名前をかぎ括弧で出す。
+            switch question.metric {
+            case .incomeTotal:
+                return String(localized: "「\(keyword)」の収入", comment: "回答カードの見出し。%@ は質問に書かれた品目や店の名前（「メルカリ」）")
+            case .entryCount:
+                return String(localized: "「\(keyword)」の件数", comment: "回答カードの見出し。%@ は質問に書かれた品目や店の名前（「スタバ」）")
+            default:
+                return String(localized: "「\(keyword)」の支出", comment: "回答カードの見出し。%@ は質問に書かれた品目や店の名前（「スタバ」）")
+            }
+        }
         switch question.metric {
         case .expenseTotal: return String(localized: "支出の合計")
         case .categoryExpense:

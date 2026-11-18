@@ -75,7 +75,14 @@ public enum LedgerAnswerFacts {
     }
 
     static func metricName(_ question: LedgerQuestion, catalog: CategoryCatalog = .builtIn) -> String {
-        switch question.metric {
+        if let keyword = question.keyword {
+            switch question.metric {
+            case .incomeTotal: return "品目に「\(keyword)」と書いた収入の合計"
+            case .entryCount: return "品目に「\(keyword)」と書いた記録の件数"
+            default: return "品目に「\(keyword)」と書いた支出の合計"
+            }
+        }
+        return switch question.metric {
         case .expenseTotal: "支出の合計"
         case .categoryExpense: "\(catalog.name(of: question.category ?? .other))の支出の合計"
         case .incomeTotal: "収入の合計"

@@ -39,6 +39,24 @@ public struct QuestionLedger: Sendable, Hashable {
         guard let start = intervals.map(\.start).min(), let end = intervals.map(\.end).max() else { return nil }
         return DateInterval(start: start, end: end)
     }
+
+    /// 品目や店の名前が書かれた記録（期間を問わず、読み込んだ記録のうち）。
+    public func records(mentioning keyword: String) -> [LedgerRecordValue] {
+        let needle = LedgerRecordValue.folded(keyword)
+        guard !needle.isEmpty else { return [] }
+        return records.filter { $0.mentions(needle) }
+    }
+
+    /// 品目や店の名前が書かれた記録が、読み込んだ記録（`window` の範囲）の中にあるか。
+    ///
+    /// 質問の文の名前で記録を絞るのは、その名前の記録があるときだけにする（`QuestionReading.keyword(choosing:in:)`）。名前の記録が
+    /// 1 件も無いのに名前で絞ると、いつも 0 円と答えてしまうため（「外食」と書かずに「ランチ」と書いている人に「今月の外食は?」と
+    /// 聞かれたときは、これまでどおりカテゴリで答える）。
+    public func hasRecord(mentioning keyword: String) -> Bool {
+        let needle = LedgerRecordValue.folded(keyword)
+        guard !needle.isEmpty else { return false }
+        return records.contains { $0.mentions(needle) }
+    }
 }
 
 /// 集計に使う記録の値だけの形（`LedgerRecord` の写し）。スレッドをまたいで渡せる。
@@ -47,16 +65,41 @@ public struct LedgerRecordValue: LedgerRecord, Sendable, Hashable {
     public var isIncome: Bool
     public var category: EntryCategory
     public var spentAt: Date
+    /// 品目や店の名前で聞かれたときに探す文（`LedgerQuestion.keyword`）。ふつうは品目（メモ）で、レシートの記録は店名の入った
+    /// 元の文（「レシート: イオン 合計 ¥…」）も足す（品目は品名なので、「イオン」で聞かれても当たらないため）。ひとこと入力の
+    /// 元の文は足さない（1 回の送信のほかの記録の品目が入っている（「スタバ 450 と 本 1200」）ため）。
+    public var searchText: String
 
-    public init(amount: Int, isIncome: Bool = false, category: EntryCategory = .other, spentAt: Date) {
+    public init(
+        amount: Int, isIncome: Bool = false, category: EntryCategory = .other, spentAt: Date, searchText: String = ""
+    ) {
         self.amount = amount
         self.isIncome = isIncome
         self.category = category
         self.spentAt = spentAt
+        self.searchText = searchText
     }
 
     public init(_ record: some LedgerRecord) {
-        self.init(amount: record.amount, isIncome: record.isIncome, category: record.category, spentAt: record.spentAt)
+        self.init(record, searchText: "")
+    }
+
+    public init(_ record: some LedgerRecord, searchText: String) {
+        self.init(
+            amount: record.amount, isIncome: record.isIncome, category: record.category, spentAt: record.spentAt,
+            searchText: searchText
+        )
+    }
+
+    /// 品目の名前を、探す形にそろえる（全角と半角・ひらがなとカタカナ・英字の大小を問わない。記録の読み取りの辞書と同じ）。
+    static func folded(_ text: String) -> String {
+        KeywordMatcher.fold(TextNormalizer.normalize(text)).trimmingCharacters(in: .whitespaces)
+    }
+
+    /// 探す文に、そろえた名前（`folded(_:)`）が書かれているか。英字の名前は語の途中に当てない（「tea」を「steak」に当てない。
+    /// `KeywordMatcher.firstRange`）。
+    func mentions(_ needle: String) -> Bool {
+        KeywordMatcher.firstRange(of: needle, in: Self.folded(searchText)) != nil
     }
 }
 
@@ -75,9 +118,13 @@ public struct LedgerRecordValue: LedgerRecord, Sendable, Hashable {
 ///   回答カードに出す（聞かれた期間と違うことが分かるように）。
 public enum LedgerQuestionAnswerer {
     /// 質問に答える。期間を暦で区切れなければ nil。
+    ///
+    /// 品目の名前で聞かれた質問（`LedgerQuestion.keyword`）は、その名前が書かれた記録だけを数える（前の期間との比べと推移も、
+    /// 同じ記録で数える）。
     public static func answer(_ question: LedgerQuestion, ledger: QuestionLedger, now: Date, calendar: Calendar) -> LedgerAnswer? {
+        let records = question.keyword.map(ledger.records(mentioning:)) ?? ledger.records
         guard var answer = answer(
-            question, records: ledger.records, budget: ledger.budget, budgetDecidedAt: ledger.budgetDecidedAt,
+            question, records: records, budget: ledger.budget, budgetDecidedAt: ledger.budgetDecidedAt,
             now: now, calendar: calendar
         ) else { return nil }
         answer.followUps = QuestionFollowUp.suggestions(for: answer, hasBudget: ledger.budget.total != nil, catalog: ledger.catalog)
@@ -85,6 +132,9 @@ public enum LedgerQuestionAnswerer {
     }
 
     /// 質問に答える。期間を暦で区切れなければ nil。
+    ///
+    /// 品目の名前（`LedgerQuestion.keyword`）では絞らない（記録の型が名前を持たないため）。名前で聞かれた質問は、
+    /// `answer(_:ledger:now:calendar:)` が名前の書かれた記録だけを渡す。
     ///
     /// - Parameters:
     ///   - records: 数える記録（期間の外の記録が混じっていても数えない）。

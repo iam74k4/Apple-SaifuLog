@@ -79,6 +79,11 @@ private struct QuestionReplyCard: View {
                 title: "金額が見つかりませんでした",
                 message: "「ランチ 850」のように、金額の数字を入れてください。"
             )
+        case .amountAsked:
+            NoticeContent(
+                title: "いくらでしたか？",
+                message: "「850」のように金額だけを送ると、いま送った文に足して記録します。"
+            )
         case .correction:
             NoticeContent(
                 title: "記録は直していません",

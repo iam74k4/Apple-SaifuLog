@@ -25,6 +25,9 @@ public struct ReceiptItemSuggestion: Sendable, Hashable {
 /// 額と照合するためだけに使い、合わなければ（番号を取り違えた・別の行を読んだ・作った）その品目の AI の読みを捨てて、
 /// OCR の品名とキーワード辞書のカテゴリのままにする。品目を足したり消したりもしない（AI の一覧に無い品目はそのまま、
 /// 一覧にしか無い品目は捨てる）。端末内のモデルは小さく、数字を読み違えたり作ったりするため。
+///
+/// カテゴリも、品名がキーワード辞書に当たれば辞書のカテゴリにし、AI のカテゴリは辞書に無い品目にだけ使う（辞書の語でも、
+/// モデルは外すことがあるため）。
 public enum ReceiptItemRefinement {
     /// 品名として受け付ける最大の文字数。
     public static let maximumNameLength = 40
@@ -41,7 +44,13 @@ public enum ReceiptItemRefinement {
                   [item.amount, item.netAmount, item.unitPrice].contains(amount)
             else { continue }
             if let name = acceptedName(suggestion.name) { result[index].name = name }
-            if let category = EntryCategory(displayName: suggestion.categoryName) { result[index].category = category }
+            // 品名（整えた品名、無ければ OCR の品名）がキーワード辞書に当たれば、AI の答えによらず辞書のカテゴリにする（ひとこと
+            // 入力と同じ。`ExtractedEntry.category(against:groundedItem:)`）。AI のカテゴリは、辞書に無い品目にだけ使う。
+            if let dictionary = [result[index].name, item.name].lazy.map(EntryCategory.guess(from:)).first(where: { $0 != .other }) {
+                result[index].category = dictionary
+            } else if let category = EntryCategory(displayName: suggestion.categoryName) {
+                result[index].category = category
+            }
         }
         return result
     }

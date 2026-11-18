@@ -52,7 +52,11 @@ struct QuestionExchange: Identifiable, Equatable {
         case splitNotChanged
         /// 記録として送った文に、金額が見つからなかった（「ランチ」）。記録しない。前はアラートで知らせていたが、閉じるまで
         /// キーボードが下がって流れが止まり、送った文もタイムラインに残らなかったので、ほかの案内と同じくタイムラインに出す。
+        /// 金額を聞き返した（`amountAsked`）後に、金額だけでない文を送って聞き返しを終えたときもこれに替わる。
         case noAmount
+        /// 記録として送った文に金額が書かれていなかった（「ランチ」）ので、「いくらでしたか？」と聞き返している。次に金額だけを
+        /// 送れば（「850」）、送った文に金額を足して記録する（`HomeModel` の `amountQuestion`・コアの `AmountReply`）。
+        case amountAsked
         /// 保存先を読めなかった。
         case loadFailed
         /// カードの利用額・引き落としの質問に答えた（`CardQuestion`）。
@@ -64,7 +68,7 @@ struct QuestionExchange: Identifiable, Equatable {
         /// ので、VoiceOver でも「質問」と名乗らない（下の案内と食い違うため）。
         var isQuestion: Bool {
             switch self {
-            case .unclear, .correction, .noAmount, .recategorized, .amountChanged, .removed, .commandAsked, .commandCancelled,
+            case .unclear, .correction, .noAmount, .amountAsked, .recategorized, .amountChanged, .removed, .commandAsked, .commandCancelled,
                  .budgetSet, .noTarget, .splitNotChanged, .cardBillNotRecorded:
                 false
             case .answering, .answered, .unreadable, .loadFailed, .cardAnswered: true

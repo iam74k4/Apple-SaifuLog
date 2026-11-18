@@ -127,30 +127,35 @@ enum AIEvaluation {
 
     // MARK: - 記録
 
-    /// 質問と一言に使う記録（2026 年 9 月と 8 月。「いま」は `TestSupport.now`（9/28 の正午。月曜日））。
+    /// 質問に使う記録（2026 年 9 月と 8 月。「いま」は `TestSupport.now`（9/28 の正午。月曜日））。品目（メモ）は、品目や店の名前で
+    /// 聞く質問に使う（辞書の語の「スタバ」と、辞書に無い「Amazon」「メルカリ」「ふるさと納税」）。
     static let records: [LedgerRecordValue] = [
-        record(450, .cafe, month: 9, day: 3),
-        record(1_200, .food, month: 9, day: 10),
-        record(1_800, .transport, month: 9, day: 15),
-        record(500, .cafe, month: 9, day: 20),
-        record(250_000, .other, month: 9, day: 25, isIncome: true),
-        record(220, .transport, month: 9, day: 27),
-        record(850, .food, month: 9, day: 28),
-        record(3_200, .food, month: 8, day: 5),
-        record(600, .cafe, month: 8, day: 12),
-        record(1_900, .entertainment, month: 8, day: 20),
-        record(250_000, .other, month: 8, day: 25, isIncome: true),
+        record(450, .cafe, month: 9, day: 3, memo: "スタバ"),
+        record(1_200, .food, month: 9, day: 10, memo: "スーパー"),
+        record(2_980, .other, month: 9, day: 12, memo: "Amazon"),
+        record(1_800, .transport, month: 9, day: 15, memo: "タクシー"),
+        record(500, .cafe, month: 9, day: 20, memo: "ドトール"),
+        record(10_000, .other, month: 9, day: 22, memo: "ふるさと納税"),
+        record(250_000, .other, month: 9, day: 25, isIncome: true, memo: "給料"),
+        record(220, .transport, month: 9, day: 27, memo: "電車"),
+        record(850, .food, month: 9, day: 28, memo: "ランチ"),
+        record(3_200, .food, month: 8, day: 5, memo: "焼肉"),
+        record(600, .cafe, month: 8, day: 12, memo: "スタバ"),
+        record(1_500, .other, month: 8, day: 18, memo: "メルカリ"),
+        record(1_900, .entertainment, month: 8, day: 20, memo: "映画"),
+        record(250_000, .other, month: 8, day: 25, isIncome: true, memo: "給料"),
     ]
 
-    /// 月の予算（質問・一言の記録と組み合わせる）と、決めた日時（8 月から）。
+    /// 月の予算（質問の記録と組み合わせる）と、決めた日時（8 月から）。
     static let budget = 100_000
     static let budgetDecidedAt = TestSupport.date(2026, 8, 1)
 
     private static func record(
-        _ amount: Int, _ category: EntryCategory, month: Int, day: Int, isIncome: Bool = false
+        _ amount: Int, _ category: EntryCategory, month: Int, day: Int, isIncome: Bool = false, memo: String
     ) -> LedgerRecordValue {
         LedgerRecordValue(
-            amount: amount, isIncome: isIncome, category: category, spentAt: TestSupport.date(2026, month, day, hour: 9)
+            amount: amount, isIncome: isIncome, category: category, spentAt: TestSupport.date(2026, month, day, hour: 9),
+            searchText: memo
         )
     }
 }

@@ -216,7 +216,7 @@ public enum EntryCategory: Hashable, Sendable, Identifiable {
     /// 複数当たったときは長い語を優先し（「ドラッグストア」は「薬」より強い手がかり）、
     /// 同じ長さなら先に出てきた語を採る。
     public static func guess(from text: String) -> EntryCategory {
-        bestMatch(in: text, includingDisplayNames: false) ?? .other
+        bestMatch(in: text, includingDisplayNames: false)?.category ?? .other
     }
 
     /// 文に含まれるキーワードか表示名から、カテゴリを探す。どれにも当たらなければ nil。
@@ -226,12 +226,45 @@ public enum EntryCategory: Hashable, Sendable, Identifiable {
     /// 表示名も見るのは、「その他」のようにキーワードに入れていない表示名で聞かれることがあるため（記録の読み取りの
     /// `guess(from:)` は表示名を見ない。見ると「その他 肉 500」のような記録のカテゴリが変わるため）。
     public static func matched(in text: String) -> EntryCategory? {
-        bestMatch(in: text, includingDisplayNames: true)
+        bestMatch(in: text, includingDisplayNames: true)?.category
     }
 
-    private static func bestMatch(in text: String, includingDisplayNames: Bool) -> EntryCategory? {
+    /// `matched(in:)` で当たった語。
+    public struct MatchedWord: Hashable, Sendable {
+        public let category: EntryCategory
+        /// 当たった語（文に書かれたとおりの字。ひらがなで書いた「すたば」は「すたば」）。
+        public let word: String
+        /// 当たった語が、カテゴリそのものの名前（表示名の一部。「食費」「交通」「光熱」「美容」）か。名前でなければ、品目や店の
+        /// 名前（「スタバ」「ランチ」「電車」）。
+        public let namesCategory: Bool
+    }
+
+    /// 文に含まれるキーワードか表示名のうち、`matched(in:)` が選んだ語。どれにも当たらなければ nil。
+    ///
+    /// 家計への質問で、カテゴリの名前で聞かれたのか（「今月のカフェは?」）、品目や店の名前で聞かれたのか（「今月のスタバは?」）を
+    /// 見分けるのに使う（品目の名前なら、その名前の記録だけを数えられる。`QuestionReading.itemWord`）。
+    public static func matchedWord(in text: String) -> MatchedWord? {
+        guard let match = bestMatch(in: text, includingDisplayNames: true) else { return nil }
+        // ひらがなとカタカナ・英字の大小をそろえても字の数は変わらないので、そろえた文で見つけた位置の字を、元の文から取る。
+        let chars = Array(text)
+        let word: String
+        if KeywordMatcher.fold(text).count == chars.count, match.position + match.length <= chars.count {
+            word = String(chars[match.position..<(match.position + match.length)])
+        } else {
+            word = match.keyword
+        }
+        let name = KeywordMatcher.fold(match.category.displayName)
+        let folded = KeywordMatcher.fold(match.keyword)
+        return MatchedWord(
+            category: match.category, word: word, namesCategory: name.contains(folded) || folded.contains(name)
+        )
+    }
+
+    private static func bestMatch(
+        in text: String, includingDisplayNames: Bool
+    ) -> (category: EntryCategory, keyword: String, length: Int, position: Int)? {
         let haystack = KeywordMatcher.fold(text)
-        var best: (category: EntryCategory, length: Int, position: Int)?
+        var best: (category: EntryCategory, keyword: String, length: Int, position: Int)?
         for category in builtIns {
             for keyword in category.keywords + (includingDisplayNames ? [category.displayName] : []) {
                 let needle = KeywordMatcher.fold(keyword)
@@ -242,10 +275,10 @@ public enum EntryCategory: Hashable, Sendable, Identifiable {
                    current.length > length || (current.length == length && current.position <= position) {
                     continue
                 }
-                best = (category, length, position)
+                best = (category, keyword, length, position)
             }
         }
-        return best?.category
+        return best
     }
 }
 

@@ -114,7 +114,8 @@ struct ExtractedEntryTests {
     func relativeDateFromModel(date: String, daysAgo: Int) throws {
         let entry = try extracted(item: "家賃", amount: "80000", category: "その他", date: date)
             .resolved(against: "先月25日 家賃 80000", now: Fixture.date(2026, 10, 28, hour: 12), calendar: Fixture.calendar)
-        #expect(entry == ParsedEntry(amount: 80_000, category: .other, memo: "家賃", daysAgo: daysAgo))
+        // 「家賃」は辞書に当たるので、モデルの「その他」によらず住居にする。
+        #expect(entry == ParsedEntry(amount: 80_000, category: .housing, memo: "家賃", daysAgo: daysAgo))
     }
 
     @Test("日付が複数ある入力では、件ごとの日付の表記を使う")
@@ -126,9 +127,9 @@ struct ExtractedEntryTests {
         #expect(second.daysAgo == 0)
     }
 
-    @Test("知らないカテゴリ名はその他にする")
+    @Test("辞書に無い品目で、知らないカテゴリ名ならその他にする")
     func unknownCategory() throws {
-        #expect(try resolve(extracted(category: "外食"), "焼肉 12000").category == .other)
+        #expect(try resolve(extracted(item: "メルカリ", amount: "3990", category: "外食"), "メルカリ 3990").category == .other)
     }
 
     // MARK: - 収入
@@ -230,11 +231,31 @@ struct ExtractedEntryTests {
         #expect(entry.category == category)
     }
 
-    @Test("品目から金額・日付・人数を除き、入力に書かれた品目ならモデルのカテゴリを使う")
+    @Test("品目から金額・日付・人数を除き、入力に書かれた品目で辞書に無ければモデルのカテゴリを使う")
     func groundedItemKeepsModelCategory() throws {
-        let entry = try resolve(extracted(item: "昨日の焼肉 12000", category: "娯楽"), "昨日 焼肉 12000")
-        #expect(entry.memo == "焼肉")
-        #expect(entry.category == .entertainment)
+        let entry = try resolve(extracted(item: "昨日のメルカリ 3990", amount: "3990", category: "日用品"), "昨日 メルカリ 3990")
+        #expect(entry.memo == "メルカリ")
+        #expect(entry.category == .daily)
+    }
+
+    // 実機のモデルは、辞書の語でも「ドラッグ」を娯楽、「家賃」を光熱・通信にすることがあった。辞書に当たる品目は、辞書のカテゴリで
+    // いつも同じ答えにする。
+    @Test("品目が辞書に当たれば、モデルの答えによらず辞書のカテゴリにする", arguments: [
+        ("ドラッグ", "1200", "娯楽", "ドラッグ 1200", EntryCategory.daily),
+        ("家賃", "80000", "光熱・通信", "家賃 80000", .housing),
+        ("昨日の焼肉", "12000", "娯楽", "昨日 焼肉 12000", .food),
+        ("美容院", "4500", "日用品", "美容院 4500", .clothing),
+    ])
+    func dictionaryCategoryWinsOverModel(item: String, amount: String, model: String, input: String, expected: EntryCategory) throws {
+        let entry = try resolve(extracted(item: item, amount: amount, category: model), input)
+        #expect(entry.category == expected)
+    }
+
+    @Test("複数件の入力でも、件ごとに辞書のカテゴリを使う")
+    func dictionaryCategoryPerSegment() throws {
+        let input = "スーパー2480とドラッグ1200"
+        let second = try resolve(extracted(item: "ドラッグ", amount: "1200", category: "娯楽"), input)
+        #expect(second.category == .daily)
     }
 
     // 以前は品目から数字を抜いた残りをメモにしていて、「セブン11」が「セブン」、「100円ショップ」が「ショップ」になり、
